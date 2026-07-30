@@ -1,0 +1,26 @@
+# Local downloads, reference PDFs, extracted SDKs, and backups
+/.local-dependencies/
+
+# STM32CubeIDE and generated build output
+/**/Debug/
+/**/Release/
+/**/Debug_*/
+/**/Release_*/
+/.metadata/
+/RemoteSystemsTempFiles/
+
+# Signed/programming artifacts are recreated by Tools/build_and_sign.ps1
+/FlashImages/*
+!/FlashImages/.gitkeep
+
+# Local logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# Operating-system metadata
+Thumbs.db
+Desktop.ini
+.DS_Store
