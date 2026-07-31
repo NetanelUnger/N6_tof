@@ -72,6 +72,11 @@
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pwr.c</locationURI>
 		</link>
 		<link>
+			<name>Drivers/STM32N6xx_HAL_Driver/stm32n6xx_hal_pka.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pka.c</locationURI>
+		</link>
+		<link>
 			<name>Drivers/STM32N6xx_HAL_Driver/stm32n6xx_hal_pwr_ex.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pwr_ex.c</locationURI>
@@ -130,6 +135,16 @@
 			<name>Drivers/BSP/STM32N6xx_Nucleo/stm32n6xx_nucleo.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/BSP/STM32N6xx_Nucleo/stm32n6xx_nucleo.c</locationURI>
+		</link>
+		<link>
+			<name>Common/Update/firmware_crypto.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Common/Update/firmware_crypto.c</locationURI>
+		</link>
+		<link>
+			<name>Common/Update/firmware_update_format.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Common/Update/firmware_update_format.c</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>

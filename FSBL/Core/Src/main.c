@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "extmem.h"
+#include "firmware_boot.h"
 #include <stdio.h>
 
 /* USER CODE END Includes */
@@ -150,7 +151,12 @@ int main(void)
   MX_XSPI2_Init();
   FSBL_Trace("XSPI2 initialized");
   MX_EXTMEM_Init();
-  FSBL_Trace("external NOR mapped; loading Secure and NonSecure images");
+  if (Firmware_Boot_Prepare() != 0)
+  {
+    FSBL_Trace("ERROR: no authenticated NonSecure image is bootable");
+    Error_Handler();
+  }
+  FSBL_Trace("external NOR ready; loading Secure and selected NonSecure images");
 
   BOOTStatus_TypeDef boot_status = BOOT_Application();
   if (boot_status != BOOT_OK)

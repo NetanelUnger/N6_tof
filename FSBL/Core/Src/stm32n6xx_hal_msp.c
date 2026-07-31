@@ -153,4 +153,20 @@ void HAL_XSPI_MspDeInit(XSPI_HandleTypeDef *hxspi)
                          GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11);
 }
 
+void HAL_PKA_MspInit(PKA_HandleTypeDef *hpka)
+{
+  if ((hpka != NULL) && (hpka->Instance == PKA))
+  {
+    __HAL_RCC_PKA_CLK_ENABLE();
+  }
+}
+
+void HAL_PKA_MspDeInit(PKA_HandleTypeDef *hpka)
+{
+  if ((hpka != NULL) && (hpka->Instance == PKA))
+  {
+    __HAL_RCC_PKA_CLK_DISABLE();
+  }
+}
+
 /* USER CODE END 1 */

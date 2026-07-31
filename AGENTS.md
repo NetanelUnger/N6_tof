@@ -57,7 +57,12 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   768-byte control TX slots, two 48 KiB map TX slots, and sixteen 512-byte RX
   slots. All slots are session-tagged and passed through bounded pointer queues.
 - The ST67 shield is not currently installed. APP_ST67W6X_ENABLED must remain 0U unless the user explicitly confirms that the module is attached.
-- BLE OTA is not implemented.
+- Authenticated Non-Secure firmware installation is implemented and build-
+  verified: CN8 USB CDC XMODEM feeds a transport-independent Secure byte-array
+  service, which writes the inactive A/B slot and uses pending/trial/confirmed
+  metadata with rollback. Physical transfer and rollback testing are pending.
+- Wi-Fi/BLE download transport is not implemented. When added, it must reuse the
+  Secure installer and must not access XSPI2 or boot metadata directly.
 
 ## 3. CubeMX rules
 
@@ -82,7 +87,8 @@ These require explicit review after every Generate Code:
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | OS_CAD_STACK_SIZE maps to N6_USBPD_CAD_STACK_SIZE |
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | UCPD register diagnostics, wake counter, and 250 ms polling fallback |
 | AppliNonSecure/Core/Startup/startup_stm32n657x0hxq.s | Early Debug_UART_StartupTrace calls |
-| FSBL/Core/Src/extmem.c | BOOT_GetApplicationSize override for image-header version 2.3 |
+| FSBL/Core/Src/extmem.c | Exact image-size and dynamic Non-Secure source hooks |
+| FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c/.h | Dynamic authenticated A/B source selection; functional vendor edit outside USER blocks |
 | AppliSecure/Core/Src/main.c | A diagnostic trace between generated calls |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pcd.c | Temporary Non-Secure-only USB initialization stage logs |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_ll_usb.c | Temporary Non-Secure-only core-reset register and timeout logs |
@@ -106,8 +112,12 @@ Files imported from X-CUBE packages are not necessarily CubeMX-owned. The VL53L9
 | N6.ioc | Pins, clocks, contexts, interrupts, and middleware configuration |
 | FSBL/Core/Src/main.c | External-NOR mapping and boot flow |
 | FSBL/Core/Src/extmem.c | Exact signed-image size calculation and STM32 image-header inspection |
+| FSBL/Core/Src/firmware_boot.c | Redundant metadata, candidate verification, A/B trial selection, confirmation fallback, and rollback |
 | FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c | LRun copy/jump middleware with local diagnostics |
+| Common/Update | Shared manifest, A/B metadata format, SHA-256, ECDSA-P256 verifier, and tracked public key |
 | AppliSecure/Core/Src/main.c | TrustZone, RIF/RISAF, cached vectors, Non-Secure handover |
+| AppliSecure/Core/Src/secure_firmware_update.c | Secure inactive-slot writer, read-back authentication, version policy, and atomic metadata |
+| Secure_nsclib/secure_nsc.h | CMSE-checked Begin/Write/Finalize/Abort/Confirm interface |
 | AppliNonSecure/Core/Src/main.c | HAL and peripheral initialization |
 | AppliNonSecure/Core/Src/stm32n6xx_hal_msp.c | USB HS clocks, VDDUSB, and the N6-specific PHY reset/release sequence |
 | AppliNonSecure/Core/Src/app_threadx.c | Application task creation |
@@ -119,12 +129,16 @@ Files imported from X-CUBE packages are not necessarily CubeMX-owned. The VL53L9
 | AppliNonSecure/Core/Src/debug_uart.c | Independent ST-LINK diagnostics |
 | AppliNonSecure/Core/Inc/menu.h and Core/Src/menu.c | Allocation-free chunked line parser, prefix table, handler dispatch, and CRLF reply API |
 | AppliNonSecure/Core/Src/debug_cli.c | USB CDC command table, handlers, echo, and console-mode behavior |
+| AppliNonSecure/Core/Src/xmodem_receiver.c | Allocation-free XMODEM-CRC state machine |
+| AppliNonSecure/Core/Src/firmware_update.c | Transport-to-Secure byte-stream adapter and five-second boot confirmation |
 | AppliNonSecure/Core/Src/usb_cdc_transport.c | Static CDC slots, RX/TX queues, callbacks, sessions, flow/error counters |
 | AppliNonSecure/Core/Src/wifi_ble_app.c | Optional ST67 application task |
 | AppliNonSecure/USBX/App/app_usbx_device.c | USB Device state machine and USBX initialization |
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | Type-C CAD task |
-| Tools/build_and_sign.ps1 | Build and image signing |
-| Tools/program_flash.ps1 | External-NOR programming |
+| Tools/build_and_sign.ps1 | Full build, STM32 image signing, default metadata, and versioned update package |
+| Tools/New-FirmwareSigningKey.ps1 | One-time local development P-256 key generation; private blob stays ignored |
+| Tools/New-FirmwareUpdatePackage.ps1 | Signed `.n6fw` manifest plus trusted Non-Secure image |
+| Tools/program_flash.ps1 | External-NOR programming including both default metadata sectors |
 | FlashImages | Signed programming artifacts |
 | ThirdParty/ST67W6X_Network_Driver | Git-tracked ST67 source subset used by CubeIDE, with license files |
 | .local-dependencies | Ignored local SDK archives, PDFs, examples, backups, and diagnostics; never required by a clean clone |
@@ -148,14 +162,23 @@ After a source change, build at least the context that changed. Build every cont
 Preferred command:
 
 ~~~powershell
-powershell.exe -ExecutionPolicy Bypass -File .\project\Tools\build_and_sign.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\project\Tools\build_and_sign.ps1 -FirmwareVersion 1
 ~~~
+
+Firmware versions are positive and strictly increasing relative to the confirmed
+image. Never reuse a released version number. The local private update key under
+`.local-dependencies/keys` is ignored and must never be committed or printed.
 
 If the headless IDE hangs, a direct make.exe build from the Debug directory is acceptable. The resulting binary must still be passed through STM32_SigningTool_CLI and the new trusted image must be written to project/FlashImages.
 
 After CubeMX Generate Code, explicitly audit these known multi-context losses:
 
 - FSBL must keep `HAL_BSEC_MODULE_ENABLED` and `HAL_XSPI_MODULE_ENABLED`.
+- FSBL and AppliSecure must keep `HAL_PKA_MODULE_ENABLED`; AppliSecure must
+  also keep `HAL_XSPI_MODULE_ENABLED`.
+- FSBL and AppliSecure `.project` / `.cproject` files must retain the shared
+  `Common/Update` sources and includes. AppliSecure must retain its linked
+  ExtMem manager and HAL XSPI/PKA sources.
 - The shared HAL `Inc` and `Src` directories must contain the union of the
   modules required by all contexts. Restore unchanged vendor files only from
   STM32Cube FW N6 V1.4.0.
@@ -202,7 +225,9 @@ Do not accidentally deliver an older trusted image after rebuilding an ELF.
 - Image addresses are fixed:
   - FSBL: 0x70000000.
   - Secure: 0x70100000.
-  - Non-Secure: 0x70180000.
+  - Non-Secure Slot A: 0x70180000, 1 MiB.
+  - Non-Secure Slot B: 0x70280000, 1 MiB.
+  - Boot metadata sectors: 0x703E0000 and 0x703F0000, 64 KiB each.
 - Do not change an address or region size without updating the FSBL, linker scripts, signing limits, programming script, and documentation together.
 
 ## 7. TrustZone rules
@@ -242,6 +267,7 @@ Current task sizing:
 | Task | Priority | Stack |
 |---|---:|---:|
 | USB-PD CAD | 1 | 8 KiB |
+| Firmware confirmation | 6 | 2 KiB; one-shot after a five-second trial window |
 | ToF Acquisition | 7 | 16 KiB |
 | ToF Main Thread (processing) | 10 | 96 KiB |
 | USBX Device App Main Thread | 8 | 16 KiB |
@@ -424,7 +450,17 @@ stack-local version or split the address phase back into a blocking transfer.
 - In disabled mode, do not create its task, initialize the compatibility layer, or call W6X initialization.
 - Enabling the radio requires verification of SPI5, CS, CHIP_EN, BOOT, SPI_RDY, DMA, and NCP firmware.
 - Never implement OTA by overwriting the active image in place.
-- Future OTA requires an inactive slot, bounds checks, hash/signature, version policy, atomic activation, and rollback.
+- Future Wi-Fi/BLE OTA must feed the existing Secure Begin/Write/Finalize byte
+  interface. Preserve inactive-slot writes, CMSE range checks and Secure copies,
+  SHA-256 plus ECDSA-P256, strictly increasing versions, atomic alternating
+  metadata, trial confirmation, and rollback.
+- XSPI2, PKA, boot metadata, and key-policy decisions remain Secure. A transport
+  task may deliver bytes and report status; it may not weaken or duplicate the
+  installer in Non-Secure code.
+- The current update signature protects remote package authenticity, but the
+  development `-nk` image flow and replaceable compiled public key are not a
+  production physical root of trust. Production requires authenticated BootROM
+  images, protected key provisioning, and protected anti-rollback state.
 
 ## 13. Debugging method
 

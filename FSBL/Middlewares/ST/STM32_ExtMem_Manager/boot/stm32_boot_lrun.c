@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32_boot_lrun.h"
 #include <stdio.h>
+#include "firmware_boot.h"
 
 /** @defgroup BOOT
   * @{
@@ -164,7 +165,7 @@ BOOTStatus_TypeDef CopyApplication(void)
         destination[index] = source[index];
       }
 #if defined(EXTMEM_LRUN_TZ_ENABLE_NS)
-      source = (uint8_t *)(MapAddress + EXTMEM_LRUN_SOURCE_ADDRESS_NS);
+      source = (uint8_t *)(MapAddress + BOOT_GetApplicationSourceAddressNS());
       img_size = BOOT_GetApplicationSize((uint32_t) source);
       destination = (uint8_t *)EXTMEM_LRUN_DESTINATION_ADDRESS_NS;
       /* Copy Non-Secure from source to destination in mapped mode */
@@ -190,10 +191,12 @@ BOOTStatus_TypeDef CopyApplication(void)
         retr = BOOT_ERROR_COPY;
       }
 #if defined(EXTMEM_LRUN_TZ_ENABLE_NS)
-      img_size = BOOT_GetApplicationSize(EXTMEM_LRUN_SOURCE_ADDRESS_NS);
+      img_size = BOOT_GetApplicationSize(BOOT_GetApplicationSourceAddressNS());
       destination = (uint8_t *)EXTMEM_LRUN_DESTINATION_ADDRESS_NS;
       /* Copy Non-Secure from source to destination in mapped mode */
-      if (EXTMEM_OK != EXTMEM_Read(EXTMEM_LRUN_SOURCE, EXTMEM_LRUN_SOURCE_ADDRESS_NS, destination, img_size))
+      if (EXTMEM_OK != EXTMEM_Read(EXTMEM_LRUN_SOURCE,
+                                  BOOT_GetApplicationSourceAddressNS(),
+                                  destination, img_size))
       {
         retr = BOOT_ERROR_COPY;
       }

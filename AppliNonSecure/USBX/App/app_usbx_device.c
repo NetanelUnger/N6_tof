@@ -26,6 +26,7 @@
 #include <string.h>
 
 #include "debug_uart.h"
+#include "firmware_update.h"
 #include "main.h"
 #include "usb_cdc_transport.h"
 
@@ -427,7 +428,8 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
       if ((usb_cdc_active != 0U) &&
           (USB_CDC_Transport_IsReady() == UX_TRUE))
       {
-        if (usb_cdc_probe_sent == 0U)
+        if ((usb_cdc_probe_sent == 0U) &&
+            (Firmware_Update_IsActive() == 0U))
         {
           status = USB_CDC_Transport_Send(probe_text,
                                           (ULONG)(sizeof(probe_text) - 1U),

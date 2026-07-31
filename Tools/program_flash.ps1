@@ -14,8 +14,9 @@ $ImageDir = Join-Path $ProjectRoot 'FlashImages'
 $Fsbl = Join-Path $ImageDir 'N6_FSBL-trusted.bin'
 $Secure = Join-Path $ImageDir 'N6_AppliSecure-trusted.bin'
 $NonSecure = Join-Path $ImageDir 'N6_AppliNonSecure-trusted.bin'
+$BootMetadata = Join-Path $ImageDir 'N6-BootMetadata.bin'
 
-foreach ($required in @($Programmer, $ExternalLoader, $Fsbl, $Secure, $NonSecure)) {
+foreach ($required in @($Programmer, $ExternalLoader, $Fsbl, $Secure, $NonSecure, $BootMetadata)) {
     if (-not (Test-Path -LiteralPath $required)) {
         throw "Required file was not found: $required"
     }
@@ -43,7 +44,9 @@ if ($FullErase) {
     -el $ExternalLoader `
     -d $Fsbl 0x70000000 -v `
     -d $Secure 0x70100000 -v `
-    -d $NonSecure 0x70180000 -v
+    -d $NonSecure 0x70180000 -v `
+    -d $BootMetadata 0x703E0000 -v `
+    -d $BootMetadata 0x703F0000 -v
 
 if ($LASTEXITCODE -ne 0) {
     throw 'Flash programming or verification failed.'

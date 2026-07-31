@@ -28,6 +28,7 @@
 #include "freertos_compat.h"
 #include "debug_cli.h"
 #include "debug_uart.h"
+#include "firmware_update.h"
 #include "main.h"
 #include "tof_app.h"
 #include "wifi_ble_app.h"
@@ -43,6 +44,10 @@
 /* USER CODE BEGIN PD */
 #define TX_TOF_ACQUISITION_STACK_SIZE  (16U * 1024U)
 #define TX_TOF_ACQUISITION_PRIORITY    (7U)
+#define TX_UPDATE_CONFIRM_STACK_SIZE   (2U * 1024U)
+/* Confirmation must not be starved by the continuously-ready priority-10 ToF
+ * processor.  It wakes once after five seconds, commits metadata, and exits. */
+#define TX_UPDATE_CONFIRM_PRIORITY     (6U)
 
 /* USER CODE END PD */
 
@@ -55,6 +60,7 @@
 TX_THREAD tx_app_thread;
 /* USER CODE BEGIN PV */
 static TX_THREAD tx_tof_acquisition_thread;
+static TX_THREAD tx_update_confirm_thread;
 #if (APP_ST67W6X_ENABLED == 1U)
 static TX_THREAD tx_wifi_ble_thread;
 #endif
@@ -67,6 +73,7 @@ static TX_THREAD tx_usb_cli_thread;
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
 static void ToFAcquisitionThread_Entry(ULONG thread_input);
+static void UpdateConfirmThread_Entry(ULONG thread_input);
 #if (APP_ST67W6X_ENABLED == 1U)
 static void WiFiBleThread_Entry(ULONG thread_input);
 #endif
@@ -133,6 +140,22 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
     return TX_THREAD_ERROR;
   }
   Debug_UART_Log("RTOS", "ToF acquisition and processing tasks created");
+
+  if (tx_byte_allocate(byte_pool, (VOID **)&pointer,
+                       TX_UPDATE_CONFIRM_STACK_SIZE,
+                       TX_NO_WAIT) != TX_SUCCESS)
+  {
+    return TX_POOL_ERROR;
+  }
+  if (tx_thread_create(&tx_update_confirm_thread, "Firmware confirmation",
+                       UpdateConfirmThread_Entry, 0U, pointer,
+                       TX_UPDATE_CONFIRM_STACK_SIZE,
+                       TX_UPDATE_CONFIRM_PRIORITY,
+                       TX_UPDATE_CONFIRM_PRIORITY,
+                       TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
+  {
+    return TX_THREAD_ERROR;
+  }
 
 #if (APP_ST67W6X_ENABLED == 1U)
   /* The ST67 vendor driver uses the small FreeRTOS-to-ThreadX compatibility
@@ -232,6 +255,15 @@ static void ToFAcquisitionThread_Entry(ULONG thread_input)
   (void)thread_input;
   Debug_UART_Log("TOF", "ToF acquisition task started");
   TOF_App_Acquire();
+}
+
+static void UpdateConfirmThread_Entry(ULONG thread_input)
+{
+  (void)thread_input;
+  /* A trial image must remain alive under ThreadX long enough to prove that
+   * startup and scheduling work before it closes the rollback window. */
+  tx_thread_sleep(5U * TX_TIMER_TICKS_PER_SECOND);
+  Firmware_Update_ConfirmBoot();
 }
 
 #if (APP_ST67W6X_ENABLED == 1U)

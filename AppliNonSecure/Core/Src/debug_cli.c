@@ -9,6 +9,7 @@
 #include "app_features.h"
 #include "app_logging.h"
 #include "debug_uart.h"
+#include "firmware_update.h"
 #include "logging_levels.h"
 #include "main.h"
 #include "menu.h"
@@ -55,6 +56,7 @@ static void cli_command_map(Menu_t *menu, const char *command);
 static void cli_command_tof(Menu_t *menu, const char *command);
 static void cli_command_debug(Menu_t *menu, const char *command);
 static void cli_command_reboot(Menu_t *menu, const char *command);
+static void cli_command_firmware_update(Menu_t *menu, const char *command);
 static void cli_command_unknown(Menu_t *menu, const char *command);
 static void cli_print(const char *format, ...);
 static void cli_prompt(void);
@@ -92,6 +94,8 @@ static const Menu_Object_t cli_menu_objects[] =
   MENU_OBJECT("map", cli_command_map),
   MENU_OBJECT("tof", cli_command_tof),
   MENU_OBJECT("debug", cli_command_debug),
+  MENU_OBJECT("Start UART Firmware Update", cli_command_firmware_update),
+  MENU_OBJECT("update", cli_command_firmware_update),
 #if (APP_ST67W6X_ENABLED == 1U)
   MENU_OBJECT("radio", cli_command_radio),
   MENU_OBJECT("wifi", cli_command_wifi),
@@ -129,8 +133,11 @@ void Debug_CLI_Run(void)
   {
     ULONG actual_length = 0U;
 
+    Firmware_Update_Poll(HAL_GetTick());
+
     if (App_Console_IsReady() == 0U)
     {
+      Firmware_Update_Cancel();
       cli_console_mode = 0U;
       cli_secret_mode = 0U;
       cli_line_length = 0U;
@@ -145,6 +152,13 @@ void Debug_CLI_Run(void)
     if (status != TX_SUCCESS)
     {
       tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 20U);
+      continue;
+    }
+
+    if (Firmware_Update_IsActive() != 0U)
+    {
+      Firmware_Update_Feed(rx_buffer, (size_t)actual_length, HAL_GetTick());
+      Firmware_Update_Poll(HAL_GetTick());
       continue;
     }
 
@@ -208,7 +222,8 @@ static void cli_process_byte(uint8_t byte)
       Debug_UART_Log("CLI", "discarded an overlength command");
     }
 
-    if ((cli_console_mode != 0U) && (cli_secret_mode == 0U))
+    if ((cli_console_mode != 0U) && (cli_secret_mode == 0U) &&
+        (Firmware_Update_IsActive() == 0U))
     {
       cli_prompt();
     }
@@ -584,6 +599,16 @@ static void cli_command_reboot(Menu_t *menu, const char *command)
   }
 }
 
+static void cli_command_firmware_update(Menu_t *menu, const char *command)
+{
+  (void)command;
+  Menu_Reset(menu);
+  if (Firmware_Update_Start() != 0)
+  {
+    (void)Menu_Reply(menu, "Unable to start firmware update mode.");
+  }
+}
+
 static void cli_command_unknown(Menu_t *menu, const char *command)
 {
   (void)command;
@@ -680,6 +705,8 @@ static void cli_show_help(void)
             "  map on|off                     show/hide the color depth map\r\n"
             "  tof status|pause|resume        inspect/control ranging\r\n"
             "  debug off|error|warn|info|debug ST67 runtime log level\r\n"
+            "  Start UART Firmware Update      receive signed .n6fw via XMODEM-CRC\r\n"
+            "  update                          short alias for firmware update\r\n"
 #if (APP_ST67W6X_ENABLED == 1U)
             "  radio info                     ST67 module identity\r\n"
             "  wifi status|scan               Wi-Fi state and nearby networks\r\n"

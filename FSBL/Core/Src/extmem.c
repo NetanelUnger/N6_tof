@@ -25,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 
 #include <stdio.h>
+#include "firmware_boot.h"
 
 /* USER CODE END Includes */
 
@@ -95,5 +96,10 @@ uint32_t BOOT_GetApplicationSize(uint32_t img_addr)
                (unsigned long)*(const uint32_t *)(img_addr + EXTMEM_HEADER_OFFSET),
                (unsigned long)*(const uint32_t *)(img_addr + EXTMEM_HEADER_OFFSET + 4U));
   return img_size + HEADER_V2_3_FILE_PREFIX_SIZE;
+}
+
+uint32_t BOOT_GetApplicationSourceAddressNS(void)
+{
+  return Firmware_Boot_GetNonSecureSourceOffset();
 }
 

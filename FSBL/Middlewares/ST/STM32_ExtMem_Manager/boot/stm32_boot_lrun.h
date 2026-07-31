@@ -62,6 +62,7 @@ typedef enum
 BOOTStatus_TypeDef BOOT_Application(void);
 uint32_t BOOT_GetApplicationSize(uint32_t img_addr);
 uint32_t BOOT_GetApplicationVectorTable(void);
+uint32_t BOOT_GetApplicationSourceAddressNS(void);
 
 /**
   * @}

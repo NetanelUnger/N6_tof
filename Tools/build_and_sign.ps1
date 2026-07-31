@@ -1,3 +1,8 @@
+param(
+    [ValidateRange(1, [uint32]::MaxValue)]
+    [uint32]$FirmwareVersion = 1
+)
+
 $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
@@ -79,4 +84,27 @@ foreach ($image in $images) {
     }
 }
 
-Write-Host "Build and signing completed. Images are in: $OutputDir"
+& (Join-Path $PSScriptRoot 'New-FactoryBootMetadata.ps1') `
+    -Output (Join-Path $OutputDir 'N6-BootMetadata.bin')
+if ($LASTEXITCODE -ne 0) {
+    throw 'Factory boot metadata generation failed.'
+}
+
+Write-Host "Build and signing completed. Images and factory metadata are in: $OutputDir"
+
+$FirmwareKey = Join-Path $ProjectRoot '.local-dependencies\keys\firmware-update-p256-private.blob'
+$FirmwarePackage = Join-Path $OutputDir ("N6-Firmware-v{0}.n6fw" -f $FirmwareVersion)
+if (Test-Path -LiteralPath $FirmwareKey) {
+    & (Join-Path $PSScriptRoot 'New-FirmwareUpdatePackage.ps1') `
+        -Image (Join-Path $OutputDir 'N6_AppliNonSecure-trusted.bin') `
+        -FirmwareVersion $FirmwareVersion `
+        -Output $FirmwarePackage `
+        -PrivateKeyPath $FirmwareKey
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Firmware update package generation failed.'
+    }
+}
+else {
+    Write-Warning 'No private update-signing key was found; trusted images were built but no .n6fw package was created.'
+    Write-Warning 'Run Tools\New-FirmwareSigningKey.ps1 once, protect the key, then rebuild.'
+}

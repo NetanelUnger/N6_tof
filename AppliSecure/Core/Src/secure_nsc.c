@@ -22,6 +22,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "secure_nsc.h"
+#include "secure_firmware_update.h"
 /** @addtogroup STM32N6xx_HAL_Examples
 
   * @{
@@ -65,6 +66,33 @@ void *pSecureErrorCallback = NULL;   /* Pointer to secure error callback in Non-
           break;
         }
       }
+  }
+
+  CMSE_NS_ENTRY uint32_t SECURE_FirmwareUpdateBegin(
+      const FW_UpdateManifest_t *manifest, uint32_t *session)
+  {
+    return SecureFirmwareUpdate_Begin(manifest, session);
+  }
+
+  CMSE_NS_ENTRY uint32_t SECURE_FirmwareUpdateWrite(
+      uint32_t session, const uint8_t *data, uint32_t length)
+  {
+    return SecureFirmwareUpdate_Write(session, data, length);
+  }
+
+  CMSE_NS_ENTRY uint32_t SECURE_FirmwareUpdateFinalize(uint32_t session)
+  {
+    return SecureFirmwareUpdate_Finalize(session);
+  }
+
+  CMSE_NS_ENTRY uint32_t SECURE_FirmwareUpdateAbort(uint32_t session)
+  {
+    return SecureFirmwareUpdate_Abort(session);
+  }
+
+  CMSE_NS_ENTRY uint32_t SECURE_FirmwareUpdateConfirmBoot(void)
+  {
+    return SecureFirmwareUpdate_ConfirmBoot();
   }
 
 /**

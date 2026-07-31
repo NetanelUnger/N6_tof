@@ -64,7 +64,7 @@ extern "C" {
 /*#define HAL_NAND_MODULE_ENABLED   */
 /*#define HAL_NOR_MODULE_ENABLED   */
 /*#define HAL_PCD_MODULE_ENABLED   */
-/*#define HAL_PKA_MODULE_ENABLED   */
+#define HAL_PKA_MODULE_ENABLED
 /*#define HAL_PSSI_MODULE_ENABLED   */
 /*#define HAL_RAMCFG_MODULE_ENABLED   */
 #define HAL_RIF_MODULE_ENABLED
@@ -83,7 +83,7 @@ extern "C" {
 #define HAL_UART_MODULE_ENABLED
 /*#define HAL_USART_MODULE_ENABLED   */
 /*#define HAL_WWDG_MODULE_ENABLED   */
-/*#define HAL_XSPI_MODULE_ENABLED   */
+#define HAL_XSPI_MODULE_ENABLED
 /*#define HAL_CACHEAXI_MODULE_ENABLED   */
 /*#define HAL_MDIOS_MODULE_ENABLED   */
 /*#define HAL_GPU2D_MODULE_ENABLED   */

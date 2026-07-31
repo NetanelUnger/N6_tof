@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "secure_firmware_update.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -166,6 +168,12 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPDMA1_Init();
+  if (SecureFirmwareUpdate_Init() != 0)
+  {
+    Secure_Trace("[SECURE] ERROR: firmware update service initialization failed\r\n");
+    Error_Handler();
+  }
+  Secure_Trace("[SECURE] authenticated A/B firmware update service ready\r\n");
   SystemIsolation_Config();
   /* USER CODE BEGIN 2 */
 
