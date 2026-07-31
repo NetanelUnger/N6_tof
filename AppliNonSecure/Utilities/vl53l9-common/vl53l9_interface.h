@@ -66,6 +66,15 @@ typedef enum {
     PLATFORM_I3C_ERROR_EVT = 64,
 } platform_event_t;
 
+/* Identifies a synchronous HAL failure before an asynchronous I3C transfer
+ * was accepted. These values are printed in the later task-context snapshot. */
+typedef enum {
+    PLATFORM_I3C_START_RX_DESCRIPTOR = 1,
+    PLATFORM_I3C_START_RX_DMA = 2,
+    PLATFORM_I3C_START_TX_DESCRIPTOR = 3,
+    PLATFORM_I3C_START_TX_DMA = 4,
+} platform_i3c_start_stage_t;
+
 typedef enum {
     PLATFORM_BUS_I2C = 1,
     PLATFORM_BUS_I3C = 2,
@@ -90,6 +99,29 @@ typedef struct {
     platform_gpio_t xshut;
     platform_gpio_t intr;
 } vl53l9_device_t;
+
+/* ISR-safe diagnostic snapshot. Callbacks only update this structure and post
+ * ThreadX flags; formatting and UART output remain in task context. */
+typedef struct {
+    uint32_t i3c_error_count;
+    uint32_t i3c_start_failure_count;
+    uint32_t i3c_rx_completion_count;
+    uint32_t i3c_tx_completion_count;
+    uint32_t gpio_interrupt_count;
+    uint32_t event_post_failures;
+    uint32_t event_wait_failures;
+    uint32_t event_clear_failures;
+    uint32_t last_event_status;
+    uint32_t last_start_stage;
+    uint32_t last_start_hal_status;
+    uint32_t last_error_tick;
+    uint32_t last_error_code;
+    uint32_t last_i3c_state;
+    uint32_t last_evr;
+    uint32_t last_control_dma_state;
+    uint32_t last_rx_dma_state;
+    uint32_t last_tx_dma_state;
+} platform_diagnostics_t;
 
 // definition of external variables
 
@@ -116,6 +148,9 @@ int platform_event_init(void);
 int platform_acknowledge_event(platform_event_t event);
 int platform_wait_for_event(platform_event_t event, uint32_t timeout_ms);
 int platform_get_event_status(platform_event_t event, bool *active);
+void platform_get_diagnostics(platform_diagnostics_t *diagnostics);
+void platform_record_i3c_start_failure(platform_i3c_start_stage_t stage,
+                                       uint32_t hal_status);
 void platform_notify_gpio_interrupt(void);
 int platform_ctrl_gpio(platform_gpio_t gpio, platform_gpio_state_t state);
 

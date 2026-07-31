@@ -35,6 +35,7 @@ typedef struct
     uint32_t acquired_frames;
     uint32_t processed_frames;
     uint32_t dropped_frames;
+    uint32_t queue_failures;
     uint32_t minimum_mm;
     uint32_t maximum_mm;
     int error_code;

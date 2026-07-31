@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdint.h>
+#include <string.h>
 
 #include "debug_uart.h"
 #include "main.h"
@@ -39,8 +40,10 @@ typedef enum
   APP_USB_CDC_ACTIVATED,
   APP_USB_CDC_DEACTIVATED,
   APP_USB_CDC_PARAMETER_CHANGE,
+  APP_USB_CDC_DEBUG_PROBE,
   APP_USB_CDC_RX_ERROR,
-  APP_USB_CDC_TX_ERROR
+  APP_USB_CDC_TX_ERROR,
+  APP_USB_DEVICE_EVENT_COUNT
 } App_USB_DeviceEventType_t;
 
 typedef struct
@@ -55,6 +58,9 @@ typedef struct
 /* USER CODE BEGIN PD */
 #define APP_USB_DEVICE_QUEUE_DEPTH       16U
 #define APP_USB_WORKER_STOP_WAIT_TICKS   (TX_TIMER_TICKS_PER_SECOND / 2U)
+#define APP_USB_CDC_PROBE_DELAY_TICKS    (3U * TX_TIMER_TICKS_PER_SECOND)
+#define APP_USB_CDC_HEALTH_PERIOD_TICKS  (1U * TX_TIMER_TICKS_PER_SECOND)
+#define APP_USB_CDC_MAX_RECOVERIES       3U
 
 /* USER CODE END PD */
 
@@ -73,10 +79,18 @@ static TX_THREAD ux_device_app_thread;
 /* USER CODE BEGIN PV */
 extern PCD_HandleTypeDef           hpcd_USB_OTG_HS1;
 static TX_QUEUE                    usb_device_state_queue;
+static TX_TIMER                    usb_cdc_probe_timer;
 static ULONG                       usb_device_queue_storage[APP_USB_DEVICE_QUEUE_DEPTH * 2U];
 static UINT                        usb_device_started;
 static UINT                        usb_cdc_active;
-static ULONG                       usb_cdc_parameter_change_count;
+static UINT                        usb_cdc_probe_sent;
+static UINT                        usb_cdc_recovery_count;
+static UX_SLAVE_CLASS_CDC_ACM     *usb_cdc_current_instance;
+static volatile ULONG             usb_device_event_post_failures;
+static volatile ULONG             usb_device_event_post_failures_by_type[APP_USB_DEVICE_EVENT_COUNT];
+static volatile ULONG             usb_device_last_failed_event_type;
+static volatile ULONG             usb_device_last_failed_event_status;
+static volatile ULONG              usb_cdc_parameter_change_count;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -85,6 +99,10 @@ static VOID app_ux_device_thread_entry(ULONG thread_input);
 static UINT app_usb_device_post_event(App_USB_DeviceEventType_t type,
                                       ULONG value);
 static void app_usb_device_stop_data_plane(void);
+static void app_usb_cdc_probe_timer_entry(ULONG timer_input);
+static void app_usb_device_restart_data_plane(UINT cause);
+static UINT app_usb_cdc_start_health_timer(void);
+static void app_usb_cdc_stop_health_timer(void);
 
 /* USER CODE END PFP */
 
@@ -137,6 +155,16 @@ UINT MX_USBX_Device_Init(VOID *memory_ptr)
     return TX_QUEUE_ERROR;
   }
 
+  if (tx_timer_create(&usb_cdc_probe_timer, "USB CDC delayed probe",
+                      app_usb_cdc_probe_timer_entry, 0U,
+                      APP_USB_CDC_PROBE_DELAY_TICKS,
+                      APP_USB_CDC_HEALTH_PERIOD_TICKS,
+                      TX_NO_ACTIVATE) != TX_SUCCESS)
+  {
+    Debug_UART_Log("USBX", "ERROR: CDC debug-probe timer creation failed");
+    return TX_TIMER_ERROR;
+  }
+
   if (USB_CDC_Transport_Init() != TX_SUCCESS)
   {
     Debug_UART_Log("USBX", "ERROR: CDC transport initialization failed");
@@ -145,6 +173,14 @@ UINT MX_USBX_Device_Init(VOID *memory_ptr)
 
   usb_device_started = 0U;
   usb_cdc_active = 0U;
+  usb_cdc_probe_sent = 0U;
+  usb_cdc_recovery_count = 0U;
+  usb_cdc_current_instance = UX_NULL;
+  usb_device_event_post_failures = 0U;
+  memset((void *)usb_device_event_post_failures_by_type, 0,
+         sizeof(usb_device_event_post_failures_by_type));
+  usb_device_last_failed_event_type = 0U;
+  usb_device_last_failed_event_status = TX_SUCCESS;
   usb_cdc_parameter_change_count = 0U;
   Debug_UART_Log("USBX", "USB manager, event queue, RX/TX workers created");
   /* USER CODE END MX_USBX_Device_Init 2 */
@@ -258,6 +294,8 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
   /* USER CODE BEGIN app_ux_device_thread_entry */
   App_USB_DeviceEvent_t event;
   UINT status;
+  ULONG reported_post_failures = 0U;
+  ULONG reported_parameter_changes = 0U;
 
   TX_PARAMETER_NOT_USED(thread_input);
   Debug_UART_Log("USBX", "USB device control thread running");
@@ -270,6 +308,33 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
     {
       Debug_UART_Log("USBX", "ERROR: device-state queue receive failed");
       Error_Handler();
+    }
+
+    if (usb_device_event_post_failures != reported_post_failures)
+    {
+      Debug_UART_Log("USBX",
+                     "WARNING: event queue post failures=%lu (+%lu), last(type=%lu status=%lu), by-type(stop=%lu start=%lu activate=%lu deactivate=%lu health=%lu rx-error=%lu tx-error=%lu)",
+                     (unsigned long)usb_device_event_post_failures,
+                     (unsigned long)(usb_device_event_post_failures -
+                                     reported_post_failures),
+                     (unsigned long)usb_device_last_failed_event_type,
+                     (unsigned long)usb_device_last_failed_event_status,
+                     (unsigned long)usb_device_event_post_failures_by_type[APP_USB_DEVICE_STOP],
+                     (unsigned long)usb_device_event_post_failures_by_type[APP_USB_DEVICE_START],
+                     (unsigned long)usb_device_event_post_failures_by_type[APP_USB_CDC_ACTIVATED],
+                     (unsigned long)usb_device_event_post_failures_by_type[APP_USB_CDC_DEACTIVATED],
+                     (unsigned long)usb_device_event_post_failures_by_type[APP_USB_CDC_DEBUG_PROBE],
+                     (unsigned long)usb_device_event_post_failures_by_type[APP_USB_CDC_RX_ERROR],
+                     (unsigned long)usb_device_event_post_failures_by_type[APP_USB_CDC_TX_ERROR]);
+      reported_post_failures = usb_device_event_post_failures;
+    }
+    if (usb_cdc_parameter_change_count != reported_parameter_changes)
+    {
+      Debug_UART_Log("CDC", "CDC line parameters changed: total=%lu (+%lu)",
+                     (unsigned long)usb_cdc_parameter_change_count,
+                     (unsigned long)(usb_cdc_parameter_change_count -
+                                     reported_parameter_changes));
+      reported_parameter_changes = usb_cdc_parameter_change_count;
     }
 
     if ((event.type == APP_USB_DEVICE_START) && (usb_device_started == 0U))
@@ -297,6 +362,7 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
     else if ((event.type == APP_USB_DEVICE_STOP) && (usb_device_started != 0U))
     {
       Debug_UART_Log("USBX", "Stopping USB device");
+      app_usb_cdc_stop_health_timer();
       USB_CDC_Transport_BeginStop();
       (void)ux_device_stack_disconnect();
 
@@ -318,6 +384,7 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
 
       (void)HAL_PCD_DeInit(&hpcd_USB_OTG_HS1);
       usb_cdc_active = 0U;
+      usb_cdc_current_instance = UX_NULL;
       usb_device_started = 0U;
       Debug_UART_Log("USBX", "USB device stopped");
     }
@@ -329,6 +396,11 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
       if (status == TX_SUCCESS)
       {
         usb_cdc_active = 1U;
+        usb_cdc_current_instance =
+            (UX_SLAVE_CLASS_CDC_ACM *)(uintptr_t)event.value;
+        usb_cdc_probe_sent = 0U;
+        usb_cdc_recovery_count = 0U;
+        (void)app_usb_cdc_start_health_timer();
         Debug_UART_Log("CDC", "CDC ACM activated; RX/TX data plane enabled");
       }
       else
@@ -339,17 +411,78 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
     }
     else if (event.type == APP_USB_CDC_DEACTIVATED)
     {
+      app_usb_cdc_stop_health_timer();
       app_usb_device_stop_data_plane();
+      usb_cdc_current_instance = UX_NULL;
       Debug_UART_Log("CDC", "CDC ACM deactivated; RX/TX data plane idle");
     }
-    else if (event.type == APP_USB_CDC_PARAMETER_CHANGE)
+    else if (event.type == APP_USB_CDC_DEBUG_PROBE)
     {
-      ++usb_cdc_parameter_change_count;
-      if ((usb_cdc_parameter_change_count == 1U) ||
-          ((usb_cdc_parameter_change_count % 8U) == 0U))
+      static const CHAR probe_text[] =
+          "\r\n[N6] USB CDC transport is online.\r\n"
+          "[N6] Async TX/RX workers and static queues are active.\r\n";
+      ULONG diagnostic_flags;
+      USB_CDC_TransportStatus_t transport_status;
+
+      if ((usb_cdc_active != 0U) &&
+          (USB_CDC_Transport_IsReady() == UX_TRUE))
       {
-        Debug_UART_Log("CDC", "CDC line parameters changed (count=%lu)",
-                       (unsigned long)usb_cdc_parameter_change_count);
+        if (usb_cdc_probe_sent == 0U)
+        {
+          status = USB_CDC_Transport_Send(probe_text,
+                                          (ULONG)(sizeof(probe_text) - 1U),
+                                          TX_NO_WAIT);
+          if (status == TX_SUCCESS)
+          {
+            usb_cdc_probe_sent = 1U;
+          }
+          Debug_UART_Log("CDC", "3-second debug probe queued: status=%u",
+                         (unsigned int)status);
+        }
+
+        diagnostic_flags = USB_CDC_Transport_TakeDiagnosticFlags();
+        if (diagnostic_flags != 0U)
+        {
+          USB_CDC_Transport_GetStatus(&transport_status);
+          Debug_UART_Log(
+              "CDC",
+              "diagnostic flags=0x%08lX sync=%lu TX(drop=%lu unavailable=%lu slots=%lu queue=%lu timeout=%lu errors=%lu last=%lu) RX(drop=%lu slots=%lu queue=%lu errors=%lu last=%lu)",
+              (unsigned long)diagnostic_flags,
+              (unsigned long)transport_status.worker_sync_failures,
+              (unsigned long)transport_status.tx_packets_dropped,
+              (unsigned long)transport_status.tx_unavailable_drops,
+              (unsigned long)transport_status.tx_slot_exhaustions,
+              (unsigned long)transport_status.tx_queue_failures,
+              (unsigned long)transport_status.tx_callback_timeouts,
+              (unsigned long)transport_status.tx_errors,
+              (unsigned long)transport_status.tx_last_error,
+              (unsigned long)transport_status.rx_packets_dropped,
+              (unsigned long)transport_status.rx_slot_exhaustions,
+              (unsigned long)transport_status.rx_queue_failures,
+              (unsigned long)transport_status.rx_errors,
+              (unsigned long)transport_status.rx_last_error);
+
+          if ((diagnostic_flags &
+               (USB_CDC_DIAG_TX_CALLBACK_TIMEOUT |
+                USB_CDC_DIAG_TX_TRANSFER_ERROR)) != 0U)
+          {
+            app_usb_device_restart_data_plane(
+                (UINT)transport_status.tx_last_error);
+          }
+          else if ((diagnostic_flags &
+                    USB_CDC_DIAG_RX_TRANSFER_ERROR) != 0U)
+          {
+            app_usb_device_restart_data_plane(
+                (UINT)transport_status.rx_last_error);
+          }
+          else if ((diagnostic_flags &
+                    USB_CDC_DIAG_WORKER_SYNC_FAILURE) != 0U)
+          {
+            /* A failed ThreadX event/semaphore/queue primitive can strand a
+             * worker even when USBX itself reported no transfer error. */
+            app_usb_device_restart_data_plane(TX_GROUP_ERROR);
+          }
+        }
       }
     }
     else if (event.type == APP_USB_CDC_RX_ERROR)
@@ -434,8 +567,16 @@ UINT App_USBX_Device_NotifyCdcDeactivated(VOID *cdc_acm_instance)
 
 UINT App_USBX_Device_NotifyCdcParameterChange(VOID *cdc_acm_instance)
 {
-  return app_usb_device_post_event(APP_USB_CDC_PARAMETER_CHANGE,
-                                   (ULONG)(uintptr_t)cdc_acm_instance);
+  (void)cdc_acm_instance;
+  /* Hosts commonly emit a burst of class-control requests while opening a
+   * COM port. They carry no payload needed by this application, so retain a
+   * cumulative counter instead of consuming lifecycle-manager queue entries.
+   * The manager reports the delta from task context on its next event. */
+  TX_INTERRUPT_SAVE_AREA
+  TX_DISABLE
+  ++usb_cdc_parameter_change_count;
+  TX_RESTORE
+  return TX_SUCCESS;
 }
 
 UINT App_USBX_Device_ReportRxError(UINT usb_status)
@@ -454,10 +595,25 @@ static UINT app_usb_device_post_event(App_USB_DeviceEventType_t type,
                                       ULONG value)
 {
   App_USB_DeviceEvent_t event;
+  UINT status;
 
   event.type = (ULONG)type;
   event.value = value;
-  return tx_queue_send(&usb_device_state_queue, &event, TX_NO_WAIT);
+  status = tx_queue_send(&usb_device_state_queue, &event, TX_NO_WAIT);
+  if (status != TX_SUCCESS)
+  {
+    TX_INTERRUPT_SAVE_AREA
+    TX_DISABLE
+    ++usb_device_event_post_failures;
+    if ((ULONG)type < (ULONG)APP_USB_DEVICE_EVENT_COUNT)
+    {
+      ++usb_device_event_post_failures_by_type[type];
+    }
+    usb_device_last_failed_event_type = (ULONG)type;
+    usb_device_last_failed_event_status = (ULONG)status;
+    TX_RESTORE
+  }
+  return status;
 }
 
 static void app_usb_device_stop_data_plane(void)
@@ -477,6 +633,92 @@ static void app_usb_device_stop_data_plane(void)
                    (unsigned int)status);
   }
   usb_cdc_active = 0U;
+}
+
+static void app_usb_cdc_probe_timer_entry(ULONG timer_input)
+{
+  (void)timer_input;
+  /* Timer callbacks must stay non-blocking. The USB manager performs the
+   * readiness check and enqueues the diagnostic packet in thread context. */
+  (void)app_usb_device_post_event(APP_USB_CDC_DEBUG_PROBE, 0U);
+}
+
+static UINT app_usb_cdc_start_health_timer(void)
+{
+  UINT status;
+
+  status = tx_timer_deactivate(&usb_cdc_probe_timer);
+  if (status == TX_SUCCESS)
+  {
+    status = tx_timer_change(&usb_cdc_probe_timer,
+                             APP_USB_CDC_PROBE_DELAY_TICKS,
+                             APP_USB_CDC_HEALTH_PERIOD_TICKS);
+  }
+  if (status == TX_SUCCESS)
+  {
+    status = tx_timer_activate(&usb_cdc_probe_timer);
+  }
+  if (status != TX_SUCCESS)
+  {
+    Debug_UART_Log("CDC", "ERROR: health timer start failed: status=%u",
+                   (unsigned int)status);
+  }
+  return status;
+}
+
+static void app_usb_cdc_stop_health_timer(void)
+{
+  UINT status = tx_timer_deactivate(&usb_cdc_probe_timer);
+
+  if (status != TX_SUCCESS)
+  {
+    Debug_UART_Log("CDC", "WARNING: health timer stop failed: status=%u",
+                   (unsigned int)status);
+  }
+}
+
+static void app_usb_device_restart_data_plane(UINT cause)
+{
+  UX_SLAVE_CLASS_CDC_ACM *instance = usb_cdc_current_instance;
+  UINT status;
+
+  if ((usb_cdc_active == 0U) || (usb_device_started == 0U) ||
+      (instance == UX_NULL))
+  {
+    return;
+  }
+
+  app_usb_cdc_stop_health_timer();
+  app_usb_device_stop_data_plane();
+
+  if ((usb_cdc_recovery_count >= APP_USB_CDC_MAX_RECOVERIES) ||
+      (USB_CDC_LL_IsConfigured(instance) == UX_FALSE))
+  {
+    Debug_UART_Log("CDC",
+                   "ERROR: data-plane recovery stopped: cause=%u attempts=%u configured=%u",
+                   (unsigned int)cause,
+                   (unsigned int)usb_cdc_recovery_count,
+                   (unsigned int)USB_CDC_LL_IsConfigured(instance));
+    return;
+  }
+
+  status = USB_CDC_Transport_Start(instance);
+  if (status == TX_SUCCESS)
+  {
+    ++usb_cdc_recovery_count;
+    usb_cdc_active = 1U;
+    usb_cdc_probe_sent = 0U;
+    (void)app_usb_cdc_start_health_timer();
+    Debug_UART_Log("CDC",
+                   "data plane recovered: cause=%u attempt=%u new session active",
+                   (unsigned int)cause,
+                   (unsigned int)usb_cdc_recovery_count);
+  }
+  else
+  {
+    Debug_UART_Log("CDC", "ERROR: data-plane restart failed: cause=%u status=%u",
+                   (unsigned int)cause, (unsigned int)status);
+  }
 }
 
 /* USER CODE END 1 */

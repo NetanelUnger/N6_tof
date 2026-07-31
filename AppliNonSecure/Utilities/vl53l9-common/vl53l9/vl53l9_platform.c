@@ -440,30 +440,23 @@ static int _i3c_read_async(void *const p_dev, I3C_PrivateTypeDef *aPrivateDescri
     if (p_device->bus_property & PLATFORM_BUS_PROPERTY_I3C_LEGACY) {
         aPrivateDescriptor[0].TargetAddr = aPrivateDescriptor[0].TargetAddr >> 1;
         aPrivateDescriptor[1].TargetAddr = aPrivateDescriptor[1].TargetAddr >> 1;
-        option = I2C_PRIVATE_WITHOUT_ARB_STOP;
+        option = I2C_PRIVATE_WITH_ARB_RESTART;
     } else {
         option = I3C_PRIVATE_WITHOUT_ARB_RESTART;
     }
 
+    /* HAL_I3C_AddDescToFrame() prepares a complete frame; it does not append
+     * to a frame prepared by an earlier call.  Register reads must therefore
+     * submit both descriptors together: the two-byte register-address write,
+     * followed by the repeated-start payload read. */
     hal_status = HAL_I3C_AddDescToFrame(p_hi3c, NULL,
-                                        &aPrivateDescriptor[0],
-                                        aContextBuffers, 1U, option);
+                                        aPrivateDescriptor,
+                                        aContextBuffers, 2U, option);
     if (hal_status != HAL_OK) {
-        _i3c_log_async_failure("TX descriptor", hal_status, p_hi3c);
-        return VL53L9_ERROR_PLATFORM;
-    }
-
-    if (p_device->bus_property & PLATFORM_BUS_PROPERTY_I3C_LEGACY) {
-        option = I2C_PRIVATE_WITH_ARB_RESTART;
-    } else {
-        option = I3C_PRIVATE_WITHOUT_ARB_STOP;
-    }
-
-    hal_status = HAL_I3C_AddDescToFrame(p_hi3c, NULL,
-                                        &aPrivateDescriptor[1],
-                                        aContextBuffers, 1U, option);
-    if (hal_status != HAL_OK) {
-        _i3c_log_async_failure("RX descriptor", hal_status, p_hi3c);
+        platform_record_i3c_start_failure(
+            PLATFORM_I3C_START_RX_DESCRIPTOR, (uint32_t)hal_status);
+        _i3c_log_async_failure("combined TX/RX descriptors", hal_status,
+                                p_hi3c);
         return VL53L9_ERROR_PLATFORM;
     }
     /* One multiple-transfer DMA transaction emits the two-byte register
@@ -471,6 +464,8 @@ static int _i3c_read_async(void *const p_dev, I3C_PrivateTypeDef *aPrivateDescri
      * immediately; both descriptor/control and data buffers are persistent. */
     hal_status = HAL_I3C_Ctrl_MultipleTransfer_DMA(p_hi3c, aContextBuffers);
     if (hal_status != HAL_OK) {
+        platform_record_i3c_start_failure(
+            PLATFORM_I3C_START_RX_DMA, (uint32_t)hal_status);
         _i3c_log_async_failure("combined TX/RX DMA", hal_status, p_hi3c);
         return VL53L9_ERROR_PLATFORM;
     }
@@ -495,11 +490,15 @@ static int _i3c_write_async(void *const p_dev,
     hal_status = HAL_I3C_AddDescToFrame(p_hi3c, NULL, descriptor,
                                         transfer, 1U, option);
     if (hal_status != HAL_OK) {
+        platform_record_i3c_start_failure(
+            PLATFORM_I3C_START_TX_DESCRIPTOR, (uint32_t)hal_status);
         _i3c_log_async_failure("TX descriptor", hal_status, p_hi3c);
         return VL53L9_ERROR_PLATFORM;
     }
     hal_status = HAL_I3C_Ctrl_Transmit_DMA(p_hi3c, transfer);
     if (hal_status != HAL_OK) {
+        platform_record_i3c_start_failure(
+            PLATFORM_I3C_START_TX_DMA, (uint32_t)hal_status);
         _i3c_log_async_failure("TX DMA", hal_status, p_hi3c);
         return VL53L9_ERROR_PLATFORM;
     }

@@ -114,6 +114,14 @@
 
 /* USER CODE BEGIN 1 */
 
+/* Callback-mode CDC traffic is executed by USBX-owned Bulk-IN/Bulk-OUT
+ * threads.  The USBX default priority (20) is below the continuous ToF
+ * processing task and can therefore be starved indefinitely.  Keep the
+ * class workers above the application renderer and give each worker enough
+ * stack for the STM32 device-controller call chain. */
+#define UX_THREAD_PRIORITY_CLASS                         8U
+#define UX_THREAD_STACK_SIZE                             (8U * 1024U)
+
 /* USER CODE END 1 */
 
 /* Define various build options for the USBX port.  The application should either make changes

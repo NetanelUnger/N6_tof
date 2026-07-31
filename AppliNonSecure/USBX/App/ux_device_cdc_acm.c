@@ -68,10 +68,9 @@
 VOID USBD_CDC_ACM_Activate(VOID *cdc_acm_instance)
 {
   /* USER CODE BEGIN USBD_CDC_ACM_Activate */
-  if (App_USBX_Device_NotifyCdcActivated(cdc_acm_instance) != TX_SUCCESS)
-  {
-    Debug_UART_Log("CDC", "ERROR: failed to queue CDC activate event");
-  }
+  /* Keep the USBX class callback short. The manager retains per-event queue
+   * failure counters and prints them later from its own thread. */
+  (void)App_USBX_Device_NotifyCdcActivated(cdc_acm_instance);
   /* USER CODE END USBD_CDC_ACM_Activate */
 
   return;
@@ -86,10 +85,7 @@ VOID USBD_CDC_ACM_Activate(VOID *cdc_acm_instance)
 VOID USBD_CDC_ACM_Deactivate(VOID *cdc_acm_instance)
 {
   /* USER CODE BEGIN USBD_CDC_ACM_Deactivate */
-  if (App_USBX_Device_NotifyCdcDeactivated(cdc_acm_instance) != TX_SUCCESS)
-  {
-    Debug_UART_Log("CDC", "ERROR: failed to queue CDC deactivate event");
-  }
+  (void)App_USBX_Device_NotifyCdcDeactivated(cdc_acm_instance);
   /* USER CODE END USBD_CDC_ACM_Deactivate */
 
   return;
@@ -104,10 +100,7 @@ VOID USBD_CDC_ACM_Deactivate(VOID *cdc_acm_instance)
 VOID USBD_CDC_ACM_ParameterChange(VOID *cdc_acm_instance)
 {
   /* USER CODE BEGIN USBD_CDC_ACM_ParameterChange */
-  if (App_USBX_Device_NotifyCdcParameterChange(cdc_acm_instance) != TX_SUCCESS)
-  {
-    Debug_UART_Log("CDC", "ERROR: failed to queue CDC parameter event");
-  }
+  (void)App_USBX_Device_NotifyCdcParameterChange(cdc_acm_instance);
   /* USER CODE END USBD_CDC_ACM_ParameterChange */
 
   return;

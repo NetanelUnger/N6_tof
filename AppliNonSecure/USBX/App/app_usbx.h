@@ -44,6 +44,11 @@ extern "C" {
 #define USBX_MEMORY_STACK_SIZE       1024 * 6
 /* USER CODE BEGIN EC */
 
+/* The USBX system pool owns the two 8 KiB callback-mode CDC class stacks in
+ * addition to the class instance, endpoints, and transfer objects. */
+#undef USBX_MEMORY_STACK_SIZE
+#define USBX_MEMORY_STACK_SIZE       (32U * 1024U)
+
 /* USER CODE END EC */
 
 /* Exported functions prototypes ---------------------------------------------*/

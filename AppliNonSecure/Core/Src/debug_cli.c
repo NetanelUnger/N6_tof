@@ -515,9 +515,11 @@ static void cli_show_usb_status(void)
             "Static slots free: control %lu/8, maps %lu/2, RX %lu/16\r\n"
             "Queues: TX %lu/10, RX %lu/32, in-flight %lu\r\n"
             "TX: queued %lu, completed %lu, callbacks %lu, bytes %lu\r\n"
-            "TX flow/errors: dropped %lu, slot exhaustion %lu, errors %lu, last %lu\r\n"
+            "TX flow: dropped %lu, unavailable %lu, slot exhaustion %lu, queue failures %lu\r\n"
+            "TX errors: callback timeouts %lu, errors %lu, last %lu\r\n"
             "RX: received %lu, delivered %lu, bytes %lu\r\n"
-            "RX flow/errors: dropped %lu, slot exhaustion %lu, errors %lu, last %lu\r\n",
+            "RX flow/errors: dropped %lu, slot exhaustion %lu, queue failures %lu, errors %lu, last %lu\r\n"
+            "Worker synchronization failures: %lu\r\n",
             (status.active != 0U) ? "active" : "inactive",
             (unsigned long)status.session,
             (unsigned long)status.tx_control_slots_free,
@@ -531,7 +533,10 @@ static void cli_show_usb_status(void)
             (unsigned long)status.tx_callback_completions,
             (unsigned long)status.tx_bytes_completed,
             (unsigned long)status.tx_packets_dropped,
+            (unsigned long)status.tx_unavailable_drops,
             (unsigned long)status.tx_slot_exhaustions,
+            (unsigned long)status.tx_queue_failures,
+            (unsigned long)status.tx_callback_timeouts,
             (unsigned long)status.tx_errors,
             (unsigned long)status.tx_last_error,
             (unsigned long)status.rx_packets_received,
@@ -539,8 +544,10 @@ static void cli_show_usb_status(void)
             (unsigned long)status.rx_bytes_received,
             (unsigned long)status.rx_packets_dropped,
             (unsigned long)status.rx_slot_exhaustions,
+            (unsigned long)status.rx_queue_failures,
             (unsigned long)status.rx_errors,
-            (unsigned long)status.rx_last_error);
+            (unsigned long)status.rx_last_error,
+            (unsigned long)status.worker_sync_failures);
 }
 
 static void cli_show_tof_status(void)
@@ -550,13 +557,13 @@ static void cli_show_tof_status(void)
   cli_print("ToF state: %s\r\n"
             "Resolution: %" PRIu32 "x%" PRIu32 "\r\n"
             "Frame: %" PRIu32 ", rate: %" PRIu32 ".%" PRIu32 " fps\r\n"
-            "Pipeline: acquired %" PRIu32 ", processed %" PRIu32 ", dropped %" PRIu32 "\r\n"
+            "Pipeline: acquired %" PRIu32 ", processed %" PRIu32 ", dropped %" PRIu32 ", queue failures %" PRIu32 "\r\n"
             "Last valid range: %" PRIu32 "..%" PRIu32 " mm\r\n"
             "Map: %s, acquisition: %s\r\n",
             cli_tof_state_name(status.state), status.width, status.height,
             status.frame_counter, status.fps_x10 / 10U, status.fps_x10 % 10U,
             status.acquired_frames, status.processed_frames,
-            status.dropped_frames,
+            status.dropped_frames, status.queue_failures,
             status.minimum_mm, status.maximum_mm,
             (status.map_enabled != 0U) ? "on" : "off",
             (status.paused != 0U) ? "paused" : "running");

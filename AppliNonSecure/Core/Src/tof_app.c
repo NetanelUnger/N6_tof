@@ -79,6 +79,7 @@ static volatile uint32_t tof_fps_x10;
 static volatile uint32_t tof_acquired_frames;
 static volatile uint32_t tof_processed_frames;
 static volatile uint32_t tof_dropped_frames;
+static volatile uint32_t tof_queue_failures;
 static volatile uint32_t tof_minimum_mm;
 static volatile uint32_t tof_maximum_mm;
 static volatile int tof_error_code;
@@ -102,7 +103,10 @@ static size_t append_text(size_t pos, const char *text);
 static size_t append_u32(size_t pos, uint32_t value);
 static uint8_t depth_to_color(float distance_mm);
 static void tof_release_raw_slot(ULONG slot_index);
+static void tof_log_queue_failure(const char *operation, UINT status,
+                                  ULONG slot_index);
 static int tof_wait_i3c_event(platform_event_t event);
+static void tof_log_platform_failure(platform_event_t event, int result);
 static int tof_wait_command_complete(vl53l9_device_t *sensor,
                                      uint32_t timeout_ms);
 static int tof_start_command_and_wait(vl53l9_device_t *sensor,
@@ -241,8 +245,14 @@ void TOF_App_Acquire(void)
                    (unsigned int)TOF_TARGET_FPS);
 
     tof_state = TOF_APP_STATE_READY;
-    (void)tx_event_flags_set(&tof_pipeline_flags,
-                             TOF_PIPELINE_READY_FLAG, TX_OR);
+    UINT pipeline_status = tx_event_flags_set(&tof_pipeline_flags,
+                                              TOF_PIPELINE_READY_FLAG, TX_OR);
+    if (pipeline_status != TX_SUCCESS)
+    {
+        Debug_UART_Log("TOF", "ERROR: pipeline-ready event post failed: %u",
+                       (unsigned int)pipeline_status);
+        tof_fatal("pipeline-ready event post", (int)pipeline_status);
+    }
 
     for (;;)
     {
@@ -276,6 +286,7 @@ void TOF_App_Acquire(void)
                                       TOF_EVENT_TIMEOUT_MS);
         if (ret != 0)
         {
+            tof_log_platform_failure(PLATFORM_GPIO_IT_EVT, ret);
             tof_fatal("sensor interrupt timeout", ret);
         }
         (void)platform_acknowledge_event(PLATFORM_GPIO_IT_EVT);
@@ -289,6 +300,8 @@ void TOF_App_Acquire(void)
                                  TX_NO_WAIT) != TX_SUCCESS)
             {
                 ++tof_dropped_frames;
+                tof_log_queue_failure("no free or evictable raw slot",
+                                      TX_QUEUE_EMPTY, UINT32_MAX);
                 continue;
             }
             ++tof_dropped_frames;
@@ -375,10 +388,13 @@ void TOF_App_Acquire(void)
         }
 
         ++tof_acquired_frames;
-        if (tx_queue_send(&tof_ready_queue, &slot_index,
-                          TX_NO_WAIT) != TX_SUCCESS)
+        UINT queue_status = tx_queue_send(&tof_ready_queue, &slot_index,
+                                          TX_NO_WAIT);
+        if (queue_status != TX_SUCCESS)
         {
             ++tof_dropped_frames;
+            tof_log_queue_failure("publish ready raw slot", queue_status,
+                                  slot_index);
             tof_release_raw_slot(slot_index);
         }
         if (first_frame_diagnostic != 0U)
@@ -398,8 +414,15 @@ void TOF_App_Process(void)
     uint32_t first_frame_diagnostic = 1U;
 
     Debug_UART_Log("TOF", "processing task waiting for sensor pipeline");
-    (void)tx_event_flags_get(&tof_pipeline_flags, TOF_PIPELINE_READY_FLAG,
-                             TX_AND, &actual_flags, TX_WAIT_FOREVER);
+    UINT pipeline_status = tx_event_flags_get(
+        &tof_pipeline_flags, TOF_PIPELINE_READY_FLAG,
+        TX_AND, &actual_flags, TX_WAIT_FOREVER);
+    if (pipeline_status != TX_SUCCESS)
+    {
+        Debug_UART_Log("TOF", "ERROR: pipeline-ready wait failed: %u",
+                       (unsigned int)pipeline_status);
+        tof_fatal("pipeline-ready event wait", (int)pipeline_status);
+    }
     previous_tick = HAL_GetTick();
 
     for (;;)
@@ -407,10 +430,13 @@ void TOF_App_Process(void)
         int ret;
         size_t depth_buffer_size = sizeof(tof_depth_data);
 
-        if (tx_queue_receive(&tof_ready_queue, &slot_index,
-                             TX_WAIT_FOREVER) != TX_SUCCESS)
+        UINT queue_status = tx_queue_receive(&tof_ready_queue, &slot_index,
+                                             TX_WAIT_FOREVER);
+        if (queue_status != TX_SUCCESS)
         {
-            continue;
+            tof_log_queue_failure("receive ready raw slot", queue_status,
+                                  UINT32_MAX);
+            tof_fatal("processing ready queue receive", (int)queue_status);
         }
 
         memory_t raw_memory = {
@@ -522,6 +548,7 @@ void TOF_App_GetStatus(TOF_App_Status_t *status)
     status->acquired_frames = tof_acquired_frames;
     status->processed_frames = tof_processed_frames;
     status->dropped_frames = tof_dropped_frames;
+    status->queue_failures = tof_queue_failures;
     status->minimum_mm = tof_minimum_mm;
     status->maximum_mm = tof_maximum_mm;
     status->error_code = tof_error_code;
@@ -532,7 +559,28 @@ static void tof_release_raw_slot(ULONG slot_index)
 {
     if (slot_index < TOF_RAW_SLOT_COUNT)
     {
-        (void)tx_queue_send(&tof_free_queue, &slot_index, TX_NO_WAIT);
+        UINT status = tx_queue_send(&tof_free_queue, &slot_index, TX_NO_WAIT);
+        if (status != TX_SUCCESS)
+        {
+            tof_log_queue_failure("release raw slot", status, slot_index);
+        }
+    }
+}
+
+static void tof_log_queue_failure(const char *operation, UINT status,
+                                  ULONG slot_index)
+{
+    uint32_t count = ++tof_queue_failures;
+
+    /* Log the first failure and powers of two thereafter. This retains
+     * evidence of a persistent invariant violation without turning COM6
+     * logging into another real-time failure source. */
+    if ((count == 1U) || ((count & (count - 1U)) == 0U))
+    {
+        Debug_UART_Log("TOF",
+                       "ERROR: queue operation '%s' failed: status=%u slot=%lu count=%lu",
+                       operation, (unsigned int)status,
+                       (unsigned long)slot_index, (unsigned long)count);
     }
 }
 
@@ -540,7 +588,40 @@ static int tof_wait_i3c_event(platform_event_t event)
 {
     int ret = platform_wait_for_event(event, TOF_EVENT_TIMEOUT_MS);
     (void)platform_acknowledge_event(event);
+    if (ret != 0)
+    {
+        tof_log_platform_failure(event, ret);
+    }
     return ret;
+}
+
+static void tof_log_platform_failure(platform_event_t event, int result)
+{
+    platform_diagnostics_t diagnostics;
+
+    platform_get_diagnostics(&diagnostics);
+    Debug_UART_Log(
+        "I3C",
+        "event wait failed: event=0x%02lX result=%d IRQ=%lu RX=%lu TX=%lu errors=%lu start-fail=%lu(stage=%lu HAL=%lu) event(post=%lu wait=%lu clear=%lu last-status=%lu) last(tick=%lu code=0x%08lX state=0x%02lX EVR=0x%08lX CR-DMA=0x%02lX RX-DMA=0x%02lX TX-DMA=0x%02lX)",
+        (unsigned long)event, result,
+        (unsigned long)diagnostics.gpio_interrupt_count,
+        (unsigned long)diagnostics.i3c_rx_completion_count,
+        (unsigned long)diagnostics.i3c_tx_completion_count,
+        (unsigned long)diagnostics.i3c_error_count,
+        (unsigned long)diagnostics.i3c_start_failure_count,
+        (unsigned long)diagnostics.last_start_stage,
+        (unsigned long)diagnostics.last_start_hal_status,
+        (unsigned long)diagnostics.event_post_failures,
+        (unsigned long)diagnostics.event_wait_failures,
+        (unsigned long)diagnostics.event_clear_failures,
+        (unsigned long)diagnostics.last_event_status,
+        (unsigned long)diagnostics.last_error_tick,
+        (unsigned long)diagnostics.last_error_code,
+        (unsigned long)diagnostics.last_i3c_state,
+        (unsigned long)diagnostics.last_evr,
+        (unsigned long)diagnostics.last_control_dma_state,
+        (unsigned long)diagnostics.last_rx_dma_state,
+        (unsigned long)diagnostics.last_tx_dma_state);
 }
 
 static int tof_wait_command_complete(vl53l9_device_t *sensor,

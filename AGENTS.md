@@ -28,6 +28,12 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 - The steady-state sensor path uses PD9 falling-edge EXTI and I3C TX/RX DMA.
   Tasks wait on ThreadX event flags posted from HAL callbacks; initialization
   remains allowed to use blocking vendor calls.
+- The 2026-07-31 signed build was programmed and verified in external NOR. The
+  user confirmed successful external-Flash boot, VL53L9CX operation, USB CDC,
+  and terminal output with the hardened static RX/TX and diagnostic paths.
+- Treat that result as a functional hardware checkpoint, not as proof of a
+  multi-hour soak, repeated attach/detach endurance, or deliberate fault
+  injection into every recovery branch.
 - Non-Secure Debug C and C++ use `-O3` with `-g3` debug information.
 - The ToF processing task uses a 96 KiB stack, acquisition uses 16 KiB, and the ThreadX application pool is 192 KiB.
   The largest visible active optimized chain is about 34 KiB; the much larger
@@ -40,8 +46,8 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 - The generated PCD MSP code is supplemented, inside USER CODE, by the reset/PHY sequence from ST's official NUCLEO-N657X0-Q CDC example.
 - The FSBL enables VDDA, VDDIO2 through VDDIO5, and VDDUSB before `HAL_Init()`, matching the official CDC example.
 - USBX now waits for a real CAD attach notification. The earlier CAD-independent fixed START is no longer active.
-- USB CDC works: Windows creates COM7 and complete ANSI-map transfers have been
-  observed.
+- USB CDC works: Windows creates a separate host-assigned COM port and complete
+  ANSI-map transfers have been observed. Never assume a fixed COM number.
 - USB CDC uses one priority-8 lifecycle manager and priority-9 RX/TX workers.
   USBX callback transmission mode owns bulk OUT reception; the RX callback
   publishes fixed 512-byte slots. Only the TX scheduler submits
@@ -171,6 +177,11 @@ After CubeMX Generate Code, explicitly audit these known multi-context losses:
   route PD9 as falling-edge EXTI9 and leave PE9 as a plain input. Verify the
   EXTI9 handler still reaches `HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_9)` and the
   callback routes it to `platform_notify_gpio_interrupt()`.
+- The Secure RIF USER block must keep both
+  `HAL_EXTI_ConfigLineAttributes(EXTI_LINE_9, EXTI_LINE_NSEC | EXTI_LINE_NPRIV)`
+  and `NVIC_SetTargetState(EXTI9_IRQn)`. The line attribute does not change the
+  Secure NVIC target; omitting the latter makes the Non-Secure ToF task time
+  out even though PD9 reaches its active-low state.
 
 Never ask the user to program an image until:
 
@@ -297,6 +308,10 @@ stack-local version or split the address phase back into a blocking transfer.
 - Preserve the local missing-break fix in platform_acknowledge_event.
 - Preserve the persistent `g_async_i3c_context`; asynchronous HAL descriptors
   and every buffer they reference must remain valid until DMA completion.
+- A VL53L9 register read is one two-descriptor HAL frame. Call
+  `HAL_I3C_AddDescToFrame()` once with both the register-address TX descriptor
+  and payload RX descriptor (`NbFrames == 2`). A second call does not append;
+  it resets the HAL frame state and causes an asynchronous I3C error.
 - Preserve the single I3C owner: only the ToF acquisition task may start a
   steady-state sensor transaction. Each start must acknowledge stale RX/TX and
   error flags, then wait for the matching callback event before reusing the
@@ -305,6 +320,21 @@ stack-local version or split the address phase back into a blocking transfer.
   `HAL_I3C_CtrlMultipleXferCpltCallback()`, not the ordinary RX callback. Both
   are intentionally bridged to the RX event because the local multiple
   transfer is a register read.
+- Never print from an I3C/GPIO callback or ISR. Preserve the platform
+  diagnostic snapshot (HAL error/state, EVR, DMA states, completion/IRQ
+  counters, and event-post failures), then format it from the ToF task after a
+  failed wait.
+- Preserve synchronous I3C-start diagnostics. Descriptor construction and DMA
+  start may return `HAL_BUSY`/`HAL_ERROR` without invoking the HAL error
+  callback; record the start stage, HAL status, and peripheral/DMA snapshot
+  before returning the platform error.
+- Preserve `g_platform_evt` as a sticky fallback. If a callback ran but
+  ThreadX rejected its event-flags post, `platform_wait_for_event()` must still
+  consume the acknowledged transaction's sticky completion/error bit.
+- Never silently retry a ThreadX queue-object error. Normal ToF backpressure may
+  evict an unprocessed ready frame, but an impossible empty free+ready state or
+  a failed blocking processing receive must be counted, rate-limited on UART,
+  and moved to the explicit ToF fatal state.
 
 ## 11. USB and USB-PD rules
 
@@ -321,12 +351,40 @@ stack-local version or split the address phase back into a blocking transfer.
 - Start the PCD only from the USB-PD CAD attach notification. Do not restore the earlier unconditional START unless deliberately isolating the CAD path again.
 - Preserve USBX CDC callback transmission mode. Do not re-enable
   `UX_DEVICE_CLASS_CDC_ACM_TRANSMISSION_DISABLE`.
+- Preserve `UX_THREAD_PRIORITY_CLASS == 8` and the 8 KiB generic USBX thread
+  stack. Callback mode runs Bulk-IN/Bulk-OUT in USBX-owned class threads; the
+  USBX default priority 20 is starved by the continuous priority-10 ToF
+  processing task, leaving a submitted TX packet permanently in flight.
+- Always clean-build NonSecure after changing `ux_user.h`. CubeIDE can retain
+  stale USBX middleware objects during an incremental build; the local
+  `Tools/build_and_sign.ps1` script deliberately enforces the clean build.
+- All TX allocation is gated by both an active CDC session and
+  `UX_DEVICE_CONFIGURED`. No producer may enqueue while CDC is absent, and a
+  disconnect must flush and release every queued or reserved static slot.
 - The USBX read callback must remain short: acquire a static RX slot, copy the
   completed payload, post one pointer, and return. Parsing belongs to the RX
   dispatcher/CLI, never the callback.
 - Preserve single TX submission ownership: only the TX scheduler may call
   `USB_CDC_LL_WriteAsync`. It must not submit the next buffer before the write
   callback posts the completion semaphore for the current sequence.
+- The TX completion wait is bounded to five seconds. On timeout, never reuse
+  the in-flight buffer or resubmit into USBX. Latch diagnostics, let the worker
+  quiesce, and have the USB manager abort/restart the data plane. Recovery is
+  capped at three attempts per physical CDC activation.
+- Preserve the periodic USB health event. Timer context may only post the
+  manager event; it must not allocate, format, log, or call USBX. The manager
+  atomically consumes sticky rare-event flags and prints cumulative counters.
+- Queue/slot backpressure is not an ISR logging site. Counters retain full
+  history; diagnostics report the latched category once per health pass.
+- Check USB worker event-flag, blocking queue-receive, and completion-semaphore
+  results. Preserve the worker-synchronization counter/sticky flag and manager
+  recovery path; a rejected callback wakeup must not become an invisible
+  infinite wait.
+- Coalesce CDC line-parameter notifications into a counter. Host setup bursts
+  carry no application payload and must not fill the lifecycle/error queue.
+- Keep USBX class callbacks free of UART formatting. Manager-queue failures
+  must retain total, per-event-type, last-type, and last-ThreadX-status data for
+  later manager-thread reporting.
 - All application TX text must pass through `USB_CDC_Transport_Send`. Complete
   maps must use Acquire/Commit/Cancel so the renderer writes directly into a
   static 48 KiB map slot. All RX data must be consumed through

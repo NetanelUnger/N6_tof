@@ -4,6 +4,9 @@ This document explains the architecture, STM32CubeMX configuration, post-generat
 
 The goal is not only to describe how to run the firmware, but also to explain why it is structured this way and how to reason about failures.
 
+To recreate the board project and follow the bring-up in a learning-oriented
+order, see [GUIDE.md](GUIDE.md).
+
 ## 1. Hardware and project goals
 
 The project combines:
@@ -22,14 +25,33 @@ Current status:
 | BootROM → FSBL → Secure → Non-Secure | Working |
 | VL53L9CX initialization | Working |
 | Full 54×42 depth frames | Working |
-| I3C DMA acquisition | Implemented as a callback/event-driven steady-state pipeline; awaiting post-Generate hardware verification |
-| ANSI color-map renderer | Implemented |
+| I3C DMA acquisition | Working on hardware as a callback/event-driven steady-state pipeline |
+| ANSI color-map renderer | Working through USB CDC |
 | ST-LINK UART at 115200 baud | Working |
-| USB CDC | Working; COM7 with a manager task, independent RX/TX workers, callback-driven TX, and fixed static slots |
+| USB CDC | Working; Windows creates a separate COM port backed by a manager task, independent RX/TX workers, callback-driven TX, and fixed static slots |
 | ST67 Wi-Fi/BLE | Driver and dedicated task are present, but intentionally disabled because the shield is not currently installed |
 | BLE OTA | Not implemented yet |
 
-### 1.1 Repository layout and local reference material
+### 1.1 Latest hardware validation
+
+On 2026-07-31, the hardened build was programmed into external NOR and every
+programmed region passed STM32CubeProgrammer verification:
+
+- FSBL at `0x70000000`.
+- Secure application at `0x70100000`.
+- Non-Secure application at `0x70180000`.
+
+After restoring BOOT0 and BOOT1 to 1-2 and resetting the board, the complete
+BootROM -> FSBL -> Secure -> Non-Secure path booted from external Flash. The
+user then confirmed that the integrated VL53L9CX acquisition/processing path,
+USB CDC connection, and terminal output all work correctly with the new static
+RX/TX architecture and rare-event diagnostics enabled.
+
+This is a successful functional hardware checkpoint. It is not yet evidence of
+a multi-hour soak test, repeated attach/detach endurance, or deliberate fault
+injection into every recovery branch. Those remain separate validation tasks.
+
+### 1.2 Repository layout and local reference material
 
 The `project` directory is the intended Git repository root. Generated Debug
 and Release directories, signed Flash images, downloaded SDK archives, PDFs,
@@ -389,6 +411,58 @@ Available CLI commands:
 | clear | Clear the terminal |
 | reboot yes | Reset the MCU |
 
+#### 5.3.1 Rare-event handling and diagnostics
+
+The high-rate paths deliberately separate evidence capture from text output.
+USBX and HAL callbacks never format UART strings. They update fixed counters,
+save a small snapshot, set a sticky diagnostic bit, and return. The relevant
+task later prints the evidence on the independent ST-LINK UART.
+
+USB CDC failure handling includes:
+
+- A five-second bound on the asynchronous Bulk-IN completion callback. A lost
+  callback can no longer block the TX scheduler forever.
+- No buffer reuse after a callback timeout. The USB manager stops callback
+  mode, aborts the USBX transfer, waits for RX/TX workers to become idle,
+  flushes static queues, and starts a new session. Recovery is limited to three
+  attempts per physical activation.
+- Sticky diagnostic categories for unavailable CDC, TX/RX slot exhaustion,
+  TX/RX queue-full, callback timeout, USBX transfer error, and internal ThreadX
+  worker-synchronization failure. A one-second manager health event consumes
+  these flags and prints cumulative counters once, outside callback context.
+- Every worker `event_flags`, blocking queue receive, and TX-completion
+  semaphore result is checked. A rejected completion wakeup is retained as a
+  sticky synchronization failure; the five-second timeout remains the final
+  guard against a permanently stranded Bulk-IN transfer.
+- Counters for failures to post into the USB manager event queue. The next
+  successfully received manager event reports the total, delta, last ThreadX
+  status, last failed event type, and per-type counts. USBX class callbacks do
+  not print directly even on this rare path.
+- CDC line-parameter notifications are deliberately coalesced into a counter.
+  Windows may generate a burst while opening the COM port, but those
+  notifications contain no application payload and must not crowd lifecycle
+  START/STOP or rare ERROR events out of the manager queue.
+- `usb status` retains the full history, including unavailable drops, queue
+  failures, callback timeouts, transfer errors, synchronization failures, and
+  the last USBX status.
+
+The VL53L9CX uses I3C private transfers; these resemble traditional I2C
+register accesses. On an asynchronous HAL error, the callback stores the tick,
+`ErrorCode`, I3C state, `EVR`, and control/RX/TX DMA states. If descriptor
+creation or DMA start fails synchronously, the code also stores the exact start
+stage and returned `HAL_StatusTypeDef`; this case does not necessarily produce
+an error callback. The snapshot counts GPIO interrupts, I3C completions, HAL
+errors, start failures, and failed ThreadX event post/wait/clear operations. The
+ToF task prints that complete snapshot before entering its fatal state. A
+sticky event bit provides a fallback if the ISR completed but ThreadX rejected
+the event-flags post.
+
+ToF raw-slot queue failures are invariant violations rather than normal frame
+drops. They are counted separately and logged on the first occurrence and then
+at powers of two, preventing a persistent failure from flooding COM6. The
+processing task no longer retries an invalid queue silently: a failed blocking
+receive is recorded and moves the ToF pipeline to its explicit fatal state.
+
 Pressing Enter while the map is visible switches to console mode and hides the map without stopping acquisition.
 
 ### 5.4 ST67 Wi-Fi and BLE
@@ -730,8 +804,72 @@ arm-none-eabi-addr2line.exe -a -f -C -e .\project\AppliNonSecure\Debug\N6_AppliN
 
 ## 12. Change log
 
+### 2026-07-31
+
+- Added [GUIDE.md](GUIDE.md), a from-scratch learning path covering the
+  NUCLEO-N657X0-Q CubeMX setup, all four security/boot contexts, VL53L9CX
+  driver import and N6 port, asynchronous I3C/ThreadX architecture, USB CDC
+  integration, signing, programming, post-generation audits, and staged
+  troubleshooting.
+- Clean-built and signed FSBL, Secure, and Non-Secure after the rare-event
+  hardening changes, then programmed and verified all three external-NOR
+  regions successfully.
+- Confirmed on real NUCLEO-N657X0-Q hardware that the resulting image boots from
+  external Flash and that the integrated VL53L9CX I3C-DMA pipeline, USB CDC,
+  and terminal output work correctly.
+- Reclassified I3C DMA and the ANSI USB renderer from “awaiting verification”
+  to working-on-hardware status.
+- Recorded the remaining validation boundary: long-duration load, repeated USB
+  attach/detach, and deliberate queue/callback/I3C fault injection have not yet
+  been claimed as completed.
+
 ### 2026-07-30
 
+- Added bounded rare-event handling for USB and ToF/I3C. USB TX callback waits
+  now time out after five seconds and trigger manager-owned, capped data-plane
+  recovery without reusing the in-flight static slot.
+- Added sticky USB diagnostic flags and cumulative counters for unavailable
+  sends, slot exhaustion, queue-full, callback timeout, transfer errors, and
+  ThreadX worker-synchronization failures. A periodic manager health event
+  reports them outside callback context, while `usb status` exposes the complete
+  history.
+- Checked USB worker event-flag, queue-receive, and completion-semaphore return
+  values. CDC line-parameter bursts are now coalesced into a counter so they
+  cannot consume the manager queue needed by lifecycle and error events.
+- Added an ISR-safe I3C/GPIO diagnostic snapshot with HAL error/state, EVR,
+  control/RX/TX DMA states, completion/IRQ counts, and ThreadX event-post
+  failures. Synchronous descriptor/DMA-start failures and ThreadX event
+  wait/clear failures are now retained separately. Failed ToF waits print the
+  complete snapshot before stopping.
+- Added sticky platform-event fallback and separately counted/rate-limited ToF
+  raw-slot queue invariant failures. An invalid processing-queue receive can no
+  longer spin silently.
+- Fixed callback-mode CDC starvation. USBX creates additional internal
+  Bulk-IN and Bulk-OUT class threads; their default ThreadX priority was 20,
+  below the continuously runnable priority-10 ToF processor. Live RAM counters
+  showed two queued maps, one submitted transfer, zero completed bytes, and
+  zero callbacks. The class workers now run at priority 8 with 8 KiB stacks;
+  the USBX system pool and its parent byte pool were enlarged accordingly.
+- Added a one-shot CDC diagnostic message scheduled three seconds after each
+  successful class activation. A ThreadX timer only posts an event; the USB
+  manager performs the readiness check and static-slot enqueue in thread
+  context. The message is discarded when CDC is no longer configured.
+- Gated every TX slot allocation on both the active session and the USBX
+  `UX_DEVICE_CONFIGURED` state. Disconnect still invalidates the session and
+  flushes all queues, so producers cannot accumulate stale output while the
+  host is absent.
+- Changed the build/sign helper to clean-build NonSecure every time. This is
+  required because CubeIDE can retain stale linked USBX middleware objects
+  after `ux_user.h` changes; an earlier incremental image therefore kept the
+  old priority-20 class threads even though the header had been corrected.
+- Fixed the combined asynchronous VL53L9 register read. Two separate calls to
+  `HAL_I3C_AddDescToFrame()` do not append descriptors: the second call resets
+  the first frame. The address-write and repeated-start payload-read
+  descriptors are now prepared together in one two-descriptor HAL frame.
+- Routed `EXTI9_IRQn` explicitly from Secure to the Non-Secure vector table.
+  The EXTI line had already been marked Non-Secure, but its NVIC target was
+  still Secure, so the new event-driven ToF acquisition task could miss every
+  PD9 falling edge and report `sensor interrupt timeout`.
 - Added the repository-root `.gitignore` for STM32CubeIDE build output, signed
   images, local downloads, reference material, backups, and operating-system
   files.
@@ -901,16 +1039,20 @@ arm-none-eabi-addr2line.exe -a -f -C -e .\project\AppliNonSecure\Debug\N6_AppliN
 
 ## 13. Known limitations and next steps
 
-1. Measure the processed 54×42 frame rate on hardware and confirm that the CLI
-   reports approximately 10.0 fps after the autonomous/`-O3` change.
-2. Watch the periodic ToF heartbeat and CDC TX logs while the terminal is open;
-   USB backpressure must not stop sensor acquisition.
-3. Test repeated CN8 attach/detach and verify that initialization is idempotent.
-4. Move CubeMX-managed outside-USER changes into custom files or a reproducible patch process.
-5. Physically install X-NUCLEO-67W61M1 before enabling its feature flag.
-6. Verify ST67 SPI handshaking and NCP firmware before enabling Wi-Fi/BLE.
-7. Design BLE OTA with an inactive slot, signature verification, atomic activation, and rollback.
-8. Replace -nk with a protected production signing chain before treating the device as secure.
+1. Use `tof status` to record an exact long-window processed-frame rate and
+   confirm approximately 10.0 fps rather than relying only on smooth visual
+   operation.
+2. Run a multi-hour soak test with the CDC terminal open and verify that USB
+   backpressure never stops sensor acquisition.
+3. Test repeated CN8 attach/detach and verify that initialization and data-plane
+   recovery are idempotent.
+4. Deliberately inject queue-full, lost-callback, and I3C/DMA error conditions
+   and verify the new counters, sticky diagnostics, and capped recovery paths.
+5. Move CubeMX-managed outside-USER changes into custom files or a reproducible patch process.
+6. Physically install X-NUCLEO-67W61M1 before enabling its feature flag.
+7. Verify ST67 SPI handshaking and NCP firmware before enabling Wi-Fi/BLE.
+8. Design BLE OTA with an inactive slot, signature verification, atomic activation, and rollback.
+9. Replace -nk with a protected production signing chain before treating the device as secure.
 
 ## 14. The project's golden rule
 

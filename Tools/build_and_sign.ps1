@@ -29,13 +29,23 @@ New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 foreach ($configuration in @(
     'N6_FSBL/Debug',
-    'N6_AppliSecure/Debug',
-    'N6_AppliNonSecure/Debug'
+    'N6_AppliSecure/Debug'
 )) {
     & $Builder -data $Workspace -build $configuration
     if ($LASTEXITCODE -ne 0) {
         throw "Build failed: $configuration"
     }
+}
+
+# ux_user.h changes compile into the USBX middleware objects, but CubeIDE's
+# linked-resource dependency tracking does not reliably invalidate them after
+# CubeMX regeneration.  A clean Non-Secure build prevents stale USBX thread
+# priorities, stack sizes, or feature switches from surviving into a signed
+# image.
+$nonSecureConfiguration = 'N6_AppliNonSecure/Debug'
+& $Builder -data $Workspace -cleanBuild $nonSecureConfiguration
+if ($LASTEXITCODE -ne 0) {
+    throw "Clean build failed: $nonSecureConfiguration"
 }
 
 $images = @(

@@ -22,6 +22,7 @@
 #define USB_CDC_MAX_TX_ATTEMPTS        (3U)
 #define USB_CDC_ERROR_BACKOFF_TICKS    (((TX_TIMER_TICKS_PER_SECOND / 100U) != 0U) ? \
                                         (TX_TIMER_TICKS_PER_SECOND / 100U) : 1U)
+#define USB_CDC_TX_CALLBACK_TIMEOUT_TICKS  (5U * TX_TIMER_TICKS_PER_SECOND)
 
 #define USB_CDC_FLAG_ACTIVE            (1UL << 0)
 #define USB_CDC_FLAG_RX_IDLE           (1UL << 1)
@@ -108,6 +109,9 @@ static ULONG usb_cdc_tx_packets_completed;
 static ULONG usb_cdc_tx_bytes_completed;
 static ULONG usb_cdc_tx_packets_dropped;
 static ULONG usb_cdc_tx_slot_exhaustions;
+static ULONG usb_cdc_tx_unavailable_drops;
+static ULONG usb_cdc_tx_queue_failures;
+static ULONG usb_cdc_tx_callback_timeouts;
 static ULONG usb_cdc_tx_callback_completions;
 static ULONG usb_cdc_tx_errors;
 static ULONG usb_cdc_tx_last_error;
@@ -116,8 +120,11 @@ static ULONG usb_cdc_rx_packets_delivered;
 static ULONG usb_cdc_rx_bytes_received;
 static ULONG usb_cdc_rx_packets_dropped;
 static ULONG usb_cdc_rx_slot_exhaustions;
+static ULONG usb_cdc_rx_queue_failures;
 static ULONG usb_cdc_rx_errors;
 static ULONG usb_cdc_rx_last_error;
+static ULONG usb_cdc_worker_sync_failures;
+static volatile ULONG usb_cdc_diagnostic_flags;
 
 static void usb_cdc_tx_thread_entry(ULONG thread_input);
 static void usb_cdc_rx_thread_entry(ULONG thread_input);
@@ -142,6 +149,8 @@ static void usb_cdc_flush_rx_queue(TX_QUEUE *queue);
 static void usb_cdc_release_consumer_slot(void);
 static void usb_cdc_signal_tx_completion(UINT status, ULONG length);
 static void usb_cdc_counter_add(ULONG *counter, ULONG value);
+static void usb_cdc_set_diagnostic(ULONG flags);
+static UINT usb_cdc_note_sync_status(UINT status);
 static void usb_cdc_set_last_error(ULONG *counter, ULONG *last_error,
                                    UINT status);
 
@@ -238,6 +247,7 @@ UINT USB_CDC_Transport_Init(void)
   }
 
   usb_cdc_session = 1U;
+  usb_cdc_diagnostic_flags = 0U;
   usb_cdc_initialized = 1U;
   Debug_UART_Log("CDC", "static transport ready: 8x768 control, 2x48KiB map, 16x512 RX");
   return TX_SUCCESS;
@@ -264,12 +274,24 @@ UINT USB_CDC_Transport_Start(UX_SLAVE_CLASS_CDC_ACM *instance)
   ++usb_cdc_session;
   usb_cdc_instance = instance;
   usb_cdc_active = 1U;
+  usb_cdc_diagnostic_flags = 0U;
   (void)tx_mutex_put(&usb_cdc_state_mutex);
 
-  (void)tx_event_flags_set(&usb_cdc_worker_flags,
-                           ~USB_CDC_FLAG_WORKERS_IDLE, TX_AND);
-  (void)tx_event_flags_set(&usb_cdc_worker_flags, USB_CDC_FLAG_ACTIVE,
-                           TX_OR);
+  status = usb_cdc_note_sync_status(
+      tx_event_flags_set(&usb_cdc_worker_flags,
+                         ~USB_CDC_FLAG_WORKERS_IDLE, TX_AND));
+  if (status != TX_SUCCESS)
+  {
+    USB_CDC_Transport_BeginStop();
+    return status;
+  }
+  status = usb_cdc_note_sync_status(
+      tx_event_flags_set(&usb_cdc_worker_flags, USB_CDC_FLAG_ACTIVE, TX_OR));
+  if (status != TX_SUCCESS)
+  {
+    USB_CDC_Transport_BeginStop();
+    return status;
+  }
 
   status = USB_CDC_LL_StartCallbacks(instance, usb_cdc_write_callback,
                                      usb_cdc_read_callback);
@@ -288,6 +310,7 @@ void USB_CDC_Transport_BeginStop(void)
 {
   UX_SLAVE_CLASS_CDC_ACM *instance = UX_NULL;
   ULONG wake_message = 0U;
+  UINT status;
 
   if (usb_cdc_initialized == 0U)
   {
@@ -303,8 +326,9 @@ void USB_CDC_Transport_BeginStop(void)
     (void)tx_mutex_put(&usb_cdc_state_mutex);
   }
 
-  (void)tx_event_flags_set(&usb_cdc_worker_flags,
-                           ~USB_CDC_FLAG_ACTIVE, TX_AND);
+  (void)usb_cdc_note_sync_status(
+      tx_event_flags_set(&usb_cdc_worker_flags,
+                         ~USB_CDC_FLAG_ACTIVE, TX_AND));
 
   if (tx_mutex_get(&usb_cdc_io_mutex, TX_WAIT_FOREVER) == TX_SUCCESS)
   {
@@ -323,8 +347,18 @@ void USB_CDC_Transport_BeginStop(void)
   usb_cdc_flush_rx_queue(&usb_cdc_rx_delivery_queue);
   usb_cdc_release_consumer_slot();
 
-  (void)tx_queue_send(&usb_cdc_tx_queue, &wake_message, TX_NO_WAIT);
-  (void)tx_queue_send(&usb_cdc_rx_ingress_queue, &wake_message, TX_NO_WAIT);
+  /* A full queue is already sufficient to wake its worker. Any other queue
+   * status means the ThreadX object itself could not accept the stop nudge. */
+  status = tx_queue_send(&usb_cdc_tx_queue, &wake_message, TX_NO_WAIT);
+  if ((status != TX_SUCCESS) && (status != TX_QUEUE_FULL))
+  {
+    (void)usb_cdc_note_sync_status(status);
+  }
+  status = tx_queue_send(&usb_cdc_rx_ingress_queue, &wake_message, TX_NO_WAIT);
+  if ((status != TX_SUCCESS) && (status != TX_QUEUE_FULL))
+  {
+    (void)usb_cdc_note_sync_status(status);
+  }
 }
 
 UINT USB_CDC_Transport_WaitStopped(ULONG wait_option)
@@ -340,6 +374,10 @@ UINT USB_CDC_Transport_WaitStopped(ULONG wait_option)
   status = tx_event_flags_get(&usb_cdc_worker_flags,
                               USB_CDC_FLAG_WORKERS_IDLE, TX_AND,
                               &actual_flags, wait_option);
+  if (status != TX_SUCCESS)
+  {
+    (void)usb_cdc_note_sync_status(status);
+  }
   usb_cdc_flush_tx_queue();
   usb_cdc_flush_rx_queue(&usb_cdc_rx_ingress_queue);
   usb_cdc_flush_rx_queue(&usb_cdc_rx_delivery_queue);
@@ -380,7 +418,16 @@ UINT USB_CDC_Transport_Send(const void *buffer, ULONG length,
                                           wait_option, &slot);
     if (status != TX_SUCCESS)
     {
-      usb_cdc_counter_add(&usb_cdc_tx_slot_exhaustions, 1U);
+      if (status == UX_ERROR)
+      {
+        usb_cdc_counter_add(&usb_cdc_tx_unavailable_drops, 1U);
+        usb_cdc_set_diagnostic(USB_CDC_DIAG_TX_UNAVAILABLE);
+      }
+      else
+      {
+        usb_cdc_counter_add(&usb_cdc_tx_slot_exhaustions, 1U);
+        usb_cdc_set_diagnostic(USB_CDC_DIAG_TX_SLOT_EXHAUSTED);
+      }
       usb_cdc_counter_add(&usb_cdc_tx_packets_dropped, 1U);
       return status;
     }
@@ -414,7 +461,16 @@ UINT USB_CDC_Transport_AcquireMapBuffer(USB_CDC_TxBuffer_t *buffer)
   status = usb_cdc_tx_slot_acquire(USB_CDC_TX_MAP, TX_NO_WAIT, &slot);
   if (status != TX_SUCCESS)
   {
-    usb_cdc_counter_add(&usb_cdc_tx_slot_exhaustions, 1U);
+    if (status == UX_ERROR)
+    {
+      usb_cdc_counter_add(&usb_cdc_tx_unavailable_drops, 1U);
+      usb_cdc_set_diagnostic(USB_CDC_DIAG_TX_UNAVAILABLE);
+    }
+    else
+    {
+      usb_cdc_counter_add(&usb_cdc_tx_slot_exhaustions, 1U);
+      usb_cdc_set_diagnostic(USB_CDC_DIAG_TX_SLOT_EXHAUSTED);
+    }
     return status;
   }
 
@@ -598,6 +654,9 @@ void USB_CDC_Transport_GetStatus(USB_CDC_TransportStatus_t *status)
   status->tx_bytes_completed = usb_cdc_tx_bytes_completed;
   status->tx_packets_dropped = usb_cdc_tx_packets_dropped;
   status->tx_slot_exhaustions = usb_cdc_tx_slot_exhaustions;
+  status->tx_unavailable_drops = usb_cdc_tx_unavailable_drops;
+  status->tx_queue_failures = usb_cdc_tx_queue_failures;
+  status->tx_callback_timeouts = usb_cdc_tx_callback_timeouts;
   status->tx_callback_completions = usb_cdc_tx_callback_completions;
   status->tx_errors = usb_cdc_tx_errors;
   status->tx_last_error = usb_cdc_tx_last_error;
@@ -606,9 +665,23 @@ void USB_CDC_Transport_GetStatus(USB_CDC_TransportStatus_t *status)
   status->rx_bytes_received = usb_cdc_rx_bytes_received;
   status->rx_packets_dropped = usb_cdc_rx_packets_dropped;
   status->rx_slot_exhaustions = usb_cdc_rx_slot_exhaustions;
+  status->rx_queue_failures = usb_cdc_rx_queue_failures;
   status->rx_errors = usb_cdc_rx_errors;
   status->rx_last_error = usb_cdc_rx_last_error;
+  status->worker_sync_failures = usb_cdc_worker_sync_failures;
   TX_RESTORE
+}
+
+ULONG USB_CDC_Transport_TakeDiagnosticFlags(void)
+{
+  ULONG flags;
+
+  TX_INTERRUPT_SAVE_AREA
+  TX_DISABLE
+  flags = usb_cdc_diagnostic_flags;
+  usb_cdc_diagnostic_flags = 0U;
+  TX_RESTORE
+  return flags;
 }
 
 static void usb_cdc_tx_thread_entry(ULONG thread_input)
@@ -620,6 +693,9 @@ static void usb_cdc_tx_thread_entry(ULONG thread_input)
   ULONG sent_length;
   UINT completion_status;
   UINT transfer_status;
+  UINT wait_status;
+  UINT rtos_status;
+  UINT callback_timed_out;
   UINT attempt;
   UX_SLAVE_CLASS_CDC_ACM *instance;
   USB_CDC_TxSlot_t *slot;
@@ -629,16 +705,38 @@ static void usb_cdc_tx_thread_entry(ULONG thread_input)
 
   for (;;)
   {
-    (void)tx_event_flags_set(&usb_cdc_worker_flags,
-                             USB_CDC_FLAG_TX_IDLE, TX_OR);
-    (void)tx_event_flags_get(&usb_cdc_worker_flags, USB_CDC_FLAG_ACTIVE,
-                             TX_AND, &actual_flags, TX_WAIT_FOREVER);
-    (void)tx_event_flags_set(&usb_cdc_worker_flags,
-                             ~USB_CDC_FLAG_TX_IDLE, TX_AND);
-
-    if (tx_queue_receive(&usb_cdc_tx_queue, &queue_message,
-                         TX_WAIT_FOREVER) != TX_SUCCESS)
+    rtos_status = usb_cdc_note_sync_status(
+        tx_event_flags_set(&usb_cdc_worker_flags,
+                           USB_CDC_FLAG_TX_IDLE, TX_OR));
+    if (rtos_status != TX_SUCCESS)
     {
+      tx_thread_sleep(1U);
+      continue;
+    }
+    rtos_status = tx_event_flags_get(&usb_cdc_worker_flags,
+                                     USB_CDC_FLAG_ACTIVE, TX_AND,
+                                     &actual_flags, TX_WAIT_FOREVER);
+    if (rtos_status != TX_SUCCESS)
+    {
+      (void)usb_cdc_note_sync_status(rtos_status);
+      tx_thread_sleep(1U);
+      continue;
+    }
+    rtos_status = usb_cdc_note_sync_status(
+        tx_event_flags_set(&usb_cdc_worker_flags,
+                           ~USB_CDC_FLAG_TX_IDLE, TX_AND));
+    if (rtos_status != TX_SUCCESS)
+    {
+      tx_thread_sleep(1U);
+      continue;
+    }
+
+    rtos_status = tx_queue_receive(&usb_cdc_tx_queue, &queue_message,
+                                   TX_WAIT_FOREVER);
+    if (rtos_status != TX_SUCCESS)
+    {
+      (void)usb_cdc_note_sync_status(rtos_status);
+      tx_thread_sleep(1U);
       continue;
     }
     if (queue_message == 0U)
@@ -662,6 +760,7 @@ static void usb_cdc_tx_thread_entry(ULONG thread_input)
            (usb_cdc_tx_slot_is_current(slot) != 0U) &&
            (attempt < USB_CDC_MAX_TX_ATTEMPTS))
     {
+      callback_timed_out = 0U;
       while (tx_semaphore_get(&usb_cdc_tx_completion,
                               TX_NO_WAIT) == TX_SUCCESS)
       {
@@ -693,6 +792,13 @@ static void usb_cdc_tx_thread_entry(ULONG thread_input)
           instance, &slot->data[sent_length], slot->length - sent_length);
       (void)tx_mutex_put(&usb_cdc_io_mutex);
 
+      if (expected_sequence == 1U)
+      {
+        Debug_UART_Log("CDC", "first async TX submitted: %lu bytes, status=%u",
+                       (unsigned long)(slot->length - sent_length),
+                       (unsigned int)transfer_status);
+      }
+
       if (transfer_status != UX_SUCCESS)
       {
         usb_cdc_signal_tx_completion(transfer_status, 0U);
@@ -700,7 +806,23 @@ static void usb_cdc_tx_thread_entry(ULONG thread_input)
 
       do
       {
-        (void)tx_semaphore_get(&usb_cdc_tx_completion, TX_WAIT_FOREVER);
+        wait_status = tx_semaphore_get(&usb_cdc_tx_completion,
+                                       USB_CDC_TX_CALLBACK_TIMEOUT_TICKS);
+        if (wait_status != TX_SUCCESS)
+        {
+          completion_status = UX_TRANSFER_TIMEOUT;
+          completed_length = 0U;
+          actual_flags = expected_sequence;
+          callback_timed_out = 1U;
+          usb_cdc_counter_add(&usb_cdc_tx_callback_timeouts, 1U);
+          usb_cdc_set_diagnostic(USB_CDC_DIAG_TX_CALLBACK_TIMEOUT);
+          Debug_UART_Log("CDC",
+                         "ERROR: async TX callback timeout: seq=%lu sent=%lu/%lu",
+                         (unsigned long)expected_sequence,
+                         (unsigned long)sent_length,
+                         (unsigned long)slot->length);
+          break;
+        }
         TX_DISABLE
         completion_status = usb_cdc_completion_status;
         completed_length = usb_cdc_completion_length;
@@ -709,6 +831,12 @@ static void usb_cdc_tx_thread_entry(ULONG thread_input)
       } while (actual_flags != expected_sequence);
 
       transfer_status = completion_status;
+      if (expected_sequence == 1U)
+      {
+        Debug_UART_Log("CDC", "first async TX callback: status=%u length=%lu",
+                       (unsigned int)completion_status,
+                       (unsigned long)completed_length);
+      }
       if (completed_length > (slot->length - sent_length))
       {
         transfer_status = UX_TRANSFER_ERROR;
@@ -716,7 +844,14 @@ static void usb_cdc_tx_thread_entry(ULONG thread_input)
       }
       sent_length += completed_length;
 
-      if ((transfer_status == UX_SUCCESS) &&
+      if (callback_timed_out != 0U)
+      {
+        /* USBX still owns the scheduled write. Do not submit again. The USB
+         * manager receives the error below and aborts/restarts the data plane
+         * before another static slot can be used. */
+        attempt = USB_CDC_MAX_TX_ATTEMPTS;
+      }
+      else if ((transfer_status == UX_SUCCESS) &&
           (sent_length < slot->length) && (completed_length != 0U))
       {
         attempt = 0U;
@@ -750,6 +885,7 @@ static void usb_cdc_tx_thread_entry(ULONG thread_input)
       }
       usb_cdc_set_last_error(&usb_cdc_tx_errors,
                              &usb_cdc_tx_last_error, transfer_status);
+      usb_cdc_set_diagnostic(USB_CDC_DIAG_TX_TRANSFER_ERROR);
       (void)App_USBX_Device_ReportTxError(transfer_status);
     }
     usb_cdc_tx_slot_release(slot);
@@ -760,6 +896,7 @@ static void usb_cdc_rx_thread_entry(ULONG thread_input)
 {
   ULONG queue_message;
   ULONG actual_flags;
+  UINT rtos_status;
   USB_CDC_RxSlot_t *slot;
 
   (void)thread_input;
@@ -767,16 +904,38 @@ static void usb_cdc_rx_thread_entry(ULONG thread_input)
 
   for (;;)
   {
-    (void)tx_event_flags_set(&usb_cdc_worker_flags,
-                             USB_CDC_FLAG_RX_IDLE, TX_OR);
-    (void)tx_event_flags_get(&usb_cdc_worker_flags, USB_CDC_FLAG_ACTIVE,
-                             TX_AND, &actual_flags, TX_WAIT_FOREVER);
-    (void)tx_event_flags_set(&usb_cdc_worker_flags,
-                             ~USB_CDC_FLAG_RX_IDLE, TX_AND);
-
-    if (tx_queue_receive(&usb_cdc_rx_ingress_queue, &queue_message,
-                         TX_WAIT_FOREVER) != TX_SUCCESS)
+    rtos_status = usb_cdc_note_sync_status(
+        tx_event_flags_set(&usb_cdc_worker_flags,
+                           USB_CDC_FLAG_RX_IDLE, TX_OR));
+    if (rtos_status != TX_SUCCESS)
     {
+      tx_thread_sleep(1U);
+      continue;
+    }
+    rtos_status = tx_event_flags_get(&usb_cdc_worker_flags,
+                                     USB_CDC_FLAG_ACTIVE, TX_AND,
+                                     &actual_flags, TX_WAIT_FOREVER);
+    if (rtos_status != TX_SUCCESS)
+    {
+      (void)usb_cdc_note_sync_status(rtos_status);
+      tx_thread_sleep(1U);
+      continue;
+    }
+    rtos_status = usb_cdc_note_sync_status(
+        tx_event_flags_set(&usb_cdc_worker_flags,
+                           ~USB_CDC_FLAG_RX_IDLE, TX_AND));
+    if (rtos_status != TX_SUCCESS)
+    {
+      tx_thread_sleep(1U);
+      continue;
+    }
+
+    rtos_status = tx_queue_receive(&usb_cdc_rx_ingress_queue, &queue_message,
+                                   TX_WAIT_FOREVER);
+    if (rtos_status != TX_SUCCESS)
+    {
+      (void)usb_cdc_note_sync_status(rtos_status);
+      tx_thread_sleep(1U);
       continue;
     }
     if (queue_message == 0U)
@@ -796,6 +955,8 @@ static void usb_cdc_rx_thread_entry(ULONG thread_input)
     if (tx_queue_send(&usb_cdc_rx_delivery_queue, &queue_message,
                       TX_NO_WAIT) != TX_SUCCESS)
     {
+      usb_cdc_counter_add(&usb_cdc_rx_queue_failures, 1U);
+      usb_cdc_set_diagnostic(USB_CDC_DIAG_RX_QUEUE_FULL);
       usb_cdc_rx_slot_release(slot);
       usb_cdc_counter_add(&usb_cdc_rx_packets_dropped, 1U);
     }
@@ -824,6 +985,7 @@ static UINT usb_cdc_read_callback(UX_SLAVE_CLASS_CDC_ACM *cdc_acm,
   {
     usb_cdc_set_last_error(&usb_cdc_rx_errors,
                            &usb_cdc_rx_last_error, status);
+    usb_cdc_set_diagnostic(USB_CDC_DIAG_RX_TRANSFER_ERROR);
     (void)App_USBX_Device_ReportRxError(status);
     return UX_SUCCESS;
   }
@@ -843,6 +1005,7 @@ static UINT usb_cdc_read_callback(UX_SLAVE_CLASS_CDC_ACM *cdc_acm,
   {
     usb_cdc_counter_add(&usb_cdc_rx_slot_exhaustions, 1U);
     usb_cdc_counter_add(&usb_cdc_rx_packets_dropped, 1U);
+    usb_cdc_set_diagnostic(USB_CDC_DIAG_RX_SLOT_EXHAUSTED);
     return UX_SUCCESS;
   }
 
@@ -853,6 +1016,8 @@ static UINT usb_cdc_read_callback(UX_SLAVE_CLASS_CDC_ACM *cdc_acm,
   if (tx_queue_send(&usb_cdc_rx_ingress_queue, &queue_message,
                     TX_NO_WAIT) != TX_SUCCESS)
   {
+    usb_cdc_counter_add(&usb_cdc_rx_queue_failures, 1U);
+    usb_cdc_set_diagnostic(USB_CDC_DIAG_RX_QUEUE_FULL);
     usb_cdc_rx_slot_release(slot);
     usb_cdc_counter_add(&usb_cdc_rx_packets_dropped, 1U);
     return UX_SUCCESS;
@@ -876,7 +1041,8 @@ static UINT usb_cdc_snapshot(UX_SLAVE_CLASS_CDC_ACM **instance,
 
   if (tx_mutex_get(&usb_cdc_state_mutex, TX_WAIT_FOREVER) == TX_SUCCESS)
   {
-    if ((usb_cdc_active != 0U) && (usb_cdc_instance != UX_NULL))
+    if ((usb_cdc_active != 0U) && (usb_cdc_instance != UX_NULL) &&
+        (USB_CDC_LL_IsConfigured(usb_cdc_instance) == UX_TRUE))
     {
       *instance = usb_cdc_instance;
       *session = usb_cdc_session;
@@ -976,6 +1142,8 @@ static UINT usb_cdc_tx_slot_commit(USB_CDC_TxSlot_t *slot, ULONG length,
   status = tx_queue_send(&usb_cdc_tx_queue, &queue_message, wait_option);
   if (status != TX_SUCCESS)
   {
+    usb_cdc_counter_add(&usb_cdc_tx_queue_failures, 1U);
+    usb_cdc_set_diagnostic(USB_CDC_DIAG_TX_QUEUE_FULL);
     usb_cdc_tx_slot_release(slot);
     return status;
   }
@@ -1156,7 +1324,10 @@ static void usb_cdc_signal_tx_completion(UINT status, ULONG length)
   TX_RESTORE
   if (signal != 0U)
   {
-    (void)tx_semaphore_put(&usb_cdc_tx_completion);
+    /* The callback cannot log safely. Retain a sticky diagnostic if ThreadX
+     * rejects the wakeup; the bounded TX wait remains the final safety net. */
+    (void)usb_cdc_note_sync_status(
+        tx_semaphore_put(&usb_cdc_tx_completion));
   }
 }
 
@@ -1166,6 +1337,24 @@ static void usb_cdc_counter_add(ULONG *counter, ULONG value)
   TX_DISABLE
   *counter += value;
   TX_RESTORE
+}
+
+static void usb_cdc_set_diagnostic(ULONG flags)
+{
+  TX_INTERRUPT_SAVE_AREA
+  TX_DISABLE
+  usb_cdc_diagnostic_flags |= flags;
+  TX_RESTORE
+}
+
+static UINT usb_cdc_note_sync_status(UINT status)
+{
+  if (status != TX_SUCCESS)
+  {
+    usb_cdc_counter_add(&usb_cdc_worker_sync_failures, 1U);
+    usb_cdc_set_diagnostic(USB_CDC_DIAG_WORKER_SYNC_FAILURE);
+  }
+  return status;
 }
 
 static void usb_cdc_set_last_error(ULONG *counter, ULONG *last_error,

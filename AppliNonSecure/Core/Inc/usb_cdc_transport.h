@@ -9,6 +9,16 @@
 extern "C" {
 #endif
 
+#define USB_CDC_DIAG_TX_UNAVAILABLE       (1UL << 0)
+#define USB_CDC_DIAG_TX_SLOT_EXHAUSTED    (1UL << 1)
+#define USB_CDC_DIAG_TX_QUEUE_FULL        (1UL << 2)
+#define USB_CDC_DIAG_TX_CALLBACK_TIMEOUT  (1UL << 3)
+#define USB_CDC_DIAG_TX_TRANSFER_ERROR    (1UL << 4)
+#define USB_CDC_DIAG_RX_SLOT_EXHAUSTED    (1UL << 5)
+#define USB_CDC_DIAG_RX_QUEUE_FULL        (1UL << 6)
+#define USB_CDC_DIAG_RX_TRANSFER_ERROR    (1UL << 7)
+#define USB_CDC_DIAG_WORKER_SYNC_FAILURE  (1UL << 8)
+
 typedef struct
 {
   UINT initialized;
@@ -25,6 +35,9 @@ typedef struct
   ULONG tx_bytes_completed;
   ULONG tx_packets_dropped;
   ULONG tx_slot_exhaustions;
+  ULONG tx_unavailable_drops;
+  ULONG tx_queue_failures;
+  ULONG tx_callback_timeouts;
   ULONG tx_callback_completions;
   ULONG tx_errors;
   ULONG tx_last_error;
@@ -33,8 +46,10 @@ typedef struct
   ULONG rx_bytes_received;
   ULONG rx_packets_dropped;
   ULONG rx_slot_exhaustions;
+  ULONG rx_queue_failures;
   ULONG rx_errors;
   ULONG rx_last_error;
+  ULONG worker_sync_failures;
 } USB_CDC_TransportStatus_t;
 
 typedef struct
@@ -68,6 +83,10 @@ UINT USB_CDC_Transport_Receive(void *buffer, ULONG requested_length,
                                ULONG *actual_length, ULONG wait_option);
 
 void USB_CDC_Transport_GetStatus(USB_CDC_TransportStatus_t *status);
+
+/* Atomically return and clear rare-event flags. Counters in GetStatus retain
+ * the full history; flags merely wake concise, thread-context diagnostics. */
+ULONG USB_CDC_Transport_TakeDiagnosticFlags(void);
 
 #ifdef __cplusplus
 }

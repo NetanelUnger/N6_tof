@@ -39,8 +39,10 @@ platform_gpio_t g_debug_gpio_2 = { 0 };
 static volatile platform_event_t g_platform_evt;
 static TX_EVENT_FLAGS_GROUP g_platform_event_flags;
 static volatile uint32_t g_platform_event_ready;
+static platform_diagnostics_t g_platform_diagnostics;
 
 /* private functions */
+static void platform_post_event_from_callback(platform_event_t event);
 
 /* exported functions */
 
@@ -262,6 +264,7 @@ int platform_event_init(void) {
         return -1;
     }
     g_platform_evt = PLATFORM_NONE_EVT;
+    memset(&g_platform_diagnostics, 0, sizeof(g_platform_diagnostics));
     g_platform_event_ready = 1U;
     return 0;
 }
@@ -324,6 +327,20 @@ int platform_wait_for_event(platform_event_t event, uint32_t timeout_ms) {
         }
     }
 
+    /* g_platform_evt is a sticky fallback for the rare case where the ISR ran
+     * but ThreadX rejected the event-flags post. Callers acknowledge stale
+     * bits before starting each transaction, so consuming the sticky bit here
+     * cannot complete a newer transfer accidentally. */
+    if (((event == PLATFORM_I3C_DMA_RX_EVT) ||
+         (event == PLATFORM_I3C_DMA_TX_EVT)) &&
+        ((g_platform_evt & PLATFORM_I3C_ERROR_EVT) != 0U)) {
+        (void)platform_acknowledge_event(PLATFORM_I3C_ERROR_EVT);
+        return -2;
+    }
+    if ((g_platform_evt & event) != 0U) {
+        return 0;
+    }
+
     if ((event == PLATFORM_I3C_DMA_RX_EVT) ||
         (event == PLATFORM_I3C_DMA_TX_EVT)) {
         requested |= PLATFORM_I3C_ERROR_EVT;
@@ -337,6 +354,8 @@ int platform_wait_for_event(platform_event_t event, uint32_t timeout_ms) {
     status = tx_event_flags_get(&g_platform_event_flags, requested, TX_OR,
                                 &actual, wait_ticks);
     if (status != TX_SUCCESS) {
+        ++g_platform_diagnostics.event_wait_failures;
+        g_platform_diagnostics.last_event_status = (uint32_t)status;
         return -1;
     }
     if ((actual & PLATFORM_I3C_ERROR_EVT) != 0U) {
@@ -348,6 +367,10 @@ int platform_wait_for_event(platform_event_t event, uint32_t timeout_ms) {
 
 int platform_acknowledge_event(platform_event_t event) {
     int res = 0;
+    UINT status;
+    TX_INTERRUPT_SAVE_AREA
+
+    TX_DISABLE
     switch (event) {
     case PLATFORM_GPIO_IT_EVT:
         g_platform_evt &= ~PLATFORM_GPIO_IT_EVT;
@@ -368,11 +391,18 @@ int platform_acknowledge_event(platform_event_t event) {
         res = -1;
         break;
     }
+    TX_RESTORE
 
     if ((res == 0) && (g_platform_event_ready != 0U)) {
         ULONG actual = 0U;
-        (void)tx_event_flags_get(&g_platform_event_flags, (ULONG)event,
-                                 TX_OR_CLEAR, &actual, TX_NO_WAIT);
+        status = tx_event_flags_get(&g_platform_event_flags, (ULONG)event,
+                                    TX_OR_CLEAR, &actual, TX_NO_WAIT);
+        /* TX_NO_EVENTS is expected when only the sticky ISR fallback was set.
+         * Every other failure indicates an invalid/corrupted ThreadX object. */
+        if ((status != TX_SUCCESS) && (status != TX_NO_EVENTS)) {
+            ++g_platform_diagnostics.event_clear_failures;
+            g_platform_diagnostics.last_event_status = (uint32_t)status;
+        }
     }
     return res;
 }
@@ -382,15 +412,57 @@ int platform_get_event_status(platform_event_t event, bool *active) {
     return 0;
 }
 
+void platform_get_diagnostics(platform_diagnostics_t *diagnostics) {
+    if (diagnostics == NULL) {
+        return;
+    }
+
+    TX_INTERRUPT_SAVE_AREA
+    TX_DISABLE
+    *diagnostics = g_platform_diagnostics;
+    TX_RESTORE
+}
+
+void platform_record_i3c_start_failure(platform_i3c_start_stage_t stage,
+                                       uint32_t hal_status) {
+    TX_INTERRUPT_SAVE_AREA
+    TX_DISABLE
+    ++g_platform_diagnostics.i3c_start_failure_count;
+    g_platform_diagnostics.last_start_stage = (uint32_t)stage;
+    g_platform_diagnostics.last_start_hal_status = hal_status;
+    g_platform_diagnostics.last_error_tick = HAL_GetTick();
+    g_platform_diagnostics.last_error_code = hi3c1.ErrorCode;
+    g_platform_diagnostics.last_i3c_state = (uint32_t)hi3c1.State;
+    g_platform_diagnostics.last_evr =
+        (hi3c1.Instance != NULL) ? hi3c1.Instance->EVR : UINT32_MAX;
+    g_platform_diagnostics.last_control_dma_state =
+        (hi3c1.hdmacr != NULL) ? (uint32_t)hi3c1.hdmacr->State : UINT32_MAX;
+    g_platform_diagnostics.last_rx_dma_state =
+        (hi3c1.hdmarx != NULL) ? (uint32_t)hi3c1.hdmarx->State : UINT32_MAX;
+    g_platform_diagnostics.last_tx_dma_state =
+        (hi3c1.hdmatx != NULL) ? (uint32_t)hi3c1.hdmatx->State : UINT32_MAX;
+    TX_RESTORE
+}
+
 /* HAL callbacks */
+
+static void platform_post_event_from_callback(platform_event_t event) {
+    UINT status = TX_NOT_AVAILABLE;
+
+    g_platform_evt |= event;
+    if (g_platform_event_ready != 0U) {
+        status = tx_event_flags_set(&g_platform_event_flags,
+                                    (ULONG)event, TX_OR);
+    }
+    if (status != TX_SUCCESS) {
+        ++g_platform_diagnostics.event_post_failures;
+    }
+}
 
 void HAL_I3C_CtrlRxCpltCallback(I3C_HandleTypeDef *hi3c) {
     if (hi3c == &hi3c1) {
-        g_platform_evt |= PLATFORM_I3C_DMA_RX_EVT;
-        if (g_platform_event_ready != 0U) {
-            (void)tx_event_flags_set(&g_platform_event_flags,
-                                     PLATFORM_I3C_DMA_RX_EVT, TX_OR);
-        }
+        ++g_platform_diagnostics.i3c_rx_completion_count;
+        platform_post_event_from_callback(PLATFORM_I3C_DMA_RX_EVT);
     }
 }
 
@@ -398,50 +470,44 @@ void HAL_I3C_CtrlMultipleXferCpltCallback(I3C_HandleTypeDef *hi3c) {
     if (hi3c == &hi3c1) {
         /* Register reads are emitted as one DMA multiple-transfer frame:
          * two address bytes, repeated start, then the RX payload. */
-        g_platform_evt |= PLATFORM_I3C_DMA_RX_EVT;
-        if (g_platform_event_ready != 0U) {
-            (void)tx_event_flags_set(&g_platform_event_flags,
-                                     PLATFORM_I3C_DMA_RX_EVT, TX_OR);
-        }
+        ++g_platform_diagnostics.i3c_rx_completion_count;
+        platform_post_event_from_callback(PLATFORM_I3C_DMA_RX_EVT);
     }
 }
 
 void HAL_I3C_CtrlTxCpltCallback(I3C_HandleTypeDef *hi3c) {
     if (hi3c == &hi3c1) {
-        g_platform_evt |= PLATFORM_I3C_DMA_TX_EVT;
-        if (g_platform_event_ready != 0U) {
-            (void)tx_event_flags_set(&g_platform_event_flags,
-                                     PLATFORM_I3C_DMA_TX_EVT, TX_OR);
-        }
+        ++g_platform_diagnostics.i3c_tx_completion_count;
+        platform_post_event_from_callback(PLATFORM_I3C_DMA_TX_EVT);
     }
 }
 
 void HAL_I3C_ErrorCallback(I3C_HandleTypeDef *hi3c) {
     if (hi3c == &hi3c1) {
-        g_platform_evt |= PLATFORM_I3C_ERROR_EVT;
-        if (g_platform_event_ready != 0U) {
-            (void)tx_event_flags_set(&g_platform_event_flags,
-                                     PLATFORM_I3C_ERROR_EVT, TX_OR);
-        }
+        ++g_platform_diagnostics.i3c_error_count;
+        g_platform_diagnostics.last_error_tick = HAL_GetTick();
+        g_platform_diagnostics.last_error_code = hi3c->ErrorCode;
+        g_platform_diagnostics.last_i3c_state = (uint32_t)hi3c->State;
+        g_platform_diagnostics.last_evr = hi3c->Instance->EVR;
+        g_platform_diagnostics.last_control_dma_state =
+            (hi3c->hdmacr != NULL) ? (uint32_t)hi3c->hdmacr->State : UINT32_MAX;
+        g_platform_diagnostics.last_rx_dma_state =
+            (hi3c->hdmarx != NULL) ? (uint32_t)hi3c->hdmarx->State : UINT32_MAX;
+        g_platform_diagnostics.last_tx_dma_state =
+            (hi3c->hdmatx != NULL) ? (uint32_t)hi3c->hdmatx->State : UINT32_MAX;
+        platform_post_event_from_callback(PLATFORM_I3C_ERROR_EVT);
     }
 }
 
 void HAL_I3C_NotifyCallback(I3C_HandleTypeDef *hi3c, uint32_t eventId) {
-    if ((eventId & EVENT_ID_IBI) == EVENT_ID_IBI) {
-        g_platform_evt |= PLATFORM_I3C_IBI_EVT;
-        if (g_platform_event_ready != 0U) {
-            (void)tx_event_flags_set(&g_platform_event_flags,
-                                     PLATFORM_I3C_IBI_EVT, TX_OR);
-        }
+    if ((hi3c == &hi3c1) && ((eventId & EVENT_ID_IBI) == EVENT_ID_IBI)) {
+        platform_post_event_from_callback(PLATFORM_I3C_IBI_EVT);
     }
 }
 
 void platform_notify_gpio_interrupt(void) {
-    g_platform_evt |= PLATFORM_GPIO_IT_EVT;
-    if (g_platform_event_ready != 0U) {
-        (void)tx_event_flags_set(&g_platform_event_flags,
-                                 PLATFORM_GPIO_IT_EVT, TX_OR);
-    }
+    ++g_platform_diagnostics.gpio_interrupt_count;
+    platform_post_event_from_callback(PLATFORM_GPIO_IT_EVT);
 }
 
 /* csi interface */

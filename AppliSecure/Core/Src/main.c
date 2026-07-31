@@ -380,7 +380,11 @@ static void MX_GPDMA1_Init(void)
   __HAL_RCC_GPIOG_CLK_ENABLE();
   HAL_GPIO_ConfigPinAttributes(GPIOG, GPIO_PIN_1 | GPIO_PIN_2,
                                GPIO_PIN_NSEC | GPIO_PIN_NPRIV);
+  /* EXTI9 is shared by the ToF INT on PD9 and the optional ST67 SPI_RDY on
+     PE9.  The line attribute alone is not enough: route the NVIC interrupt
+     itself to the NonSecure vector table as well. */
   HAL_EXTI_ConfigLineAttributes(EXTI_LINE_9, EXTI_LINE_NSEC | EXTI_LINE_NPRIV);
+  (void)NVIC_SetTargetState(EXTI9_IRQn);
 
   wifi_dma_tx.Instance = GPDMA1_Channel10;
   wifi_dma_rx.Instance = GPDMA1_Channel11;

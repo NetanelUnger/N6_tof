@@ -398,12 +398,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);
 
-  /*Configure the EXTI line attribute */
-  HAL_EXTI_ConfigLineAttributes(EXTI_LINE_9, EXTI_LINE_SEC);
-
   /*Configure GPIO pin : SPI_RDY_Pin */
   GPIO_InitStruct.Pin = SPI_RDY_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(SPI_RDY_GPIO_Port, &GPIO_InitStruct);
 
@@ -423,7 +420,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : TOF_INT_Pin */
   GPIO_InitStruct.Pin = TOF_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(TOF_INT_GPIO_Port, &GPIO_InitStruct);
 
@@ -433,6 +430,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(SPI_CS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure the EXTI line attribute */
+  HAL_EXTI_ConfigLineAttributes(EXTI_LINE_9, EXTI_LINE_SEC);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 

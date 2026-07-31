@@ -51,9 +51,10 @@ extern "C" {
 
 /* USER CODE BEGIN EC */
 
-/* Allow for the USBX system memory plus the enlarged USB control-thread stack. */
+/* Allow for the 32 KiB USBX system pool plus the enlarged USB control-thread
+ * stack and byte-pool bookkeeping. */
 #undef UX_APP_MEM_POOL_SIZE
-#define UX_APP_MEM_POOL_SIZE                     (32U * 1024U)
+#define UX_APP_MEM_POOL_SIZE                     (64U * 1024U)
 
 /* Queue storage, control blocks and the enlarged USB-PD CAD-thread stack. */
 #undef USBPD_DEVICE_APP_MEM_POOL_SIZE
