@@ -619,6 +619,34 @@ If USB is unavailable, producers do not place stale data into an unbounded
 backlog. The send request returns a controlled unavailable/full result, updates
 a diagnostic counter, and lets the producer continue according to policy.
 
+### 14.5 Table-driven text commands
+
+Keep command parsing separate from the USB transport. The reusable
+`menu.c/.h` module accepts bytes in arbitrary chunks, stores one partial line in
+a caller-owned static buffer, and dispatches only after CR, LF, or CRLF.
+
+Commands are declared as constant prefix/handler pairs:
+
+```c
+static const Menu_Object_t application_menu[] =
+{
+  MENU_OBJECT("turn on", device_turn_on),
+  MENU_OBJECT("turn off", device_turn_off),
+  MENU_OBJECT("set tof", tof_set_data)
+};
+```
+
+For example, `set tof 123,123` selects the `set tof` object and passes the
+complete line to `tof_set_data()`. Delimiter-aware longest-prefix matching lets
+specific commands coexist with broader prefixes. `Menu_Reply()` uses a second
+caller-owned static buffer and the configured send callback to transmit one
+response with exactly one CRLF terminator.
+
+The parser performs no allocation. An overlength command is discarded through
+its next Enter, so a truncated prefix can never execute accidentally. The CLI
+task remains the single owner of the menu instance; parsing does not run inside
+a USB callback.
+
 ## 15. Phase K — add independent diagnostics
 
 USB is one of the systems being developed, so it cannot be the only debug
@@ -898,4 +926,3 @@ Before calling a reconstruction successful, you should be able to explain:
 
 If those points are clear, you have learned the most reusable engineering ideas
 in this project rather than only copying its files.
-

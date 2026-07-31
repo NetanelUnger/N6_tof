@@ -117,7 +117,8 @@ Files imported from X-CUBE packages are not necessarily CubeMX-owned. The VL53L9
 | AppliNonSecure/Utilities/vl53l9-common/vl53l9/vl53l9_platform.c | Persistent combined-transfer and TX-DMA contexts |
 | AppliNonSecure/Drivers/BSP/Components/vl53l9/vl53l9.c | Sensor driver plus local stage-level asynchronous frame API |
 | AppliNonSecure/Core/Src/debug_uart.c | Independent ST-LINK diagnostics |
-| AppliNonSecure/Core/Src/debug_cli.c | USB CDC command interface |
+| AppliNonSecure/Core/Inc/menu.h and Core/Src/menu.c | Allocation-free chunked line parser, prefix table, handler dispatch, and CRLF reply API |
+| AppliNonSecure/Core/Src/debug_cli.c | USB CDC command table, handlers, echo, and console-mode behavior |
 | AppliNonSecure/Core/Src/usb_cdc_transport.c | Static CDC slots, RX/TX queues, callbacks, sessions, flow/error counters |
 | AppliNonSecure/Core/Src/wifi_ble_app.c | Optional ST67 application task |
 | AppliNonSecure/USBX/App/app_usbx_device.c | USB Device state machine and USBX initialization |
@@ -247,7 +248,7 @@ Current task sizing:
 | USB CDC RX worker | 9 | 12 KiB, statically allocated |
 | USB CDC TX worker | 9 | 12 KiB, statically allocated |
 | ST67 WiFi BLE | 11 | 8 KiB, currently disabled |
-| USB debug CLI | 12 | 6 KiB |
+| USB debug CLI | 9 | 6 KiB |
 
 ## 9. Known ST defects and non-defects
 
@@ -389,6 +390,20 @@ stack-local version or split the address phase back into a blocking transfer.
   maps must use Acquire/Commit/Cancel so the renderer writes directly into a
   static 48 KiB map slot. All RX data must be consumed through
   `USB_CDC_Transport_Receive`.
+- Keep `menu.c/.h` platform-independent and allocation-free. The CLI task is
+  the sole owner of each `Menu_t`; do not invoke `Menu_Process()` concurrently
+  from USBX callbacks or another task.
+- Keep the USB CLI at a higher scheduling priority than the priority-10 ToF
+  processing task. The processor may remain continuously ready while dropping
+  stale raw frames; a lower-priority CLI can therefore starve even after the
+  CDC RX callback has accepted Enter.
+- Command entries are prefix/handler pairs. Preserve delimiter-aware
+  longest-prefix matching, full-line dispatch only after CR/LF/CRLF, and
+  discard-until-Enter behavior after input overflow.
+- Menu handlers receive the complete normalized command line in task context.
+  Static textual responses should use `Menu_Reply()`, which builds one
+  CRLF-terminated response in the caller-owned reply buffer and submits it
+  through `App_Console_Write()` without allocation.
 - Preserve the static slot counts and sizes (control TX 8×768, map TX 2×48 KiB,
   RX 16×512), bounded pointer queues, semaphores, and session tags unless a
   measured redesign updates code and documentation together. ToF map enqueue

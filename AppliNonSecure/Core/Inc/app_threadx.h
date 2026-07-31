@@ -58,7 +58,11 @@
 #define TX_WIFI_BLE_STACK_SIZE                  (8U * 1024U)
 #define TX_WIFI_BLE_THREAD_PRIO                 (11U)
 #define TX_USB_CLI_STACK_SIZE                   (6U * 1024U)
-#define TX_USB_CLI_THREAD_PRIO                  (12U)
+/* The ToF processor can remain continuously ready when transform throughput
+ * is lower than the 10 fps acquisition rate.  Keep the interactive CLI above
+ * that priority so a received Enter byte cannot be starved behind raw frames.
+ * Priority 9 also matches the short-lived CDC RX/TX dispatch workers. */
+#define TX_USB_CLI_THREAD_PRIO                  (9U)
 
 /* USER CODE END PD */
 

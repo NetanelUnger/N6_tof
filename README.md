@@ -330,8 +330,11 @@ The CDC application is split into a control plane and a data plane:
   session control, counters, and fixed statically allocated slots.
 - `app_console.c/.h` is a thin producer/consumer facade. It never executes a
   USBX transfer directly.
-- `debug_cli.c/.h` parses terminal input received from the RX delivery queue
-  and writes responses through the static control-message slots.
+- `menu.c/.h` is a platform-independent, allocation-free line parser and
+  command-prefix dispatcher.
+- `debug_cli.c/.h` supplies the command table and handlers, receives terminal
+  input from the RX delivery queue, and writes responses through the static
+  control-message slots.
 
 USBX owns the physical bulk-OUT receive loop in callback transmission mode.
 The USBX read callback copies each completed transfer into one static RX slot
@@ -411,7 +414,53 @@ Available CLI commands:
 | clear | Clear the terminal |
 | reboot yes | Reset the MCU |
 
-#### 5.3.1 Rare-event handling and diagnostics
+#### 5.3.1 Table-driven command menu
+
+The CLI no longer uses one growing `if/else` dispatcher. It declares a constant
+array of `Menu_Object_t` entries:
+
+~~~c
+static const Menu_Object_t cli_menu_objects[] =
+{
+  MENU_OBJECT("help", cli_command_help),
+  MENU_OBJECT("status", cli_command_status),
+  MENU_OBJECT("usb", cli_command_usb),
+  MENU_OBJECT("map", cli_command_map),
+  MENU_OBJECT("tof", cli_command_tof),
+  MENU_OBJECT("reboot", cli_command_reboot)
+};
+~~~
+
+Each entry contains a command prefix and a function pointer. The selected
+handler receives the complete command line, so an entry such as `set tof` can
+handle a line such as `set tof 123,123` without changing the parser.
+
+`Menu_Process()` accepts arbitrary input chunks. It retains a partial line in a
+caller-owned 192-byte buffer until CR, LF, or CRLF arrives. Matching is
+case-sensitive, requires a word boundary after the registered prefix, and uses
+the longest valid prefix when entries overlap. Backspace/Delete edit the
+pending line. An overlength line is discarded through its next Enter instead
+of dispatching a truncated command.
+
+There is no allocation. The menu instance, command table, input buffer, and
+768-byte reply buffer are all static. `Menu_Reply()` normalizes any existing
+line ending, adds exactly one CRLF, and submits the complete response through
+the application-supplied send callback in one call. In this project that
+callback uses `App_Console_Write()`, so the existing CDC TX worker still owns
+the physical USB transfer.
+
+To add a command:
+
+1. Write a handler with the signature
+   `void handler(Menu_t *menu, const char *full_command)`.
+2. Add one `MENU_OBJECT("command prefix", handler)` entry.
+3. Parse any arguments from `full_command`.
+4. Return textual results with `Menu_Reply()`; every reply will end in Enter.
+
+The generic API and a standalone example are documented directly in
+`AppliNonSecure/Core/Inc/menu.h`.
+
+#### 5.3.2 Rare-event handling and diagnostics
 
 The high-rate paths deliberately separate evidence capture from text output.
 USBX and HAL callbacks never format UART strings. They update fixed counters,
@@ -695,7 +744,7 @@ In ThreadX, a smaller priority number means a higher scheduling priority.
 | USB CDC RX worker | 9 | 12 KiB | Static BSS | Dispatches callback-filled static RX slots into the application delivery queue |
 | USB CDC TX worker | 9 | 12 KiB | Static BSS | Submits one static TX slot and waits for the USBX completion callback before advancing |
 | ST67 WiFi BLE | 11 | 8 KiB | TX application pool | W6X, Wi-Fi station, and BLE server; currently not created |
-| USB debug CLI | 12 | 6 KiB | TX application pool | CDC input, line editing, and commands |
+| USB debug CLI | 9 | 6 KiB | TX application pool | CDC input, line editing, and commands; runs above the continuously ready ToF processor |
 
 Additional internal ThreadX and USBX tasks may be created by the middleware, such as the ThreadX timer task and USBX class tasks.
 
@@ -806,6 +855,24 @@ arm-none-eabi-addr2line.exe -a -f -C -e .\project\AppliNonSecure\Debug\N6_AppliN
 
 ### 2026-07-31
 
+- Raised the USB CLI task from priority 12 to priority 9. When transform
+  throughput is below the 10 fps acquisition rate, the priority-10 ToF
+  processor can remain continuously ready and previously starved the CLI even
+  though the CDC RX callback had accepted Enter. The CLI now runs at the CDC
+  worker priority, handles the short input burst, and blocks again while the
+  ToF processor continues. Added one-shot COM6 breadcrumbs for the first CDC
+  input and the transition into console mode.
+- Added a documented, allocation-free `menu.c/.h` command engine. It accepts
+  fragmented input, waits for Enter, performs longest-prefix dispatch through
+  a constant function-pointer table, passes the complete line to the handler,
+  and emits one normalized CRLF-terminated reply through an application
+  callback. The existing USB CLI now uses this table instead of its previous
+  monolithic command dispatcher.
+- Added static 192-byte command and 768-byte reply buffers, CR/LF/CRLF and
+  backspace handling, discard-until-Enter overflow behavior, and a documented
+  unknown-command handler. No packet or parser allocation was introduced.
+- Clean-built FSBL, Secure, and Non-Secure after the menu integration and
+  generated fresh version-2.3 trusted images successfully.
 - Added [GUIDE.md](GUIDE.md), a from-scratch learning path covering the
   NUCLEO-N657X0-Q CubeMX setup, all four security/boot contexts, VL53L9CX
   driver import and N6 port, asynchronous I3C/ThreadX architecture, USB CDC

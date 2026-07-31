@@ -8,8 +8,10 @@
 #include "app_console.h"
 #include "app_features.h"
 #include "app_logging.h"
+#include "debug_uart.h"
 #include "logging_levels.h"
 #include "main.h"
+#include "menu.h"
 #include "tof_app.h"
 #include "usb_cdc_transport.h"
 #include "wifi_ble_app.h"
@@ -26,9 +28,13 @@
 static char cli_line[CLI_LINE_SIZE];
 static size_t cli_line_length;
 static char cli_print_buffer[CLI_PRINT_SIZE];
+static char cli_menu_input[CLI_LINE_SIZE];
+static char cli_menu_reply[CLI_PRINT_SIZE];
+static Menu_t cli_menu;
 static uint32_t cli_console_mode;
 static uint32_t cli_secret_mode;
 static uint32_t cli_previous_was_cr;
+static uint32_t cli_first_input_logged;
 #if (APP_ST67W6X_ENABLED == 1U)
 static uint8_t cli_pending_ssid[W6X_WIFI_MAX_SSID_SIZE + 1U];
 static volatile uint32_t cli_wifi_scan_active;
@@ -36,8 +42,20 @@ static volatile uint32_t cli_wifi_scan_active;
 
 static void cli_process_byte(uint8_t byte);
 static void cli_enter_console(void);
-static void cli_execute_line(char *line);
 static int cli_split_arguments(char *line, char *argv[], int max_arguments);
+static int cli_get_arguments(const char *command, char *copy,
+                             size_t copy_size, char *argv[],
+                             int max_arguments);
+static int32_t cli_menu_send(const char *text, size_t length, void *context);
+static void cli_command_help(Menu_t *menu, const char *command);
+static void cli_command_status(Menu_t *menu, const char *command);
+static void cli_command_usb(Menu_t *menu, const char *command);
+static void cli_command_clear(Menu_t *menu, const char *command);
+static void cli_command_map(Menu_t *menu, const char *command);
+static void cli_command_tof(Menu_t *menu, const char *command);
+static void cli_command_debug(Menu_t *menu, const char *command);
+static void cli_command_reboot(Menu_t *menu, const char *command);
+static void cli_command_unknown(Menu_t *menu, const char *command);
 static void cli_print(const char *format, ...);
 static void cli_prompt(void);
 static void cli_show_help(void);
@@ -48,6 +66,9 @@ static const char *cli_tof_state_name(TOF_App_State_t state);
 static const char *cli_radio_state_name(WifiBle_State_t state);
 static const char *cli_log_level_name(uint32_t level);
 #if (APP_ST67W6X_ENABLED == 1U)
+static void cli_command_radio(Menu_t *menu, const char *command);
+static void cli_command_wifi(Menu_t *menu, const char *command);
+static void cli_command_ble(Menu_t *menu, const char *command);
 static uint32_t cli_radio_is_ready(void);
 static void cli_wifi_status(void);
 static void cli_wifi_scan(void);
@@ -56,9 +77,53 @@ static void cli_wifi_scan_callback(int32_t status, W6X_WiFi_Scan_Result_t *resul
 static void cli_ble_status(void);
 #endif
 
+/*
+ * Adding a command requires one table entry and one handler.  The menu passes
+ * the complete line, including every argument, to the selected handler.
+ */
+static const Menu_Object_t cli_menu_objects[] =
+{
+  MENU_OBJECT("help", cli_command_help),
+  MENU_OBJECT("menu", cli_command_help),
+  MENU_OBJECT("?", cli_command_help),
+  MENU_OBJECT("status", cli_command_status),
+  MENU_OBJECT("usb", cli_command_usb),
+  MENU_OBJECT("clear", cli_command_clear),
+  MENU_OBJECT("map", cli_command_map),
+  MENU_OBJECT("tof", cli_command_tof),
+  MENU_OBJECT("debug", cli_command_debug),
+#if (APP_ST67W6X_ENABLED == 1U)
+  MENU_OBJECT("radio", cli_command_radio),
+  MENU_OBJECT("wifi", cli_command_wifi),
+  MENU_OBJECT("ble", cli_command_ble),
+#endif
+  MENU_OBJECT("reboot", cli_command_reboot)
+};
+
 void Debug_CLI_Run(void)
 {
   uint8_t rx_buffer[CLI_RX_CHUNK_SIZE];
+  Menu_Status_t menu_status;
+
+  menu_status = Menu_Init(&cli_menu,
+                          cli_menu_objects,
+                          MENU_OBJECT_COUNT(cli_menu_objects),
+                          cli_menu_input,
+                          sizeof(cli_menu_input),
+                          cli_menu_reply,
+                          sizeof(cli_menu_reply),
+                          cli_menu_send,
+                          NULL,
+                          cli_command_unknown);
+  if (menu_status != MENU_STATUS_OK)
+  {
+    Debug_UART_Log("CLI", "menu initialization failed: %d",
+                   (int)menu_status);
+    for (;;)
+    {
+      tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND);
+    }
+  }
 
   for (;;)
   {
@@ -69,6 +134,9 @@ void Debug_CLI_Run(void)
       cli_console_mode = 0U;
       cli_secret_mode = 0U;
       cli_line_length = 0U;
+      cli_previous_was_cr = 0U;
+      cli_first_input_logged = 0U;
+      Menu_Reset(&cli_menu);
       tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 10U);
       continue;
     }
@@ -80,6 +148,14 @@ void Debug_CLI_Run(void)
       continue;
     }
 
+    if ((actual_length != 0U) && (cli_first_input_logged == 0U))
+    {
+      cli_first_input_logged = 1U;
+      Debug_UART_Log("CLI", "first CDC input reached CLI: %lu byte(s), first=0x%02X",
+                     (unsigned long)actual_length,
+                     (unsigned int)rx_buffer[0]);
+    }
+
     for (ULONG i = 0U; i < actual_length; ++i)
     {
       cli_process_byte(rx_buffer[i]);
@@ -89,6 +165,8 @@ void Debug_CLI_Run(void)
 
 static void cli_process_byte(uint8_t byte)
 {
+  Menu_Status_t menu_status;
+
   if ((byte == '\n') && (cli_previous_was_cr != 0U))
   {
     cli_previous_was_cr = 0U;
@@ -108,11 +186,11 @@ static void cli_process_byte(uint8_t byte)
   if ((byte == '\r') || (byte == '\n'))
   {
     cli_print("\r\n");
-    cli_line[cli_line_length] = '\0';
 
 #if (APP_ST67W6X_ENABLED == 1U)
     if (cli_secret_mode != 0U)
     {
+      cli_line[cli_line_length] = '\0';
       cli_wifi_connect_password(cli_line);
       (void)memset(cli_line, 0, sizeof(cli_line));
       (void)memset(cli_pending_ssid, 0, sizeof(cli_pending_ssid));
@@ -123,11 +201,13 @@ static void cli_process_byte(uint8_t byte)
     }
 #endif
 
-    if (cli_line_length != 0U)
+    menu_status = Menu_Process(&cli_menu, &byte, 1U);
+    if (menu_status == MENU_STATUS_INPUT_TOO_LONG)
     {
-      cli_execute_line(cli_line);
+      (void)Menu_Reply(&cli_menu, "Command is too long.");
+      Debug_UART_Log("CLI", "discarded an overlength command");
     }
-    cli_line_length = 0U;
+
     if ((cli_console_mode != 0U) && (cli_secret_mode == 0U))
     {
       cli_prompt();
@@ -137,14 +217,22 @@ static void cli_process_byte(uint8_t byte)
 
   if ((byte == 0x08U) || (byte == 0x7FU))
   {
-    if (cli_line_length != 0U)
+#if (APP_ST67W6X_ENABLED == 1U)
+    if (cli_secret_mode != 0U)
     {
-      --cli_line_length;
-      cli_line[cli_line_length] = '\0';
-      if (cli_secret_mode == 0U)
+      if (cli_line_length != 0U)
       {
-        cli_print("\b \b");
+        --cli_line_length;
+        cli_line[cli_line_length] = '\0';
       }
+      return;
+    }
+#endif
+
+    if (Menu_GetPendingLength(&cli_menu) != 0U)
+    {
+      (void)Menu_Process(&cli_menu, &byte, 1U);
+      cli_print("\b \b");
     }
     return;
   }
@@ -154,6 +242,7 @@ static void cli_process_byte(uint8_t byte)
     (void)memset(cli_line, 0, sizeof(cli_line));
     cli_line_length = 0U;
     cli_secret_mode = 0U;
+    Menu_Reset(&cli_menu);
 #if (APP_ST67W6X_ENABLED == 1U)
     (void)memset(cli_pending_ssid, 0, sizeof(cli_pending_ssid));
 #endif
@@ -162,14 +251,30 @@ static void cli_process_byte(uint8_t byte)
     return;
   }
 
-  if ((byte >= 0x20U) && (byte <= 0x7EU) &&
-      (cli_line_length < (sizeof(cli_line) - 1U)))
+  if ((byte >= 0x20U) && (byte <= 0x7EU))
   {
-    cli_line[cli_line_length++] = (char)byte;
-    if (cli_secret_mode == 0U)
+#if (APP_ST67W6X_ENABLED == 1U)
+    if (cli_secret_mode != 0U)
     {
-      (void)App_Console_Write(&byte, 1U);
+      if (cli_line_length < (sizeof(cli_line) - 1U))
+      {
+        cli_line[cli_line_length++] = (char)byte;
+      }
+      return;
     }
+#endif
+
+    menu_status = Menu_Process(&cli_menu, &byte, 1U);
+    if (menu_status == MENU_STATUS_INPUT_TOO_LONG)
+    {
+      cli_print("\r\n");
+      (void)Menu_Reply(&cli_menu, "Command is too long.");
+      Debug_UART_Log("CLI", "input exceeded the %u-byte command buffer",
+                     (unsigned int)sizeof(cli_menu_input));
+      return;
+    }
+
+    (void)App_Console_Write(&byte, 1U);
   }
 }
 
@@ -178,7 +283,9 @@ static void cli_enter_console(void)
   cli_console_mode = 1U;
   cli_line_length = 0U;
   cli_secret_mode = 0U;
+  Menu_Reset(&cli_menu);
   TOF_App_SetMapEnabled(0U);
+  Debug_UART_Log("CLI", "console entered from CDC input; depth map disabled");
   cli_print("\033[?25h\033[2J\033[H"
             "N6 sensor console - USB CDC\r\n"
             "The depth map is hidden; ranging is still active.\r\n"
@@ -186,228 +293,301 @@ static void cli_enter_console(void)
   cli_prompt();
 }
 
-static void cli_execute_line(char *line)
+static void cli_command_help(Menu_t *menu, const char *command)
 {
+  (void)menu;
+  (void)command;
+  cli_show_help();
+}
+
+static void cli_command_status(Menu_t *menu, const char *command)
+{
+  (void)menu;
+  (void)command;
+  cli_show_status();
+}
+
+static void cli_command_usb(Menu_t *menu, const char *command)
+{
+  char copy[CLI_LINE_SIZE];
   char *argv[CLI_MAX_ARGUMENTS];
-  int argc = cli_split_arguments(line, argv, CLI_MAX_ARGUMENTS);
+  int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
+                               CLI_MAX_ARGUMENTS);
 
-  if (argc == 0)
-  {
-    return;
-  }
-
-  if ((strcmp(argv[0], "help") == 0) || (strcmp(argv[0], "menu") == 0) ||
-      (strcmp(argv[0], "?") == 0))
-  {
-    cli_show_help();
-  }
-  else if (strcmp(argv[0], "status") == 0)
-  {
-    cli_show_status();
-  }
-  else if ((strcmp(argv[0], "usb") == 0) && (argc == 2) &&
-           (strcmp(argv[1], "status") == 0))
+  if ((argc == 2) && (strcmp(argv[1], "status") == 0))
   {
     cli_show_usb_status();
   }
-  else if (strcmp(argv[0], "clear") == 0)
+  else
   {
-    cli_print("\033[2J\033[H");
+    (void)Menu_Reply(menu, "Usage: usb status");
   }
-  else if (strcmp(argv[0], "map") == 0)
+}
+
+static void cli_command_clear(Menu_t *menu, const char *command)
+{
+  (void)command;
+  (void)Menu_Reply(menu, "\033[2J\033[H");
+}
+
+static void cli_command_map(Menu_t *menu, const char *command)
+{
+  char copy[CLI_LINE_SIZE];
+  char *argv[CLI_MAX_ARGUMENTS];
+  int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
+                               CLI_MAX_ARGUMENTS);
+
+  if ((argc == 2) && (strcmp(argv[1], "on") == 0))
   {
-    if ((argc == 2) && (strcmp(argv[1], "on") == 0))
+    (void)Menu_Reply(menu,
+                     "Depth map enabled. Press Enter to return to the console.");
+    TOF_App_SetMapEnabled(1U);
+    cli_console_mode = 0U;
+  }
+  else if ((argc == 2) && (strcmp(argv[1], "off") == 0))
+  {
+    TOF_App_SetMapEnabled(0U);
+    (void)Menu_Reply(menu,
+                     "Depth map disabled; ranging remains active.");
+  }
+  else
+  {
+    (void)Menu_Reply(menu, "Usage: map on|off");
+  }
+}
+
+static void cli_command_tof(Menu_t *menu, const char *command)
+{
+  char copy[CLI_LINE_SIZE];
+  char *argv[CLI_MAX_ARGUMENTS];
+  int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
+                               CLI_MAX_ARGUMENTS);
+
+  if ((argc == 2) && (strcmp(argv[1], "status") == 0))
+  {
+    cli_show_tof_status();
+  }
+  else if ((argc == 2) && (strcmp(argv[1], "pause") == 0))
+  {
+    TOF_App_SetPaused(1U);
+    (void)Menu_Reply(menu, "ToF autonomous stream paused.");
+  }
+  else if ((argc == 2) && (strcmp(argv[1], "resume") == 0))
+  {
+    TOF_App_SetPaused(0U);
+    (void)Menu_Reply(menu, "ToF autonomous stream resumed.");
+  }
+  else
+  {
+    (void)Menu_Reply(menu, "Usage: tof status|pause|resume");
+  }
+}
+
+static void cli_command_debug(Menu_t *menu, const char *command)
+{
+  char copy[CLI_LINE_SIZE];
+  char *argv[CLI_MAX_ARGUMENTS];
+  uint32_t level = UINT32_MAX;
+  int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
+                               CLI_MAX_ARGUMENTS);
+
+  if (argc != 2)
+  {
+    cli_print("Debug level: %s. Usage: debug off|error|warn|info|debug\r\n",
+              cli_log_level_name(App_Logging_GetVerbosity()));
+    return;
+  }
+
+  if (strcmp(argv[1], "off") == 0) level = LOG_NONE;
+  else if (strcmp(argv[1], "error") == 0) level = LOG_ERROR;
+  else if (strcmp(argv[1], "warn") == 0) level = LOG_WARN;
+  else if (strcmp(argv[1], "info") == 0) level = LOG_INFO;
+  else if (strcmp(argv[1], "debug") == 0) level = LOG_DEBUG;
+
+  if (level == UINT32_MAX)
+  {
+    (void)Menu_Reply(menu, "Usage: debug off|error|warn|info|debug");
+  }
+  else
+  {
+    App_Logging_SetVerbosity(level);
+    cli_print("ST67 log level set to %s.\r\n",
+              cli_log_level_name(level));
+  }
+}
+
+#if (APP_ST67W6X_ENABLED == 1U)
+static void cli_command_radio(Menu_t *menu, const char *command)
+{
+  char copy[CLI_LINE_SIZE];
+  char *argv[CLI_MAX_ARGUMENTS];
+  int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
+                               CLI_MAX_ARGUMENTS);
+
+  if ((argc == 2) && (strcmp(argv[1], "info") == 0))
+  {
+    W6X_ModuleInfo_t *info;
+
+    if (cli_radio_is_ready() == 0U) return;
+    info = W6X_GetModuleInfo();
+    if (info != NULL)
     {
-      cli_print("Depth map enabled. Press Enter to return to the console.\r\n");
-      TOF_App_SetMapEnabled(1U);
-      cli_console_mode = 0U;
+      cli_print("Module: %s (%s)\r\n"
+                "NCP MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n"
+                "Build: %.31s\r\n",
+                info->ModuleID.ModuleName,
+                W6X_ModelToStr(info->ModuleID.ModuleID),
+                info->Mac_Address[0], info->Mac_Address[1],
+                info->Mac_Address[2], info->Mac_Address[3],
+                info->Mac_Address[4], info->Mac_Address[5],
+                info->Build_Date);
     }
-    else if ((argc == 2) && (strcmp(argv[1], "off") == 0))
+  }
+  else
+  {
+    (void)Menu_Reply(menu, "Usage: radio info");
+  }
+}
+
+static void cli_command_wifi(Menu_t *menu, const char *command)
+{
+  char copy[CLI_LINE_SIZE];
+  char *argv[CLI_MAX_ARGUMENTS];
+  int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
+                               CLI_MAX_ARGUMENTS);
+
+  if ((argc == 2) && (strcmp(argv[1], "status") == 0))
+  {
+    if (cli_radio_is_ready() == 0U) return;
+    cli_wifi_status();
+  }
+  else if ((argc == 2) && (strcmp(argv[1], "scan") == 0))
+  {
+    if (cli_radio_is_ready() == 0U) return;
+    cli_wifi_scan();
+  }
+  else if ((argc == 2) && (strcmp(argv[1], "connect") == 0))
+  {
+    (void)Menu_Reply(menu, "Usage: wifi connect \"SSID\"");
+  }
+  else if ((argc == 3) && (strcmp(argv[1], "connect") == 0))
+  {
+    size_t ssid_length;
+
+    if (cli_radio_is_ready() == 0U) return;
+    ssid_length = strlen(argv[2]);
+    if ((ssid_length == 0U) || (ssid_length > W6X_WIFI_MAX_SSID_SIZE))
     {
-      TOF_App_SetMapEnabled(0U);
-      cli_print("Depth map disabled; ranging remains active.\r\n");
+      (void)Menu_Reply(menu, "Invalid SSID length.");
     }
     else
     {
-      cli_print("Usage: map on|off\r\n");
+      (void)memset(cli_pending_ssid, 0, sizeof(cli_pending_ssid));
+      (void)memcpy(cli_pending_ssid, argv[2], ssid_length);
+      cli_secret_mode = 1U;
+      cli_line_length = 0U;
+      (void)Menu_Reply(menu, "Password (input hidden):");
     }
   }
-  else if (strcmp(argv[0], "tof") == 0)
+  else if ((argc >= 2) && (strcmp(argv[1], "disconnect") == 0))
   {
-    if ((argc == 2) && (strcmp(argv[1], "status") == 0))
+    uint32_t forget;
+    W6X_Status_t status;
+
+    if (cli_radio_is_ready() == 0U) return;
+    forget = ((argc == 3) && (strcmp(argv[2], "forget") == 0)) ? 1U : 0U;
+    status = W6X_WiFi_Disconnect(forget);
+    cli_print("Wi-Fi disconnect: %s%s\r\n", W6X_StatusToStr(status),
+              (forget != 0U) ? " (stored credentials removed)" : "");
+  }
+  else
+  {
+    (void)Menu_Reply(menu,
+                     "Usage: wifi status|scan|connect \"SSID\"|disconnect [forget]");
+  }
+}
+
+static void cli_command_ble(Menu_t *menu, const char *command)
+{
+  char copy[CLI_LINE_SIZE];
+  char *argv[CLI_MAX_ARGUMENTS];
+  int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
+                               CLI_MAX_ARGUMENTS);
+
+  if ((argc == 2) && (strcmp(argv[1], "status") == 0))
+  {
+    if (cli_radio_is_ready() == 0U) return;
+    cli_ble_status();
+  }
+  else if ((argc == 3) && (strcmp(argv[1], "adv") == 0))
+  {
+    W6X_Status_t status;
+
+    if (cli_radio_is_ready() == 0U) return;
+    if (strcmp(argv[2], "on") == 0)
     {
-      cli_show_tof_status();
+      status = W6X_Ble_AdvStart();
+      if (status == W6X_STATUS_OK) WIFI_BLE_App_SetAdvertisingState(1U);
     }
-    else if ((argc == 2) && (strcmp(argv[1], "pause") == 0))
+    else if (strcmp(argv[2], "off") == 0)
     {
-      TOF_App_SetPaused(1U);
-      cli_print("ToF autonomous stream paused.\r\n");
-    }
-    else if ((argc == 2) && (strcmp(argv[1], "resume") == 0))
-    {
-      TOF_App_SetPaused(0U);
-      cli_print("ToF autonomous stream resumed.\r\n");
+      status = W6X_Ble_AdvStop();
+      if (status == W6X_STATUS_OK) WIFI_BLE_App_SetAdvertisingState(0U);
     }
     else
     {
-      cli_print("Usage: tof status|pause|resume\r\n");
-    }
-  }
-  else if (strcmp(argv[0], "debug") == 0)
-  {
-    uint32_t level = UINT32_MAX;
-    if (argc != 2)
-    {
-      cli_print("Debug level: %s. Usage: debug off|error|warn|info|debug\r\n",
-                cli_log_level_name(App_Logging_GetVerbosity()));
+      (void)Menu_Reply(menu, "Usage: ble adv on|off");
       return;
     }
-    if (strcmp(argv[1], "off") == 0) level = LOG_NONE;
-    else if (strcmp(argv[1], "error") == 0) level = LOG_ERROR;
-    else if (strcmp(argv[1], "warn") == 0) level = LOG_WARN;
-    else if (strcmp(argv[1], "info") == 0) level = LOG_INFO;
-    else if (strcmp(argv[1], "debug") == 0) level = LOG_DEBUG;
+    cli_print("BLE advertising: %s\r\n", W6X_StatusToStr(status));
+  }
+  else if ((argc == 2) && (strcmp(argv[1], "disconnect") == 0))
+  {
+    WifiBle_RuntimeStatus_t runtime;
 
-    if (level == UINT32_MAX)
+    if (cli_radio_is_ready() == 0U) return;
+    WIFI_BLE_App_GetRuntimeStatus(&runtime);
+    if (runtime.ble_connected == 0U)
     {
-      cli_print("Usage: debug off|error|warn|info|debug\r\n");
+      (void)Menu_Reply(menu, "BLE is not connected.");
     }
     else
     {
-      App_Logging_SetVerbosity(level);
-      cli_print("ST67 log level set to %s.\r\n", cli_log_level_name(level));
+      W6X_Status_t status =
+          W6X_Ble_Disconnect(runtime.ble_connection_handle);
+      cli_print("BLE disconnect: %s\r\n", W6X_StatusToStr(status));
     }
   }
-#if (APP_ST67W6X_ENABLED == 1U)
-  else if (strcmp(argv[0], "radio") == 0)
+  else
   {
-    if ((argc == 2) && (strcmp(argv[1], "info") == 0))
-    {
-      if (cli_radio_is_ready() == 0U) return;
-      W6X_ModuleInfo_t *info = W6X_GetModuleInfo();
-      if (info != NULL)
-      {
-        cli_print("Module: %s (%s)\r\n"
-                  "NCP MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n"
-                  "Build: %.31s\r\n",
-                  info->ModuleID.ModuleName,
-                  W6X_ModelToStr(info->ModuleID.ModuleID),
-                  info->Mac_Address[0], info->Mac_Address[1], info->Mac_Address[2],
-                  info->Mac_Address[3], info->Mac_Address[4], info->Mac_Address[5],
-                  info->Build_Date);
-      }
-    }
-    else
-    {
-      cli_print("Usage: radio info\r\n");
-    }
+    (void)Menu_Reply(menu, "Usage: ble status|adv on|adv off|disconnect");
   }
-  else if (strcmp(argv[0], "wifi") == 0)
-  {
-    if ((argc == 2) && (strcmp(argv[1], "status") == 0))
-    {
-      if (cli_radio_is_ready() == 0U) return;
-      cli_wifi_status();
-    }
-    else if ((argc == 2) && (strcmp(argv[1], "scan") == 0))
-    {
-      if (cli_radio_is_ready() == 0U) return;
-      cli_wifi_scan();
-    }
-    else if ((argc == 2) && (strcmp(argv[1], "connect") == 0))
-    {
-      cli_print("Usage: wifi connect \"SSID\"\r\n");
-    }
-    else if ((argc == 3) && (strcmp(argv[1], "connect") == 0))
-    {
-      if (cli_radio_is_ready() == 0U) return;
-      size_t ssid_length = strlen(argv[2]);
-      if ((ssid_length == 0U) || (ssid_length > W6X_WIFI_MAX_SSID_SIZE))
-      {
-        cli_print("Invalid SSID length.\r\n");
-      }
-      else
-      {
-        (void)memset(cli_pending_ssid, 0, sizeof(cli_pending_ssid));
-        (void)memcpy(cli_pending_ssid, argv[2], ssid_length);
-        cli_secret_mode = 1U;
-        cli_line_length = 0U;
-        cli_print("Password (input hidden): ");
-      }
-    }
-    else if ((argc >= 2) && (strcmp(argv[1], "disconnect") == 0))
-    {
-      if (cli_radio_is_ready() == 0U) return;
-      uint32_t forget = ((argc == 3) && (strcmp(argv[2], "forget") == 0)) ? 1U : 0U;
-      W6X_Status_t status = W6X_WiFi_Disconnect(forget);
-      cli_print("Wi-Fi disconnect: %s%s\r\n", W6X_StatusToStr(status),
-                (forget != 0U) ? " (stored credentials removed)" : "");
-    }
-    else
-    {
-      cli_print("Usage: wifi status|scan|connect \"SSID\"|disconnect [forget]\r\n");
-    }
-  }
-  else if (strcmp(argv[0], "ble") == 0)
-  {
-    if ((argc == 2) && (strcmp(argv[1], "status") == 0))
-    {
-      if (cli_radio_is_ready() == 0U) return;
-      cli_ble_status();
-    }
-    else if ((argc == 3) && (strcmp(argv[1], "adv") == 0))
-    {
-      if (cli_radio_is_ready() == 0U) return;
-      W6X_Status_t status;
-      if (strcmp(argv[2], "on") == 0)
-      {
-        status = W6X_Ble_AdvStart();
-        if (status == W6X_STATUS_OK) WIFI_BLE_App_SetAdvertisingState(1U);
-      }
-      else if (strcmp(argv[2], "off") == 0)
-      {
-        status = W6X_Ble_AdvStop();
-        if (status == W6X_STATUS_OK) WIFI_BLE_App_SetAdvertisingState(0U);
-      }
-      else
-      {
-        cli_print("Usage: ble adv on|off\r\n");
-        return;
-      }
-      cli_print("BLE advertising: %s\r\n", W6X_StatusToStr(status));
-    }
-    else if ((argc == 2) && (strcmp(argv[1], "disconnect") == 0))
-    {
-      if (cli_radio_is_ready() == 0U) return;
-      WifiBle_RuntimeStatus_t runtime;
-      WIFI_BLE_App_GetRuntimeStatus(&runtime);
-      if (runtime.ble_connected == 0U)
-      {
-        cli_print("BLE is not connected.\r\n");
-      }
-      else
-      {
-        W6X_Status_t status = W6X_Ble_Disconnect(runtime.ble_connection_handle);
-        cli_print("BLE disconnect: %s\r\n", W6X_StatusToStr(status));
-      }
-    }
-    else
-    {
-      cli_print("Usage: ble status|adv on|adv off|disconnect\r\n");
-    }
-  }
+}
 #endif
-  else if ((strcmp(argv[0], "reboot") == 0) && (argc == 2) &&
-           (strcmp(argv[1], "yes") == 0))
+
+static void cli_command_reboot(Menu_t *menu, const char *command)
+{
+  char copy[CLI_LINE_SIZE];
+  char *argv[CLI_MAX_ARGUMENTS];
+  int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
+                               CLI_MAX_ARGUMENTS);
+
+  if ((argc == 2) && (strcmp(argv[1], "yes") == 0))
   {
-    cli_print("Rebooting...\r\n");
+    (void)Menu_Reply(menu, "Rebooting...");
     tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 10U);
     NVIC_SystemReset();
   }
   else
   {
-    cli_print("Unknown command. Type 'help'.\r\n");
+    (void)Menu_Reply(menu, "Usage: reboot yes");
   }
+}
+
+static void cli_command_unknown(Menu_t *menu, const char *command)
+{
+  (void)command;
+  (void)Menu_Reply(menu, "Unknown command. Type 'help'.");
 }
 
 static int cli_split_arguments(char *line, char *argv[], int max_arguments)
@@ -435,6 +615,40 @@ static int cli_split_arguments(char *line, char *argv[], int max_arguments)
     if (*cursor != '\0') *cursor++ = '\0';
   }
   return argc;
+}
+
+static int cli_get_arguments(const char *command, char *copy,
+                             size_t copy_size, char *argv[],
+                             int max_arguments)
+{
+  size_t length;
+
+  if ((command == NULL) || (copy == NULL) || (copy_size == 0U) ||
+      (argv == NULL) || (max_arguments <= 0))
+  {
+    return 0;
+  }
+
+  length = strlen(command);
+  if (length >= copy_size)
+  {
+    return 0;
+  }
+
+  (void)memcpy(copy, command, length + 1U);
+  return cli_split_arguments(copy, argv, max_arguments);
+}
+
+static int32_t cli_menu_send(const char *text, size_t length, void *context)
+{
+  (void)context;
+
+  if ((text == NULL) || (length == 0U))
+  {
+    return 0;
+  }
+
+  return (int32_t)App_Console_Write(text, (ULONG)length);
 }
 
 static void cli_print(const char *format, ...)
