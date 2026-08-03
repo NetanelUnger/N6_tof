@@ -1,5 +1,7 @@
 param(
-    [switch]$FullErase
+    [switch]$FullErase,
+    [switch]$FsblOnly,
+    [switch]$BootChainOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -16,7 +18,21 @@ $Secure = Join-Path $ImageDir 'N6_AppliSecure-trusted.bin'
 $NonSecure = Join-Path $ImageDir 'N6_AppliNonSecure-trusted.bin'
 $BootMetadata = Join-Path $ImageDir 'N6-BootMetadata.bin'
 
-foreach ($required in @($Programmer, $ExternalLoader, $Fsbl, $Secure, $NonSecure, $BootMetadata)) {
+$SelectedModes = @($FullErase, $FsblOnly, $BootChainOnly) |
+    Where-Object { $_ }
+if ($SelectedModes.Count -gt 1) {
+    throw 'FullErase, FsblOnly, and BootChainOnly are mutually exclusive.'
+}
+
+$RequiredFiles = @($Programmer, $ExternalLoader, $Fsbl)
+if ($BootChainOnly) {
+    $RequiredFiles += $Secure
+}
+elseif (-not $FsblOnly) {
+    $RequiredFiles += @($Secure, $NonSecure, $BootMetadata)
+}
+
+foreach ($required in $RequiredFiles) {
     if (-not (Test-Path -LiteralPath $required)) {
         throw "Required file was not found: $required"
     }
@@ -37,6 +53,41 @@ if ($FullErase) {
     if ($LASTEXITCODE -ne 0) {
         throw 'External NOR flash erase failed. Verify that BOOT1 is in position 2-3.'
     }
+}
+
+if ($FsblOnly) {
+    Write-Host 'Programming only the FSBL; application slots and boot metadata will be preserved.'
+    & $Programmer `
+        -c port=SWD mode=UR reset=HWrst `
+        -el $ExternalLoader `
+        -d $Fsbl 0x70000000 -v
+
+    if ($LASTEXITCODE -ne 0) {
+        throw 'FSBL programming or verification failed.'
+    }
+
+    Write-Host 'FSBL programming and verification completed successfully.'
+    Write-Host 'Set BOOT0 and BOOT1 to positions 1-2, then press RESET to resume the pending update.'
+    exit 0
+}
+
+if ($BootChainOnly) {
+    Write-Host 'Programming the FSBL and Secure runtime only.'
+    Write-Host 'Application slots and A/B boot metadata will be preserved.'
+    & $Programmer `
+        -c port=SWD mode=UR reset=HWrst `
+        -el $ExternalLoader `
+        -d $Fsbl 0x70000000 -v `
+        -d $Secure 0x70100000 -v
+
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Boot-chain programming or verification failed.'
+    }
+
+    Write-Host 'FSBL and Secure programming completed successfully.'
+    Write-Host 'Both application slots and the current update state were preserved.'
+    Write-Host 'Set BOOT0 and BOOT1 to positions 1-2, then press RESET.'
+    exit 0
 }
 
 & $Programmer `

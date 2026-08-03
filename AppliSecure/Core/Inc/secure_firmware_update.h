@@ -9,6 +9,13 @@
 extern "C" {
 #endif
 
+#define SECURE_FW_INIT_OK             (0)
+#define SECURE_FW_INIT_ERROR_XSPI     (1)
+#define SECURE_FW_INIT_ERROR_XSPIM    (2)
+#define SECURE_FW_INIT_ERROR_EXTMEM   (3)
+#define SECURE_FW_INIT_ERROR_PKA      (4)
+#define SECURE_FW_INIT_ERROR_RNG      (5)
+
 int32_t SecureFirmwareUpdate_Init(void);
 uint32_t SecureFirmwareUpdate_Begin(const FW_UpdateManifest_t *manifest_ns,
                                     uint32_t *session_ns);

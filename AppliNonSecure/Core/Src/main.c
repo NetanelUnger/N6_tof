@@ -24,6 +24,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "debug_uart.h"
+#include "boot_splash.h"
+#include "firmware_build_version.h"
 #include <string.h>
 
 /* USER CODE END Includes */
@@ -68,10 +70,26 @@ static void MX_SPI5_Init(void);
 static void MX_UCPD1_Init(void);
 /* USER CODE BEGIN PFP */
 
+static void Application_SplashWrite(const char *text);
+static void Application_SplashDelay(uint32_t milliseconds);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+static void Application_SplashWrite(const char *text)
+{
+  if (text != NULL)
+  {
+    (void)Debug_UART_Write(text, strlen(text));
+  }
+}
+
+static void Application_SplashDelay(uint32_t milliseconds)
+{
+  HAL_Delay(milliseconds);
+}
 
 /* USER CODE END 0 */
 
@@ -91,6 +109,16 @@ int main(void)
 
   /* USER CODE BEGIN Init */
   (void)Debug_UART_Init();
+  static const N6_BootSplashConfig_t application_splash = {
+    .stage = "N6 NONSECURE APPLICATION",
+    .version = "Application firmware version " NATI_LAB_FIRMWARE_VERSION_TEXT,
+    .detail_1 = "VL53L9CX 54 x 42 depth processing",
+    .detail_2 = "USB CDC interactive control menu",
+    .detail_3 = "Authenticated A/B firmware updates",
+    .detail_4 = "Sensor services are starting"
+  };
+  N6_BootSplashShow(Application_SplashWrite, Application_SplashDelay,
+                    &application_splash);
   Debug_UART_Log("BOOT", "Non-secure application entered; USART1 VCP is alive");
 
   /* USER CODE END Init */

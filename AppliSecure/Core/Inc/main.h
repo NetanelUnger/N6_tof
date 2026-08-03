@@ -72,6 +72,9 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 
+void Secure_Trace(const char *message);
+void Secure_TraceHex(const char *label, uint32_t value);
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

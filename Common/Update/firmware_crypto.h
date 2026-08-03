@@ -18,6 +18,10 @@ typedef struct
   uint32_t block_used;
 } FW_SHA256_Context_t;
 
+#define FW_CRYPTO_INIT_OK          (0)
+#define FW_CRYPTO_INIT_ERROR_RNG   (-1)
+#define FW_CRYPTO_INIT_ERROR_PKA   (-2)
+
 void FW_SHA256_Init(FW_SHA256_Context_t *context);
 void FW_SHA256_Update(FW_SHA256_Context_t *context,
                       const void *data, size_t length);

@@ -71,28 +71,56 @@ void *pSecureErrorCallback = NULL;   /* Pointer to secure error callback in Non-
   CMSE_NS_ENTRY uint32_t SECURE_FirmwareUpdateBegin(
       const FW_UpdateManifest_t *manifest, uint32_t *session)
   {
-    return SecureFirmwareUpdate_Begin(manifest, session);
+    uint32_t status;
+
+    /* Secure SysTick is intentionally suspended while NonSecure owns the CPU.
+     * Every updater operation below uses HAL drivers with bounded timeouts, so
+     * restore the Secure HAL timebase only for the duration of the NSC call. */
+    HAL_ResumeTick();
+    status = SecureFirmwareUpdate_Begin(manifest, session);
+    HAL_SuspendTick();
+    return status;
   }
 
   CMSE_NS_ENTRY uint32_t SECURE_FirmwareUpdateWrite(
       uint32_t session, const uint8_t *data, uint32_t length)
   {
-    return SecureFirmwareUpdate_Write(session, data, length);
+    uint32_t status;
+
+    HAL_ResumeTick();
+    status = SecureFirmwareUpdate_Write(session, data, length);
+    HAL_SuspendTick();
+    return status;
   }
 
   CMSE_NS_ENTRY uint32_t SECURE_FirmwareUpdateFinalize(uint32_t session)
   {
-    return SecureFirmwareUpdate_Finalize(session);
+    uint32_t status;
+
+    HAL_ResumeTick();
+    status = SecureFirmwareUpdate_Finalize(session);
+    HAL_SuspendTick();
+    return status;
   }
 
   CMSE_NS_ENTRY uint32_t SECURE_FirmwareUpdateAbort(uint32_t session)
   {
-    return SecureFirmwareUpdate_Abort(session);
+    uint32_t status;
+
+    HAL_ResumeTick();
+    status = SecureFirmwareUpdate_Abort(session);
+    HAL_SuspendTick();
+    return status;
   }
 
   CMSE_NS_ENTRY uint32_t SECURE_FirmwareUpdateConfirmBoot(void)
   {
-    return SecureFirmwareUpdate_ConfirmBoot();
+    uint32_t status;
+
+    HAL_ResumeTick();
+    status = SecureFirmwareUpdate_ConfirmBoot();
+    HAL_SuspendTick();
+    return status;
   }
 
 /**

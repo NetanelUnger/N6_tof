@@ -67,6 +67,7 @@ static const uint8_t fw_p256_order[32] =
   0xF3, 0xB9, 0xCA, 0xC2, 0xFC, 0x63, 0x25, 0x51
 };
 
+static RNG_HandleTypeDef fw_rng;
 static PKA_HandleTypeDef fw_pka;
 static uint32_t fw_pka_ready;
 
@@ -239,17 +240,27 @@ int32_t FW_Crypto_Init(void)
 {
   if (fw_pka_ready != 0U)
   {
-    return 0;
+    return FW_CRYPTO_INIT_OK;
+  }
+
+  /* STM32N6 PKA operation requires an initialized, clocked RNG even for
+   * deterministic public-key operations such as ECDSA verification. */
+  (void)memset(&fw_rng, 0, sizeof(fw_rng));
+  fw_rng.Instance = RNG;
+  fw_rng.Init.ClockErrorDetection = RNG_CED_ENABLE;
+  if (HAL_RNG_Init(&fw_rng) != HAL_OK)
+  {
+    return FW_CRYPTO_INIT_ERROR_RNG;
   }
 
   (void)memset(&fw_pka, 0, sizeof(fw_pka));
   fw_pka.Instance = PKA;
   if (HAL_PKA_Init(&fw_pka) != HAL_OK)
   {
-    return -1;
+    return FW_CRYPTO_INIT_ERROR_PKA;
   }
   fw_pka_ready = 1U;
-  return 0;
+  return FW_CRYPTO_INIT_OK;
 }
 
 int32_t FW_Crypto_VerifyManifest(const FW_UpdateManifest_t *manifest)

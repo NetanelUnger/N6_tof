@@ -21,6 +21,11 @@ static uint32_t update_active;
 static uint32_t update_success;
 static uint32_t update_result_reported;
 static uint32_t update_reboot_at;
+static uint32_t update_rx_bytes;
+static uint32_t update_rx_chunks;
+static uint32_t update_crc_requests;
+static uint32_t update_wait_reported;
+static uint32_t update_progress_reported;
 
 static int32_t update_send_byte(uint8_t byte, void *context);
 static int32_t update_consume(const uint8_t *data, size_t length,
@@ -32,6 +37,10 @@ static void update_fail(const char *message);
 static int32_t update_send_byte(uint8_t byte, void *context)
 {
   (void)context;
+  if ((byte == 0x43U) && (update_manifest_bytes == 0U))
+  {
+    update_crc_requests++;
+  }
   return (App_Console_Write(&byte, 1U) == TX_SUCCESS) ? 0 : -1;
 }
 
@@ -57,10 +66,32 @@ static int32_t update_consume(const uint8_t *data, size_t length,
     cursor += chunk;
     remaining -= chunk;
 
+    Debug_UART_Log("UPDATE",
+                   "consumer copied %lu bytes into manifest (%lu/%lu)",
+                   (unsigned long)chunk,
+                   (unsigned long)update_manifest_bytes,
+                   (unsigned long)sizeof(update_manifest));
+
     if (update_manifest_bytes == sizeof(update_manifest))
     {
-      uint32_t status = SECURE_FirmwareUpdateBegin(&update_manifest,
-                                                   &update_secure_session);
+      uint32_t status;
+
+      Debug_UART_Log("UPDATE",
+                     "manifest received; authenticating v%lu, image=%lu bytes",
+                     (unsigned long)update_manifest.firmware_version,
+                     (unsigned long)update_manifest.image_size);
+      Debug_UART_Log(
+          "UPDATE",
+          "calling Secure Begin: magic=0x%08lX format=%lu target=0x%08lX image-type=%lu",
+          (unsigned long)update_manifest.magic,
+          (unsigned long)update_manifest.format_version,
+          (unsigned long)update_manifest.target_id,
+          (unsigned long)update_manifest.image_type);
+      status = SECURE_FirmwareUpdateBegin(&update_manifest,
+                                          &update_secure_session);
+      Debug_UART_Log("UPDATE", "Secure Begin returned: status=%lu session=%lu",
+                     (unsigned long)status,
+                     (unsigned long)update_secure_session);
       if (status != SECURE_FW_UPDATE_OK)
       {
         Debug_UART_Log("UPDATE", "secure begin rejected package: %lu",
@@ -88,12 +119,19 @@ static int32_t update_consume(const uint8_t *data, size_t length,
       return -5;
     }
     image_chunk = (remaining < image_remaining) ? remaining : image_remaining;
-    if ((image_chunk != 0U) &&
-        (SECURE_FirmwareUpdateWrite(update_secure_session, cursor,
-                                    (uint32_t)image_chunk) !=
-         SECURE_FW_UPDATE_OK))
+    if (image_chunk != 0U)
     {
-      return -4;
+      uint32_t status = SECURE_FirmwareUpdateWrite(
+          update_secure_session, cursor, (uint32_t)image_chunk);
+      if (status != SECURE_FW_UPDATE_OK)
+      {
+        Debug_UART_Log("UPDATE",
+                       "secure write failed: status=%lu offset=%lu length=%lu",
+                       (unsigned long)status,
+                       (unsigned long)update_image_bytes,
+                       (unsigned long)image_chunk);
+        return -4;
+      }
     }
     update_image_bytes += (uint32_t)image_chunk;
     cursor += image_chunk;
@@ -107,6 +145,15 @@ static int32_t update_consume(const uint8_t *data, size_t length,
       {
         return -5;
       }
+    }
+
+    if ((update_image_bytes - update_progress_reported >= (64U * 1024U)) ||
+        (update_image_bytes == update_manifest.image_size))
+    {
+      update_progress_reported = update_image_bytes;
+      Debug_UART_Log("UPDATE", "stored %lu/%lu image bytes",
+                     (unsigned long)update_image_bytes,
+                     (unsigned long)update_manifest.image_size);
     }
   }
   return 0;
@@ -188,6 +235,11 @@ int32_t Firmware_Update_Start(void)
   update_success = 0U;
   update_result_reported = 0U;
   update_reboot_at = 0U;
+  update_rx_bytes = 0U;
+  update_rx_chunks = 0U;
+  update_crc_requests = 0U;
+  update_wait_reported = 0U;
+  update_progress_reported = 0U;
   update_active = 1U;
   TOF_App_SetMapEnabled(0U);
   TOF_App_SetPaused(1U);
@@ -219,6 +271,25 @@ void Firmware_Update_Feed(const uint8_t *data, size_t length,
 {
   if (update_active != 0U)
   {
+    if ((data != NULL) && (length != 0U) && (update_rx_bytes == 0U))
+    {
+      Debug_UART_Log("UPDATE", "first XMODEM RX chunk: %lu bytes, first=0x%02X",
+                     (unsigned long)length, (unsigned int)data[0]);
+    }
+    if ((data != NULL) && (length != 0U))
+    {
+      update_rx_chunks++;
+      if (update_rx_chunks <= 4U)
+      {
+        Debug_UART_Log(
+            "UPDATE",
+            "USB RX chunk #%lu: %lu bytes, stream offsets %lu..%lu",
+            (unsigned long)update_rx_chunks, (unsigned long)length,
+            (unsigned long)update_rx_bytes,
+            (unsigned long)(update_rx_bytes + (uint32_t)length - 1U));
+      }
+    }
+    update_rx_bytes += (uint32_t)length;
     XMODEM_Process(&update_xmodem, data, length, now_ms);
   }
 }
@@ -228,6 +299,14 @@ void Firmware_Update_Poll(uint32_t now_ms)
   if (update_active != 0U)
   {
     XMODEM_Poll(&update_xmodem, now_ms);
+    if ((update_rx_bytes == 0U) && (update_wait_reported == 0U) &&
+        (update_crc_requests >= 5U))
+    {
+      update_wait_reported = 1U;
+      Debug_UART_Log("UPDATE",
+                     "still waiting for SOH/STX; sent %lu CRC requests ('C')",
+                     (unsigned long)update_crc_requests);
+    }
   }
 
   if ((update_success != 0U) && (update_result_reported == 0U))

@@ -34,6 +34,8 @@ typedef struct
   uint32_t last_request_ms;
   uint32_t request_count;
   uint32_t error_count;
+  uint32_t raw_byte_count;
+  uint32_t accepted_block_count;
   uint8_t expected_sequence;
   uint8_t active;
   uint8_t transfer_started;

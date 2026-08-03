@@ -75,6 +75,14 @@ BOOTStatus_TypeDef BOOT_Application(void)
 
     if (BOOT_OK == retr)
     {
+      /* The LRun images now execute entirely from internal SRAM.  Give the
+       * application a chance to leave the external-memory controller in an
+       * indirect-command-ready state before Secure takes ownership of it. */
+      retr = BOOT_PrepareApplicationJump();
+    }
+
+    if (BOOT_OK == retr)
+    {
       /* Jump on the application */
       retr = JumpToApplication();
     }
@@ -289,6 +297,16 @@ __weak uint32_t BOOT_GetApplicationSize(uint32_t img_addr)
 {
   UNUSED(img_addr);
   return EXTMEM_LRUN_SOURCE_SIZE;
+}
+
+/**
+  * @brief Allows an LRun application to prepare shared memory hardware before
+  *        control leaves the FSBL.
+  * @retval BOOTStatus_TypeDef Status of the operation.
+  */
+__weak BOOTStatus_TypeDef BOOT_PrepareApplicationJump(void)
+{
+  return BOOT_OK;
 }
 
 /**

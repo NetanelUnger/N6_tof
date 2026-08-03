@@ -4,11 +4,13 @@
 #include <string.h>
 
 #include "firmware_crypto.h"
+#include "main.h"
 #include "secure_nsc.h"
 #include "stm32_extmem.h"
 #include "stm32_extmem_conf.h"
 
 #define SECURE_UPDATE_CHUNK_MAX        (1024U)
+#define SECURE_UPDATE_ERASE_SIZE       (FW_METADATA_SECTOR_SIZE)
 #define NONSECURE_RAM_START            (0x24100000UL)
 #define NONSECURE_RAM_END              (0x24200000UL)
 
@@ -18,6 +20,7 @@ typedef struct
   uint32_t session;
   uint32_t starting_sequence;
   uint32_t target_slot;
+  uint32_t bytes_erased;
   uint32_t bytes_written;
   FW_UpdateManifest_t manifest;
   FW_SHA256_Context_t sha256;
@@ -32,6 +35,7 @@ static uint8_t secure_flash_buffer[SECURE_UPDATE_CHUNK_MAX];
 static FW_BootRecord_t secure_record_0;
 static FW_BootRecord_t secure_record_1;
 static FW_BootRecord_t secure_verify_record;
+static FW_BootRecord_t secure_work_record;
 
 static int32_t secure_flash_initialize(void);
 static uint32_t secure_metadata_load(FW_BootRecord_t *record,
@@ -66,7 +70,7 @@ static int32_t secure_flash_initialize(void)
 
   if (HAL_XSPI_Init(&hxspi2) != HAL_OK)
   {
-    return -1;
+    return SECURE_FW_INIT_ERROR_XSPI;
   }
 
   manager.nCSOverride = HAL_XSPI_CSSEL_OVR_NCS1;
@@ -75,27 +79,38 @@ static int32_t secure_flash_initialize(void)
   if (HAL_XSPIM_Config(&hxspi2, &manager,
                        HAL_XSPI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
   {
-    return -2;
+    return SECURE_FW_INIT_ERROR_XSPIM;
   }
 
   if (EXTMEM_Init(EXTMEMORY_1,
                   HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_XSPI2)) != EXTMEM_OK)
   {
-    return -3;
+    return SECURE_FW_INIT_ERROR_EXTMEM;
   }
   return 0;
 }
 
 int32_t SecureFirmwareUpdate_Init(void)
 {
+  int32_t crypto_status;
+  int32_t flash_status;
+
   secure_update_clear();
-  if ((secure_flash_initialize() != 0) || (FW_Crypto_Init() != 0))
+  flash_status = secure_flash_initialize();
+  if (flash_status != SECURE_FW_INIT_OK)
   {
     secure_flash_ready = 0U;
-    return -1;
+    return flash_status;
+  }
+  crypto_status = FW_Crypto_Init();
+  if (crypto_status != FW_CRYPTO_INIT_OK)
+  {
+    secure_flash_ready = 0U;
+    return (crypto_status == FW_CRYPTO_INIT_ERROR_RNG) ?
+           SECURE_FW_INIT_ERROR_RNG : SECURE_FW_INIT_ERROR_PKA;
   }
   secure_flash_ready = 1U;
-  return 0;
+  return SECURE_FW_INIT_OK;
 }
 
 static uint32_t secure_metadata_load(FW_BootRecord_t *record,
@@ -171,14 +186,18 @@ static uint32_t secure_metadata_commit(FW_BootRecord_t *record,
 uint32_t SecureFirmwareUpdate_Begin(const FW_UpdateManifest_t *manifest_ns,
                                     uint32_t *session_ns)
 {
-  FW_BootRecord_t current;
+  FW_BootRecord_t *current = &secure_work_record;
   FW_UpdateManifest_t manifest;
+  int32_t crypto_status;
   uint32_t source_index;
-  uint32_t target_offset;
+
+  Secure_Trace("[SECURE-UPDATE] Begin entered\r\n");
+  Secure_TraceHex("[SECURE-UPDATE] HAL tick = ", HAL_GetTick());
 
   if ((manifest_ns == NULL) || (session_ns == NULL) ||
       (secure_flash_ready == 0U) || (secure_update.active != 0U))
   {
+    Secure_Trace("[SECURE-UPDATE] Begin rejected by entry state check\r\n");
     return (secure_flash_ready == 0U) ?
            SECURE_FW_UPDATE_ERROR_UNAVAILABLE :
            SECURE_FW_UPDATE_ERROR_STATE;
@@ -188,37 +207,61 @@ uint32_t SecureFirmwareUpdate_Begin(const FW_UpdateManifest_t *manifest_ns,
       (cmse_check_address_range((void *)session_ns, sizeof(*session_ns),
                                 CMSE_NONSECURE | CMSE_MPU_READWRITE) == NULL))
   {
+    Secure_Trace("[SECURE-UPDATE] Begin rejected by CMSE range check\r\n");
     return SECURE_FW_UPDATE_ERROR_PARAMETER;
   }
 
+  Secure_Trace("[SECURE-UPDATE] CMSE ranges accepted; copying manifest\r\n");
   (void)memcpy(&manifest, manifest_ns, sizeof(manifest));
-  if ((FW_ManifestIsWellFormed(&manifest) == 0U) ||
-      (FW_Crypto_VerifyManifest(&manifest) != 0))
+  Secure_TraceHex("[SECURE-UPDATE] manifest magic = ", manifest.magic);
+  Secure_TraceHex("[SECURE-UPDATE] manifest version = ",
+                  manifest.firmware_version);
+  Secure_TraceHex("[SECURE-UPDATE] image size = ", manifest.image_size);
+  if (FW_ManifestIsWellFormed(&manifest) == 0U)
   {
+    Secure_Trace("[SECURE-UPDATE] manifest structure invalid\r\n");
     return SECURE_FW_UPDATE_ERROR_AUTHENTICATION;
   }
-  if (secure_metadata_load(&current, &source_index) != SECURE_FW_UPDATE_OK)
+  Secure_Trace("[SECURE-UPDATE] manifest structure valid; hashing and starting PKA ECDSA verify\r\n");
+  Secure_TraceHex("[SECURE-UPDATE] PKA CR before verify = ", PKA->CR);
+  Secure_TraceHex("[SECURE-UPDATE] PKA SR before verify = ", PKA->SR);
+  Secure_TraceHex("[SECURE-UPDATE] RNG CR before verify = ", RNG->CR);
+  Secure_TraceHex("[SECURE-UPDATE] RNG SR before verify = ", RNG->SR);
+  crypto_status = FW_Crypto_VerifyManifest(&manifest);
+  Secure_TraceHex("[SECURE-UPDATE] crypto verify returned = ",
+                  (uint32_t)crypto_status);
+  Secure_TraceHex("[SECURE-UPDATE] PKA CR after verify = ", PKA->CR);
+  Secure_TraceHex("[SECURE-UPDATE] PKA SR after verify = ", PKA->SR);
+  if (crypto_status != 0)
   {
+    Secure_Trace("[SECURE-UPDATE] signature authentication failed\r\n");
+    return SECURE_FW_UPDATE_ERROR_AUTHENTICATION;
+  }
+  Secure_Trace("[SECURE-UPDATE] signature accepted; loading boot metadata\r\n");
+  if (secure_metadata_load(current, &source_index) != SECURE_FW_UPDATE_OK)
+  {
+    Secure_Trace("[SECURE-UPDATE] boot metadata read failed\r\n");
     return SECURE_FW_UPDATE_ERROR_FLASH;
   }
-  if (current.state != FW_BOOT_STATE_CONFIRMED)
+  if (current->state != FW_BOOT_STATE_CONFIRMED)
   {
+    Secure_TraceHex("[SECURE-UPDATE] boot state is not confirmed: ",
+                    current->state);
     return SECURE_FW_UPDATE_ERROR_STATE;
   }
-  if (manifest.firmware_version <= current.confirmed_version)
+  if (manifest.firmware_version <= current->confirmed_version)
   {
+    Secure_TraceHex("[SECURE-UPDATE] confirmed version = ",
+                    current->confirmed_version);
     return SECURE_FW_UPDATE_ERROR_VERSION;
   }
 
-  secure_update.target_slot = (current.confirmed_slot == FW_SLOT_A) ?
+  secure_update.target_slot = (current->confirmed_slot == FW_SLOT_A) ?
                               FW_SLOT_B : FW_SLOT_A;
-  target_offset = FW_SlotOffset(secure_update.target_slot);
-  if ((target_offset == UINT32_MAX) ||
-      (EXTMEM_EraseSector(EXTMEMORY_1, target_offset,
-                          FW_SLOT_SIZE) != EXTMEM_OK))
+  if (FW_SlotOffset(secure_update.target_slot) == UINT32_MAX)
   {
     secure_update_clear();
-    return SECURE_FW_UPDATE_ERROR_FLASH;
+    return SECURE_FW_UPDATE_ERROR_PARAMETER;
   }
 
   secure_update_next_session++;
@@ -228,11 +271,14 @@ uint32_t SecureFirmwareUpdate_Begin(const FW_UpdateManifest_t *manifest_ns,
   }
   secure_update.active = 1U;
   secure_update.session = secure_update_next_session;
-  secure_update.starting_sequence = current.sequence;
+  secure_update.starting_sequence = current->sequence;
+  secure_update.bytes_erased = 0U;
   secure_update.bytes_written = 0U;
   secure_update.manifest = manifest;
   FW_SHA256_Init(&secure_update.sha256);
   *session_ns = secure_update.session;
+  Secure_TraceHex("[SECURE-UPDATE] Begin accepted; session = ",
+                  secure_update.session);
   return SECURE_FW_UPDATE_OK;
 }
 
@@ -240,7 +286,8 @@ uint32_t SecureFirmwareUpdate_Write(uint32_t session,
                                     const uint8_t *data_ns,
                                     uint32_t length)
 {
-  uint32_t target_offset;
+  uint32_t slot_offset;
+  uint32_t written = 0U;
 
   if ((secure_update.active == 0U) ||
       (session != secure_update.session))
@@ -258,13 +305,36 @@ uint32_t SecureFirmwareUpdate_Write(uint32_t session,
   }
 
   (void)memcpy(secure_flash_buffer, data_ns, length);
-  target_offset = FW_SlotOffset(secure_update.target_slot) +
-                  secure_update.bytes_written;
-  if (EXTMEM_Write(EXTMEMORY_1, target_offset, secure_flash_buffer,
-                   length) != EXTMEM_OK)
+  slot_offset = FW_SlotOffset(secure_update.target_slot);
+  while (written < length)
   {
-    secure_update_clear();
-    return SECURE_FW_UPDATE_ERROR_FLASH;
+    uint32_t image_offset = secure_update.bytes_written + written;
+    uint32_t writable;
+    uint32_t chunk;
+
+    if (image_offset == secure_update.bytes_erased)
+    {
+      if ((secure_update.bytes_erased >= FW_SLOT_SIZE) ||
+          (EXTMEM_EraseSector(EXTMEMORY_1,
+                              slot_offset + secure_update.bytes_erased,
+                              SECURE_UPDATE_ERASE_SIZE) != EXTMEM_OK))
+      {
+        secure_update_clear();
+        return SECURE_FW_UPDATE_ERROR_FLASH;
+      }
+      secure_update.bytes_erased += SECURE_UPDATE_ERASE_SIZE;
+    }
+
+    writable = secure_update.bytes_erased - image_offset;
+    chunk = ((length - written) < writable) ?
+            (length - written) : writable;
+    if (EXTMEM_Write(EXTMEMORY_1, slot_offset + image_offset,
+                     &secure_flash_buffer[written], chunk) != EXTMEM_OK)
+    {
+      secure_update_clear();
+      return SECURE_FW_UPDATE_ERROR_FLASH;
+    }
+    written += chunk;
   }
   FW_SHA256_Update(&secure_update.sha256, secure_flash_buffer, length);
   secure_update.bytes_written += length;
@@ -312,7 +382,7 @@ static uint32_t secure_validate_stm32_image(uint32_t slot_offset,
 uint32_t SecureFirmwareUpdate_Finalize(uint32_t session)
 {
   FW_SHA256_Context_t readback_sha;
-  FW_BootRecord_t current;
+  FW_BootRecord_t *current = &secure_work_record;
   uint8_t stream_digest[32];
   uint8_t readback_digest[32];
   uint32_t source_index;
@@ -370,23 +440,23 @@ uint32_t SecureFirmwareUpdate_Finalize(uint32_t session)
     return SECURE_FW_UPDATE_ERROR_VERIFY;
   }
 
-  if ((secure_metadata_load(&current, &source_index) !=
+  if ((secure_metadata_load(current, &source_index) !=
        SECURE_FW_UPDATE_OK) ||
-      (current.state != FW_BOOT_STATE_CONFIRMED) ||
-      (current.sequence != secure_update.starting_sequence) ||
+      (current->state != FW_BOOT_STATE_CONFIRMED) ||
+      (current->sequence != secure_update.starting_sequence) ||
       (secure_update.manifest.firmware_version <=
-       current.confirmed_version))
+       current->confirmed_version))
   {
     secure_update_clear();
     return SECURE_FW_UPDATE_ERROR_STATE;
   }
 
-  current.sequence++;
-  current.state = FW_BOOT_STATE_PENDING;
-  current.pending_slot = secure_update.target_slot;
-  current.pending_version = secure_update.manifest.firmware_version;
-  current.pending_manifest = secure_update.manifest;
-  if (secure_metadata_commit(&current, source_index) !=
+  current->sequence++;
+  current->state = FW_BOOT_STATE_PENDING;
+  current->pending_slot = secure_update.target_slot;
+  current->pending_version = secure_update.manifest.firmware_version;
+  current->pending_manifest = secure_update.manifest;
+  if (secure_metadata_commit(current, source_index) !=
       SECURE_FW_UPDATE_OK)
   {
     secure_update_clear();
@@ -413,7 +483,7 @@ uint32_t SecureFirmwareUpdate_Abort(uint32_t session)
 
 uint32_t SecureFirmwareUpdate_ConfirmBoot(void)
 {
-  FW_BootRecord_t current;
+  FW_BootRecord_t *current = &secure_work_record;
   FW_UpdateManifest_t previous_manifest;
   uint32_t source_index;
   uint32_t previous_slot;
@@ -423,31 +493,31 @@ uint32_t SecureFirmwareUpdate_ConfirmBoot(void)
   {
     return SECURE_FW_UPDATE_ERROR_UNAVAILABLE;
   }
-  if (secure_metadata_load(&current, &source_index) != SECURE_FW_UPDATE_OK)
+  if (secure_metadata_load(current, &source_index) != SECURE_FW_UPDATE_OK)
   {
     return SECURE_FW_UPDATE_ERROR_FLASH;
   }
-  if (current.state == FW_BOOT_STATE_CONFIRMED)
+  if (current->state == FW_BOOT_STATE_CONFIRMED)
   {
     return SECURE_FW_UPDATE_OK;
   }
-  if (current.state != FW_BOOT_STATE_TRIAL)
+  if (current->state != FW_BOOT_STATE_TRIAL)
   {
     return SECURE_FW_UPDATE_ERROR_STATE;
   }
 
-  previous_slot = current.confirmed_slot;
-  previous_version = current.confirmed_version;
-  previous_manifest = current.confirmed_manifest;
-  current.sequence++;
-  current.state = FW_BOOT_STATE_CONFIRMED;
-  current.confirmed_slot = current.pending_slot;
-  current.confirmed_version = current.pending_version;
-  current.confirmed_manifest = current.pending_manifest;
-  current.pending_slot = previous_slot;
-  current.pending_version = previous_version;
-  current.pending_manifest = previous_manifest;
-  return secure_metadata_commit(&current, source_index);
+  previous_slot = current->confirmed_slot;
+  previous_version = current->confirmed_version;
+  previous_manifest = current->confirmed_manifest;
+  current->sequence++;
+  current->state = FW_BOOT_STATE_CONFIRMED;
+  current->confirmed_slot = current->pending_slot;
+  current->confirmed_version = current->pending_version;
+  current->confirmed_manifest = current->pending_manifest;
+  current->pending_slot = previous_slot;
+  current->pending_version = previous_version;
+  current->pending_manifest = previous_manifest;
+  return secure_metadata_commit(current, source_index);
 }
 
 static void secure_update_clear(void)

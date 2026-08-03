@@ -61,6 +61,22 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   verified: CN8 USB CDC XMODEM feeds a transport-independent Secure byte-array
   service, which writes the inactive A/B slot and uses pending/trial/confirmed
   metadata with rollback. Physical transfer and rollback testing are pending.
+- Secure update `Begin` must not erase the complete inactive slot synchronously:
+  XMODEM cannot ACK the manifest block while that long operation is in progress.
+  The writer erases authenticated image storage lazily in 64 KiB sectors before
+  first use; interrupted transfers must still leave the active slot and metadata
+  untouched.
+- Keep the initial XMODEM CRC-request window long enough for manual file
+  selection. It is 120 one-second `C` requests; a short 16-second window was not
+  usable for a terminal-driven update flow.
+- Secure SysTick stays suspended while NonSecure owns the CPU. Every firmware
+  update NSC wrapper must resume it before calling crypto/ExtMem HAL operations
+  and suspend it again before returning; otherwise HAL timeout loops become
+  unbounded when PKA or XSPI does not complete.
+- LRun must leave XSPI2 memory-mapped mode before jumping to Secure. Secure owns
+  the controller afterward and reinitializes it for indirect update writes.
+  If updater initialization fails, update APIs stay unavailable but normal boot
+  continues with a stage code on COM6.
 - Wi-Fi/BLE download transport is not implemented. When added, it must reuse the
   Secure installer and must not access XSPI2 or boot metadata directly.
 
@@ -88,7 +104,7 @@ These require explicit review after every Generate Code:
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | UCPD register diagnostics, wake counter, and 250 ms polling fallback |
 | AppliNonSecure/Core/Startup/startup_stm32n657x0hxq.s | Early Debug_UART_StartupTrace calls |
 | FSBL/Core/Src/extmem.c | Exact image-size and dynamic Non-Secure source hooks |
-| FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c/.h | Dynamic authenticated A/B source selection; functional vendor edit outside USER blocks |
+| FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c/.h | Dynamic A/B source and pre-jump XSPI handover hook; functional vendor edits outside USER blocks |
 | AppliSecure/Core/Src/main.c | A diagnostic trace between generated calls |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pcd.c | Temporary Non-Secure-only USB initialization stage logs |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_ll_usb.c | Temporary Non-Secure-only core-reset register and timeout logs |
@@ -174,8 +190,16 @@ If the headless IDE hangs, a direct make.exe build from the Debug directory is a
 After CubeMX Generate Code, explicitly audit these known multi-context losses:
 
 - FSBL must keep `HAL_BSEC_MODULE_ENABLED` and `HAL_XSPI_MODULE_ENABLED`.
-- FSBL and AppliSecure must keep `HAL_PKA_MODULE_ENABLED`; AppliSecure must
-  also keep `HAL_XSPI_MODULE_ENABLED`.
+- FSBL and AppliSecure must keep `HAL_PKA_MODULE_ENABLED` and
+  `HAL_RNG_MODULE_ENABLED`; AppliSecure must also keep
+  `HAL_XSPI_MODULE_ENABLED`.
+- AppliSecure must claim `RIF_RISC_PERIPH_INDEX_PKA` as Secure/non-privileged
+  before `SecureFirmwareUpdate_Init()`; the generated system isolation table
+  must preserve the same ownership. PKA MSP initialization must perform a
+  clock-enable followed by a reset/release sequence.
+- The shared crypto initializer must initialize and keep the RNG AHB clock
+  running before enabling PKA. RNG remains Secure/non-privileged and both FSBL
+  and AppliSecure `.project` files must retain `stm32n6xx_hal_rng.c`.
 - FSBL and AppliSecure `.project` / `.cproject` files must retain the shared
   `Common/Update` sources and includes. AppliSecure must retain its linked
   ExtMem manager and HAL XSPI/PKA sources.

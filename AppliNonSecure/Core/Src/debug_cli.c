@@ -10,6 +10,7 @@
 #include "app_logging.h"
 #include "debug_uart.h"
 #include "firmware_update.h"
+#include "firmware_build_version.h"
 #include "logging_levels.h"
 #include "main.h"
 #include "menu.h"
@@ -36,6 +37,7 @@ static uint32_t cli_console_mode;
 static uint32_t cli_secret_mode;
 static uint32_t cli_previous_was_cr;
 static uint32_t cli_first_input_logged;
+static uint32_t cli_cdc_session_ready;
 #if (APP_ST67W6X_ENABLED == 1U)
 static uint8_t cli_pending_ssid[W6X_WIFI_MAX_SSID_SIZE + 1U];
 static volatile uint32_t cli_wifi_scan_active;
@@ -48,6 +50,7 @@ static int cli_get_arguments(const char *command, char *copy,
                              size_t copy_size, char *argv[],
                              int max_arguments);
 static int32_t cli_menu_send(const char *text, size_t length, void *context);
+static uint32_t cli_token_equals(const char *left, const char *right);
 static void cli_command_help(Menu_t *menu, const char *command);
 static void cli_command_status(Menu_t *menu, const char *command);
 static void cli_command_usb(Menu_t *menu, const char *command);
@@ -91,6 +94,7 @@ static const Menu_Object_t cli_menu_objects[] =
   MENU_OBJECT("status", cli_command_status),
   MENU_OBJECT("usb", cli_command_usb),
   MENU_OBJECT("clear", cli_command_clear),
+  MENU_OBJECT("MAP", cli_command_map),
   MENU_OBJECT("map", cli_command_map),
   MENU_OBJECT("tof", cli_command_tof),
   MENU_OBJECT("debug", cli_command_debug),
@@ -143,9 +147,17 @@ void Debug_CLI_Run(void)
       cli_line_length = 0U;
       cli_previous_was_cr = 0U;
       cli_first_input_logged = 0U;
+      cli_cdc_session_ready = 0U;
       Menu_Reset(&cli_menu);
+      TOF_App_SetMapEnabled(0U);
       tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 10U);
       continue;
+    }
+
+    if (cli_cdc_session_ready == 0U)
+    {
+      cli_cdc_session_ready = 1U;
+      cli_enter_console();
     }
 
     UINT status = App_Console_Read(rx_buffer, sizeof(rx_buffer), &actual_length);
@@ -173,6 +185,28 @@ void Debug_CLI_Run(void)
     for (ULONG i = 0U; i < actual_length; ++i)
     {
       cli_process_byte(rx_buffer[i]);
+      if (Firmware_Update_IsActive() != 0U)
+      {
+        ULONG next = i + 1U;
+        ULONG remaining;
+
+        /* The command can end in CRLF inside one CDC chunk.  CR activated raw
+         * mode; its paired LF still belongs to the CLI and must not become the
+         * first byte reported to XMODEM. */
+        if ((rx_buffer[i] == '\r') && (next < actual_length) &&
+            (rx_buffer[next] == '\n'))
+        {
+          next++;
+        }
+        remaining = actual_length - next;
+        if (remaining != 0U)
+        {
+          Firmware_Update_Feed(&rx_buffer[next], (size_t)remaining,
+                               HAL_GetTick());
+          Firmware_Update_Poll(HAL_GetTick());
+        }
+        break;
+      }
     }
   }
 }
@@ -190,11 +224,11 @@ static void cli_process_byte(uint8_t byte)
 
   if (cli_console_mode == 0U)
   {
-    cli_enter_console();
     if ((byte == '\r') || (byte == '\n'))
     {
-      return;
+      cli_enter_console();
     }
+    return;
   }
 
   if ((byte == '\r') || (byte == '\n'))
@@ -300,11 +334,17 @@ static void cli_enter_console(void)
   cli_secret_mode = 0U;
   Menu_Reset(&cli_menu);
   TOF_App_SetMapEnabled(0U);
-  Debug_UART_Log("CLI", "console entered from CDC input; depth map disabled");
+  Debug_UART_Log("CLI", "USB CDC menu entered; depth map disabled");
   cli_print("\033[?25h\033[2J\033[H"
-            "N6 sensor console - USB CDC\r\n"
-            "The depth map is hidden; ranging is still active.\r\n"
-            "Type 'help' for commands.\r\n\r\n");
+            "+------------------------------------------------+\r\n"
+            "|            NATI LAB N6 CONTROL MENU            |\r\n"
+            "+------------------------------------------------+\r\n"
+            "  Application firmware version: "
+            NATI_LAB_FIRMWARE_VERSION_TEXT "\r\n"
+            "  USB CDC carries menu/map/update traffic only.\r\n"
+            "  All debug diagnostics are on the ST-LINK VCP.\r\n\r\n");
+  cli_show_help();
+  cli_print("\r\n");
   cli_prompt();
 }
 
@@ -352,14 +392,14 @@ static void cli_command_map(Menu_t *menu, const char *command)
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
 
-  if ((argc == 2) && (strcmp(argv[1], "on") == 0))
+  if ((argc == 2) && (cli_token_equals(argv[1], "on") != 0U))
   {
     (void)Menu_Reply(menu,
                      "Depth map enabled. Press Enter to return to the console.");
     TOF_App_SetMapEnabled(1U);
     cli_console_mode = 0U;
   }
-  else if ((argc == 2) && (strcmp(argv[1], "off") == 0))
+  else if ((argc == 2) && (cli_token_equals(argv[1], "off") != 0U))
   {
     TOF_App_SetMapEnabled(0U);
     (void)Menu_Reply(menu,
@@ -367,7 +407,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
   }
   else
   {
-    (void)Menu_Reply(menu, "Usage: map on|off");
+    (void)Menu_Reply(menu, "Usage: MAP ON (or map off)");
   }
 }
 
@@ -676,6 +716,35 @@ static int32_t cli_menu_send(const char *text, size_t length, void *context)
   return (int32_t)App_Console_Write(text, (ULONG)length);
 }
 
+static uint32_t cli_token_equals(const char *left, const char *right)
+{
+  if ((left == NULL) || (right == NULL))
+  {
+    return 0U;
+  }
+
+  while ((*left != '\0') && (*right != '\0'))
+  {
+    char left_value = *left;
+    char right_value = *right;
+    if ((left_value >= 'A') && (left_value <= 'Z'))
+    {
+      left_value = (char)(left_value - 'A' + 'a');
+    }
+    if ((right_value >= 'A') && (right_value <= 'Z'))
+    {
+      right_value = (char)(right_value - 'A' + 'a');
+    }
+    if (left_value != right_value)
+    {
+      return 0U;
+    }
+    left++;
+    right++;
+  }
+  return ((*left == '\0') && (*right == '\0')) ? 1U : 0U;
+}
+
 static void cli_print(const char *format, ...)
 {
   va_list args;
@@ -699,10 +768,10 @@ static void cli_prompt(void)
 static void cli_show_help(void)
 {
   cli_print("Commands:\r\n"
-            "  (Press Enter while the map is visible to open this console.)\r\n"
+            "  (MAP ON shows the map; Enter returns to this menu.)\r\n"
             "  status                         system summary\r\n"
             "  usb status                     USB queues, pool, flow/error counters\r\n"
-            "  map on|off                     show/hide the color depth map\r\n"
+            "  MAP ON                         show map until Enter is pressed\r\n"
             "  tof status|pause|resume        inspect/control ranging\r\n"
             "  debug off|error|warn|info|debug ST67 runtime log level\r\n"
             "  Start UART Firmware Update      receive signed .n6fw via XMODEM-CRC\r\n"

@@ -70,7 +70,7 @@ static uint8_t tof_depth_width;
 static uint8_t tof_depth_height;
 static volatile uint32_t tof_pipeline_initialized;
 static volatile TOF_App_State_t tof_state = TOF_APP_STATE_STARTING;
-static volatile uint32_t tof_map_enabled = 1U;
+static volatile uint32_t tof_map_enabled;
 static volatile uint32_t tof_paused;
 static volatile uint32_t tof_width;
 static volatile uint32_t tof_height;
@@ -852,7 +852,7 @@ static void tof_render_frame(const float *depth, uint8_t width, uint8_t height,
         pos = append_text(pos, "\033[0m\033[K\r\n");
     }
 
-    pos = append_text(pos, "Close = red, far = blue, invalid = black. Press Enter for console.\033[K");
+    pos = append_text(pos, "Close = red, far = blue, invalid = black. Press Enter to return to MENU.\033[K");
     if (pos < terminal_capacity)
     {
         (void)App_Console_CommitFrameBuffer(&output, (ULONG)pos);
@@ -929,7 +929,7 @@ static void tof_log(const char *format, ...)
         {
             send_length = sizeof(message) - 1U;
         }
-        (void)App_Console_Write(message, send_length);
+        (void)Debug_UART_Write(message, (size_t)send_length);
     }
 }
 

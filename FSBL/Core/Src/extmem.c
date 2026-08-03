@@ -103,3 +103,15 @@ uint32_t BOOT_GetApplicationSourceAddressNS(void)
   return Firmware_Boot_GetNonSecureSourceOffset();
 }
 
+BOOTStatus_TypeDef BOOT_PrepareApplicationJump(void)
+{
+  if (EXTMEM_MemoryMappedMode(EXTMEMORY_1, EXTMEM_DISABLE) != EXTMEM_OK)
+  {
+    (void)printf("[FSBL] ERROR: failed to leave external NOR memory-mapped mode\r\n");
+    return BOOT_ERROR_MAPPEDMODEFAIL;
+  }
+
+  (void)printf("[FSBL] external NOR unmapped for Secure update service\r\n");
+  return BOOT_OK;
+}
+
