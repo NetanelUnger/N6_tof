@@ -446,6 +446,9 @@ Available CLI commands:
 | status | Show a system summary |
 | usb status | Show CDC session, static-slot usage, queues, callback completions, flow control, and errors |
 | map on / map off | Show or hide the depth map |
+| map processing | Show the depth-filter submenu and current `[V]` selection |
+| map processing off/box/median/gaussian/sharpen/min/max | Select the displayed depth filter |
+| map processing `<filter>` `<parameter>` `<value>` | Configure the selected filter, for example `MAP PROCESSING BOX radius 2` |
 | tof status | Show ToF state, rate, and range |
 | tof pause / tof resume | Stop or restart the autonomous ranging stream |
 | debug off/error/warn/info/debug | Change ST67 log verbosity |
@@ -474,6 +477,11 @@ static const Menu_Object_t cli_menu_objects[] =
 Each entry contains a command prefix and a function pointer. The selected
 handler receives the complete command line, so an entry such as `set tof` can
 handle a line such as `set tof 123,123` without changing the parser.
+
+The console keeps the 16 most recent non-empty commands in fixed storage.
+Up/Down browse that history and restore the pending draft after the newest
+entry. Tab completes commands, subcommands, filter names, and filter parameter
+names from the same descriptor tables used for dispatch and map processing.
 
 `Menu_Process()` accepts arbitrary input chunks. It retains a partial line in a
 caller-owned 192-byte buffer until CR, LF, or CRLF arrives. Matching is
@@ -969,7 +977,11 @@ displays the NATI LAB control menu; background diagnostics are never mirrored
 to this port. The port carries only commands and replies, the XMODEM update
 protocol, and a requested depth map. The map is disabled after boot and after
 every disconnect. Enter `MAP ON` to display it, then press Enter to stop the
-display and return to the menu.
+display and return to the menu. `MAP PROCESSING` opens the filter submenu.
+Box and Gaussian blur provide configurable radius and pass count. Median has a
+radius and outlier threshold, Sharpen has radius and amount, while Min and Max
+select the nearest or farthest valid neighbor. The selected filter is marked
+with `[V]` and is applied only to the displayed map.
 
 ## 11. Recommended debugging order
 

@@ -25,6 +25,7 @@
 #define CLI_LINE_SIZE           (192U)
 #define CLI_PRINT_SIZE          (768U)
 #define CLI_MAX_ARGUMENTS       (8)
+#define CLI_HISTORY_DEPTH       (16U)
 #define CLI_WIFI_SCAN_MAX_APS   (15U)
 
 static char cli_line[CLI_LINE_SIZE];
@@ -38,6 +39,11 @@ static uint32_t cli_secret_mode;
 static uint32_t cli_previous_was_cr;
 static uint32_t cli_first_input_logged;
 static uint32_t cli_cdc_session_ready;
+static char cli_history[CLI_HISTORY_DEPTH][CLI_LINE_SIZE];
+static char cli_history_draft[CLI_LINE_SIZE];
+static size_t cli_history_count;
+static size_t cli_history_index;
+static uint32_t cli_escape_state;
 #if (APP_ST67W6X_ENABLED == 1U)
 static uint8_t cli_pending_ssid[W6X_WIFI_MAX_SSID_SIZE + 1U];
 static volatile uint32_t cli_wifi_scan_active;
@@ -51,6 +57,15 @@ static int cli_get_arguments(const char *command, char *copy,
                              int max_arguments);
 static int32_t cli_menu_send(const char *text, size_t length, void *context);
 static uint32_t cli_token_equals(const char *left, const char *right);
+static uint32_t cli_prefix_matches(const char *text, const char *prefix);
+static int cli_parse_u32(const char *text, uint32_t *value);
+static void cli_redraw_input(void);
+static void cli_history_record(const char *command);
+static void cli_history_move(int direction);
+static void cli_complete_input(void);
+static size_t cli_completion_candidate_count(void);
+static int cli_completion_candidate(size_t index, char *candidate,
+                                    size_t capacity);
 static void cli_command_help(Menu_t *menu, const char *command);
 static void cli_command_status(Menu_t *menu, const char *command);
 static void cli_command_usb(Menu_t *menu, const char *command);
@@ -67,6 +82,9 @@ static void cli_show_help(void);
 static void cli_show_status(void);
 static void cli_show_tof_status(void);
 static void cli_show_usb_status(void);
+static void cli_show_map_processing(void);
+static const TOF_ImageFilterDescriptor_t *cli_find_map_filter(
+    const char *command);
 static const char *cli_tof_state_name(TOF_App_State_t state);
 static const char *cli_radio_state_name(WifiBle_State_t state);
 static const char *cli_log_level_name(uint32_t level);
@@ -108,6 +126,41 @@ static const Menu_Object_t cli_menu_objects[] =
   MENU_OBJECT("reboot", cli_command_reboot)
 };
 
+static const char *const cli_completion_base[] =
+{
+  "help",
+  "menu",
+  "status",
+  "usb status",
+  "clear",
+  "MAP ON",
+  "MAP OFF",
+  "MAP PROCESSING",
+  "tof status",
+  "tof pause",
+  "tof resume",
+  "debug off",
+  "debug error",
+  "debug warn",
+  "debug info",
+  "debug debug",
+  "Start UART Firmware Update",
+  "update",
+#if (APP_ST67W6X_ENABLED == 1U)
+  "radio info",
+  "wifi status",
+  "wifi scan",
+  "wifi connect ",
+  "wifi disconnect",
+  "wifi disconnect forget",
+  "ble status",
+  "ble adv on",
+  "ble adv off",
+  "ble disconnect",
+#endif
+  "reboot yes",
+};
+
 void Debug_CLI_Run(void)
 {
   uint8_t rx_buffer[CLI_RX_CHUNK_SIZE];
@@ -146,6 +199,8 @@ void Debug_CLI_Run(void)
       cli_secret_mode = 0U;
       cli_line_length = 0U;
       cli_previous_was_cr = 0U;
+      cli_escape_state = 0U;
+      cli_history_index = cli_history_count;
       cli_first_input_logged = 0U;
       cli_cdc_session_ready = 0U;
       Menu_Reset(&cli_menu);
@@ -231,6 +286,49 @@ static void cli_process_byte(uint8_t byte)
     return;
   }
 
+  if (cli_escape_state != 0U)
+  {
+    if (cli_escape_state == 1U)
+    {
+      cli_escape_state = ((byte == '[') || (byte == 'O')) ? 2U : 0U;
+      return;
+    }
+
+    cli_escape_state = 0U;
+    if (byte == 'A')
+    {
+#if (APP_ST67W6X_ENABLED == 1U)
+      if (cli_secret_mode == 0U)
+#endif
+      cli_history_move(-1);
+    }
+    else if (byte == 'B')
+    {
+#if (APP_ST67W6X_ENABLED == 1U)
+      if (cli_secret_mode == 0U)
+#endif
+      cli_history_move(1);
+    }
+    return;
+  }
+
+  if (byte == 0x1BU)
+  {
+    cli_escape_state = 1U;
+    return;
+  }
+
+  if (byte == '\t')
+  {
+#if (APP_ST67W6X_ENABLED == 1U)
+    if (cli_secret_mode == 0U)
+#endif
+    {
+      cli_complete_input();
+    }
+    return;
+  }
+
   if ((byte == '\r') || (byte == '\n'))
   {
     cli_print("\r\n");
@@ -249,6 +347,9 @@ static void cli_process_byte(uint8_t byte)
     }
 #endif
 
+    cli_history_record(Menu_GetPendingInput(&cli_menu));
+    cli_history_index = cli_history_count;
+    cli_history_draft[0] = '\0';
     menu_status = Menu_Process(&cli_menu, &byte, 1U);
     if (menu_status == MENU_STATUS_INPUT_TOO_LONG)
     {
@@ -280,6 +381,7 @@ static void cli_process_byte(uint8_t byte)
 
     if (Menu_GetPendingLength(&cli_menu) != 0U)
     {
+      cli_history_index = cli_history_count;
       (void)Menu_Process(&cli_menu, &byte, 1U);
       cli_print("\b \b");
     }
@@ -291,6 +393,9 @@ static void cli_process_byte(uint8_t byte)
     (void)memset(cli_line, 0, sizeof(cli_line));
     cli_line_length = 0U;
     cli_secret_mode = 0U;
+    cli_escape_state = 0U;
+    cli_history_index = cli_history_count;
+    cli_history_draft[0] = '\0';
     Menu_Reset(&cli_menu);
 #if (APP_ST67W6X_ENABLED == 1U)
     (void)memset(cli_pending_ssid, 0, sizeof(cli_pending_ssid));
@@ -313,6 +418,7 @@ static void cli_process_byte(uint8_t byte)
     }
 #endif
 
+    cli_history_index = cli_history_count;
     menu_status = Menu_Process(&cli_menu, &byte, 1U);
     if (menu_status == MENU_STATUS_INPUT_TOO_LONG)
     {
@@ -332,6 +438,9 @@ static void cli_enter_console(void)
   cli_console_mode = 1U;
   cli_line_length = 0U;
   cli_secret_mode = 0U;
+  cli_escape_state = 0U;
+  cli_history_index = cli_history_count;
+  cli_history_draft[0] = '\0';
   Menu_Reset(&cli_menu);
   TOF_App_SetMapEnabled(0U);
   Debug_UART_Log("CLI", "USB CDC menu entered; depth map disabled");
@@ -405,9 +514,86 @@ static void cli_command_map(Menu_t *menu, const char *command)
     (void)Menu_Reply(menu,
                      "Depth map disabled; ranging remains active.");
   }
+  else if ((argc >= 2) &&
+           (cli_token_equals(argv[1], "processing") != 0U))
+  {
+    const TOF_ImageFilterDescriptor_t *descriptor;
+
+    if (argc == 2)
+    {
+      cli_show_map_processing();
+      return;
+    }
+
+    descriptor = cli_find_map_filter(argv[2]);
+    if (descriptor == NULL)
+    {
+      (void)Menu_Reply(menu,
+                       "Usage: MAP PROCESSING <filter> [parameter value]");
+      return;
+    }
+
+    if (argc == 3)
+    {
+      (void)TOF_App_SelectMapFilter(descriptor->filter);
+      cli_show_map_processing();
+      return;
+    }
+
+    if (argc == 5)
+    {
+      size_t parameter_index;
+      uint32_t value;
+
+      for (parameter_index = 0U;
+           parameter_index < descriptor->parameter_count;
+           ++parameter_index)
+      {
+        if (cli_token_equals(argv[3],
+                             descriptor->parameters[parameter_index].name) != 0U)
+        {
+          break;
+        }
+      }
+
+      if ((parameter_index >= descriptor->parameter_count) ||
+          (cli_parse_u32(argv[4], &value) == 0))
+      {
+        (void)Menu_Reply(menu,
+                         "Unknown parameter or invalid unsigned integer value.");
+        return;
+      }
+
+      TOF_ImageProcessingStatus_t result =
+          TOF_App_SetMapFilterParameter(descriptor->filter,
+                                       parameter_index, value);
+      if (result == TOF_IMAGE_PROCESSING_VALUE_OUT_OF_RANGE)
+      {
+        cli_print("%s must be in the range %" PRIu32 "..%" PRIu32 " %s.\r\n",
+                  descriptor->parameters[parameter_index].name,
+                  descriptor->parameters[parameter_index].minimum,
+                  descriptor->parameters[parameter_index].maximum,
+                  descriptor->parameters[parameter_index].unit);
+        return;
+      }
+      if (result != TOF_IMAGE_PROCESSING_OK)
+      {
+        (void)Menu_Reply(menu, "Unable to update map processing setting.");
+        return;
+      }
+
+      (void)TOF_App_SelectMapFilter(descriptor->filter);
+      cli_show_map_processing();
+      return;
+    }
+
+    (void)Menu_Reply(menu,
+                     "Usage: MAP PROCESSING <filter> [parameter value]");
+  }
   else
   {
-    (void)Menu_Reply(menu, "Usage: MAP ON (or map off)");
+    (void)Menu_Reply(menu,
+                     "Usage: MAP ON|OFF or MAP PROCESSING");
   }
 }
 
@@ -745,6 +931,336 @@ static uint32_t cli_token_equals(const char *left, const char *right)
   return ((*left == '\0') && (*right == '\0')) ? 1U : 0U;
 }
 
+static uint32_t cli_prefix_matches(const char *text, const char *prefix)
+{
+  if ((text == NULL) || (prefix == NULL))
+  {
+    return 0U;
+  }
+
+  while (*prefix != '\0')
+  {
+    char text_value = *text;
+    char prefix_value = *prefix;
+    if (text_value == '\0')
+    {
+      return 0U;
+    }
+    if ((text_value >= 'A') && (text_value <= 'Z'))
+    {
+      text_value = (char)(text_value - 'A' + 'a');
+    }
+    if ((prefix_value >= 'A') && (prefix_value <= 'Z'))
+    {
+      prefix_value = (char)(prefix_value - 'A' + 'a');
+    }
+    if (text_value != prefix_value)
+    {
+      return 0U;
+    }
+    ++text;
+    ++prefix;
+  }
+  return 1U;
+}
+
+static int cli_parse_u32(const char *text, uint32_t *value)
+{
+  uint32_t parsed = 0U;
+
+  if ((text == NULL) || (value == NULL) || (*text == '\0') || (*text == '-'))
+  {
+    return 0;
+  }
+
+  while (*text != '\0')
+  {
+    uint32_t digit;
+    if ((*text < '0') || (*text > '9'))
+    {
+      return 0;
+    }
+    digit = (uint32_t)(*text - '0');
+    if (parsed > ((UINT32_MAX - digit) / 10U))
+    {
+      return 0;
+    }
+    parsed = (parsed * 10U) + digit;
+    ++text;
+  }
+
+  *value = parsed;
+  return 1;
+}
+
+static void cli_redraw_input(void)
+{
+  const char *input = Menu_GetPendingInput(&cli_menu);
+
+  cli_print("\r\033[K");
+  cli_prompt();
+  if ((input != NULL) && (*input != '\0'))
+  {
+    cli_print("%s", input);
+  }
+}
+
+static void cli_history_record(const char *command)
+{
+  size_t length;
+  char *destination;
+
+  if (command == NULL)
+  {
+    return;
+  }
+  length = strlen(command);
+  while ((length != 0U) &&
+         ((command[length - 1U] == ' ') || (command[length - 1U] == '\t')))
+  {
+    --length;
+  }
+  if (length == 0U)
+  {
+    return;
+  }
+
+  if ((cli_history_count != 0U) &&
+      (strlen(cli_history[cli_history_count - 1U]) == length) &&
+      (strncmp(cli_history[cli_history_count - 1U], command, length) == 0))
+  {
+    return;
+  }
+
+  if (cli_history_count < CLI_HISTORY_DEPTH)
+  {
+    destination = cli_history[cli_history_count++];
+  }
+  else
+  {
+    (void)memmove(cli_history[0], cli_history[1],
+                  (CLI_HISTORY_DEPTH - 1U) * sizeof(cli_history[0]));
+    destination = cli_history[CLI_HISTORY_DEPTH - 1U];
+  }
+
+  (void)memcpy(destination, command, length);
+  destination[length] = '\0';
+}
+
+static void cli_history_move(int direction)
+{
+  const char *replacement;
+
+  if (cli_history_count == 0U)
+  {
+    cli_print("\a");
+    return;
+  }
+
+  if (direction < 0)
+  {
+    if (cli_history_index >= cli_history_count)
+    {
+      const char *pending = Menu_GetPendingInput(&cli_menu);
+      size_t length = (pending != NULL) ? strlen(pending) : 0U;
+      if (pending != NULL)
+      {
+        (void)memcpy(cli_history_draft, pending, length + 1U);
+      }
+      else
+      {
+        cli_history_draft[0] = '\0';
+      }
+      cli_history_index = cli_history_count - 1U;
+    }
+    else if (cli_history_index != 0U)
+    {
+      --cli_history_index;
+    }
+    else
+    {
+      cli_print("\a");
+    }
+  }
+  else
+  {
+    if (cli_history_index >= cli_history_count)
+    {
+      cli_print("\a");
+      return;
+    }
+    ++cli_history_index;
+  }
+
+  replacement = (cli_history_index < cli_history_count) ?
+      cli_history[cli_history_index] : cli_history_draft;
+  if (Menu_SetPendingInput(&cli_menu, replacement) == MENU_STATUS_OK)
+  {
+    cli_redraw_input();
+  }
+}
+
+static void cli_complete_input(void)
+{
+  const char *input = Menu_GetPendingInput(&cli_menu);
+  size_t input_length = Menu_GetPendingLength(&cli_menu);
+  char candidate[CLI_LINE_SIZE];
+  char common[CLI_LINE_SIZE];
+  size_t common_length = 0U;
+  size_t match_count = 0U;
+  size_t candidate_count = cli_completion_candidate_count();
+  size_t index;
+
+  if (input == NULL)
+  {
+    return;
+  }
+
+  for (index = 0U; index < candidate_count; ++index)
+  {
+    if ((cli_completion_candidate(index, candidate, sizeof(candidate)) == 0) &&
+        (cli_prefix_matches(candidate, input) != 0U))
+    {
+      if (match_count == 0U)
+      {
+        (void)memcpy(common, candidate, strlen(candidate) + 1U);
+        common_length = strlen(common);
+      }
+      else
+      {
+        size_t position = 0U;
+        while ((position < common_length) && (candidate[position] != '\0'))
+        {
+          char left = common[position];
+          char right = candidate[position];
+          if ((left >= 'A') && (left <= 'Z')) left = (char)(left - 'A' + 'a');
+          if ((right >= 'A') && (right <= 'Z')) right = (char)(right - 'A' + 'a');
+          if (left != right) break;
+          ++position;
+        }
+        common_length = position;
+        common[common_length] = '\0';
+      }
+      ++match_count;
+    }
+  }
+
+  if (match_count == 0U)
+  {
+    cli_print("\a");
+    return;
+  }
+
+  if (match_count == 1U)
+  {
+    common_length = strlen(common);
+    if ((common_length < (sizeof(common) - 1U)) &&
+        (common_length != 0U) && (common[common_length - 1U] != ' '))
+    {
+      common[common_length++] = ' ';
+      common[common_length] = '\0';
+    }
+  }
+
+  if (common_length > input_length)
+  {
+    if (Menu_SetPendingInput(&cli_menu, common) == MENU_STATUS_OK)
+    {
+      cli_history_index = cli_history_count;
+      cli_redraw_input();
+    }
+    return;
+  }
+
+  cli_print("\r\n");
+  for (index = 0U; index < candidate_count; ++index)
+  {
+    if ((cli_completion_candidate(index, candidate, sizeof(candidate)) == 0) &&
+        (cli_prefix_matches(candidate, input) != 0U))
+    {
+      cli_print("  %s\r\n", candidate);
+    }
+  }
+  cli_redraw_input();
+}
+
+static size_t cli_completion_candidate_count(void)
+{
+  size_t count = sizeof(cli_completion_base) /
+                 sizeof(cli_completion_base[0]);
+  size_t filter_index;
+
+  for (filter_index = 0U;
+       filter_index < TOF_ImageProcessing_GetFilterCount();
+       ++filter_index)
+  {
+    const TOF_ImageFilterDescriptor_t *descriptor =
+        TOF_ImageProcessing_GetDescriptorByIndex(filter_index);
+    if (descriptor != NULL)
+    {
+      count += 1U + descriptor->parameter_count;
+    }
+  }
+  return count;
+}
+
+static int cli_completion_candidate(size_t index, char *candidate,
+                                    size_t capacity)
+{
+  size_t base_count = sizeof(cli_completion_base) /
+                      sizeof(cli_completion_base[0]);
+  size_t filter_index;
+
+  if ((candidate == NULL) || (capacity == 0U))
+  {
+    return -1;
+  }
+  if (index < base_count)
+  {
+    int length = snprintf(candidate, capacity, "%s",
+                          cli_completion_base[index]);
+    return ((length >= 0) && ((size_t)length < capacity)) ? 0 : -1;
+  }
+  index -= base_count;
+
+  for (filter_index = 0U;
+       filter_index < TOF_ImageProcessing_GetFilterCount();
+       ++filter_index)
+  {
+    const TOF_ImageFilterDescriptor_t *descriptor =
+        TOF_ImageProcessing_GetDescriptorByIndex(filter_index);
+    size_t parameter_index;
+
+    if (descriptor == NULL)
+    {
+      continue;
+    }
+    if (index == 0U)
+    {
+      int length = snprintf(candidate, capacity, "MAP PROCESSING %s ",
+                            descriptor->command);
+      return ((length >= 0) && ((size_t)length < capacity)) ? 0 : -1;
+    }
+    --index;
+
+    for (parameter_index = 0U;
+         parameter_index < descriptor->parameter_count;
+         ++parameter_index)
+    {
+      if (index == 0U)
+      {
+        int length = snprintf(candidate, capacity,
+                              "MAP PROCESSING %s %s ",
+                              descriptor->command,
+                              descriptor->parameters[parameter_index].name);
+        return ((length >= 0) && ((size_t)length < capacity)) ? 0 : -1;
+      }
+      --index;
+    }
+  }
+  return -1;
+}
+
 static void cli_print(const char *format, ...)
 {
   va_list args;
@@ -772,6 +1288,7 @@ static void cli_show_help(void)
             "  status                         system summary\r\n"
             "  usb status                     USB queues, pool, flow/error counters\r\n"
             "  MAP ON                         show map until Enter is pressed\r\n"
+            "  MAP PROCESSING                 select/configure depth filtering\r\n"
             "  tof status|pause|resume        inspect/control ranging\r\n"
             "  debug off|error|warn|info|debug ST67 runtime log level\r\n"
             "  Start UART Firmware Update      receive signed .n6fw via XMODEM-CRC\r\n"
@@ -863,19 +1380,24 @@ static void cli_show_usb_status(void)
 static void cli_show_tof_status(void)
 {
   TOF_App_Status_t status;
+  TOF_ImageProcessingConfig_t processing;
+  const TOF_ImageFilterDescriptor_t *filter;
   TOF_App_GetStatus(&status);
+  TOF_App_GetMapProcessingConfig(&processing);
+  filter = TOF_ImageProcessing_GetDescriptor(processing.selected_filter);
   cli_print("ToF state: %s\r\n"
             "Resolution: %" PRIu32 "x%" PRIu32 "\r\n"
             "Frame: %" PRIu32 ", rate: %" PRIu32 ".%" PRIu32 " fps\r\n"
             "Pipeline: acquired %" PRIu32 ", processed %" PRIu32 ", dropped %" PRIu32 ", queue failures %" PRIu32 "\r\n"
             "Last valid range: %" PRIu32 "..%" PRIu32 " mm\r\n"
-            "Map: %s, acquisition: %s\r\n",
+            "Map: %s, processing: %s, acquisition: %s\r\n",
             cli_tof_state_name(status.state), status.width, status.height,
             status.frame_counter, status.fps_x10 / 10U, status.fps_x10 % 10U,
             status.acquired_frames, status.processed_frames,
             status.dropped_frames, status.queue_failures,
             status.minimum_mm, status.maximum_mm,
             (status.map_enabled != 0U) ? "on" : "off",
+            (filter != NULL) ? filter->display_name : "Off",
             (status.paused != 0U) ? "paused" : "running");
   if (status.state == TOF_APP_STATE_ERROR)
   {
@@ -883,6 +1405,64 @@ static void cli_show_tof_status(void)
               (status.error_stage != NULL) ? status.error_stage : "unknown",
               status.error_code);
   }
+}
+
+static void cli_show_map_processing(void)
+{
+  TOF_ImageProcessingConfig_t config;
+  size_t filter_index;
+
+  TOF_App_GetMapProcessingConfig(&config);
+  cli_print("MAP PROCESSING filters:\r\n");
+  for (filter_index = 0U;
+       filter_index < TOF_ImageProcessing_GetFilterCount();
+       ++filter_index)
+  {
+    const TOF_ImageFilterDescriptor_t *descriptor =
+        TOF_ImageProcessing_GetDescriptorByIndex(filter_index);
+    size_t parameter_index;
+
+    cli_print("  [%c] %-7s %-12s - %s\r\n",
+              (config.selected_filter == descriptor->filter) ? 'V' : ' ',
+              descriptor->command, descriptor->display_name,
+              descriptor->description);
+    for (parameter_index = 0U;
+         parameter_index < descriptor->parameter_count;
+         ++parameter_index)
+    {
+      const TOF_ImageFilterParameter_t *parameter =
+          &descriptor->parameters[parameter_index];
+      cli_print("       %-12s = %" PRIu32 " %s  (%" PRIu32 "..%" PRIu32 ")\r\n",
+                parameter->name,
+                config.values[(size_t)descriptor->filter][parameter_index],
+                parameter->unit, parameter->minimum, parameter->maximum);
+    }
+  }
+  cli_print("Select:    MAP PROCESSING BOX\r\n"
+            "Configure: MAP PROCESSING BOX radius 2\r\n"
+            "           MAP PROCESSING BOX passes 2\r\n"
+            "           MAP PROCESSING MEDIAN threshold_mm 100\r\n"
+            "           MAP PROCESSING GAUSSIAN passes 2\r\n"
+            "           MAP PROCESSING SHARPEN amount_percent 125\r\n"
+            "Median threshold_mm=0 applies the median to every pixel.\r\n");
+}
+
+static const TOF_ImageFilterDescriptor_t *cli_find_map_filter(
+    const char *command)
+{
+  size_t index;
+
+  for (index = 0U; index < TOF_ImageProcessing_GetFilterCount(); ++index)
+  {
+    const TOF_ImageFilterDescriptor_t *descriptor =
+        TOF_ImageProcessing_GetDescriptorByIndex(index);
+    if ((descriptor != NULL) &&
+        (cli_token_equals(command, descriptor->command) != 0U))
+    {
+      return descriptor;
+    }
+  }
+  return NULL;
 }
 
 static const char *cli_tof_state_name(TOF_App_State_t state)

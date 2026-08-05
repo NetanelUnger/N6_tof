@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include "tx_api.h"
+#include "tof_image_processing.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,6 +49,11 @@ void TOF_App_Process(void);
 void TOF_App_SetMapEnabled(uint32_t enabled);
 void TOF_App_SetPaused(uint32_t paused);
 void TOF_App_GetStatus(TOF_App_Status_t *status);
+TOF_ImageProcessingStatus_t TOF_App_SelectMapFilter(
+    TOF_ImageFilter_t filter);
+TOF_ImageProcessingStatus_t TOF_App_SetMapFilterParameter(
+    TOF_ImageFilter_t filter, size_t parameter_index, uint32_t value);
+void TOF_App_GetMapProcessingConfig(TOF_ImageProcessingConfig_t *config);
 
 #ifdef __cplusplus
 }

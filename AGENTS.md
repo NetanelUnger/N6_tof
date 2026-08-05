@@ -23,8 +23,16 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 - The ST-LINK diagnostic UART works on USART1, PE5/PE6, at 115200 baud.
 - The VL53L9CX initializes and returns complete 54×42 frames.
 - The VL53L9CX runs as a 100 ms autonomous stream. A priority-7 acquisition
-  task and priority-10 processing task exchange three fixed 14,842-byte raw
-  slots, so the next DMA acquisition overlaps transform/rendering.
+  task and priority-10 processing task exchange pointers to three fixed
+  14,842-byte raw-frame objects from a static DMA-safe pool, so the next DMA
+  acquisition overlaps transform/rendering without copying raw frames between
+  tasks.
+- The displayed depth map has an allocation-free, table-driven processing
+  stage with Off, Box, Median, Gaussian, Sharpen, Min, and Max registrations.
+  One fixed 54x42 float workspace supports filtering; settings are changed
+  through `MAP PROCESSING` and are snapshotted before each displayed frame.
+- The USB CDC CLI has allocation-free Tab completion generated from command and
+  filter descriptor tables plus a fixed 16-entry Up/Down command history.
 - The steady-state sensor path uses PD9 falling-edge EXTI and I3C TX/RX DMA.
   Tasks wait on ThreadX event flags posted from HAL callbacks; initialization
   remains allowed to use blocking vendor calls.
@@ -139,6 +147,7 @@ Files imported from X-CUBE packages are not necessarily CubeMX-owned. The VL53L9
 | AppliNonSecure/Core/Src/app_threadx.c | Application task creation |
 | AppliNonSecure/Core/Inc/app_features.h | Feature flags, especially ST67 |
 | AppliNonSecure/Core/Src/tof_app.c | Separate acquisition/processing loops, static raw slots, transform, status, and rendering |
+| AppliNonSecure/Core/Src/tof_image_processing.c | Table-driven, allocation-free depth-map filters and parameter validation |
 | AppliNonSecure/Utilities/vl53l9-common/platform/platform_utils.c | STM32N6 GPIO/I3C DMA callbacks and ThreadX event bridge |
 | AppliNonSecure/Utilities/vl53l9-common/vl53l9/vl53l9_platform.c | Persistent combined-transfer and TX-DMA contexts |
 | AppliNonSecure/Drivers/BSP/Components/vl53l9/vl53l9.c | Sensor driver plus local stage-level asynchronous frame API |

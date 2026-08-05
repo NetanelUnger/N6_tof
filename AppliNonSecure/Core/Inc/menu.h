@@ -120,6 +120,10 @@ void Menu_Reset(Menu_t *menu);
 /* Number of command bytes currently waiting for Enter. */
 size_t Menu_GetPendingLength(const Menu_t *menu);
 
+/* Read or replace the pending command line without dispatching it. */
+const char *Menu_GetPendingInput(const Menu_t *menu);
+Menu_Status_t Menu_SetPendingInput(Menu_t *menu, const char *text);
+
 /*
  * Send one textual response through the callback supplied to Menu_Init().
  * Existing trailing CR/LF bytes are normalized and exactly one CRLF is added.
