@@ -26,6 +26,7 @@
 #include <string.h>
 
 #include "debug_uart.h"
+#include "firmware_update.h"
 #include "main.h"
 #include "usb_cdc_transport.h"
 
@@ -418,26 +419,18 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
     }
     else if (event.type == APP_USB_CDC_DEBUG_PROBE)
     {
-      static const CHAR probe_text[] =
-          "\r\n[N6] USB CDC transport is online.\r\n"
-          "[N6] Async TX/RX workers and static queues are active.\r\n";
       ULONG diagnostic_flags;
       USB_CDC_TransportStatus_t transport_status;
 
       if ((usb_cdc_active != 0U) &&
           (USB_CDC_Transport_IsReady() == UX_TRUE))
       {
-        if (usb_cdc_probe_sent == 0U)
+        if ((usb_cdc_probe_sent == 0U) &&
+            (Firmware_Update_IsActive() == 0U))
         {
-          status = USB_CDC_Transport_Send(probe_text,
-                                          (ULONG)(sizeof(probe_text) - 1U),
-                                          TX_NO_WAIT);
-          if (status == TX_SUCCESS)
-          {
-            usb_cdc_probe_sent = 1U;
-          }
-          Debug_UART_Log("CDC", "3-second debug probe queued: status=%u",
-                         (unsigned int)status);
+          usb_cdc_probe_sent = 1U;
+          Debug_UART_Log("CDC",
+                         "3-second health probe: transport online; CDC kept UI-only");
         }
 
         diagnostic_flags = USB_CDC_Transport_TakeDiagnosticFlags();

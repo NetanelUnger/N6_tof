@@ -29,8 +29,9 @@ Current status:
 | ANSI color-map renderer | Working through USB CDC |
 | ST-LINK UART at 115200 baud | Working |
 | USB CDC | Working; Windows creates a separate COM port backed by a manager task, independent RX/TX workers, callback-driven TX, and fixed static slots |
+| USB CDC XMODEM firmware update | Implemented and build-verified; hardware transfer and rollback validation are pending |
 | ST67 Wi-Fi/BLE | Driver and dedicated task are present, but intentionally disabled because the shield is not currently installed |
-| BLE OTA | Not implemented yet |
+| Wi-Fi/BLE OTA transport | Not implemented; it can reuse the authenticated byte-stream installer when the radio is enabled |
 
 ### 1.1 Latest hardware validation
 
@@ -50,6 +51,10 @@ RX/TX architecture and rare-event diagnostics enabled.
 This is a successful functional hardware checkpoint. It is not yet evidence of
 a multi-hour soak test, repeated attach/detach endurance, or deliberate fault
 injection into every recovery branch. Those remain separate validation tasks.
+
+The authenticated A/B updater added later on 2026-07-31 has passed compilation,
+linking, image signing, and package-generation checks. It has not yet been sent
+through XMODEM or exercised through trial boot and rollback on physical hardware.
 
 ### 1.2 Repository layout and local reference material
 
@@ -84,8 +89,9 @@ This is not a single binary that runs directly after Reset. The CubeMX project i
 flowchart TD
     A["Reset / BootROM"] --> B["FSBL @ 0x70000000"]
     B --> C["Initialize XSPI2 and map external NOR"]
+    C --> V["Validate A/B metadata, signature, hash, and version"]
     C --> D["Load Secure image @ 0x70100000"]
-    C --> E["Load Non-Secure image @ 0x70180000"]
+    V --> E["Load selected Non-Secure Slot A or B"]
     D --> F["AppliSecure: TrustZone, RIF, RISAF"]
     F --> G["Jump to the Non-Secure Reset_Handler"]
     G --> H["HAL, GPIO, DMA, I3C, SPI, and UCPD initialization"]
@@ -100,7 +106,13 @@ The application images are stored in external NOR Flash. The FSBL:
 - Initializes XSPI2.
 - Maps the external NOR into the STM32 address space.
 - Reads the STM32 signed-image headers.
-- Copies the Secure and Non-Secure images into their execution regions.
+- Selects Slot A or B from redundant boot metadata and re-verifies an updated
+  image's ECDSA-P256 manifest and SHA-256 before it can execute.
+- Converts a pending image into a one-boot trial and rolls back automatically
+  if that trial resets before the application confirms it.
+- Copies the Secure and selected Non-Secure images into their execution regions.
+- Leaves XSPI2 memory-mapped mode after the copies complete, before transferring
+  ownership to Secure. The Secure update writer requires indirect-command mode.
 - Synchronizes and disables caches before handing over control.
 - Starts the Secure application.
 
@@ -110,6 +122,10 @@ TrustZone divides the MCU into Secure and Non-Secure worlds. AppliSecure:
 
 - Defines which SRAM regions are accessible from Non-Secure state.
 - Programs RISAF and RIF access control.
+- Owns XSPI2, PKA, signature validation, bounded inactive-slot writes, read-back
+  hashing, and atomic update-metadata commits behind narrow NSC entry points.
+- Rejects all update calls if XSPI2, XSPIM, ExtMem/SFDP, or PKA initialization
+  fails, while allowing the already authenticated normal application to boot.
 - Releases required peripherals and GPIOs to Non-Secure.
 - Preserves the Non-Secure MSP and Reset_Handler values before RISAF changes make the normal alias unreadable in this configuration.
 - Performs the final state transition into the Non-Secure Reset_Handler.
@@ -118,13 +134,32 @@ A mistake in these permissions may look like an ordinary HardFault even though t
 
 ## 3. External Flash image map
 
-| Image | Programming address | Purpose |
+| Region or artifact | Address / offset | Purpose |
 |---|---:|---|
 | N6_FSBL-trusted.bin | 0x70000000 | Boot loader and external-memory setup |
-| N6_AppliSecure-trusted.bin | 0x70100000 | TrustZone and system isolation |
-| N6_AppliNonSecure-trusted.bin | 0x70180000 | Main application |
+| N6_AppliSecure-trusted.bin | 0x70100000 | TrustZone, isolation, and secure update service |
+| Slot A / N6_AppliNonSecure-trusted.bin | 0x70180000 / 0x00180000 | Factory or currently selected Non-Secure image |
+| Slot B | 0x70280000 / 0x00280000 | Inactive or alternate Non-Secure image |
+| Boot metadata copy 0 | 0x703E0000 / 0x003E0000 | 64 KiB erase sector containing one 1 KiB boot record |
+| Boot metadata copy 1 | 0x703F0000 / 0x003F0000 | Alternating atomic boot record |
+
+Each application slot is 1 MiB. `N6-Firmware-v<version>.n6fw` contains a
+256-byte signed update manifest followed by the trusted Non-Secure STM32 image.
+`N6-BootMetadata.bin` describes the factory Slot-A version and is programmed to
+both metadata sectors so a development reflash cannot retain a stale Slot-B
+selection.
 
 Each image receives an STM32 image header version 2.3 through STM32_SigningTool_CLI. The current development flow uses the -nk option, which creates the required FSBL image format without a private signing key. This is appropriate for bring-up, but it is not a production secure-boot chain.
+
+The update package has an independent ECDSA-P256 signature and SHA-256 image
+digest. This rejects corrupted, unsigned, wrong-target, oversized, and
+non-incrementing packages in the current firmware. It does not turn the current
+development board into a complete physical root of trust: `-nk` remains in the
+BootROM image flow, the update public key is compiled into replaceable firmware,
+and the local development private key is not an HSM-backed production key.
+Production must enable the STM32 authenticated secure-boot/OTP chain, protect or
+immutably bind the update public key, protect the anti-rollback state, and keep
+the private signing key outside developer workstations.
 
 ## 4. Important N6.ioc settings
 
@@ -138,7 +173,7 @@ The CubeMX source of truth is [N6.ioc](N6.ioc).
 - Project type: SecureNSecure.
 - Contexts: FSBL, AppliSecure, AppliNonSecure, and ExtMemLoader.
 - KeepUserCode is enabled.
-- Main ThreadX application pool: 192 KiB.
+- Main ThreadX application pool: 160 KiB.
 
 ### 4.2 Clock configuration
 
@@ -228,7 +263,9 @@ After every Generate Code operation, verify:
 - Custom stack sizes did not return to their small defaults.
 - The manual OS_CAD_STACK_SIZE mapping described later was not overwritten.
 - The shared HAL directory still contains the modules needed by every context,
-  especially BSEC, XSPI, ADC, UART, and USB.
+  especially BSEC, XSPI, PKA, ADC, UART, and USB.
+- FSBL and AppliSecure project links still include `Common/Update`; AppliSecure
+  also retains the ExtMem manager sources used by the Secure flash writer.
 - The Non-Secure STM32CubeIDE project still links `stm32n6xx_hal_uart.c` and
   `stm32n6xx_hal_uart_ex.c` and includes the STM32N6xx_Nucleo BSP directory.
 
@@ -300,11 +337,12 @@ resolution. The largest visible active chain is the optimized sharpener at
 about 34 KiB, before its callers and exception/FPU context. A 96 KiB stack
 therefore retains generous margin.
 
-The ThreadX application pool remains 192 KiB. An attempted 320 KiB ToF stack
-inside a 384 KiB pool consumed so much static SRAM that the transform's first
-frame could not complete its dynamic allocations and returned
-`MEDIA_ERROR_UNKNOWN` (`-14`). Stack and heap requirements must be budgeted
-together; a larger task stack is not automatically safer for the whole system.
+The ThreadX application pool is 160 KiB. Its active stacks reserve about
+120 KiB, while the smaller pool leaves an additional 32 KiB for the C heap.
+With the update and static CDC buffers linked, the first-frame transform needs
+about 356,688 bytes at peak; a 192 KiB pool left only 356,872 bytes before
+allocator overhead and therefore returned `MEDIA_ERROR_UNKNOWN` (`-14`). Stack
+and heap requirements must be budgeted together.
 
 The USBX device-control stack is currently 16 KiB and the USBX pool is 32 KiB. The 16 KiB value was introduced as a conservative bring-up value during the initial fault investigation. Later address mapping proved that the observed STKOF was in the USB-PD CAD task, not the USBX task. Therefore, this larger USBX stack is not evidence of an ST USBX defect.
 
@@ -408,10 +446,14 @@ Available CLI commands:
 | status | Show a system summary |
 | usb status | Show CDC session, static-slot usage, queues, callback completions, flow control, and errors |
 | map on / map off | Show or hide the depth map |
+| map processing | Show the depth-filter submenu and current `[V]` selection |
+| map processing off/box/median/gaussian/sharpen/min/max | Select the displayed depth filter |
+| map processing `<filter>` `<parameter>` `<value>` | Configure the selected filter, for example `MAP PROCESSING BOX radius 2` |
 | tof status | Show ToF state, rate, and range |
 | tof pause / tof resume | Stop or restart the autonomous ranging stream |
 | debug off/error/warn/info/debug | Change ST67 log verbosity |
 | clear | Clear the terminal |
+| Start UART Firmware Update | Enter raw XMODEM-CRC receive mode on the CN8 USB CDC terminal (`update` is an alias) |
 | reboot yes | Reset the MCU |
 
 #### 5.3.1 Table-driven command menu
@@ -427,6 +469,7 @@ static const Menu_Object_t cli_menu_objects[] =
   MENU_OBJECT("usb", cli_command_usb),
   MENU_OBJECT("map", cli_command_map),
   MENU_OBJECT("tof", cli_command_tof),
+  MENU_OBJECT("Start UART Firmware Update", cli_command_firmware_update),
   MENU_OBJECT("reboot", cli_command_reboot)
 };
 ~~~
@@ -434,6 +477,11 @@ static const Menu_Object_t cli_menu_objects[] =
 Each entry contains a command prefix and a function pointer. The selected
 handler receives the complete command line, so an entry such as `set tof` can
 handle a line such as `set tof 123,123` without changing the parser.
+
+The console keeps the 16 most recent non-empty commands in fixed storage.
+Up/Down browse that history and restore the pending draft after the newest
+entry. Tab completes commands, subcommands, filter names, and filter parameter
+names from the same descriptor tables used for dispatch and map processing.
 
 `Menu_Process()` accepts arbitrary input chunks. It retains a partial line in a
 caller-owned 192-byte buffer until CR, LF, or CRLF arrives. Matching is
@@ -460,7 +508,47 @@ To add a command:
 The generic API and a standalone example are documented directly in
 `AppliNonSecure/Core/Inc/menu.h`.
 
-#### 5.3.2 Rare-event handling and diagnostics
+#### 5.3.2 Authenticated XMODEM firmware update
+
+Despite the historical command text saying UART, the implemented transfer runs
+over the CN8 USB CDC console, not the independent ST-LINK diagnostic UART. After
+entering `Start UART Firmware Update`, the CLI stops line parsing and terminal
+echo and passes raw CDC byte arrays into an allocation-free XMODEM-CRC receiver.
+It accepts 128-byte SOH and 1 KiB STX blocks, validates the block complement and
+CRC16, acknowledges retransmitted blocks without writing them twice, bounds
+timeouts and retries, and supports CAN cancellation.
+
+The transport is intentionally separate from installation. XMODEM first
+collects the 256-byte manifest, then sends each payload byte array through the
+Secure NSC service. The Secure service:
+
+1. Copies Non-Secure inputs into Secure scratch memory to avoid time-of-check /
+   time-of-use changes.
+2. Validates target, type, size, monotonically increasing version, and the
+   ECDSA-P256 manifest signature before erasing anything.
+3. Erases only the required sectors in the inactive 1 MiB slot and rejects
+   every out-of-bounds chunk.
+4. Streams SHA-256 while writing, then hashes the flash read-back and validates
+   the STM32 image header and vectors.
+5. Writes a CRC-protected PENDING record to the alternate metadata sector only
+   after all checks succeed.
+
+The inactive slot is erased lazily in 64 KiB sectors as authenticated image
+bytes reach each sector. This avoids holding the first XMODEM ACK behind a
+full-slot erase, keeps every protocol pause bounded to one sector erase, and
+still leaves the active slot and boot metadata untouched on interruption.
+
+On reset the FSBL independently verifies the candidate and marks it TRIAL before
+booting. A one-shot Non-Secure task confirms the boot after five seconds. If the
+device resets before confirmation, the next FSBL run restores the previously
+confirmed slot. A power loss during reception leaves the active slot and last
+valid metadata record untouched.
+
+The same byte-array `Begin` / `Write` / `Finalize` boundary is the integration
+point for a future Wi-Fi/BLE downloader; the radio transport must not bypass the
+Secure service or write external flash directly.
+
+#### 5.3.3 Rare-event handling and diagnostics
 
 The high-rate paths deliberately separate evidence capture from text output.
 USBX and HAL callbacks never format UART strings. They update fixed counters,
@@ -532,7 +620,11 @@ The module is currently disabled in AppliNonSecure/Core/Inc/app_features.h:
 
 Do not set it to 1 until the shield is physically attached and the SPI, boot, and shared EXTI wiring have been verified.
 
-BLE OTA is not implemented. A safe design will require an inactive image slot, chunk bounds checking, a cryptographic hash/signature, version policy, atomic activation, and rollback.
+Wi-Fi/BLE download and connectivity are not implemented while the shield is
+absent. The transport-independent installer is now present: inactive A/B slots,
+chunk bounds checks, SHA-256 plus ECDSA-P256, increasing-version policy, atomic
+activation, trial confirmation, and rollback. A future ST67 task should only
+download and feed byte arrays into that interface.
 
 ### 5.5 Independent ST-LINK UART diagnostics
 
@@ -570,8 +662,16 @@ CFSR_NS = 0x00100000 means STKOF on Cortex-M55. The value 0xEFEFEFEF is the Thre
 
 ### 5.7 Build and programming tools
 
-- Tools/build_and_sign.ps1 builds FSBL, Secure, and Non-Secure, then creates version 2.3 trusted images.
-- Tools/program_flash.ps1 programs and verifies the three images in external NOR.
+- `Tools/build_and_sign.ps1 -FirmwareVersion <n>` clean-builds the required
+  contexts, creates STM32 version-2.3 trusted images, creates factory metadata,
+  and signs `N6-Firmware-v<n>.n6fw` when the ignored local update key exists.
+- `Tools/New-FirmwareSigningKey.ps1` creates a development P-256 key once. The
+  private blob stays under ignored `.local-dependencies`; only the generated
+  public-key header is tracked.
+- `Tools/New-FirmwareUpdatePackage.ps1` can package an already-built trusted
+  Non-Secure image with an explicit increasing firmware version.
+- `Tools/program_flash.ps1` programs and verifies FSBL, Secure, factory Slot A,
+  and both default metadata copies in external NOR.
 
 ## 6. Changes outside CubeMX USER CODE
 
@@ -588,9 +688,12 @@ Not every edit outside USER CODE is automatically dangerous. There are three cat
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | OS_CAD_STACK_SIZE uses N6_USBPD_CAD_STACK_SIZE | Fix demonstrated CAD stack overflow | High: CubeMX may restore 1024 |
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | UCPD register logs, wake counter, 250 ms fallback polling | Cable-detection bring-up | High |
 | AppliNonSecure/Core/Startup/startup_stm32n657x0hxq.s | Calls Debug_UART_StartupTrace | Earliest possible Non-Secure breadcrumbs | High |
-| FSBL/Core/Src/extmem.c | BOOT_GetApplicationSize override | Copy the exact header + payload size | High |
+| FSBL/Core/Src/extmem.c | BOOT_GetApplicationSize and dynamic Non-Secure source hooks | Copy the exact selected A/B image | High |
+| FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c/.h | Use the selected Non-Secure source and call a pre-jump hardware handover hook | Let A/B selection feed LRun and leave XSPI memory-mapped mode before Secure reinitializes it | High: vendor middleware has no USER block around this path |
 | AppliSecure/Core/Src/main.c | One trace call between generated initialization calls | Diagnostic only | Medium |
-| FSBL/Core/Inc/stm32n6xx_hal_conf.h | Re-enable BSEC and XSPI modules | Multi-context Generate removed modules still required by the custom FSBL | High |
+| FSBL/Core/Inc/stm32n6xx_hal_conf.h | Re-enable BSEC, XSPI, and PKA modules | Multi-context Generate removed modules still required by the custom FSBL | High |
+| AppliSecure/Core/Inc/stm32n6xx_hal_conf.h | Enable XSPI and PKA modules | Secure flash writer and ECDSA verification | High |
+| FSBL and AppliSecure `.project` / `.cproject` | Link shared update, PKA, XSPI, and ExtMem sources and include paths | Build the boot verifier and Secure installer | High: CubeMX/IDE regeneration may remove links |
 | AppliNonSecure/.cproject | Add STM32N6xx_Nucleo BSP include path | Generated `main.h` includes the USB-PD BSP header, but CubeMX omitted its directory | High |
 | AppliNonSecure/.cproject | Set Debug C/C++ optimization to `-O3` | Make the 54×42 transform fast enough for the 10 fps pipeline while keeping debug symbols | High: CubeMX/IDE configuration changes can restore `-O0` |
 | AppliNonSecure/.project | Link HAL UART and UART-extended sources | The custom ST-LINK VCP logger uses HAL UART although USART1 is not a generated Non-Secure peripheral | High |
@@ -619,14 +722,18 @@ The X-CUBE-53L9A1 platform files are not CubeMX-generated project files. They we
 
 These are required platform adaptations, not evidence that the original H563 demo is wrong.
 
-### 6.3 Vendor files changed only for diagnostics
+### 6.3 Vendor files changed locally
 
-- FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c contains additional copy/cache logs.
+- `FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c/.h`
+  contains copy/cache logs, a dynamic Non-Secure source-address hook, and a
+  pre-jump hook that exits XSPI memory-mapped mode after LRun copying. These
+  functional changes are outside USER blocks.
 - Drivers/BSP/STM32N6xx_Nucleo/stm32n6xx_nucleo_usbpd_pwr.c contains additional TCPP0203/I2C logs.
 - Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pcd.c contains temporary stage logs around MSP, core reset, Device-mode selection, and device initialization.
 - Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_ll_usb.c contains temporary `USB_CoreReset` register and timeout logs. These are compiled only for the Non-Secure ThreadX application.
 
-The copy algorithm, TCPP0203 component driver, ADC logic, and STM32 USB-PD CAD hardware layer were not otherwise changed.
+The LRun copy algorithm itself, TCPP0203 component driver, ADC logic, and STM32
+USB-PD CAD hardware layer were not otherwise changed.
 
 ## 7. Assessment of possible ST bugs
 
@@ -738,6 +845,7 @@ In ThreadX, a smaller priority number means a higher scheduling priority.
 | Task | Priority | Stack | Pool | Responsibility |
 |---|---:|---:|---|---|
 | USB-PD CAD | 1 | 8 KiB | USB-PD pool | CC attach/detach detection, TCPP0203 VBUS setup, USB notifications |
+| Firmware confirmation | 6 | 2 KiB | TX application pool | Sleeps five seconds, commits a TRIAL image, then exits; priority prevents ToF starvation |
 | ToF Acquisition | 7 | 16 KiB | TX application pool | Sensor ownership, PD9 event wait, fully asynchronous I3C DMA sequence, raw-slot publication |
 | ToF Main Thread | 10 | 96 KiB | TX application pool | Raw-frame transform, metadata parsing, ANSI rendering, and raw-slot release |
 | USBX Device App Main Thread | 8 | 16 KiB | USBX pool | USB lifecycle manager: PCD/USBX, CDC callbacks, worker start/stop, error events |
@@ -752,7 +860,7 @@ Additional internal ThreadX and USBX tasks may be created by the middleware, suc
 
 | Pool | Size | Main use |
 |---|---:|---|
-| tx_app_byte_pool | 192 KiB | ToF, CLI, optional ST67, compatibility objects |
+| tx_app_byte_pool | 160 KiB | ToF, CLI, optional ST67, compatibility objects |
 | ux_device_app_byte_pool | 32 KiB | USBX system memory and USB Device task |
 | usbpd_app_byte_pool | 16 KiB | CAD queue, CAD task, and USB-PD objects |
 
@@ -816,9 +924,41 @@ powershell.exe -ExecutionPolicy Bypass -File .\project\Tools\program_flash.ps1 -
 
 FullErase erases the entire external NOR and must not be the default action.
 
+To recover the FSBL while preserving both application slots and the current
+pending/trial metadata:
+
+~~~powershell
+powershell.exe -ExecutionPolicy Bypass -File .\project\Tools\program_flash.ps1 -FsblOnly
+~~~
+
+`FsblOnly` is mutually exclusive with `FullErase`.
+
+To update both visible boot-chain stages while preserving both application
+slots and the current A/B metadata:
+
+~~~powershell
+powershell.exe -ExecutionPolicy Bypass -File .\project\Tools\program_flash.ps1 -BootChainOnly
+~~~
+
+`BootChainOnly` programs the FSBL at `0x70000000` and Secure runtime at
+`0x70100000`. It does not touch either Non-Secure slot or either metadata
+sector. `FullErase`, `FsblOnly`, and `BootChainOnly` are mutually exclusive.
+
 ## 10. Terminals
 
 ### 10.1 ST-LINK UART
+
+USART1 on the ST-LINK VCP is the exclusive diagnostic channel. Every boot,
+security, USB, ToF, update, and radio debug message is written here. Each of the
+three executable stages displays a 50-column by 50-row NATI LAB identification
+screen for five seconds before its detailed log begins:
+
+- `N6 SECURE BOOTLOADER` identifies the FSBL and its authenticated A/B work.
+- `TRUSTZONE SECURE RUNTIME` identifies isolation and protected update services.
+- `N6 NONSECURE APPLICATION` identifies the running signed application version.
+
+Use 115200 baud, 8 data bits, no parity, and one stop bit. A terminal with ANSI
+cursor and clear-screen support displays the screens as intended.
 
 - Port: ST-LINK COM port; currently observed as COM6.
 - Baud: 115200.
@@ -829,9 +969,19 @@ FullErase erases the entire external NOR and must not be the default action.
 
 Open this terminal before Reset. It is the primary diagnostic channel.
 
-### 10.2 USB CDC on CN8
+### 10.2 USB device CDC on CN8
 
-After successful enumeration, Windows should create a second COM port. It is not the ST-LINK COM port. The color map and CLI use this second port.
+After successful enumeration, Windows should create a second COM port. It is
+not the ST-LINK COM port. CN8 USB CDC is intentionally UI-only. Opening it
+displays the NATI LAB control menu; background diagnostics are never mirrored
+to this port. The port carries only commands and replies, the XMODEM update
+protocol, and a requested depth map. The map is disabled after boot and after
+every disconnect. Enter `MAP ON` to display it, then press Enter to stop the
+display and return to the menu. `MAP PROCESSING` opens the filter submenu.
+Box and Gaussian blur provide configurable radius and pass count. Median has a
+radius and outlier threshold, Sharpen has radius and amount, while Min and Max
+select the nearest or farthest valid neighbor. The selected filter is marked
+with `[V]` and is applied only to the displayed map.
 
 ## 11. Recommended debugging order
 
@@ -853,8 +1003,93 @@ arm-none-eabi-addr2line.exe -a -f -C -e .\project\AppliNonSecure\Debug\N6_AppliN
 
 ## 12. Change log
 
+### 2026-08-01
+
+- Added 50-column by 50-row, five-second NATI LAB identification screens to the
+  FSBL, Secure runtime, and Non-Secure application. The application banner uses
+  the version generated by `build_and_sign.ps1`. Added `-BootChainOnly` to
+  install the FSBL and Secure banners without touching application slots or A/B
+  metadata.
+- Made USART1/ST-LINK the exclusive diagnostic output. CN8 CDC now contains
+  only the control menu, command replies, XMODEM traffic, and the explicitly
+  requested depth map. The map starts disabled, is enabled by `MAP ON`, and
+  remains visible until Enter returns to the menu.
+- Fixed the FSBL stopping immediately after printing pending metadata. Its
+  1 KiB boot-record work item was on the 2 KiB MSP while the nested manifest,
+  SHA-256, and PKA verification path was active. The work item now uses static
+  FSBL storage, and stage-by-stage signature, header, and image-hash diagnostics
+  make candidate validation observable. `program_flash.ps1 -FsblOnly` can
+  install this recovery without overwriting either application slot or update
+  metadata.
+- Fixed the VL53L9 first-frame transform returning `-14` after the firmware
+  update additions. The linked image left 356,872 bytes for the C heap while
+  the transform's measured allocation set needs about 356,688 bytes before
+  malloc metadata. Reducing the ThreadX application pool from 192 to 160 KiB
+  retains roughly 40 KiB beyond its active stacks and adds 32 KiB of transform
+  heap headroom; the IOC and generated configuration now agree.
+- Fixed the authenticated manifest path exceeding the 2 KiB Secure MSP limit.
+  GCC stack reports showed a 1304-byte `SecureFirmwareUpdate_Begin` frame;
+  together with the nested SHA-256 final/update/transform path and the NSC
+  wrapper, worst-case static usage exceeded MSPLIM before the PKA operation
+  could start. The 1 KiB boot-record work item now lives in Secure static
+  storage, reducing the measured `Begin`, `Finalize`, and `ConfirmBoot` frames
+  to 288, 224, and 280 bytes respectively.
+- Fixed the first physical XMODEM transfer stalling at the start. A valid
+  manifest previously caused Secure `Begin` to erase the entire 1 MiB inactive
+  slot synchronously before XMODEM could ACK that block. Secure now authenticates
+  and opens the session immediately, then erases the inactive slot lazily in
+  64 KiB sectors during bounded writes. Added COM6 breadcrumbs for the first raw
+  XMODEM bytes, manifest entry, write progress/failures, and repeated CRC
+  handshakes, plus a raw-mode handoff for bytes sharing the command's CDC chunk.
+  The initial CRC request window is now two minutes, so choosing the package in
+  a desktop file dialog does not expire the receiver after only 16 seconds.
+- Fixed a second manifest-stage stall in the Secure NSC boundary. Secure
+  intentionally suspends its SysTick while NonSecure runs, but the updater
+  wrappers did not resume it before entering PKA and XSPI HAL calls. Their
+  timeout loops could therefore never expire. Every update NSC entry now resumes
+  the Secure HAL timebase for the bounded operation and suspends it again before
+  returning to NonSecure.
+- Fixed Secure updater initialization stopping at PKA stage 4. The Secure
+  application now assigns the PKA Secure/non-privileged RIF attributes before
+  starting the updater, keeps that ownership in the system isolation table,
+  and resets/releases the accelerator after enabling its clock. If PKA startup
+  still fails, COM6 reports its RIF attributes, RCC enable/reset registers,
+  CR/SR, and CPU CONTROL value before normal Non-Secure boot continues.
+- On-hardware diagnostics then showed PKA `CR.EN=1` with `SR.INITOK=0`.
+  STM32N6 requires the RNG to be initialized and AHB-clocked before PKA can
+  operate, including ECDSA verification. The shared crypto initialization now
+  starts a Secure-owned RNG before PKA in both FSBL and AppliSecure, and reports
+  a distinct RNG stage with RIF/RCC/CR/SR diagnostics if that prerequisite fails.
+
 ### 2026-07-31
 
+- Fixed the first on-hardware update-branch boot failure. The FSBL log proved
+  that both images copied correctly, but Secure stopped while initializing the
+  update service. LRun had left XSPI2 in memory-mapped mode, while the Secure
+  writer needs indirect-command mode. The FSBL now aborts mapping through the
+  ExtMem driver before the Secure jump and reports that handover on COM6.
+- Split Secure updater initialization into explicit XSPI, XSPIM, ExtMem/SFDP,
+  and PKA stage codes. A failed updater now remains fail-closed and unavailable
+  without bricking the normal authenticated application boot.
+- Added an authenticated, transport-independent firmware-update architecture.
+  CN8 USB CDC enters raw XMODEM-CRC mode through the exact
+  `Start UART Firmware Update` command (or `update`), pauses map/ToF traffic,
+  and streams byte arrays without dynamic allocation.
+- Added 1 MiB Non-Secure A/B slots, two alternating CRC-protected metadata
+  sectors, ECDSA-P256 manifest verification with the STM32 PKA, streaming and
+  read-back SHA-256, strict bounds/header/vector checks, increasing-version
+  enforcement, pending/trial state, five-second application confirmation, and
+  automatic rollback after an unconfirmed reset.
+- Kept XSPI2, PKA, update policy, flash writes, and metadata activation in the
+  Secure context behind CMSE-checked NSC calls. The FSBL independently verifies
+  every signed candidate before selecting it.
+- Added development signing-key/package tools and automatic `.n6fw` creation to
+  the full build. Factory programming now resets both metadata copies to Slot A
+  so stale update state cannot survive a normal reflash.
+- Build-verified FSBL, Secure, and Non-Secure with zero errors, generated fresh
+  STM32 trusted images and a versioned update package, and documented that
+  hardware XMODEM/trial/rollback validation is still pending. The existing
+  `-nk` BootROM image flow remains a documented production-security limitation.
 - Raised the USB CLI task from priority 12 to priority 9. When transform
   throughput is below the 10 fps acquisition rate, the priority-10 ToF
   processor can remain continuously ready and previously starved the CLI even
@@ -1118,8 +1353,14 @@ arm-none-eabi-addr2line.exe -a -f -C -e .\project\AppliNonSecure\Debug\N6_AppliN
 5. Move CubeMX-managed outside-USER changes into custom files or a reproducible patch process.
 6. Physically install X-NUCLEO-67W61M1 before enabling its feature flag.
 7. Verify ST67 SPI handshaking and NCP firmware before enabling Wi-Fi/BLE.
-8. Design BLE OTA with an inactive slot, signature verification, atomic activation, and rollback.
-9. Replace -nk with a protected production signing chain before treating the device as secure.
+8. Validate one complete CN8 XMODEM update, a confirmed trial boot, interruption
+   during transfer, invalid signature/version rejection, and reset-before-confirm
+   rollback on hardware.
+9. Integrate the future Wi-Fi/BLE downloader as another producer for the existing
+   Secure byte-array update interface; it must not own flash or boot metadata.
+10. Replace `-nk` and the workstation development key with a protected,
+    provisioned production signing/root-of-trust and anti-rollback chain before
+    treating physical update security as production-ready.
 
 ## 14. The project's golden rule
 

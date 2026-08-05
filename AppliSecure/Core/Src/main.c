@@ -22,6 +22,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "secure_firmware_update.h"
+#include "boot_splash.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,14 +61,17 @@ static void MX_GPDMA1_Init(void);
 static void SystemIsolation_Config(void);
 /* USER CODE BEGIN PFP */
 
+static void SecureFirmwareUpdateIsolation_Config(void);
 static void NonSecure_StartCached(void);
+static void Secure_SplashWrite(const char *text);
+static void Secure_SplashDelay(uint32_t milliseconds);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-static void Secure_Trace(const char *message)
+void Secure_Trace(const char *message)
 {
   uint32_t timeout;
 
@@ -92,7 +98,7 @@ static void Secure_Trace(const char *message)
   }
 }
 
-static void Secure_TraceHex(const char *label, uint32_t value)
+void Secure_TraceHex(const char *label, uint32_t value)
 {
   static const char hex_digits[] = "0123456789ABCDEF";
   char value_text[] = "0x00000000\r\n";
@@ -120,6 +126,30 @@ static void Secure_RedLedOn(void)
   HAL_GPIO_WritePin(GPIOG, GPIO_PIN_10, GPIO_PIN_RESET);
 }
 
+static void Secure_SplashWrite(const char *text)
+{
+  Secure_Trace(text);
+}
+
+static void Secure_SplashDelay(uint32_t milliseconds)
+{
+  HAL_Delay(milliseconds);
+}
+
+static void SecureFirmwareUpdateIsolation_Config(void)
+{
+  /*
+   * The updater is initialized before the generated system-wide RIF setup so
+   * that a failure can still be reported over the Secure USART1 alias.  Claim
+   * the cryptographic peripherals explicitly before their HAL initialization.
+   */
+  __HAL_RCC_RIFSC_CLK_ENABLE();
+  HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_RNG,
+                                        RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_NPRIV);
+  HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_PKA,
+                                        RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_NPRIV);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -137,6 +167,16 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+
+  static const N6_BootSplashConfig_t secure_splash = {
+    .stage = "TRUSTZONE SECURE RUNTIME",
+    .version = "Secure runtime version " N6_SECURE_RUNTIME_VERSION_TEXT,
+    .detail_1 = "Arm TrustZone isolation",
+    .detail_2 = "Secure PKA/RNG signature verification",
+    .detail_3 = "Protected XSPI2 firmware-update writer",
+    .detail_4 = "Preparing the NonSecure application"
+  };
+  N6_BootSplashShow(Secure_SplashWrite, Secure_SplashDelay, &secure_splash);
 
   Secure_Trace("[SECURE] application entered\r\n");
   Secure_TraceHex("[SECURE] pre-RISAF Secure-alias NS MSP = ",
@@ -166,6 +206,35 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPDMA1_Init();
+  SecureFirmwareUpdateIsolation_Config();
+  int32_t firmware_update_init_status = SecureFirmwareUpdate_Init();
+  if (firmware_update_init_status != SECURE_FW_INIT_OK)
+  {
+    Secure_TraceHex("[SECURE] WARNING: firmware update service disabled, stage = ",
+                    (uint32_t)firmware_update_init_status);
+    if (firmware_update_init_status == SECURE_FW_INIT_ERROR_RNG)
+    {
+      Secure_TraceHex("[SECURE] RNG RIF attributes = ",
+          HAL_RIF_RISC_GetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_RNG));
+      Secure_TraceHex("[SECURE] RNG RCC AHB3ENR = ", RCC->AHB3ENR);
+      Secure_TraceHex("[SECURE] RNG CR = ", RNG->CR);
+      Secure_TraceHex("[SECURE] RNG SR = ", RNG->SR);
+    }
+    else if (firmware_update_init_status == SECURE_FW_INIT_ERROR_PKA)
+    {
+      Secure_TraceHex("[SECURE] PKA RIF attributes = ",
+          HAL_RIF_RISC_GetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_PKA));
+      Secure_TraceHex("[SECURE] PKA RCC AHB3ENR = ", RCC->AHB3ENR);
+      Secure_TraceHex("[SECURE] PKA RCC AHB3RSTR = ", RCC->AHB3RSTR);
+      Secure_TraceHex("[SECURE] PKA CR = ", PKA->CR);
+      Secure_TraceHex("[SECURE] PKA SR = ", PKA->SR);
+      Secure_TraceHex("[SECURE] CPU CONTROL = ", __get_CONTROL());
+    }
+  }
+  else
+  {
+    Secure_Trace("[SECURE] authenticated A/B firmware update service ready\r\n");
+  }
   SystemIsolation_Config();
   /* USER CODE BEGIN 2 */
 
@@ -273,6 +342,8 @@ static void MX_GPDMA1_Init(void)
   HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_LPUART1 , RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_NPRIV);
   HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_ETH1 , RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_NPRIV);
   HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_ADC12 , RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_NPRIV);
+  HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_RNG , RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_NPRIV);
+  HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_PKA , RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_NPRIV);
   HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_XSPI2 , RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_NPRIV);
   HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_XSPIM , RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_NPRIV);
   HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_CSI , RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_NPRIV);

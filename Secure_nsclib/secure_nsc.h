@@ -25,6 +25,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include <stdint.h>
+#include "firmware_update_format.h"
 
 /* Exported types ------------------------------------------------------------*/
 /**
@@ -35,10 +36,30 @@ typedef enum
 SECURE_FAULT_CB_ID     = 0x00U, /*!< System secure fault callback ID */
   IAC_ERROR_CB_ID       = 0x01U  /*!< Illegal access secure error callback ID */
 } SECURE_CallbackIDTypeDef;
+
+typedef enum
+{
+  SECURE_FW_UPDATE_OK = 0U,
+  SECURE_FW_UPDATE_ERROR_PARAMETER = 1U,
+  SECURE_FW_UPDATE_ERROR_STATE = 2U,
+  SECURE_FW_UPDATE_ERROR_AUTHENTICATION = 3U,
+  SECURE_FW_UPDATE_ERROR_VERSION = 4U,
+  SECURE_FW_UPDATE_ERROR_FLASH = 5U,
+  SECURE_FW_UPDATE_ERROR_VERIFY = 6U,
+  SECURE_FW_UPDATE_ERROR_SIZE = 7U,
+  SECURE_FW_UPDATE_ERROR_UNAVAILABLE = 8U
+} SECURE_FirmwareUpdateStatus_t;
 /* Exported constants --------------------------------------------------------*/
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
 void SECURE_RegisterCallback(SECURE_CallbackIDTypeDef CallbackId, void *func);
+uint32_t SECURE_FirmwareUpdateBegin(const FW_UpdateManifest_t *manifest,
+                                    uint32_t *session);
+uint32_t SECURE_FirmwareUpdateWrite(uint32_t session, const uint8_t *data,
+                                    uint32_t length);
+uint32_t SECURE_FirmwareUpdateFinalize(uint32_t session);
+uint32_t SECURE_FirmwareUpdateAbort(uint32_t session);
+uint32_t SECURE_FirmwareUpdateConfirmBoot(void);
 
 #endif /* SECURE_NSC_H */
 /* USER CODE END Non_Secure_CallLib_h */

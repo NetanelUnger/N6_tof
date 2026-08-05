@@ -153,4 +153,40 @@ void HAL_XSPI_MspDeInit(XSPI_HandleTypeDef *hxspi)
                          GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11);
 }
 
+void HAL_PKA_MspInit(PKA_HandleTypeDef *hpka)
+{
+  if ((hpka != NULL) && (hpka->Instance == PKA))
+  {
+    __HAL_RCC_PKA_CLK_ENABLE();
+    __HAL_RCC_PKA_FORCE_RESET();
+    __DSB();
+    __HAL_RCC_PKA_RELEASE_RESET();
+    __DSB();
+  }
+}
+
+void HAL_PKA_MspDeInit(PKA_HandleTypeDef *hpka)
+{
+  if ((hpka != NULL) && (hpka->Instance == PKA))
+  {
+    __HAL_RCC_PKA_CLK_DISABLE();
+  }
+}
+
+void HAL_RNG_MspInit(RNG_HandleTypeDef *hrng)
+{
+  if ((hrng != NULL) && (hrng->Instance == RNG))
+  {
+    __HAL_RCC_RNG_CLK_ENABLE();
+  }
+}
+
+void HAL_RNG_MspDeInit(RNG_HandleTypeDef *hrng)
+{
+  if ((hrng != NULL) && (hrng->Instance == RNG))
+  {
+    __HAL_RCC_RNG_CLK_DISABLE();
+  }
+}
+
 /* USER CODE END 1 */

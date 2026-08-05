@@ -81,4 +81,61 @@ void HAL_MspInit(void)
 
 /* USER CODE BEGIN 1 */
 
+void HAL_XSPI_MspInit(XSPI_HandleTypeDef *hxspi)
+{
+  if ((hxspi != NULL) && (hxspi->Instance == XSPI2))
+  {
+    /* FSBL already configured the secure GPION pins and IC3 clock.  Re-enable
+     * only the peripherals here; reprogramming the shared clock tree while
+     * the Non-Secure application is live would be unsafe. */
+    __HAL_RCC_XSPIM_CLK_ENABLE();
+    __HAL_RCC_XSPI2_CLK_ENABLE();
+  }
+}
+
+void HAL_XSPI_MspDeInit(XSPI_HandleTypeDef *hxspi)
+{
+  if ((hxspi != NULL) && (hxspi->Instance == XSPI2))
+  {
+    __HAL_RCC_XSPI2_CLK_DISABLE();
+    __HAL_RCC_XSPIM_CLK_DISABLE();
+  }
+}
+
+void HAL_PKA_MspInit(PKA_HandleTypeDef *hpka)
+{
+  if ((hpka != NULL) && (hpka->Instance == PKA))
+  {
+    __HAL_RCC_PKA_CLK_ENABLE();
+    __HAL_RCC_PKA_FORCE_RESET();
+    __DSB();
+    __HAL_RCC_PKA_RELEASE_RESET();
+    __DSB();
+  }
+}
+
+void HAL_PKA_MspDeInit(PKA_HandleTypeDef *hpka)
+{
+  if ((hpka != NULL) && (hpka->Instance == PKA))
+  {
+    __HAL_RCC_PKA_CLK_DISABLE();
+  }
+}
+
+void HAL_RNG_MspInit(RNG_HandleTypeDef *hrng)
+{
+  if ((hrng != NULL) && (hrng->Instance == RNG))
+  {
+    __HAL_RCC_RNG_CLK_ENABLE();
+  }
+}
+
+void HAL_RNG_MspDeInit(RNG_HandleTypeDef *hrng)
+{
+  if ((hrng != NULL) && (hrng->Instance == RNG))
+  {
+    __HAL_RCC_RNG_CLK_DISABLE();
+  }
+}
+
 /* USER CODE END 1 */

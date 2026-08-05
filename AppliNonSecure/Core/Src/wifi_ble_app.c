@@ -3,8 +3,8 @@
 #include <inttypes.h>
 #include <string.h>
 
-#include "app_console.h"
 #include "app_features.h"
+#include "debug_uart.h"
 #include "logging.h"
 #include "main.h"
 #include "vl53l9_interface.h"
@@ -199,6 +199,6 @@ static void log_output(const char *message)
 {
   if (message != NULL)
   {
-    (void)App_Console_Write(message, (ULONG)strlen(message));
+    (void)Debug_UART_Write(message, strlen(message));
   }
 }

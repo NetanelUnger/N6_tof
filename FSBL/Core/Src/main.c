@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "extmem.h"
+#include "firmware_boot.h"
+#include "boot_splash.h"
 #include <stdio.h>
 
 /* USER CODE END Includes */
@@ -59,6 +61,8 @@ static void MX_GPDMA1_Init(void);
 static void MX_XSPI2_Init(void);
 static void FSBL_Trace_Init(void);
 static void FSBL_Trace(const char *message);
+static void FSBL_SplashWrite(const char *text);
+static void FSBL_SplashDelay(uint32_t milliseconds);
 
 /* USER CODE END PFP */
 
@@ -94,6 +98,19 @@ static void FSBL_Trace(const char *message)
   {
     (void)printf("[FSBL] %s\r\n", message);
   }
+}
+
+static void FSBL_SplashWrite(const char *text)
+{
+  if ((fsbl_trace_ready != 0U) && (text != NULL))
+  {
+    (void)printf("%s", text);
+  }
+}
+
+static void FSBL_SplashDelay(uint32_t milliseconds)
+{
+  HAL_Delay(milliseconds);
 }
 
 /* USER CODE END 0 */
@@ -134,6 +151,15 @@ int main(void)
   /* USER CODE BEGIN SysInit */
 
   FSBL_Trace_Init();
+  static const N6_BootSplashConfig_t fsbl_splash = {
+    .stage = "N6 SECURE BOOTLOADER",
+    .version = "Bootloader version " N6_FSBL_VERSION_TEXT,
+    .detail_1 = "Target: STM32N657",
+    .detail_2 = "Boot media: external NOR @ 0x70000000",
+    .detail_3 = "Security: ECDSA P-256 + SHA-256",
+    .detail_4 = "Selecting and authenticating A/B firmware"
+  };
+  N6_BootSplashShow(FSBL_SplashWrite, FSBL_SplashDelay, &fsbl_splash);
   FSBL_Trace("entered from BootROM; USART1 VCP is alive");
   FSBL_Trace("VDDA, VDDIO2-5, and VDDUSB supply domains enabled");
 
@@ -150,7 +176,12 @@ int main(void)
   MX_XSPI2_Init();
   FSBL_Trace("XSPI2 initialized");
   MX_EXTMEM_Init();
-  FSBL_Trace("external NOR mapped; loading Secure and NonSecure images");
+  if (Firmware_Boot_Prepare() != 0)
+  {
+    FSBL_Trace("ERROR: no authenticated NonSecure image is bootable");
+    Error_Handler();
+  }
+  FSBL_Trace("external NOR ready; loading Secure and selected NonSecure images");
 
   BOOTStatus_TypeDef boot_status = BOOT_Application();
   if (boot_status != BOOT_OK)

@@ -71,6 +71,16 @@
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pwr.c</locationURI>
 		</link>
 		<link>
+			<name>Drivers/STM32N6xx_HAL_Driver/stm32n6xx_hal_pka.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pka.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32N6xx_HAL_Driver/stm32n6xx_hal_rng.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_rng.c</locationURI>
+		</link>
+		<link>
 			<name>Drivers/STM32N6xx_HAL_Driver/stm32n6xx_hal_pwr_ex.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pwr_ex.c</locationURI>
@@ -104,6 +114,41 @@
 			<name>Drivers/STM32N6xx_HAL_Driver/stm32n6xx_ll_utils.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_ll_utils.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32N6xx_HAL_Driver/stm32n6xx_hal_xspi.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_xspi.c</locationURI>
+		</link>
+		<link>
+			<name>Common/Update/firmware_crypto.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Common/Update/firmware_crypto.c</locationURI>
+		</link>
+		<link>
+			<name>Common/Update/firmware_update_format.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Common/Update/firmware_update_format.c</locationURI>
+		</link>
+		<link>
+			<name>Middlewares/STM32_ExtMem_Manager/stm32_extmem.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FSBL/Middlewares/ST/STM32_ExtMem_Manager/stm32_extmem.c</locationURI>
+		</link>
+		<link>
+			<name>Middlewares/STM32_ExtMem_Manager/nor_sfdp/stm32_sfdp_data.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FSBL/Middlewares/ST/STM32_ExtMem_Manager/nor_sfdp/stm32_sfdp_data.c</locationURI>
+		</link>
+		<link>
+			<name>Middlewares/STM32_ExtMem_Manager/nor_sfdp/stm32_sfdp_driver.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FSBL/Middlewares/ST/STM32_ExtMem_Manager/nor_sfdp/stm32_sfdp_driver.c</locationURI>
+		</link>
+		<link>
+			<name>Middlewares/STM32_ExtMem_Manager/sal/stm32_sal_xspi.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/FSBL/Middlewares/ST/STM32_ExtMem_Manager/sal/stm32_sal_xspi.c</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>

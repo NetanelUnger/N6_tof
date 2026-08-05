@@ -23,8 +23,16 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 - The ST-LINK diagnostic UART works on USART1, PE5/PE6, at 115200 baud.
 - The VL53L9CX initializes and returns complete 54×42 frames.
 - The VL53L9CX runs as a 100 ms autonomous stream. A priority-7 acquisition
-  task and priority-10 processing task exchange three fixed 14,842-byte raw
-  slots, so the next DMA acquisition overlaps transform/rendering.
+  task and priority-10 processing task exchange pointers to three fixed
+  14,842-byte raw-frame objects from a static DMA-safe pool, so the next DMA
+  acquisition overlaps transform/rendering without copying raw frames between
+  tasks.
+- The displayed depth map has an allocation-free, table-driven processing
+  stage with Off, Box, Median, Gaussian, Sharpen, Min, and Max registrations.
+  One fixed 54x42 float workspace supports filtering; settings are changed
+  through `MAP PROCESSING` and are snapshotted before each displayed frame.
+- The USB CDC CLI has allocation-free Tab completion generated from command and
+  filter descriptor tables plus a fixed 16-entry Up/Down command history.
 - The steady-state sensor path uses PD9 falling-edge EXTI and I3C TX/RX DMA.
   Tasks wait on ThreadX event flags posted from HAL callbacks; initialization
   remains allowed to use blocking vendor calls.
@@ -57,7 +65,28 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   768-byte control TX slots, two 48 KiB map TX slots, and sixteen 512-byte RX
   slots. All slots are session-tagged and passed through bounded pointer queues.
 - The ST67 shield is not currently installed. APP_ST67W6X_ENABLED must remain 0U unless the user explicitly confirms that the module is attached.
-- BLE OTA is not implemented.
+- Authenticated Non-Secure firmware installation is implemented and build-
+  verified: CN8 USB CDC XMODEM feeds a transport-independent Secure byte-array
+  service, which writes the inactive A/B slot and uses pending/trial/confirmed
+  metadata with rollback. Physical transfer and rollback testing are pending.
+- Secure update `Begin` must not erase the complete inactive slot synchronously:
+  XMODEM cannot ACK the manifest block while that long operation is in progress.
+  The writer erases authenticated image storage lazily in 64 KiB sectors before
+  first use; interrupted transfers must still leave the active slot and metadata
+  untouched.
+- Keep the initial XMODEM CRC-request window long enough for manual file
+  selection. It is 120 one-second `C` requests; a short 16-second window was not
+  usable for a terminal-driven update flow.
+- Secure SysTick stays suspended while NonSecure owns the CPU. Every firmware
+  update NSC wrapper must resume it before calling crypto/ExtMem HAL operations
+  and suspend it again before returning; otherwise HAL timeout loops become
+  unbounded when PKA or XSPI does not complete.
+- LRun must leave XSPI2 memory-mapped mode before jumping to Secure. Secure owns
+  the controller afterward and reinitializes it for indirect update writes.
+  If updater initialization fails, update APIs stay unavailable but normal boot
+  continues with a stage code on COM6.
+- Wi-Fi/BLE download transport is not implemented. When added, it must reuse the
+  Secure installer and must not access XSPI2 or boot metadata directly.
 
 ## 3. CubeMX rules
 
@@ -82,7 +111,8 @@ These require explicit review after every Generate Code:
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | OS_CAD_STACK_SIZE maps to N6_USBPD_CAD_STACK_SIZE |
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | UCPD register diagnostics, wake counter, and 250 ms polling fallback |
 | AppliNonSecure/Core/Startup/startup_stm32n657x0hxq.s | Early Debug_UART_StartupTrace calls |
-| FSBL/Core/Src/extmem.c | BOOT_GetApplicationSize override for image-header version 2.3 |
+| FSBL/Core/Src/extmem.c | Exact image-size and dynamic Non-Secure source hooks |
+| FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c/.h | Dynamic A/B source and pre-jump XSPI handover hook; functional vendor edits outside USER blocks |
 | AppliSecure/Core/Src/main.c | A diagnostic trace between generated calls |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pcd.c | Temporary Non-Secure-only USB initialization stage logs |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_ll_usb.c | Temporary Non-Secure-only core-reset register and timeout logs |
@@ -106,25 +136,34 @@ Files imported from X-CUBE packages are not necessarily CubeMX-owned. The VL53L9
 | N6.ioc | Pins, clocks, contexts, interrupts, and middleware configuration |
 | FSBL/Core/Src/main.c | External-NOR mapping and boot flow |
 | FSBL/Core/Src/extmem.c | Exact signed-image size calculation and STM32 image-header inspection |
+| FSBL/Core/Src/firmware_boot.c | Redundant metadata, candidate verification, A/B trial selection, confirmation fallback, and rollback |
 | FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c | LRun copy/jump middleware with local diagnostics |
+| Common/Update | Shared manifest, A/B metadata format, SHA-256, ECDSA-P256 verifier, and tracked public key |
 | AppliSecure/Core/Src/main.c | TrustZone, RIF/RISAF, cached vectors, Non-Secure handover |
+| AppliSecure/Core/Src/secure_firmware_update.c | Secure inactive-slot writer, read-back authentication, version policy, and atomic metadata |
+| Secure_nsclib/secure_nsc.h | CMSE-checked Begin/Write/Finalize/Abort/Confirm interface |
 | AppliNonSecure/Core/Src/main.c | HAL and peripheral initialization |
 | AppliNonSecure/Core/Src/stm32n6xx_hal_msp.c | USB HS clocks, VDDUSB, and the N6-specific PHY reset/release sequence |
 | AppliNonSecure/Core/Src/app_threadx.c | Application task creation |
 | AppliNonSecure/Core/Inc/app_features.h | Feature flags, especially ST67 |
 | AppliNonSecure/Core/Src/tof_app.c | Separate acquisition/processing loops, static raw slots, transform, status, and rendering |
+| AppliNonSecure/Core/Src/tof_image_processing.c | Table-driven, allocation-free depth-map filters and parameter validation |
 | AppliNonSecure/Utilities/vl53l9-common/platform/platform_utils.c | STM32N6 GPIO/I3C DMA callbacks and ThreadX event bridge |
 | AppliNonSecure/Utilities/vl53l9-common/vl53l9/vl53l9_platform.c | Persistent combined-transfer and TX-DMA contexts |
 | AppliNonSecure/Drivers/BSP/Components/vl53l9/vl53l9.c | Sensor driver plus local stage-level asynchronous frame API |
 | AppliNonSecure/Core/Src/debug_uart.c | Independent ST-LINK diagnostics |
 | AppliNonSecure/Core/Inc/menu.h and Core/Src/menu.c | Allocation-free chunked line parser, prefix table, handler dispatch, and CRLF reply API |
 | AppliNonSecure/Core/Src/debug_cli.c | USB CDC command table, handlers, echo, and console-mode behavior |
+| AppliNonSecure/Core/Src/xmodem_receiver.c | Allocation-free XMODEM-CRC state machine |
+| AppliNonSecure/Core/Src/firmware_update.c | Transport-to-Secure byte-stream adapter and five-second boot confirmation |
 | AppliNonSecure/Core/Src/usb_cdc_transport.c | Static CDC slots, RX/TX queues, callbacks, sessions, flow/error counters |
 | AppliNonSecure/Core/Src/wifi_ble_app.c | Optional ST67 application task |
 | AppliNonSecure/USBX/App/app_usbx_device.c | USB Device state machine and USBX initialization |
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | Type-C CAD task |
-| Tools/build_and_sign.ps1 | Build and image signing |
-| Tools/program_flash.ps1 | External-NOR programming |
+| Tools/build_and_sign.ps1 | Full build, STM32 image signing, default metadata, and versioned update package |
+| Tools/New-FirmwareSigningKey.ps1 | One-time local development P-256 key generation; private blob stays ignored |
+| Tools/New-FirmwareUpdatePackage.ps1 | Signed `.n6fw` manifest plus trusted Non-Secure image |
+| Tools/program_flash.ps1 | External-NOR programming including both default metadata sectors |
 | FlashImages | Signed programming artifacts |
 | ThirdParty/ST67W6X_Network_Driver | Git-tracked ST67 source subset used by CubeIDE, with license files |
 | .local-dependencies | Ignored local SDK archives, PDFs, examples, backups, and diagnostics; never required by a clean clone |
@@ -148,14 +187,31 @@ After a source change, build at least the context that changed. Build every cont
 Preferred command:
 
 ~~~powershell
-powershell.exe -ExecutionPolicy Bypass -File .\project\Tools\build_and_sign.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\project\Tools\build_and_sign.ps1 -FirmwareVersion 1
 ~~~
+
+Firmware versions are positive and strictly increasing relative to the confirmed
+image. Never reuse a released version number. The local private update key under
+`.local-dependencies/keys` is ignored and must never be committed or printed.
 
 If the headless IDE hangs, a direct make.exe build from the Debug directory is acceptable. The resulting binary must still be passed through STM32_SigningTool_CLI and the new trusted image must be written to project/FlashImages.
 
 After CubeMX Generate Code, explicitly audit these known multi-context losses:
 
 - FSBL must keep `HAL_BSEC_MODULE_ENABLED` and `HAL_XSPI_MODULE_ENABLED`.
+- FSBL and AppliSecure must keep `HAL_PKA_MODULE_ENABLED` and
+  `HAL_RNG_MODULE_ENABLED`; AppliSecure must also keep
+  `HAL_XSPI_MODULE_ENABLED`.
+- AppliSecure must claim `RIF_RISC_PERIPH_INDEX_PKA` as Secure/non-privileged
+  before `SecureFirmwareUpdate_Init()`; the generated system isolation table
+  must preserve the same ownership. PKA MSP initialization must perform a
+  clock-enable followed by a reset/release sequence.
+- The shared crypto initializer must initialize and keep the RNG AHB clock
+  running before enabling PKA. RNG remains Secure/non-privileged and both FSBL
+  and AppliSecure `.project` files must retain `stm32n6xx_hal_rng.c`.
+- FSBL and AppliSecure `.project` / `.cproject` files must retain the shared
+  `Common/Update` sources and includes. AppliSecure must retain its linked
+  ExtMem manager and HAL XSPI/PKA sources.
 - The shared HAL `Inc` and `Src` directories must contain the union of the
   modules required by all contexts. Restore unchanged vendor files only from
   STM32Cube FW N6 V1.4.0.
@@ -202,7 +258,9 @@ Do not accidentally deliver an older trusted image after rebuilding an ELF.
 - Image addresses are fixed:
   - FSBL: 0x70000000.
   - Secure: 0x70100000.
-  - Non-Secure: 0x70180000.
+  - Non-Secure Slot A: 0x70180000, 1 MiB.
+  - Non-Secure Slot B: 0x70280000, 1 MiB.
+  - Boot metadata sectors: 0x703E0000 and 0x703F0000, 64 KiB each.
 - Do not change an address or region size without updating the FSBL, linker scripts, signing limits, programming script, and documentation together.
 
 ## 7. TrustZone rules
@@ -242,6 +300,7 @@ Current task sizing:
 | Task | Priority | Stack |
 |---|---:|---:|
 | USB-PD CAD | 1 | 8 KiB |
+| Firmware confirmation | 6 | 2 KiB; one-shot after a five-second trial window |
 | ToF Acquisition | 7 | 16 KiB |
 | ToF Main Thread (processing) | 10 | 96 KiB |
 | USBX Device App Main Thread | 8 | 16 KiB |
@@ -424,7 +483,17 @@ stack-local version or split the address phase back into a blocking transfer.
 - In disabled mode, do not create its task, initialize the compatibility layer, or call W6X initialization.
 - Enabling the radio requires verification of SPI5, CS, CHIP_EN, BOOT, SPI_RDY, DMA, and NCP firmware.
 - Never implement OTA by overwriting the active image in place.
-- Future OTA requires an inactive slot, bounds checks, hash/signature, version policy, atomic activation, and rollback.
+- Future Wi-Fi/BLE OTA must feed the existing Secure Begin/Write/Finalize byte
+  interface. Preserve inactive-slot writes, CMSE range checks and Secure copies,
+  SHA-256 plus ECDSA-P256, strictly increasing versions, atomic alternating
+  metadata, trial confirmation, and rollback.
+- XSPI2, PKA, boot metadata, and key-policy decisions remain Secure. A transport
+  task may deliver bytes and report status; it may not weaken or duplicate the
+  installer in Non-Secure code.
+- The current update signature protects remote package authenticity, but the
+  development `-nk` image flow and replaceable compiled public key are not a
+  production physical root of trust. Production requires authenticated BootROM
+  images, protected key provisioning, and protected anti-rollback state.
 
 ## 13. Debugging method
 

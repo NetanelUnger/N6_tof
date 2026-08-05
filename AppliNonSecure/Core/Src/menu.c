@@ -169,6 +169,37 @@ size_t Menu_GetPendingLength(const Menu_t *menu)
   return menu->input_length;
 }
 
+const char *Menu_GetPendingInput(const Menu_t *menu)
+{
+  if ((menu == NULL) || (menu->input == NULL))
+  {
+    return NULL;
+  }
+  return menu->input;
+}
+
+Menu_Status_t Menu_SetPendingInput(Menu_t *menu, const char *text)
+{
+  size_t length;
+
+  if ((menu == NULL) || (menu->input == NULL) || (text == NULL))
+  {
+    return MENU_STATUS_INVALID_ARGUMENT;
+  }
+
+  length = strlen(text);
+  if (length >= menu->input_capacity)
+  {
+    return MENU_STATUS_INPUT_TOO_LONG;
+  }
+
+  (void)memcpy(menu->input, text, length + 1U);
+  menu->input_length = length;
+  menu->discard_until_enter = 0U;
+  menu->previous_was_cr = 0U;
+  return MENU_STATUS_OK;
+}
+
 Menu_Status_t Menu_Reply(Menu_t *menu, const char *text)
 {
   size_t length;
