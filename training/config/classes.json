@@ -1,0 +1,9 @@
+{
+  "classes": [
+    {"id": 0, "name": "none", "hebrew": "ללא מחווה", "key": "n"},
+    {"id": 1, "name": "rock", "hebrew": "אבן", "key": "r"},
+    {"id": 2, "name": "paper", "hebrew": "נייר", "key": "p"},
+    {"id": 3, "name": "scissors", "hebrew": "מספריים", "key": "s"}
+  ]
+}
+

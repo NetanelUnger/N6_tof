@@ -28,6 +28,7 @@ typedef struct
 {
     TOF_App_State_t state;
     uint32_t map_enabled;
+    uint32_t dataset_stream_enabled;
     uint32_t paused;
     uint32_t width;
     uint32_t height;
@@ -39,6 +40,10 @@ typedef struct
     uint32_t queue_failures;
     uint32_t minimum_mm;
     uint32_t maximum_mm;
+    uint32_t dataset_frames_submitted;
+    uint32_t dataset_frames_dropped;
+    uint32_t dataset_last_frame;
+    uint32_t dataset_last_crc32;
     int error_code;
     const char *error_stage;
 } TOF_App_Status_t;
@@ -47,6 +52,7 @@ UINT TOF_App_Init(void);
 void TOF_App_Acquire(void);
 void TOF_App_Process(void);
 void TOF_App_SetMapEnabled(uint32_t enabled);
+void TOF_App_SetDatasetStreamEnabled(uint32_t enabled);
 void TOF_App_SetPaused(uint32_t paused);
 void TOF_App_GetStatus(TOF_App_Status_t *status);
 TOF_ImageProcessingStatus_t TOF_App_SelectMapFilter(

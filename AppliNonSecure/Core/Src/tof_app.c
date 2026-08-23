@@ -21,8 +21,13 @@
 #include <string.h>
 
 #include "main.h"
+#include "rps_ai.h"
 #include "app_console.h"
+#include "app_features.h"
 #include "debug_uart.h"
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#include "display_app.h"
+#endif
 #include "tof_image_processing.h"
 #include "tx_api.h"
 #include "ux_device_cdc_acm.h"
@@ -46,6 +51,11 @@
 #define TOF_DEPTH_HEIGHT           (42U)
 #define TOF_DEPTH_PIXEL_COUNT      (TOF_DEPTH_WIDTH * TOF_DEPTH_HEIGHT)
 #define TOF_PIPELINE_READY_FLAG    (1UL << 0)
+#define TOF_DATASET_MAGIC          (0x4644364EUL) /* "N6DF", little-endian */
+#define TOF_DATASET_VERSION        (2U)
+#define TOF_DATASET_HEADER_SIZE    (64U)
+#define TOF_DATASET_PIXEL_FORMAT   (1U) /* unsigned 16-bit millimetres */
+#define TOF_DATASET_INVALID_MM     (0xFFFFU)
 
 typedef struct
 {
@@ -55,6 +65,10 @@ typedef struct
 
 _Static_assert(sizeof(TOF_RawFrame_t *) <= sizeof(ULONG),
                "ToF raw-frame pointers must fit in ThreadX queue messages");
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+_Static_assert(DISPLAY_APP_FRAME_STORAGE_SIZE <= TOF_RAW_BUFFER_SIZE,
+               "Display frame storage must fit in a released ToF raw slot");
+#endif
 
 /* The renderer writes directly into a transport-owned static map slot. */
 static char *terminal_buffer;
@@ -78,6 +92,7 @@ static uint8_t tof_depth_height;
 static volatile uint32_t tof_pipeline_initialized;
 static volatile TOF_App_State_t tof_state = TOF_APP_STATE_STARTING;
 static volatile uint32_t tof_map_enabled;
+static volatile uint32_t tof_dataset_stream_enabled;
 static volatile uint32_t tof_paused;
 static volatile uint32_t tof_width;
 static volatile uint32_t tof_height;
@@ -89,6 +104,10 @@ static volatile uint32_t tof_dropped_frames;
 static volatile uint32_t tof_queue_failures;
 static volatile uint32_t tof_minimum_mm;
 static volatile uint32_t tof_maximum_mm;
+static volatile uint32_t tof_dataset_frames_submitted;
+static volatile uint32_t tof_dataset_frames_dropped;
+static volatile uint32_t tof_dataset_last_frame;
+static volatile uint32_t tof_dataset_last_crc32;
 static volatile int tof_error_code;
 static const char *volatile tof_error_stage;
 static TOF_ImageProcessingConfig_t tof_processing_config;
@@ -105,14 +124,29 @@ static int tof_configure_transform(transform_t *transform,
                                    uint32_t raw_width,
                                    uint8_t depth_width,
                                    uint8_t depth_height);
-static void tof_render_frame(const float *depth, uint8_t width, uint8_t height,
-                             uint32_t frame_counter, uint32_t elapsed_ms,
-                             const TOF_ImageProcessingConfig_t *processing);
+static void __attribute__((optimize("Os")))
+tof_render_frame(const float *depth, uint8_t width, uint8_t height,
+                 uint32_t frame_counter, uint32_t elapsed_ms,
+                 const TOF_ImageProcessingConfig_t *processing,
+                 const RPS_AI_Status_t *rps_status);
+static void __attribute__((optimize("Os")))
+tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
+                         uint32_t frame_counter, uint32_t timestamp_ms,
+                         TOF_ImageFilter_t processing_filter);
+static uint32_t __attribute__((optimize("Os")))
+tof_crc32(const void *data, size_t length);
+static void __attribute__((optimize("Os")))
+tof_write_u16(uint8_t *destination, uint16_t value);
+static void __attribute__((optimize("Os")))
+tof_write_u32(uint8_t *destination, uint32_t value);
 static size_t append_text(size_t pos, const char *text);
 static size_t append_u32(size_t pos, uint32_t value);
 static uint8_t depth_to_color(float distance_mm);
 static TOF_RawFrame_t *tof_acquire_raw_frame(void);
 static void tof_release_raw_frame(TOF_RawFrame_t *frame);
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+static void tof_display_frame_release(void *context);
+#endif
 static void tof_log_queue_failure(const char *operation, UINT status,
                                   const TOF_RawFrame_t *frame);
 static int tof_wait_i3c_event(platform_event_t event);
@@ -442,6 +476,11 @@ void TOF_App_Process(void)
     }
     previous_tick = HAL_GetTick();
 
+    if (RPS_AI_Init() != 0)
+    {
+        Debug_UART_Log("RPS", "ERROR: Neural-ART initialization failed; use RPS STATUS");
+    }
+
     for (;;)
     {
         int ret;
@@ -519,10 +558,20 @@ void TOF_App_Process(void)
         uint32_t now = HAL_GetTick();
         uint32_t elapsed_ms = now - previous_tick;
         TOF_ImageProcessingConfig_t processing;
+        RPS_AI_Status_t rps_status;
         const float *display_depth = tof_depth_data;
+        uint32_t display_owns_raw_frame = 0U;
         previous_tick = now;
+        (void)RPS_AI_ProcessDepth(tof_depth_data, tof_depth_width,
+                                 tof_depth_height,
+                                 frame.p_metadata->frame_counter);
+        RPS_AI_GetStatus(&rps_status);
         TOF_App_GetMapProcessingConfig(&processing);
-        if ((tof_map_enabled != 0U) &&
+        if (((tof_map_enabled != 0U)
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+             || (Display_App_IsMapEnabled() != 0U)
+#endif
+            ) &&
             (processing.selected_filter != TOF_IMAGE_FILTER_NONE))
         {
             display_depth = TOF_ImageProcessing_Apply(
@@ -531,13 +580,35 @@ void TOF_App_Process(void)
         }
         tof_render_frame(display_depth, tof_depth_width, tof_depth_height,
                          frame.p_metadata->frame_counter, elapsed_ms,
-                         &processing);
+                         &processing, &rps_status);
+        tof_stream_dataset_frame(tof_depth_data, tof_depth_width,
+                                 tof_depth_height,
+                                 frame.p_metadata->frame_counter, now,
+                                 processing.selected_filter);
+
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+        if (Display_App_IsMapEnabled() != 0U)
+        {
+            UINT display_status = Display_App_SubmitDepthFrame(
+                raw_frame->data, sizeof(raw_frame->data), display_depth,
+                tof_depth_width, tof_depth_height,
+                frame.p_metadata->frame_counter,
+                TOF_MIN_DISPLAY_MM, TOF_MAX_DISPLAY_MM,
+                &rps_status,
+                tof_display_frame_release, raw_frame);
+            display_owns_raw_frame =
+                (display_status == TX_SUCCESS) ? 1U : 0U;
+        }
+#endif
 
         ++tof_processed_frames;
-        tof_release_raw_frame(raw_frame);
+        if (display_owns_raw_frame == 0U)
+        {
+            tof_release_raw_frame(raw_frame);
+        }
         if (first_frame_diagnostic != 0U)
         {
-            Debug_UART_Log("TOF", "frame 1: transform/render complete; raw frame released");
+            Debug_UART_Log("TOF", "frame 1: transform/render publish complete");
             first_frame_diagnostic = 0U;
         }
         if ((tof_processed_frames % 10U) == 0U)
@@ -554,6 +625,20 @@ void TOF_App_Process(void)
 void TOF_App_SetMapEnabled(uint32_t enabled)
 {
     tof_map_enabled = (enabled != 0U) ? 1U : 0U;
+    if (enabled != 0U)
+    {
+        tof_dataset_stream_enabled = 0U;
+    }
+}
+
+void TOF_App_SetDatasetStreamEnabled(uint32_t enabled)
+{
+    tof_dataset_stream_enabled = (enabled != 0U) ? 1U : 0U;
+    if (enabled != 0U)
+    {
+        /* ANSI maps and binary records must never share the CDC byte stream. */
+        tof_map_enabled = 0U;
+    }
 }
 
 void TOF_App_SetPaused(uint32_t paused)
@@ -570,6 +655,7 @@ void TOF_App_GetStatus(TOF_App_Status_t *status)
 
     status->state = tof_state;
     status->map_enabled = tof_map_enabled;
+    status->dataset_stream_enabled = tof_dataset_stream_enabled;
     status->paused = tof_paused;
     status->width = tof_width;
     status->height = tof_height;
@@ -581,6 +667,10 @@ void TOF_App_GetStatus(TOF_App_Status_t *status)
     status->queue_failures = tof_queue_failures;
     status->minimum_mm = tof_minimum_mm;
     status->maximum_mm = tof_maximum_mm;
+    status->dataset_frames_submitted = tof_dataset_frames_submitted;
+    status->dataset_frames_dropped = tof_dataset_frames_dropped;
+    status->dataset_last_frame = tof_dataset_last_frame;
+    status->dataset_last_crc32 = tof_dataset_last_crc32;
     status->error_code = tof_error_code;
     status->error_stage = tof_error_stage;
 }
@@ -665,6 +755,13 @@ static void tof_release_raw_frame(TOF_RawFrame_t *frame)
         }
     }
 }
+
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+static void tof_display_frame_release(void *context)
+{
+    tof_release_raw_frame((TOF_RawFrame_t *)context);
+}
+#endif
 
 static void tof_log_queue_failure(const char *operation, UINT status,
                                   const TOF_RawFrame_t *frame)
@@ -857,9 +954,11 @@ static int tof_configure_transform(transform_t *transform,
     return transform_prepare(transform);
 }
 
-static void tof_render_frame(const float *depth, uint8_t width, uint8_t height,
-                             uint32_t frame_counter, uint32_t elapsed_ms,
-                             const TOF_ImageProcessingConfig_t *processing)
+static void __attribute__((optimize("Os")))
+tof_render_frame(const float *depth, uint8_t width, uint8_t height,
+                 uint32_t frame_counter, uint32_t elapsed_ms,
+                 const TOF_ImageProcessingConfig_t *processing,
+                 const RPS_AI_Status_t *rps_status)
 {
     const TOF_ImageFilterDescriptor_t *filter_descriptor =
         TOF_ImageProcessing_GetDescriptor(processing->selected_filter);
@@ -958,6 +1057,54 @@ static void tof_render_frame(const float *depth, uint8_t width, uint8_t height,
         pos = append_text(pos, "\033[0m\033[K\r\n");
     }
 
+    pos = append_text(pos, "NPU RESULT: ");
+    if ((rps_status == NULL) || (rps_status->enabled == 0U))
+    {
+        pos = append_text(pos, "DISABLED");
+    }
+    else if (rps_status->ready == 0U)
+    {
+        pos = append_text(pos, "NOT READY");
+    }
+    else if ((rps_status->runs == 0U) ||
+             (rps_status->last_frame != frame_counter))
+    {
+        pos = append_text(pos, "WAITING FOR CURRENT FRAME");
+    }
+    else
+    {
+        pos = append_text(pos,
+                          RPS_AI_ClassDisplayName(rps_status->class_id));
+        pos = append_text(pos, "  confidence ");
+        pos = append_u32(pos, rps_status->confidence_per_mille / 10U);
+        pos = append_text(pos, ".");
+        pos = append_u32(pos, rps_status->confidence_per_mille % 10U);
+        pos = append_text(pos, "%  frame ");
+        pos = append_u32(pos, rps_status->last_frame);
+        pos = append_text(pos, "  inference ");
+        pos = append_u32(pos, rps_status->inference_ms);
+        pos = append_text(pos, " ms");
+    }
+    pos = append_text(pos, "\033[K\r\n");
+    if ((rps_status != NULL) && (rps_status->runs != 0U))
+    {
+        pos = append_text(pos, "NPU scores [nothing,rock,paper,scissors] = ");
+        for (uint32_t index = 0U; index < RPS_AI_CLASS_COUNT; ++index)
+        {
+            int32_t score = rps_status->scores[index];
+            if (index != 0U)
+            {
+                pos = append_text(pos, ", ");
+            }
+            if (score < 0)
+            {
+                pos = append_text(pos, "-");
+                score = -score;
+            }
+            pos = append_u32(pos, (uint32_t)score);
+        }
+        pos = append_text(pos, "\033[K\r\n");
+    }
     pos = append_text(pos, "Close = red, far = blue, invalid = black. Press Enter to return to MENU.\033[K");
     if (pos < terminal_capacity)
     {
@@ -969,6 +1116,157 @@ static void tof_render_frame(const float *depth, uint8_t width, uint8_t height,
     }
     terminal_buffer = NULL;
     terminal_capacity = 0U;
+}
+
+/*
+ * DATASET STREAM is deliberately a framed binary protocol rather than a BMP
+ * stream.  It preserves the exact 16-bit distance measurement.  The PC may
+ * derive PNG previews without throwing away millimetres or invalid pixels.
+ *
+ * Record layout (all integers little-endian):
+ * N6DF v2 keeps the v1 depth metadata and adds the exact on-device NPU result
+ * for this frame.  This makes HIL compare Neural-ART with host TFLite without
+ * trying to infer timing from separate text messages.
+ *
+ *   0  magic "N6DF"             24 payload bytes
+ *   4  protocol/header u16,u16  28 valid pixels u32
+ *   8  frame id u32             32 min/max u16,u16
+ *  12  timestamp ms u32         36 invalid/filter u16,u16
+ *  16  width/height u16,u16     40 payload CRC32
+ *  20  pixel format/flags       44 NPU frame id u32
+ *                               48 four signed int8 output scores
+ *                               52 class/valid u8,u8, confidence u16
+ *                               56 completed inference count u32
+ *                               60 header CRC32 over bytes 0..59
+ * The payload is width*height uint16 millimetres; 0xFFFF means invalid.
+ */
+static void __attribute__((optimize("Os")))
+tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
+                         uint32_t frame_counter, uint32_t timestamp_ms,
+                         TOF_ImageFilter_t processing_filter)
+{
+    App_Console_FrameBuffer_t output = { 0 };
+    RPS_AI_Status_t rps = { 0 };
+    uint8_t *bytes;
+    size_t pixel_count = (size_t)width * (size_t)height;
+    size_t payload_size = pixel_count * sizeof(uint16_t);
+    size_t record_size = TOF_DATASET_HEADER_SIZE + payload_size;
+    uint32_t valid_count = 0U;
+    uint16_t valid_min = UINT16_MAX;
+    uint16_t valid_max = 0U;
+    uint32_t payload_crc;
+
+    if ((tof_dataset_stream_enabled == 0U) ||
+        (App_Console_IsReady() == UX_FALSE))
+    {
+        return;
+    }
+    if ((App_Console_AcquireFrameBuffer(&output) != TX_SUCCESS) ||
+        ((size_t)output.capacity < record_size))
+    {
+        if (output.data != NULL)
+        {
+            App_Console_CancelFrameBuffer(&output);
+        }
+        ++tof_dataset_frames_dropped;
+        return;
+    }
+
+    bytes = (uint8_t *)output.data;
+    for (size_t index = 0U; index < pixel_count; ++index)
+    {
+        uint16_t millimetres = TOF_DATASET_INVALID_MM;
+        float value = depth[index];
+        if (isfinite(value) && (value > 0.0f) &&
+            (value < (float)TOF_DATASET_INVALID_MM))
+        {
+            millimetres = (uint16_t)(value + 0.5f);
+            if (millimetres < valid_min) valid_min = millimetres;
+            if (millimetres > valid_max) valid_max = millimetres;
+            ++valid_count;
+        }
+        tof_write_u16(&bytes[TOF_DATASET_HEADER_SIZE + (index * 2U)],
+                      millimetres);
+    }
+    if (valid_count == 0U)
+    {
+        valid_min = 0U;
+    }
+
+    payload_crc = tof_crc32(&bytes[TOF_DATASET_HEADER_SIZE], payload_size);
+    RPS_AI_GetStatus(&rps);
+    tof_write_u32(&bytes[0], TOF_DATASET_MAGIC);
+    tof_write_u16(&bytes[4], TOF_DATASET_VERSION);
+    tof_write_u16(&bytes[6], TOF_DATASET_HEADER_SIZE);
+    tof_write_u32(&bytes[8], frame_counter);
+    tof_write_u32(&bytes[12], timestamp_ms);
+    tof_write_u16(&bytes[16], width);
+    tof_write_u16(&bytes[18], height);
+    tof_write_u16(&bytes[20], TOF_DATASET_PIXEL_FORMAT);
+    tof_write_u16(&bytes[22], 1U); /* bit 0: unfiltered transformed depth */
+    tof_write_u32(&bytes[24], (uint32_t)payload_size);
+    tof_write_u32(&bytes[28], valid_count);
+    tof_write_u16(&bytes[32], valid_min);
+    tof_write_u16(&bytes[34], valid_max);
+    tof_write_u16(&bytes[36], TOF_DATASET_INVALID_MM);
+    tof_write_u16(&bytes[38], (uint16_t)processing_filter);
+    tof_write_u32(&bytes[40], payload_crc);
+    tof_write_u32(&bytes[44], rps.last_frame);
+    for (uint32_t index = 0U; index < RPS_AI_CLASS_COUNT; ++index)
+    {
+        bytes[48U + index] = (uint8_t)rps.scores[index];
+    }
+    bytes[52] = rps.class_id;
+    bytes[53] = (uint8_t)(((rps.ready != 0U) &&
+                           (rps.last_frame == frame_counter)) ? 1U : 0U);
+    tof_write_u16(&bytes[54], rps.confidence_per_mille);
+    tof_write_u32(&bytes[56], rps.runs);
+    tof_write_u32(&bytes[60], tof_crc32(bytes, 60U));
+
+    if (App_Console_CommitFrameBuffer(&output, (ULONG)record_size) == TX_SUCCESS)
+    {
+        ++tof_dataset_frames_submitted;
+        tof_dataset_last_frame = frame_counter;
+        tof_dataset_last_crc32 = payload_crc;
+    }
+    else
+    {
+        ++tof_dataset_frames_dropped;
+    }
+}
+
+static uint32_t __attribute__((optimize("Os")))
+tof_crc32(const void *data, size_t length)
+{
+    const uint8_t *bytes = (const uint8_t *)data;
+    uint32_t crc = 0xFFFFFFFFUL;
+
+    while (length-- != 0U)
+    {
+        crc ^= *bytes++;
+        for (uint32_t bit = 0U; bit < 8U; ++bit)
+        {
+            uint32_t mask = (uint32_t)(-(int32_t)(crc & 1UL));
+            crc = (crc >> 1U) ^ (0xEDB88320UL & mask);
+        }
+    }
+    return ~crc;
+}
+
+static void __attribute__((optimize("Os")))
+tof_write_u16(uint8_t *destination, uint16_t value)
+{
+    destination[0] = (uint8_t)value;
+    destination[1] = (uint8_t)(value >> 8U);
+}
+
+static void __attribute__((optimize("Os")))
+tof_write_u32(uint8_t *destination, uint32_t value)
+{
+    destination[0] = (uint8_t)value;
+    destination[1] = (uint8_t)(value >> 8U);
+    destination[2] = (uint8_t)(value >> 16U);
+    destination[3] = (uint8_t)(value >> 24U);
 }
 
 static uint8_t depth_to_color(float distance_mm)

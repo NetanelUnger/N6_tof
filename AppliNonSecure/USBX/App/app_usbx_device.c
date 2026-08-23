@@ -28,6 +28,7 @@
 #include "debug_uart.h"
 #include "firmware_update.h"
 #include "main.h"
+#include "tof_app.h"
 #include "usb_cdc_transport.h"
 
 /* USER CODE END Includes */
@@ -91,7 +92,8 @@ static volatile ULONG             usb_device_event_post_failures;
 static volatile ULONG             usb_device_event_post_failures_by_type[APP_USB_DEVICE_EVENT_COUNT];
 static volatile ULONG             usb_device_last_failed_event_type;
 static volatile ULONG             usb_device_last_failed_event_status;
-static volatile ULONG              usb_cdc_parameter_change_count;
+static volatile ULONG             usb_cdc_parameter_change_count;
+static volatile UINT              usb_cdc_dtr_asserted;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -183,6 +185,7 @@ UINT MX_USBX_Device_Init(VOID *memory_ptr)
   usb_device_last_failed_event_type = 0U;
   usb_device_last_failed_event_status = TX_SUCCESS;
   usb_cdc_parameter_change_count = 0U;
+  usb_cdc_dtr_asserted = UX_FALSE;
   Debug_UART_Log("USBX", "USB manager, event queue, RX/TX workers created");
   /* USER CODE END MX_USBX_Device_Init 2 */
 
@@ -331,10 +334,11 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
     }
     if (usb_cdc_parameter_change_count != reported_parameter_changes)
     {
-      Debug_UART_Log("CDC", "CDC line parameters changed: total=%lu (+%lu)",
+      Debug_UART_Log("CDC", "CDC line parameters changed: total=%lu (+%lu), DTR=%u",
                      (unsigned long)usb_cdc_parameter_change_count,
                      (unsigned long)(usb_cdc_parameter_change_count -
-                                     reported_parameter_changes));
+                                     reported_parameter_changes),
+                     (unsigned int)usb_cdc_dtr_asserted);
       reported_parameter_changes = usb_cdc_parameter_change_count;
     }
 
@@ -386,6 +390,9 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
       (void)HAL_PCD_DeInit(&hpcd_USB_OTG_HS1);
       usb_cdc_active = 0U;
       usb_cdc_current_instance = UX_NULL;
+      usb_cdc_dtr_asserted = UX_FALSE;
+      TOF_App_SetMapEnabled(0U);
+      TOF_App_SetDatasetStreamEnabled(0U);
       usb_device_started = 0U;
       Debug_UART_Log("USBX", "USB device stopped");
     }
@@ -415,6 +422,9 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
       app_usb_cdc_stop_health_timer();
       app_usb_device_stop_data_plane();
       usb_cdc_current_instance = UX_NULL;
+      usb_cdc_dtr_asserted = UX_FALSE;
+      TOF_App_SetMapEnabled(0U);
+      TOF_App_SetDatasetStreamEnabled(0U);
       Debug_UART_Log("CDC", "CDC ACM deactivated; RX/TX data plane idle");
     }
     else if (event.type == APP_USB_CDC_DEBUG_PROBE)
@@ -560,11 +570,32 @@ UINT App_USBX_Device_NotifyCdcDeactivated(VOID *cdc_acm_instance)
 
 UINT App_USBX_Device_NotifyCdcParameterChange(VOID *cdc_acm_instance)
 {
-  (void)cdc_acm_instance;
+  UX_SLAVE_CLASS_CDC_ACM *cdc_acm =
+      (UX_SLAVE_CLASS_CDC_ACM *)cdc_acm_instance;
+  UINT dtr_asserted = UX_FALSE;
+
+  if (cdc_acm != UX_NULL)
+  {
+    dtr_asserted = (cdc_acm->ux_slave_class_cdc_acm_data_dtr_state != 0U)
+                       ? UX_TRUE
+                       : UX_FALSE;
+  }
+
+  usb_cdc_dtr_asserted = dtr_asserted;
+  if (dtr_asserted == UX_FALSE)
+  {
+    /* Windows keeps an enumerated CDC device configured after the COM handle
+     * closes.  DTR is the session boundary: stop high-rate producers before
+     * an unread endpoint can strand or fill the asynchronous TX data plane.
+     * ToF acquisition/processing intentionally continues in the background. */
+    TOF_App_SetMapEnabled(0U);
+    TOF_App_SetDatasetStreamEnabled(0U);
+  }
+
   /* Hosts commonly emit a burst of class-control requests while opening a
-   * COM port. They carry no payload needed by this application, so retain a
-   * cumulative counter instead of consuming lifecycle-manager queue entries.
-   * The manager reports the delta from task context on its next event. */
+   * COM port. Retain a cumulative counter instead of consuming lifecycle-
+   * manager queue entries. The manager reports the delta and DTR state from
+   * task context on its next event. */
   TX_INTERRUPT_SAVE_AREA
   TX_DISABLE
   ++usb_cdc_parameter_change_count;

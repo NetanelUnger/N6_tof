@@ -28,6 +28,7 @@
 #include "freertos_compat.h"
 #include "debug_cli.h"
 #include "debug_uart.h"
+#include "display_app.h"
 #include "firmware_update.h"
 #include "main.h"
 #include "tof_app.h"
@@ -48,6 +49,8 @@
 /* Confirmation must not be starved by the continuously-ready priority-10 ToF
  * processor.  It wakes once after five seconds, commits metadata, and exits. */
 #define TX_UPDATE_CONFIRM_PRIORITY     (6U)
+#define TX_DISPLAY_STACK_SIZE          (4U * 1024U)
+#define TX_DISPLAY_PRIORITY            (8U)
 
 /* USER CODE END PD */
 
@@ -61,6 +64,9 @@ TX_THREAD tx_app_thread;
 /* USER CODE BEGIN PV */
 static TX_THREAD tx_tof_acquisition_thread;
 static TX_THREAD tx_update_confirm_thread;
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+static TX_THREAD tx_display_thread;
+#endif
 #if (APP_ST67W6X_ENABLED == 1U)
 static TX_THREAD tx_wifi_ble_thread;
 #endif
@@ -74,6 +80,9 @@ static TX_THREAD tx_usb_cli_thread;
 /* USER CODE BEGIN PFP */
 static void ToFAcquisitionThread_Entry(ULONG thread_input);
 static void UpdateConfirmThread_Entry(ULONG thread_input);
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+static void DisplayThread_Entry(ULONG thread_input);
+#endif
 #if (APP_ST67W6X_ENABLED == 1U)
 static void WiFiBleThread_Entry(ULONG thread_input);
 #endif
@@ -123,6 +132,26 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   }
 
   Debug_UART_Log("RTOS", "Console API ready; USB manager owns RX/TX workers");
+
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+  if (Display_App_Init() != TX_SUCCESS)
+  {
+    return TX_GROUP_ERROR;
+  }
+  if (tx_byte_allocate(byte_pool, (VOID **)&pointer,
+                       TX_DISPLAY_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+  {
+    return TX_POOL_ERROR;
+  }
+  if (tx_thread_create(&tx_display_thread, "GC9A01 display",
+                       DisplayThread_Entry, 0U, pointer,
+                       TX_DISPLAY_STACK_SIZE, TX_DISPLAY_PRIORITY,
+                       TX_DISPLAY_PRIORITY, TX_NO_TIME_SLICE,
+                       TX_AUTO_START) != TX_SUCCESS)
+  {
+    return TX_THREAD_ERROR;
+  }
+#endif
 
   if (tx_byte_allocate(byte_pool, (VOID **)&pointer,
                        TX_TOF_ACQUISITION_STACK_SIZE,
@@ -265,6 +294,14 @@ static void UpdateConfirmThread_Entry(ULONG thread_input)
   tx_thread_sleep(5U * TX_TIMER_TICKS_PER_SECOND);
   Firmware_Update_ConfirmBoot();
 }
+
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+static void DisplayThread_Entry(ULONG thread_input)
+{
+  (void)thread_input;
+  Display_App_Run();
+}
+#endif
 
 #if (APP_ST67W6X_ENABLED == 1U)
 static void WiFiBleThread_Entry(ULONG thread_input)

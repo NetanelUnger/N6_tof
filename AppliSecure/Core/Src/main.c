@@ -62,6 +62,7 @@ static void SystemIsolation_Config(void);
 /* USER CODE BEGIN PFP */
 
 static void SecureFirmwareUpdateIsolation_Config(void);
+static void SecureNPU_Config(void);
 static void NonSecure_StartCached(void);
 static void Secure_SplashWrite(const char *text);
 static void Secure_SplashDelay(uint32_t milliseconds);
@@ -150,6 +151,43 @@ static void SecureFirmwareUpdateIsolation_Config(void)
                                         RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_NPRIV);
 }
 
+static void SecureNPU_Config(void)
+{
+  CACHEAXI_HandleTypeDef cache = {0};
+  RIMC_MasterConfig_t master = {0};
+
+  /* SRAM3..6 are the four 448 KiB banks attached to Neural-ART. */
+  RCC->MEMENR |= RCC_MEMENR_AXISRAM3EN | RCC_MEMENR_AXISRAM4EN |
+                 RCC_MEMENR_AXISRAM5EN | RCC_MEMENR_AXISRAM6EN |
+                 RCC_MEMENR_CACHEAXIRAMEN;
+  RAMCFG_SRAM3_AXI->CR &= ~RAMCFG_CR_SRAMSD;
+  RAMCFG_SRAM4_AXI->CR &= ~RAMCFG_CR_SRAMSD;
+  RAMCFG_SRAM5_AXI->CR &= ~RAMCFG_CR_SRAMSD;
+  RAMCFG_SRAM6_AXI->CR &= ~RAMCFG_CR_SRAMSD;
+  MEMSYSCTL->MSCR |= MEMSYSCTL_MSCR_DCACTIVE_Msk |
+                     MEMSYSCTL_MSCR_ICACTIVE_Msk;
+
+  __HAL_RCC_NPU_CLK_ENABLE();
+  __HAL_RCC_NPU_FORCE_RESET();
+  __HAL_RCC_NPU_RELEASE_RESET();
+  __HAL_RCC_CACHEAXI_CLK_ENABLE();
+  __HAL_RCC_CACHEAXI_FORCE_RESET();
+  __HAL_RCC_CACHEAXI_RELEASE_RESET();
+  __HAL_RCC_CACHEAXI_CLK_SLEEP_DISABLE();
+  cache.Instance = CACHEAXI;
+  if (HAL_CACHEAXI_Init(&cache) != HAL_OK)
+  {
+    Secure_Trace("[SECURE] WARNING: CACHEAXI initialization failed\r\n");
+  }
+
+  /* The application and NPU execute as privileged Non-Secure bus masters. */
+  master.MasterCID = RIF_CID_1;
+  master.SecPriv = RIF_ATTRIBUTE_NSEC | RIF_ATTRIBUTE_PRIV;
+  HAL_RIF_RIMC_ConfigMasterAttributes(RIF_MASTER_INDEX_NPU, &master);
+  HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_NPU,
+                                        RIF_ATTRIBUTE_NSEC | RIF_ATTRIBUTE_PRIV);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -235,6 +273,7 @@ int main(void)
   {
     Secure_Trace("[SECURE] authenticated A/B firmware update service ready\r\n");
   }
+  SecureNPU_Config();
   SystemIsolation_Config();
   /* USER CODE BEGIN 2 */
 
@@ -415,6 +454,33 @@ static void MX_GPDMA1_Init(void)
   HAL_GPIO_ConfigPinAttributes(GPIOH,GPIO_PIN_9,GPIO_PIN_NSEC|GPIO_PIN_NPRIV);
 
   /* USER CODE BEGIN RIF_Init 1 */
+
+  /* Give the Non-Secure Neural-ART runtime full access to the NPU SRAM banks,
+   * NPU AXI master windows and CACHEAXI configuration aperture. */
+  risaf_base_config.StartAddress = 0U;
+  risaf_base_config.Filtering = RISAF_FILTER_ENABLE;
+  risaf_base_config.ReadWhitelist = RIF_CID_MASK;
+  risaf_base_config.WriteWhitelist = RIF_CID_MASK;
+  risaf_base_config.PrivWhitelist = RIF_CID_MASK;
+  risaf_base_config.Secure = RIF_ATTRIBUTE_NSEC;
+  risaf_base_config.EndAddress = RISAF6_LIMIT_ADDRESS_SPACE_SIZE;
+  HAL_RIF_RISAF_ConfigBaseRegion(RISAF6, RISAF_REGION_1,
+                                 &risaf_base_config);
+  risaf_base_config.EndAddress = RISAF4_LIMIT_ADDRESS_SPACE_SIZE;
+  HAL_RIF_RISAF_ConfigBaseRegion(RISAF4, RISAF_REGION_1,
+                                 &risaf_base_config);
+  risaf_base_config.EndAddress = RISAF5_LIMIT_ADDRESS_SPACE_SIZE;
+  HAL_RIF_RISAF_ConfigBaseRegion(RISAF5, RISAF_REGION_1,
+                                 &risaf_base_config);
+  risaf_base_config.EndAddress = RISAF15_LIMIT_ADDRESS_SPACE_SIZE;
+  HAL_RIF_RISAF_ConfigBaseRegion(RISAF15, RISAF_REGION_1,
+                                 &risaf_base_config);
+  HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RCC_PERIPH_INDEX_CACHEAXIRAM,
+                                        RIF_ATTRIBUTE_NSEC);
+  (void)NVIC_SetTargetState(NPU0_IRQn);
+  (void)NVIC_SetTargetState(NPU1_IRQn);
+  (void)NVIC_SetTargetState(NPU2_IRQn);
+  (void)NVIC_SetTargetState(NPU3_IRQn);
 
   /* CN8 USB-C is controlled by the NonSecure USB-PD/USBX application. */
   RIMC_master.MasterCID = RIF_CID_1;

@@ -1,0 +1,6314 @@
+{
+  "buffers": [
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": false,
+      "epochs": {
+        "end": 2,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_U8",
+      "id": 1,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          1
+        ]
+      },
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Input_0_out_0",
+      "nbits": 8,
+      "offset_start": 0,
+      "qmn": {
+        "m": 8,
+        "n": 0,
+        "sign": 0
+      },
+      "shape": [
+        1,
+        50,
+        64,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 3200
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 11
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 2,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          -128
+        ],
+        "scales": [
+          0.00390625
+        ]
+      },
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Quantize_37_out_0",
+      "nbits": 8,
+      "offset_start": 1040,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1,
+        4
+      ],
+      "shape_map": [],
+      "size_bytes": 4
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 2,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_U8",
+      "id": 3,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          1
+        ]
+      },
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Transpose_1_out_0",
+      "nbits": 8,
+      "offset_start": 0,
+      "qmn": {
+        "m": 8,
+        "n": 0,
+        "sign": 0
+      },
+      "shape": [
+        1,
+        1,
+        50,
+        64
+      ],
+      "shape_map": [],
+      "size_bytes": 3200
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 3,
+        "start": 2
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_FLOAT",
+      "id": 4,
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Cast_2_out_0",
+      "nbits": 32,
+      "offset_start": 0,
+      "qmn": {
+        "m": 0,
+        "n": 0,
+        "sign": 0
+      },
+      "shape": [
+        1,
+        1,
+        50,
+        64
+      ],
+      "shape_map": [],
+      "size_bytes": 12800
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 4,
+        "start": 3
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 5,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          -128
+        ],
+        "scales": [
+          0.996078432
+        ]
+      },
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Quantize_3_out_0",
+      "nbits": 8,
+      "offset_start": 12800,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1,
+        1,
+        50,
+        64
+      ],
+      "shape_map": [],
+      "size_bytes": 3200
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 5,
+        "start": 4
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_U8",
+      "id": 6,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          0.996078432
+        ]
+      },
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Conv2D_5_zero_off_out_13",
+      "nbits": 8,
+      "offset_start": 12800,
+      "qmn": {
+        "m": 8,
+        "n": 0,
+        "sign": 0
+      },
+      "shape": [
+        1,
+        1,
+        50,
+        64
+      ],
+      "shape_map": [],
+      "size_bytes": 3200
+    },
+    {
+      "alignment": 1,
+      "batch": 8,
+      "channel_first": false,
+      "channel_last": false,
+      "epochs": {
+        "end": 6,
+        "start": 5
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_U8",
+      "id": 7,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          0.00437555555
+        ]
+      },
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Conv2D_11_zero_off_out_22",
+      "nbits": 8,
+      "offset_start": 0,
+      "qmn": {
+        "m": 8,
+        "n": 0,
+        "sign": 0
+      },
+      "shape": [
+        1,
+        16,
+        25,
+        32
+      ],
+      "shape_map": [],
+      "size_bytes": 12800
+    },
+    {
+      "alignment": 1,
+      "batch": 8,
+      "channel_first": false,
+      "channel_last": false,
+      "epochs": {
+        "end": 7,
+        "start": 6
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_U8",
+      "id": 8,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          0.0108856549
+        ]
+      },
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Conv2D_17_zero_off_out_31",
+      "nbits": 8,
+      "offset_start": 12800,
+      "qmn": {
+        "m": 8,
+        "n": 0,
+        "sign": 0
+      },
+      "shape": [
+        1,
+        32,
+        12,
+        16
+      ],
+      "shape_map": [],
+      "size_bytes": 6144
+    },
+    {
+      "alignment": 1,
+      "batch": 8,
+      "channel_first": false,
+      "channel_last": false,
+      "epochs": {
+        "end": 8,
+        "start": 7
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_U8",
+      "id": 9,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          0.0284174
+        ]
+      },
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Conv2D_23_zero_off_out_40",
+      "nbits": 8,
+      "offset_start": 0,
+      "qmn": {
+        "m": 8,
+        "n": 0,
+        "sign": 0
+      },
+      "shape": [
+        1,
+        48,
+        6,
+        8
+      ],
+      "shape_map": [],
+      "size_bytes": 2304
+    },
+    {
+      "alignment": 1,
+      "batch": 8,
+      "channel_first": false,
+      "channel_last": false,
+      "epochs": {
+        "end": 9,
+        "start": 8
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 10,
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Conv2D_23_out_0_cp_in_19_cp_in_20",
+      "nbits": 16,
+      "offset_start": 2304,
+      "qmn": {
+        "m": 22,
+        "n": -7,
+        "sign": 1
+      },
+      "shape": [
+        1,
+        64,
+        6,
+        8
+      ],
+      "shape_map": [],
+      "size_bytes": 768
+    },
+    {
+      "alignment": 1,
+      "batch": 64,
+      "channel_first": false,
+      "channel_last": true,
+      "epochs": {
+        "end": 9,
+        "start": 8
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_U8",
+      "id": 11,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          0.0253982153
+        ]
+      },
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Gemm_29_conv_4_zero_off_out_49",
+      "nbits": 8,
+      "offset_start": 3072,
+      "qmn": {
+        "m": 8,
+        "n": 0,
+        "sign": 0
+      },
+      "shape": [
+        1,
+        64,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 64
+    },
+    {
+      "alignment": 1,
+      "batch": 32,
+      "channel_first": false,
+      "channel_last": true,
+      "epochs": {
+        "end": 10,
+        "start": 9
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_U8",
+      "id": 12,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          0.0386359803
+        ]
+      },
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Gemm_33_conv_10_zero_off_out_58",
+      "nbits": 8,
+      "offset_start": 0,
+      "qmn": {
+        "m": 8,
+        "n": 0,
+        "sign": 0
+      },
+      "shape": [
+        1,
+        32,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 32
+    },
+    {
+      "alignment": 1,
+      "batch": 4,
+      "channel_first": false,
+      "channel_last": true,
+      "epochs": {
+        "end": 11,
+        "start": 10
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 13,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          16
+        ],
+        "scales": [
+          0.0585619025
+        ]
+      },
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Gemm_33_conv_10_off_bias_out_64",
+      "nbits": 8,
+      "offset_start": 1056,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1,
+        4,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 4
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 11,
+        "start": 10
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 14,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          16
+        ],
+        "scales": [
+          0.0585619025
+        ]
+      },
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "Gemm_33_out_0",
+      "nbits": 8,
+      "offset_start": 1056,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1,
+        4
+      ],
+      "shape_map": [],
+      "size_bytes": 4
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 11
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 15,
+      "is_param": false,
+      "mpool_id": 2,
+      "name": "SCRATCH_Softmax_36_PORT_OUT",
+      "nbits": 32,
+      "offset_start": 0,
+      "qmn": {
+        "m": 31,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1,
+        1,
+        1,
+        257
+      ],
+      "shape_map": [],
+      "size_bytes": 1028
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_FLOAT",
+      "id": 16,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Quantize_3_y_scale",
+      "nbits": 32,
+      "offset_start": 49616,
+      "qmn": {
+        "m": 0,
+        "n": 0,
+        "sign": 0
+      },
+      "shape": [
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 4
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 17,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Quantize_3_y_zero_point",
+      "nbits": 8,
+      "offset_start": 49776,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 1
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 18,
+      "intq": {
+        "axis": 1,
+        "offsets": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scales": [
+          7.32804892e-06,
+          6.85541727e-06,
+          6.83572534e-06,
+          6.34826802e-06,
+          8.4472731e-06,
+          7.31310729e-06,
+          9.84221e-06,
+          6.55631084e-06,
+          9.99922395e-06,
+          5.8672922e-06,
+          7.87944464e-06,
+          1.08337e-05,
+          8.23254e-06,
+          5.60493709e-06,
+          6.98257509e-06,
+          1.08961422e-05
+        ]
+      },
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_5_weights",
+      "nbits": 8,
+      "offset_start": 48592,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        16,
+        1,
+        3,
+        3
+      ],
+      "shape_map": [],
+      "size_bytes": 144
+    },
+    {
+      "alignment": 1,
+      "batch": 8,
+      "channel_first": false,
+      "channel_last": false,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 19,
+      "intq": {
+        "axis": 1,
+        "offsets": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scales": [
+          0.0014556403,
+          0.00154568732,
+          0.00207707798,
+          0.00149148633,
+          0.0016940129,
+          0.00179507618,
+          0.00124360039,
+          0.00191953196,
+          0.00185089256,
+          0.00144522428,
+          0.00164411089,
+          0.00184684794,
+          0.00172168086,
+          0.00175155222,
+          0.00212636148,
+          0.00184782746,
+          0.00146176957,
+          0.00170998974,
+          0.00195118925,
+          0.00176696677,
+          0.00192769035,
+          0.00141070783,
+          0.00156306417,
+          0.00151849526,
+          0.00213623513,
+          0.00192026456,
+          0.0019774267,
+          0.00200469489,
+          0.00219133915,
+          0.00234628911,
+          0.00172889489,
+          0.00195099728
+        ]
+      },
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_11_weights",
+      "nbits": 8,
+      "offset_start": 41472,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        32,
+        16,
+        3,
+        3
+      ],
+      "shape_map": [],
+      "size_bytes": 4608
+    },
+    {
+      "alignment": 1,
+      "batch": 8,
+      "channel_first": false,
+      "channel_last": false,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 20,
+      "intq": {
+        "axis": 1,
+        "offsets": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scales": [
+          0.00161410752,
+          0.0012740806,
+          0.00257274648,
+          0.0011879697,
+          0.00253918231,
+          0.00180381152,
+          0.00255420315,
+          0.00139383506,
+          0.00124065415,
+          0.00170759216,
+          0.00118684943,
+          0.00212764391,
+          0.00123527274,
+          0.00192774157,
+          0.00174834649,
+          0.00109159,
+          0.00202067313,
+          0.00190895586,
+          0.00161256141,
+          0.00135549332,
+          0.00179887319,
+          0.00164581381,
+          0.0019260851,
+          0.00198198436,
+          0.00257601123,
+          0.00134755636,
+          0.00175549078,
+          0.00190155604,
+          0.00256956159,
+          0.00142084109,
+          0.00171060103,
+          0.00104022445,
+          0.00101765594,
+          0.00127388642,
+          0.00172688451,
+          0.00112622161,
+          0.00131822145,
+          0.00118038186,
+          0.00172415457,
+          0.00212715869,
+          0.00146554701,
+          0.00259803678,
+          0.00154917128,
+          0.00180691155,
+          0.00190488726,
+          0.00134409929,
+          0.00124208175,
+          0.00224788929
+        ]
+      },
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_17_weights",
+      "nbits": 8,
+      "offset_start": 27648,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        48,
+        32,
+        3,
+        3
+      ],
+      "shape_map": [],
+      "size_bytes": 13824
+    },
+    {
+      "alignment": 1,
+      "batch": 8,
+      "channel_first": false,
+      "channel_last": false,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 21,
+      "intq": {
+        "axis": 1,
+        "offsets": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scales": [
+          0.00234936015,
+          0.000851493911,
+          0.0023294047,
+          0.00176164811,
+          0.00126153824,
+          0.00128694752,
+          0.00215879269,
+          0.00210433174,
+          0.00180605834,
+          0.00117027992,
+          0.00111185294,
+          0.00256357016,
+          0.00113979983,
+          0.00117800466,
+          0.00296178879,
+          0.00155281171,
+          0.0013455149,
+          0.00128872192,
+          0.00113471,
+          0.00275940634,
+          0.00233186316,
+          0.00251144823,
+          0.00173690857,
+          0.0017031756,
+          0.00321991136,
+          0.00197017216,
+          0.00130806863,
+          0.00250678021,
+          0.00240313541,
+          0.00148277008,
+          0.00138000969,
+          0.00148592505,
+          0.00170216279,
+          0.00264712097,
+          0.00179709378,
+          0.00155833678,
+          0.00117255817,
+          0.00203057704,
+          0.00138018082,
+          0.00198363187,
+          0.00260058395,
+          0.00180748978,
+          0.0011595157,
+          0.00122129696,
+          0.00217479933,
+          0.00101117545,
+          0.00342464447,
+          0.00278942543,
+          0.00262483116,
+          0.00138696365,
+          0.00288132182,
+          0.00216816342,
+          0.00121719902,
+          0.00289394497,
+          0.00174019765,
+          0.00142787467,
+          0.00229509757,
+          0.00113642716,
+          0.00137294154,
+          0.00137929048,
+          0.00263286894,
+          0.00203878433,
+          0.00162611285,
+          0.00120146014
+        ]
+      },
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_23_weights",
+      "nbits": 8,
+      "offset_start": 0,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        64,
+        48,
+        3,
+        3
+      ],
+      "shape_map": [],
+      "size_bytes": 27648
+    },
+    {
+      "alignment": 1,
+      "batch": 64,
+      "channel_first": false,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 22,
+      "intq": {
+        "axis": 1,
+        "offsets": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scales": [
+          0.00275375764,
+          0.0019452807,
+          0.00201192335,
+          0.00202447968,
+          0.0024398372,
+          0.00265906542,
+          0.00296067586,
+          0.00199472392,
+          0.00196741638,
+          0.00250955229,
+          0.00300710066,
+          0.0028008318,
+          0.00284898933,
+          0.00322153838,
+          0.00247603864,
+          0.0027122933,
+          0.00242857356,
+          0.0021182585,
+          0.00342436042,
+          0.00188969623,
+          0.00265598926,
+          0.00197079824,
+          0.00246109697,
+          0.00198406889,
+          0.00328006316,
+          0.00215643784,
+          0.00255892612,
+          0.00237381528,
+          0.00331959524,
+          0.00226410897,
+          0.00229293364,
+          0.00294862431
+        ]
+      },
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Gemm_29_weights_transposed_3",
+      "nbits": 8,
+      "offset_start": 46080,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        32,
+        64,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 2052
+    },
+    {
+      "alignment": 1,
+      "batch": 32,
+      "channel_first": false,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 23,
+      "intq": {
+        "axis": 1,
+        "offsets": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scales": [
+          0.0042034504,
+          0.00339680817,
+          0.00393129559,
+          0.004292286
+        ]
+      },
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Gemm_33_weights_transposed_9",
+      "nbits": 8,
+      "offset_start": 48736,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        4,
+        32,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 129
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 24,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          0.996078432
+        ]
+      },
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_5_zero_off_14",
+      "nbits": 8,
+      "offset_start": 49664,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 1
+    },
+    {
+      "alignment": 1,
+      "batch": 8,
+      "channel_first": false,
+      "channel_last": false,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 25,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_5_off_bias_20",
+      "nbits": 32,
+      "offset_start": 49360,
+      "qmn": {
+        "m": 11,
+        "n": 20,
+        "sign": 1
+      },
+      "shape": [
+        16,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 64
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 26,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          0.00437555555
+        ]
+      },
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_11_zero_off_23",
+      "nbits": 8,
+      "offset_start": 49680,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 1
+    },
+    {
+      "alignment": 1,
+      "batch": 8,
+      "channel_first": false,
+      "channel_last": false,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 27,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_11_off_bias_29",
+      "nbits": 32,
+      "offset_start": 48880,
+      "qmn": {
+        "m": 11,
+        "n": 20,
+        "sign": 1
+      },
+      "shape": [
+        32,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 128
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 28,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          0.0108856549
+        ]
+      },
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_17_zero_off_32",
+      "nbits": 8,
+      "offset_start": 49696,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 1
+    },
+    {
+      "alignment": 1,
+      "batch": 8,
+      "channel_first": false,
+      "channel_last": false,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 29,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_17_off_bias_38",
+      "nbits": 32,
+      "offset_start": 48400,
+      "qmn": {
+        "m": 13,
+        "n": 18,
+        "sign": 1
+      },
+      "shape": [
+        48,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 192
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 30,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          0.0284174
+        ]
+      },
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_23_zero_off_41",
+      "nbits": 8,
+      "offset_start": 49712,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 1
+    },
+    {
+      "alignment": 1,
+      "batch": 8,
+      "channel_first": false,
+      "channel_last": false,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 31,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_23_off_bias_47",
+      "nbits": 32,
+      "offset_start": 48144,
+      "qmn": {
+        "m": 14,
+        "n": 17,
+        "sign": 1
+      },
+      "shape": [
+        64,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 256
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 32,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          0.0253982153
+        ]
+      },
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Gemm_29_conv_4_zero_off_50",
+      "nbits": 8,
+      "offset_start": 49728,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 1
+    },
+    {
+      "alignment": 1,
+      "batch": 16,
+      "channel_first": false,
+      "channel_last": false,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 33,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Gemm_29_conv_4_off_bias_56",
+      "nbits": 32,
+      "offset_start": 49008,
+      "qmn": {
+        "m": 12,
+        "n": 19,
+        "sign": 1
+      },
+      "shape": [
+        32,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 128
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_S8",
+      "id": 34,
+      "intq": {
+        "axis": -1,
+        "offsets": [
+          0
+        ],
+        "scales": [
+          0.0386359803
+        ]
+      },
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Gemm_33_conv_10_zero_off_59",
+      "nbits": 8,
+      "offset_start": 49744,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 1
+    },
+    {
+      "alignment": 1,
+      "batch": 4,
+      "channel_first": false,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 35,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Gemm_33_conv_10_off_bias_65",
+      "nbits": 32,
+      "offset_start": 49584,
+      "qmn": {
+        "m": 11,
+        "n": 20,
+        "sign": 1
+      },
+      "shape": [
+        4,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 16
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 36,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "RequantizeLinear_inserted_id180_182_requantize_zero",
+      "nbits": 8,
+      "offset_start": 49760,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 1
+    },
+    {
+      "alignment": 1,
+      "batch": 16,
+      "channel_first": false,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 37,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_5_off_bias_18_A_16_184",
+      "nbits": 16,
+      "offset_start": 49552,
+      "qmn": {
+        "m": -5,
+        "n": 20,
+        "sign": 1
+      },
+      "shape": [
+        16,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 32
+    },
+    {
+      "alignment": 1,
+      "batch": 32,
+      "channel_first": false,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 38,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_11_off_bias_27_A_16_186",
+      "nbits": 16,
+      "offset_start": 49424,
+      "qmn": {
+        "m": -5,
+        "n": 20,
+        "sign": 1
+      },
+      "shape": [
+        32,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 64
+    },
+    {
+      "alignment": 1,
+      "batch": 48,
+      "channel_first": false,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 39,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_17_off_bias_36_A_16_188",
+      "nbits": 16,
+      "offset_start": 49264,
+      "qmn": {
+        "m": -3,
+        "n": 18,
+        "sign": 1
+      },
+      "shape": [
+        48,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 96
+    },
+    {
+      "alignment": 1,
+      "batch": 64,
+      "channel_first": false,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 40,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Conv2D_23_off_bias_45_A_16_190",
+      "nbits": 16,
+      "offset_start": 49136,
+      "qmn": {
+        "m": -2,
+        "n": 17,
+        "sign": 1
+      },
+      "shape": [
+        64,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 128
+    },
+    {
+      "alignment": 1,
+      "batch": 32,
+      "channel_first": false,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 41,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Gemm_29_conv_4_off_bias_54_A_16_192",
+      "nbits": 16,
+      "offset_start": 49488,
+      "qmn": {
+        "m": -4,
+        "n": 19,
+        "sign": 1
+      },
+      "shape": [
+        32,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 64
+    },
+    {
+      "alignment": 1,
+      "batch": 4,
+      "channel_first": false,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 42,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Gemm_33_conv_10_off_bias_63_A_16_194",
+      "nbits": 16,
+      "offset_start": 49600,
+      "qmn": {
+        "m": -5,
+        "n": 20,
+        "sign": 1
+      },
+      "shape": [
+        4,
+        1,
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 8
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_FLOAT",
+      "id": 43,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Gemm_33_squeeze_y_11_196_atonn_internal_scale",
+      "nbits": 32,
+      "offset_start": 49632,
+      "qmn": {
+        "m": 0,
+        "n": 0,
+        "sign": 0
+      },
+      "shape": [
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 4
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 44,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Gemm_33_squeeze_y_11_196_atonn_internal_offset",
+      "nbits": 8,
+      "offset_start": 49792,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 1
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_FLOAT",
+      "id": 45,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Softmax_36_200_atonn_internal_scale",
+      "nbits": 32,
+      "offset_start": 49648,
+      "qmn": {
+        "m": 0,
+        "n": 0,
+        "sign": 0
+      },
+      "shape": [
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 4
+    },
+    {
+      "alignment": 1,
+      "batch": 1,
+      "channel_first": true,
+      "channel_last": true,
+      "epochs": {
+        "end": 12,
+        "start": 0
+      },
+      "flags": "",
+      "format": "STAI_FORMAT_Q",
+      "id": 46,
+      "is_param": true,
+      "mpool_id": 9,
+      "name": "Softmax_36_200_atonn_internal_offset",
+      "nbits": 8,
+      "offset_start": 49808,
+      "qmn": {
+        "m": 7,
+        "n": 0,
+        "sign": 1
+      },
+      "shape": [
+        1
+      ],
+      "shape_map": [],
+      "size_bytes": 1
+    }
+  ],
+  "ec_blobs_info": [],
+  "environment": {
+    "generated_model": {
+      "generated_time": "2026-08-22T19:15:52.460135500+0200",
+      "model_files": [
+        {
+          "name": "network.c",
+          "signature": ""
+        },
+        {
+          "name": "atonbuf.AXISRAM6.raw",
+          "signature": ""
+        },
+        {
+          "name": "atonbuf.AXISRAM5.raw",
+          "signature": ""
+        },
+        {
+          "name": "atonbuf.AXISRAM4.raw",
+          "signature": ""
+        },
+        {
+          "name": "atonbuf.AXISRAM3.raw",
+          "signature": ""
+        },
+        {
+          "name": "atonbuf.AXISRAM2.raw",
+          "signature": ""
+        },
+        {
+          "name": "atonbuf.AXISRAM1.raw",
+          "signature": ""
+        },
+        {
+          "name": "atonbuf.AXIFLEXMEM.raw",
+          "signature": ""
+        },
+        {
+          "name": "atonbuf.xSPI1.raw",
+          "signature": ""
+        },
+        {
+          "name": "atonbuf.xSPI2.raw",
+          "signature": ""
+        }
+      ],
+      "n_params": 0,
+      "name": "network",
+      "size": 0,
+      "type": ""
+    },
+    "network_signature": "0x78fb20e17187d007",
+    "target": "",
+    "test_name": "",
+    "tools": [
+      {
+        "arguments": "analyze -m .\\training\\models\\rps_int8.tflite --target stm32n6 --st-neural-art --no-workspace --verbosity 1",
+        "environment": [],
+        "input_model": {
+          "generated_time": "",
+          "model_files": [
+            {
+              "name": "rps_int8.tflite",
+              "signature": "0xbfebb8a9b00b2073905fbef5025eab2d"
+            }
+          ],
+          "n_params": 48596,
+          "name": "rps_int8",
+          "size": 49184,
+          "type": "tflite"
+        },
+        "name": "ST.EdgeAI.Core",
+        "version": "4.0.1-20581 7ed50de05"
+      },
+      {
+        "arguments": " -i C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\st_ai_output\\rps_int8_OE_3_3_1.onnx --json-quant-file C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\st_ai_output\\rps_int8_OE_3_3_1_Q.json -g network.c --load-mdesc C:\\ST\\STEdgeAI\\4.0\\Utilities\\configs\\stm32n6.mdesc --load-mpool C:\\ST\\STEdgeAI\\4.0\\Utilities\\windows\\targets\\stm32\\resources\\NPU\\STM32N6xx\\stm32n6.mpool --load-cdesc C:\\ST\\STEdgeAI\\4.0\\Utilities\\configs\\cortex-m55.cdesc --save-mpool-file C:\\Users\\netan\\AppData\\Local\\Temp\\stedgeai_workspace\\neural_art__network\\stm32n6.mpool --out-dir-prefix C:\\Users\\netan\\AppData\\Local\\Temp\\stedgeai_workspace\\neural_art__network/ --network-name network --native-float --cache-maintenance --Ocache-opt --enable-virtual-mem-pools --Os --Oauto-sched --output-info-file c_info.json --generate-stai",
+        "environment": [],
+        "input_model": {
+          "generated_time": "2026-08-22T22:15:52+0300",
+          "model_files": [
+            {
+              "name": "rps_int8_OE_3_3_1.onnx",
+              "signature": "0x6533ce3e4b4dae3025640f01ae194413"
+            }
+          ],
+          "n_params": 0,
+          "name": "network",
+          "size": 0,
+          "type": ""
+        },
+        "name": "ATONN Compiler",
+        "version": "1.1.3-275"
+      }
+    ]
+  },
+  "graphs": [
+    {
+      "edges": [
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_FLOW",
+          "end": {
+            "node_id": 34,
+            "port": 0
+          },
+          "id": 1,
+          "name": "epoch_dep_0_1",
+          "start": {
+            "node_id": 1,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_FLOW",
+          "end": {
+            "node_id": 36,
+            "port": 0
+          },
+          "id": 2,
+          "name": "epoch_dep_1_2",
+          "start": {
+            "node_id": 34,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_FLOW",
+          "end": {
+            "node_id": 38,
+            "port": 0
+          },
+          "id": 3,
+          "name": "epoch_dep_2_3",
+          "start": {
+            "node_id": 36,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_FLOW",
+          "end": {
+            "node_id": 40,
+            "port": 0
+          },
+          "id": 4,
+          "name": "epoch_dep_3_4",
+          "start": {
+            "node_id": 38,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_FLOW",
+          "end": {
+            "node_id": 42,
+            "port": 0
+          },
+          "id": 5,
+          "name": "epoch_dep_4_5",
+          "start": {
+            "node_id": 40,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_FLOW",
+          "end": {
+            "node_id": 47,
+            "port": 0
+          },
+          "id": 6,
+          "name": "epoch_dep_5_6",
+          "start": {
+            "node_id": 42,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_FLOW",
+          "end": {
+            "node_id": 53,
+            "port": 0
+          },
+          "id": 7,
+          "name": "epoch_dep_6_7",
+          "start": {
+            "node_id": 47,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_FLOW",
+          "end": {
+            "node_id": 61,
+            "port": 0
+          },
+          "id": 8,
+          "name": "epoch_dep_7_8",
+          "start": {
+            "node_id": 53,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_FLOW",
+          "end": {
+            "node_id": 69,
+            "port": 0
+          },
+          "id": 9,
+          "name": "epoch_dep_8_9",
+          "start": {
+            "node_id": 61,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_FLOW",
+          "end": {
+            "node_id": 73,
+            "port": 0
+          },
+          "id": 10,
+          "name": "epoch_dep_9_10",
+          "start": {
+            "node_id": 69,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_FLOW",
+          "end": {
+            "node_id": 77,
+            "port": 0
+          },
+          "id": 11,
+          "name": "epoch_dep_10_11",
+          "start": {
+            "node_id": 73,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_FLOW",
+          "end": {
+            "node_id": 79,
+            "port": 0
+          },
+          "id": 12,
+          "name": "epoch_dep_11_12",
+          "start": {
+            "node_id": 77,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 3,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 37,
+            "port": 0
+          },
+          "id": 13,
+          "name": "Transpose_1_out_0_UINT8__1_1_50_64__",
+          "start": {
+            "node_id": 35,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 4,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 39,
+            "port": 0
+          },
+          "id": 14,
+          "name": "Cast_2_out_0_FLOAT__1_1_50_64__",
+          "start": {
+            "node_id": 37,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 16,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 39,
+            "port": 0
+          },
+          "id": 15,
+          "name": "Quantize_3_y_scale_FLOAT___",
+          "start": {
+            "node_id": 33,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 17,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 39,
+            "port": 0
+          },
+          "id": 16,
+          "name": "Quantize_3_y_zero_point_INT8___",
+          "start": {
+            "node_id": 5,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 24,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 41,
+            "port": 0
+          },
+          "id": 17,
+          "name": "Conv2D_5_zero_off_14_FLOAT__1__",
+          "start": {
+            "node_id": 16,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 6,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 43,
+            "port": 0
+          },
+          "id": 18,
+          "name": "Conv2D_5_zero_off_out_13_FLOAT__1_1_50_64__",
+          "start": {
+            "node_id": 41,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 18,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 43,
+            "port": 0
+          },
+          "id": 19,
+          "name": "Conv2D_5_weights_FLOAT__16_1_3_3__",
+          "start": {
+            "node_id": 11,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 25,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 44,
+            "port": 0
+          },
+          "id": 20,
+          "name": "Conv2D_5_off_bias_20_FLOAT__16_1_1__",
+          "start": {
+            "node_id": 17,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 46,
+            "port": 0
+          },
+          "id": 21,
+          "name": "MaxPool_9_out_0_FLOAT__1_16_25_32__",
+          "start": {
+            "node_id": 45,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 26,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 46,
+            "port": 0
+          },
+          "id": 22,
+          "name": "Conv2D_11_zero_off_23_FLOAT__1__",
+          "start": {
+            "node_id": 25,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 7,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 48,
+            "port": 0
+          },
+          "id": 23,
+          "name": "Conv2D_11_zero_off_out_22_FLOAT__1_16_25_32__",
+          "start": {
+            "node_id": 46,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 19,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 48,
+            "port": 0
+          },
+          "id": 24,
+          "name": "Conv2D_11_weights_FLOAT__32_16_3_3__",
+          "start": {
+            "node_id": 24,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 27,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 50,
+            "port": 0
+          },
+          "id": 25,
+          "name": "Conv2D_11_off_bias_29_FLOAT__32_1_1__",
+          "start": {
+            "node_id": 26,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 52,
+            "port": 0
+          },
+          "id": 26,
+          "name": "MaxPool_15_out_0_FLOAT__1_32_12_16__",
+          "start": {
+            "node_id": 51,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 28,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 52,
+            "port": 0
+          },
+          "id": 27,
+          "name": "Conv2D_17_zero_off_32_FLOAT__1__",
+          "start": {
+            "node_id": 6,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 8,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 54,
+            "port": 0
+          },
+          "id": 28,
+          "name": "Conv2D_17_zero_off_out_31_FLOAT__1_32_12_16__",
+          "start": {
+            "node_id": 52,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 20,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 54,
+            "port": 0
+          },
+          "id": 29,
+          "name": "Conv2D_17_weights_FLOAT__48_32_3_3__",
+          "start": {
+            "node_id": 23,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 29,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 58,
+            "port": 0
+          },
+          "id": 30,
+          "name": "Conv2D_17_off_bias_38_FLOAT__48_1_1__",
+          "start": {
+            "node_id": 7,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 60,
+            "port": 0
+          },
+          "id": 31,
+          "name": "MaxPool_21_out_0_FLOAT__1_48_6_8__",
+          "start": {
+            "node_id": 59,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 30,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 60,
+            "port": 0
+          },
+          "id": 32,
+          "name": "Conv2D_23_zero_off_41_FLOAT__1__",
+          "start": {
+            "node_id": 14,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 9,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 62,
+            "port": 0
+          },
+          "id": 33,
+          "name": "Conv2D_23_zero_off_out_40_FLOAT__1_48_6_8__",
+          "start": {
+            "node_id": 60,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 21,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 62,
+            "port": 0
+          },
+          "id": 34,
+          "name": "Conv2D_23_weights_FLOAT__64_48_3_3__",
+          "start": {
+            "node_id": 22,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 31,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 65,
+            "port": 0
+          },
+          "id": 35,
+          "name": "Conv2D_23_off_bias_47_FLOAT__64_1_1__",
+          "start": {
+            "node_id": 15,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 32,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 68,
+            "port": 0
+          },
+          "id": 36,
+          "name": "Gemm_29_conv_4_zero_off_50_FLOAT__1__",
+          "start": {
+            "node_id": 3,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 11,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 70,
+            "port": 0
+          },
+          "id": 37,
+          "name": "Gemm_29_conv_4_zero_off_out_49_FLOAT__1_64_1_1__",
+          "start": {
+            "node_id": 68,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 22,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 70,
+            "port": 0
+          },
+          "id": 38,
+          "name": "Gemm_29_weights_transposed_3_FLOAT__32_64_1_1__",
+          "start": {
+            "node_id": 20,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 33,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 71,
+            "port": 0
+          },
+          "id": 39,
+          "name": "Gemm_29_conv_4_off_bias_56_FLOAT__32_1_1__",
+          "start": {
+            "node_id": 4,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 34,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 72,
+            "port": 0
+          },
+          "id": 40,
+          "name": "Gemm_33_conv_10_zero_off_59_FLOAT__1__",
+          "start": {
+            "node_id": 9,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 12,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 74,
+            "port": 0
+          },
+          "id": 41,
+          "name": "Gemm_33_conv_10_zero_off_out_58_FLOAT__1_32_1_1__",
+          "start": {
+            "node_id": 72,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 23,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 74,
+            "port": 0
+          },
+          "id": 42,
+          "name": "Gemm_33_weights_transposed_9_FLOAT__4_32_1_1__",
+          "start": {
+            "node_id": 30,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 35,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 75,
+            "port": 0
+          },
+          "id": 43,
+          "name": "Gemm_33_conv_10_off_bias_65_FLOAT__4_1_1__",
+          "start": {
+            "node_id": 10,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 13,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 76,
+            "port": 0
+          },
+          "id": 44,
+          "name": "Gemm_33_conv_10_off_bias_out_64_FLOAT__1_4_1_1__",
+          "start": {
+            "node_id": 75,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 14,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 78,
+            "port": 0
+          },
+          "id": 45,
+          "name": "Gemm_33_out_0_FLOAT__1_4__",
+          "start": {
+            "node_id": 76,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 5,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 41,
+            "port": 0
+          },
+          "id": 46,
+          "name": "Dequantize_4_out_0_FLOAT__1_1_50_64__",
+          "start": {
+            "node_id": 39,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 45,
+            "port": 0
+          },
+          "id": 47,
+          "name": "Conv2D_5_off_bias_out_19_FLOAT__1_16_50_64__",
+          "start": {
+            "node_id": 44,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 7,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 49,
+            "port": 0
+          },
+          "id": 48,
+          "name": "Conv2D_11_zero_off_out_22_FLOAT__1_16_25_32__",
+          "start": {
+            "node_id": 46,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 19,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 49,
+            "port": 0
+          },
+          "id": 49,
+          "name": "Conv2D_11_weights_FLOAT__32_16_3_3__",
+          "start": {
+            "node_id": 24,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 49,
+            "port": 0
+          },
+          "id": 50,
+          "name": "Conv2D_11_out_0_FLOAT__1_32_25_32__",
+          "start": {
+            "node_id": 48,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 51,
+            "port": 0
+          },
+          "id": 51,
+          "name": "Conv2D_11_off_bias_out_28_FLOAT__1_32_25_32__",
+          "start": {
+            "node_id": 50,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 8,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 55,
+            "port": 0
+          },
+          "id": 52,
+          "name": "Conv2D_17_zero_off_out_31_FLOAT__1_32_12_16__",
+          "start": {
+            "node_id": 52,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 20,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 55,
+            "port": 0
+          },
+          "id": 53,
+          "name": "Conv2D_17_weights_FLOAT__48_32_3_3__",
+          "start": {
+            "node_id": 23,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 55,
+            "port": 0
+          },
+          "id": 54,
+          "name": "Conv2D_17_out_0_FLOAT__1_48_12_16__",
+          "start": {
+            "node_id": 54,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 8,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 56,
+            "port": 0
+          },
+          "id": 55,
+          "name": "Conv2D_17_zero_off_out_31_FLOAT__1_32_12_16__",
+          "start": {
+            "node_id": 52,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 20,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 56,
+            "port": 0
+          },
+          "id": 56,
+          "name": "Conv2D_17_weights_FLOAT__48_32_3_3__",
+          "start": {
+            "node_id": 23,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 56,
+            "port": 0
+          },
+          "id": 57,
+          "name": "Conv2D_17_out_0_FLOAT__1_48_12_16__",
+          "start": {
+            "node_id": 55,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 8,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 57,
+            "port": 0
+          },
+          "id": 58,
+          "name": "Conv2D_17_zero_off_out_31_FLOAT__1_32_12_16__",
+          "start": {
+            "node_id": 52,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 20,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 57,
+            "port": 0
+          },
+          "id": 59,
+          "name": "Conv2D_17_weights_FLOAT__48_32_3_3__",
+          "start": {
+            "node_id": 23,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 57,
+            "port": 0
+          },
+          "id": 60,
+          "name": "Conv2D_17_out_0_FLOAT__1_48_12_16__",
+          "start": {
+            "node_id": 56,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 59,
+            "port": 0
+          },
+          "id": 61,
+          "name": "Conv2D_17_off_bias_out_37_FLOAT__1_48_12_16__",
+          "start": {
+            "node_id": 58,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 9,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 63,
+            "port": 0
+          },
+          "id": 62,
+          "name": "Conv2D_23_zero_off_out_40_FLOAT__1_48_6_8__",
+          "start": {
+            "node_id": 60,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 21,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 63,
+            "port": 0
+          },
+          "id": 63,
+          "name": "Conv2D_23_weights_FLOAT__64_48_3_3__",
+          "start": {
+            "node_id": 22,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 63,
+            "port": 0
+          },
+          "id": 64,
+          "name": "Conv2D_23_out_0_FLOAT__1_64_6_8__",
+          "start": {
+            "node_id": 62,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 9,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 64,
+            "port": 0
+          },
+          "id": 65,
+          "name": "Conv2D_23_zero_off_out_40_FLOAT__1_48_6_8__",
+          "start": {
+            "node_id": 60,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 21,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 64,
+            "port": 0
+          },
+          "id": 66,
+          "name": "Conv2D_23_weights_FLOAT__64_48_3_3__",
+          "start": {
+            "node_id": 22,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 64,
+            "port": 0
+          },
+          "id": 67,
+          "name": "Conv2D_23_out_0_FLOAT__1_64_6_8__",
+          "start": {
+            "node_id": 63,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 10,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 62,
+            "port": 0
+          },
+          "id": 68,
+          "name": "Acc_input",
+          "start": {
+            "node_id": 64,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 66,
+            "port": 0
+          },
+          "id": 69,
+          "name": "Conv2D_23_off_bias_out_46_FLOAT__1_64_6_8__",
+          "start": {
+            "node_id": 65,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 67,
+            "port": 0
+          },
+          "id": 70,
+          "name": "AveragePool_27_out_0_FLOAT__1_64_1_1__",
+          "start": {
+            "node_id": 66,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 68,
+            "port": 0
+          },
+          "id": 71,
+          "name": "AveragePool_27_out_0_FLOAT__1_64_1_1__",
+          "start": {
+            "node_id": 67,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 36,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 67,
+            "port": 0
+          },
+          "id": 72,
+          "name": "RequantizeLinear_inserted_id180_182_requantize_zero",
+          "start": {
+            "node_id": 12,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 72,
+            "port": 0
+          },
+          "id": 73,
+          "name": "Gemm_29_conv_4_off_bias_out_55_FLOAT__1_32_1_1__",
+          "start": {
+            "node_id": 71,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 2,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 80,
+            "port": 0
+          },
+          "id": 74,
+          "name": "Quantize_37_out_0_INT8__1_4__",
+          "start": {
+            "node_id": 78,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 1,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 35,
+            "port": 0
+          },
+          "id": 75,
+          "name": "Input_0_out_0_UINT8__1_50_64_1__",
+          "start": {
+            "node_id": 13,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 44,
+            "port": 0
+          },
+          "id": 76,
+          "name": "Conv2D_5_mul_scale_out_17_FLOAT__1_16_50_64__",
+          "start": {
+            "node_id": 43,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 37,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 44,
+            "port": 0
+          },
+          "id": 77,
+          "name": "Conv2D_5_off_bias_18_A_16_184",
+          "start": {
+            "node_id": 28,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 50,
+            "port": 0
+          },
+          "id": 78,
+          "name": "Conv2D_11_mul_scale_out_26_FLOAT__1_32_25_32__",
+          "start": {
+            "node_id": 49,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 38,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 50,
+            "port": 0
+          },
+          "id": 79,
+          "name": "Conv2D_11_off_bias_27_A_16_186",
+          "start": {
+            "node_id": 18,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 58,
+            "port": 0
+          },
+          "id": 80,
+          "name": "Conv2D_17_mul_scale_out_35_FLOAT__1_48_12_16__",
+          "start": {
+            "node_id": 57,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 39,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 58,
+            "port": 0
+          },
+          "id": 81,
+          "name": "Conv2D_17_off_bias_36_A_16_188",
+          "start": {
+            "node_id": 31,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 65,
+            "port": 0
+          },
+          "id": 82,
+          "name": "Conv2D_23_mul_scale_out_44_FLOAT__1_64_6_8__",
+          "start": {
+            "node_id": 64,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 40,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 65,
+            "port": 0
+          },
+          "id": 83,
+          "name": "Conv2D_23_off_bias_45_A_16_190",
+          "start": {
+            "node_id": 27,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 71,
+            "port": 0
+          },
+          "id": 84,
+          "name": "Gemm_29_conv_4_mul_scale_out_53_FLOAT__1_32_1_1__",
+          "start": {
+            "node_id": 70,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 41,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 71,
+            "port": 0
+          },
+          "id": 85,
+          "name": "Gemm_29_conv_4_off_bias_54_A_16_192",
+          "start": {
+            "node_id": 21,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 0,
+          "edge_kind": "EDGE_INTERNAL",
+          "end": {
+            "node_id": 75,
+            "port": 0
+          },
+          "id": 86,
+          "name": "Gemm_33_conv_10_mul_scale_out_62_FLOAT__1_4_1_1__",
+          "start": {
+            "node_id": 74,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 42,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 75,
+            "port": 0
+          },
+          "id": 87,
+          "name": "Gemm_33_conv_10_off_bias_63_A_16_194",
+          "start": {
+            "node_id": 32,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 43,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 78,
+            "port": 0
+          },
+          "id": 88,
+          "name": "Gemm_33_squeeze_y_11_196_atonn_internal_scale",
+          "start": {
+            "node_id": 8,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 44,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 78,
+            "port": 0
+          },
+          "id": 89,
+          "name": "Gemm_33_squeeze_y_11_196_atonn_internal_offset",
+          "start": {
+            "node_id": 19,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 45,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 78,
+            "port": 0
+          },
+          "id": 90,
+          "name": "Softmax_36_200_atonn_internal_scale",
+          "start": {
+            "node_id": 2,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 46,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 78,
+            "port": 0
+          },
+          "id": 91,
+          "name": "Softmax_36_200_atonn_internal_offset",
+          "start": {
+            "node_id": 29,
+            "port": 0
+          }
+        },
+        {
+          "attributes": {},
+          "buffer": 15,
+          "edge_kind": "EDGE_MEMORY",
+          "end": {
+            "node_id": 78,
+            "port": 0
+          },
+          "id": 92,
+          "name": "SCRATCH_TENSOR_EDGE",
+          "start": {
+            "node_id": 78,
+            "port": 1
+          }
+        }
+      ],
+      "id": 1,
+      "inputs": [
+        1
+      ],
+      "name": "network",
+      "nodes": [
+        {
+          "attributes": {},
+          "id": 1,
+          "inputs": [],
+          "macc": 0,
+          "mapping": "NODE_NO_X",
+          "name": "epoch_0",
+          "original_nodes": [],
+          "outputs": [],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {},
+              "id": 2,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Softmax_36_200_atonn_internal_scale",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 3,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Gemm_29_conv_4_zero_off_50",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 4,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Gemm_29_conv_4_off_bias_56",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 5,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Quantize_3_y_zero_point",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 6,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_17_zero_off_32",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 7,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_17_off_bias_38",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 8,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Gemm_33_squeeze_y_11_196_atonn_internal_scale",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 9,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Gemm_33_conv_10_zero_off_59",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 10,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Gemm_33_conv_10_off_bias_65",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 11,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_5_weights",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 12,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "RequantizeLinear_inserted_id180_182_requantize_zero",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 13,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Input_0_out_0",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 14,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_23_zero_off_41",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 15,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_23_off_bias_47",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 16,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_5_zero_off_14",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 17,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_5_off_bias_20",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 18,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_11_off_bias_27_A_16_186",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 19,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Gemm_33_squeeze_y_11_196_atonn_internal_offset",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 20,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Gemm_29_weights_transposed_3",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 21,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Gemm_29_conv_4_off_bias_54_A_16_192",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 22,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_23_weights",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 23,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_17_weights",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 24,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_11_weights",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 25,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_11_zero_off_23",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 26,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_11_off_bias_29",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 27,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_23_off_bias_45_A_16_190",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 28,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_5_off_bias_18_A_16_184",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 29,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Softmax_36_200_atonn_internal_offset",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 30,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Gemm_33_weights_transposed_9",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 31,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Conv2D_17_off_bias_36_A_16_188",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 32,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Gemm_33_conv_10_off_bias_63_A_16_194",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            },
+            {
+              "attributes": {},
+              "id": 33,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Quantize_3_y_scale",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Param"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        },
+        {
+          "attributes": {},
+          "id": 34,
+          "inputs": [],
+          "macc": 0,
+          "mapping": "NODE_NO_X",
+          "name": "epoch_1",
+          "original_nodes": [],
+          "outputs": [],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {},
+              "id": 35,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Transpose_1",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Transpose"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        },
+        {
+          "attributes": {},
+          "id": 36,
+          "inputs": [
+            3
+          ],
+          "macc": 0,
+          "mapping": "NODE_SW_HW",
+          "name": "epoch_2",
+          "original_nodes": [],
+          "outputs": [
+            4
+          ],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {},
+              "id": 37,
+              "inputs": [
+                3
+              ],
+              "macc": 0,
+              "mapping": "NODE_SW_LL_HW",
+              "name": "Cast_2",
+              "original_nodes": [],
+              "outputs": [
+                4
+              ],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Cast"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        },
+        {
+          "attributes": {},
+          "id": 38,
+          "inputs": [
+            4,
+            16,
+            17
+          ],
+          "macc": 0,
+          "mapping": "NODE_SW",
+          "name": "epoch_3",
+          "original_nodes": [],
+          "outputs": [
+            5
+          ],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {},
+              "id": 39,
+              "inputs": [
+                4,
+                16,
+                17
+              ],
+              "macc": 0,
+              "mapping": "NODE_SW_INTEGER",
+              "name": "Quantize_3",
+              "original_nodes": [],
+              "outputs": [
+                5
+              ],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "QuantizeLinear"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        },
+        {
+          "attributes": {},
+          "id": 40,
+          "inputs": [
+            5,
+            24
+          ],
+          "macc": 1600,
+          "mapping": "NODE_HW",
+          "name": "epoch_4",
+          "original_nodes": [],
+          "outputs": [
+            6
+          ],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 0"
+              },
+              "id": 41,
+              "inputs": [
+                5,
+                24
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_5_suboff_12",
+              "original_nodes": [],
+              "outputs": [
+                6
+              ],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Sub"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        },
+        {
+          "attributes": {},
+          "id": 42,
+          "inputs": [
+            6,
+            18,
+            25,
+            37,
+            26
+          ],
+          "macc": 492800,
+          "mapping": "NODE_HW",
+          "name": "epoch_5",
+          "original_nodes": [],
+          "outputs": [
+            7
+          ],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {
+                "HWUnit": "CONV_ACC_V2 0"
+              },
+              "id": 43,
+              "inputs": [
+                6,
+                18
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_5",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Conv"
+            },
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 1"
+              },
+              "id": 44,
+              "inputs": [
+                25,
+                37
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_5_off_bias_18",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Add"
+            },
+            {
+              "attributes": {
+                "HWUnit": "POOL_ACC_V2 0"
+              },
+              "id": 45,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "MaxPool_9",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "MaxPool"
+            },
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 2"
+              },
+              "id": 46,
+              "inputs": [
+                26
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_11_suboff_21",
+              "original_nodes": [],
+              "outputs": [
+                7
+              ],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Sub"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        },
+        {
+          "attributes": {},
+          "id": 47,
+          "inputs": [
+            7,
+            19,
+            7,
+            19,
+            27,
+            38,
+            28
+          ],
+          "macc": 3702272,
+          "mapping": "NODE_HW",
+          "name": "epoch_6",
+          "original_nodes": [],
+          "outputs": [
+            8
+          ],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {
+                "HWUnit": "CONV_ACC_V2 1"
+              },
+              "id": 48,
+              "inputs": [
+                7,
+                19
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_11",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Conv"
+            },
+            {
+              "attributes": {
+                "HWUnit": "CONV_ACC_V2 2"
+              },
+              "id": 49,
+              "inputs": [
+                7,
+                19
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_11_ca_pipe_1",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Conv"
+            },
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 3"
+              },
+              "id": 50,
+              "inputs": [
+                27,
+                38
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_11_off_bias_27",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Add"
+            },
+            {
+              "attributes": {
+                "HWUnit": "POOL_ACC_V2 1"
+              },
+              "id": 51,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "MaxPool_15",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "MaxPool"
+            },
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 0"
+              },
+              "id": 52,
+              "inputs": [
+                28
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_17_suboff_30",
+              "original_nodes": [],
+              "outputs": [
+                8
+              ],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Sub"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        },
+        {
+          "attributes": {},
+          "id": 53,
+          "inputs": [
+            8,
+            20,
+            8,
+            20,
+            8,
+            20,
+            8,
+            20,
+            29,
+            39,
+            30
+          ],
+          "macc": 2659968,
+          "mapping": "NODE_HW",
+          "name": "epoch_7",
+          "original_nodes": [],
+          "outputs": [
+            9
+          ],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {
+                "HWUnit": "CONV_ACC_V2 3"
+              },
+              "id": 54,
+              "inputs": [
+                8,
+                20
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_17",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Conv"
+            },
+            {
+              "attributes": {
+                "HWUnit": "CONV_ACC_V2 0"
+              },
+              "id": 55,
+              "inputs": [
+                8,
+                20
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_17_ca_pipe_1",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Conv"
+            },
+            {
+              "attributes": {
+                "HWUnit": "CONV_ACC_V2 1"
+              },
+              "id": 56,
+              "inputs": [
+                8,
+                20
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_17_ca_pipe_2",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Conv"
+            },
+            {
+              "attributes": {
+                "HWUnit": "CONV_ACC_V2 2"
+              },
+              "id": 57,
+              "inputs": [
+                8,
+                20
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_17_ca_pipe_3",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Conv"
+            },
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 1"
+              },
+              "id": 58,
+              "inputs": [
+                29,
+                39
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_17_off_bias_36",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Add"
+            },
+            {
+              "attributes": {
+                "HWUnit": "POOL_ACC_V2 0"
+              },
+              "id": 59,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "MaxPool_21",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "MaxPool"
+            },
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 2"
+              },
+              "id": 60,
+              "inputs": [
+                30
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_23_suboff_39",
+              "original_nodes": [],
+              "outputs": [
+                9
+              ],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Sub"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        },
+        {
+          "attributes": {},
+          "id": 61,
+          "inputs": [
+            9,
+            21,
+            9,
+            21,
+            9,
+            21,
+            31,
+            40,
+            36,
+            32
+          ],
+          "macc": 1328672,
+          "mapping": "NODE_HW",
+          "name": "epoch_8",
+          "original_nodes": [],
+          "outputs": [
+            10,
+            11
+          ],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {
+                "HWUnit": "CONV_ACC_V2 0"
+              },
+              "id": 62,
+              "inputs": [
+                9,
+                21
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_23",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Conv"
+            },
+            {
+              "attributes": {
+                "HWUnit": "CONV_ACC_V2 1"
+              },
+              "id": 63,
+              "inputs": [
+                9,
+                21
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_23_ca_pipe_1",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Conv"
+            },
+            {
+              "attributes": {
+                "HWUnit": "CONV_ACC_V2 2"
+              },
+              "id": 64,
+              "inputs": [
+                9,
+                21
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_23_ca_pipe_2",
+              "original_nodes": [],
+              "outputs": [
+                10
+              ],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Conv"
+            },
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 0"
+              },
+              "id": 65,
+              "inputs": [
+                31,
+                40
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Conv2D_23_off_bias_45",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Add"
+            },
+            {
+              "attributes": {
+                "HWUnit": "POOL_ACC_V2 1"
+              },
+              "id": 66,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "AveragePool_27",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "AveragePool"
+            },
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 3"
+              },
+              "id": 67,
+              "inputs": [
+                36
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "RequantizeLinear_inserted_id180",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Add"
+            },
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 1"
+              },
+              "id": 68,
+              "inputs": [
+                32
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Gemm_29_conv_4_suboff_48",
+              "original_nodes": [],
+              "outputs": [
+                11
+              ],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Sub"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        },
+        {
+          "attributes": {},
+          "id": 69,
+          "inputs": [
+            11,
+            22,
+            33,
+            41,
+            34
+          ],
+          "macc": 2080,
+          "mapping": "NODE_HW",
+          "name": "epoch_9",
+          "original_nodes": [],
+          "outputs": [
+            12
+          ],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {
+                "HWUnit": "CONV_ACC_V2 3"
+              },
+              "id": 70,
+              "inputs": [
+                11,
+                22
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Gemm_29_conv_4",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Conv"
+            },
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 2"
+              },
+              "id": 71,
+              "inputs": [
+                33,
+                41
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Gemm_29_conv_4_off_bias_54",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Add"
+            },
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 0"
+              },
+              "id": 72,
+              "inputs": [
+                34
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Gemm_33_conv_10_suboff_57",
+              "original_nodes": [],
+              "outputs": [
+                12
+              ],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Sub"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        },
+        {
+          "attributes": {},
+          "id": 73,
+          "inputs": [
+            12,
+            23,
+            35,
+            42
+          ],
+          "macc": 130,
+          "mapping": "NODE_HW",
+          "name": "epoch_10",
+          "original_nodes": [],
+          "outputs": [
+            13
+          ],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {
+                "HWUnit": "CONV_ACC_V2 0"
+              },
+              "id": 74,
+              "inputs": [
+                12,
+                23
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Gemm_33_conv_10",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Conv"
+            },
+            {
+              "attributes": {
+                "HWUnit": "ARITH_ACC_V2 1"
+              },
+              "id": 75,
+              "inputs": [
+                35,
+                42
+              ],
+              "macc": 0,
+              "mapping": "NODE_HW",
+              "name": "Gemm_33_conv_10_off_bias_63",
+              "original_nodes": [],
+              "outputs": [
+                13
+              ],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Add"
+            },
+            {
+              "attributes": {},
+              "id": 76,
+              "inputs": [],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "Gemm_33_squeeze_y_11",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Reshape"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        },
+        {
+          "attributes": {},
+          "id": 77,
+          "inputs": [
+            14,
+            15,
+            43,
+            44,
+            45,
+            46
+          ],
+          "macc": 0,
+          "mapping": "NODE_SW",
+          "name": "epoch_11",
+          "original_nodes": [],
+          "outputs": [
+            2,
+            15
+          ],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {},
+              "id": 78,
+              "inputs": [
+                14,
+                15,
+                43,
+                44,
+                45,
+                46
+              ],
+              "macc": 0,
+              "mapping": "NODE_SW_INTEGER",
+              "name": "Softmax_36",
+              "original_nodes": [],
+              "outputs": [
+                2,
+                15
+              ],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Softmax"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        },
+        {
+          "attributes": {},
+          "id": 79,
+          "inputs": [
+            2
+          ],
+          "macc": 0,
+          "mapping": "NODE_NO_X",
+          "name": "epoch_12",
+          "original_nodes": [],
+          "outputs": [],
+          "scratchs": [],
+          "subgraph_nodes": [
+            {
+              "attributes": {},
+              "id": 80,
+              "inputs": [
+                2
+              ],
+              "macc": 0,
+              "mapping": "NODE_NO_X",
+              "name": "__NN__RETURN__",
+              "original_nodes": [],
+              "outputs": [],
+              "scratchs": [],
+              "subgraph_nodes": [],
+              "sw_functions": [],
+              "type": "Return"
+            }
+          ],
+          "sw_functions": [],
+          "type": ""
+        }
+      ],
+      "original_inputs": [
+        {
+          "c_shape_map": [
+            "BATCH",
+            "H",
+            "W",
+            "CH"
+          ],
+          "data_format": {
+            "quantizer": "NONE",
+            "scale": [],
+            "size": 8,
+            "type": "UNSIGNED",
+            "zero": []
+          },
+          "name": "serving_default_tof_u80",
+          "shape": [
+            1,
+            50,
+            64,
+            1
+          ],
+          "shape_map": [
+            "BATCH",
+            "H",
+            "W",
+            "CH"
+          ]
+        }
+      ],
+      "original_outputs": [
+        {
+          "c_shape_map": [
+            "BATCH",
+            "CH"
+          ],
+          "data_format": {
+            "quantizer": "UNIFORM",
+            "scale": [
+              0.00390625
+            ],
+            "size": 8,
+            "type": "SIGNED",
+            "zero": [
+              -128
+            ]
+          },
+          "name": "nl_12",
+          "shape": [
+            1,
+            4
+          ],
+          "shape_map": [
+            "BATCH",
+            "CH"
+          ]
+        }
+      ],
+      "outputs": [
+        2
+      ]
+    }
+  ],
+  "json_schema_version": "2.0",
+  "memory_accesses": [
+    {
+      "mpool_id": 9,
+      "node_id": 1,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 1,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 1,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 1,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 1,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 1,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 1,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 1,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 1,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 9,
+      "node_id": 34,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 34,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 34,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 34,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 34,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 34,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 34,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 34,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 34,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 9,
+      "node_id": 36,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 36,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 36,
+      "read_cycles": 500,
+      "reads": 3200,
+      "write_cycles": 500,
+      "writes": 12800
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 36,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 36,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 36,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 36,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 36,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 36,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 9,
+      "node_id": 38,
+      "read_cycles": 12,
+      "reads": 5,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 38,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 38,
+      "read_cycles": 500,
+      "reads": 12800,
+      "write_cycles": 500,
+      "writes": 3200
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 38,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 38,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 38,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 38,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 38,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 38,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 9,
+      "node_id": 40,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 40,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 40,
+      "read_cycles": 500,
+      "reads": 3200,
+      "write_cycles": 500,
+      "writes": 3200
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 40,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 40,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 40,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 40,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 40,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 40,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 9,
+      "node_id": 42,
+      "read_cycles": 864,
+      "reads": 144,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 42,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 42,
+      "read_cycles": 500,
+      "reads": 3200,
+      "write_cycles": 2000,
+      "writes": 12800
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 42,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 42,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 42,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 42,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 42,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 42,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 9,
+      "node_id": 47,
+      "read_cycles": 27648,
+      "reads": 4608,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 47,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 47,
+      "read_cycles": 8000,
+      "reads": 51200,
+      "write_cycles": 960,
+      "writes": 6144
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 47,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 47,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 47,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 47,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 47,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 47,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 9,
+      "node_id": 53,
+      "read_cycles": 82944,
+      "reads": 13824,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 53,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 53,
+      "read_cycles": 960,
+      "reads": 6144,
+      "write_cycles": 360,
+      "writes": 2304
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 53,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 53,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 53,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 53,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 53,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 53,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 9,
+      "node_id": 61,
+      "read_cycles": 165888,
+      "reads": 27648,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 61,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 61,
+      "read_cycles": 1320,
+      "reads": 14592,
+      "write_cycles": 1210,
+      "writes": 15424
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 61,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 61,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 61,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 61,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 61,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 61,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 9,
+      "node_id": 69,
+      "read_cycles": 4092,
+      "reads": 2048,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 69,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 69,
+      "read_cycles": 6,
+      "reads": 128,
+      "write_cycles": 5,
+      "writes": 32
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 69,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 69,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 69,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 69,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 69,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 69,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 9,
+      "node_id": 73,
+      "read_cycles": 252,
+      "reads": 128,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 73,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 73,
+      "read_cycles": 1,
+      "reads": 32,
+      "write_cycles": 0,
+      "writes": 4
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 73,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 73,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 73,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 73,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 73,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 73,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 9,
+      "node_id": 77,
+      "read_cycles": 24,
+      "reads": 10,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 77,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 77,
+      "read_cycles": 40,
+      "reads": 1032,
+      "write_cycles": 80,
+      "writes": 2060
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 77,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 77,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 77,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 77,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 77,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 77,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 9,
+      "node_id": 79,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 8,
+      "node_id": 79,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 2,
+      "node_id": 79,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 3,
+      "node_id": 79,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 4,
+      "node_id": 79,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 1,
+      "node_id": 79,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 5,
+      "node_id": 79,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 6,
+      "node_id": 79,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    },
+    {
+      "mpool_id": 7,
+      "node_id": 79,
+      "read_cycles": 0,
+      "reads": 0,
+      "write_cycles": 0,
+      "writes": 0
+    }
+  ],
+  "memory_footprint": {
+    "activations": 18944,
+    "io": [
+      0,
+      0
+    ],
+    "kernel_flash": 0,
+    "kernel_ram": 0,
+    "series": "generic",
+    "toolchain": null,
+    "toolchain_flash": 0,
+    "toolchain_ram": 0,
+    "weights": 49809
+  },
+  "memory_pools": [
+    {
+      "address": "875888640",
+      "alignment": 8,
+      "attributes": {
+        "burst_max_length": 4294967295,
+        "burst_penalty": 0,
+        "byte_width": 8,
+        "freq_ratio": 1.25,
+        "latency": "LOW",
+        "read_power": 19.006,
+        "score": 94,
+        "throughput": "HIGH",
+        "use_for_initrs": false,
+        "write_power": 15.79
+      },
+      "buffers": [],
+      "cacheable": "CACHEABLE_OFF",
+      "fname": "atonbuf.AXISRAM6.raw",
+      "id": 1,
+      "name": "npuRAM6",
+      "offset_start": 0,
+      "persistent": true,
+      "pipelined": "PIPELINED_ON",
+      "rights": "ACC_WRITE",
+      "size_bytes": 458752,
+      "subpools": [],
+      "used_size_bytes": 0,
+      "user_allocated": false
+    },
+    {
+      "address": "875429888",
+      "alignment": 8,
+      "attributes": {
+        "burst_max_length": 4294967295,
+        "burst_penalty": 0,
+        "byte_width": 8,
+        "freq_ratio": 1.25,
+        "latency": "LOW",
+        "read_power": 18.531,
+        "score": 94,
+        "throughput": "HIGH",
+        "use_for_initrs": false,
+        "write_power": 16.201
+      },
+      "buffers": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "cacheable": "CACHEABLE_OFF",
+      "fname": "atonbuf.AXISRAM5.raw",
+      "id": 2,
+      "name": "npuRAM5",
+      "offset_start": 0,
+      "persistent": true,
+      "pipelined": "PIPELINED_ON",
+      "rights": "ACC_WRITE",
+      "size_bytes": 458752,
+      "subpools": [],
+      "used_size_bytes": 18944,
+      "user_allocated": false
+    },
+    {
+      "address": "874971136",
+      "alignment": 8,
+      "attributes": {
+        "burst_max_length": 4294967295,
+        "burst_penalty": 0,
+        "byte_width": 8,
+        "freq_ratio": 1.25,
+        "latency": "LOW",
+        "read_power": 18.531,
+        "score": 94,
+        "throughput": "HIGH",
+        "use_for_initrs": false,
+        "write_power": 16.201
+      },
+      "buffers": [],
+      "cacheable": "CACHEABLE_OFF",
+      "fname": "atonbuf.AXISRAM4.raw",
+      "id": 3,
+      "name": "npuRAM4",
+      "offset_start": 0,
+      "persistent": true,
+      "pipelined": "PIPELINED_ON",
+      "rights": "ACC_WRITE",
+      "size_bytes": 458752,
+      "subpools": [],
+      "used_size_bytes": 0,
+      "user_allocated": false
+    },
+    {
+      "address": "874512384",
+      "alignment": 8,
+      "attributes": {
+        "burst_max_length": 4294967295,
+        "burst_penalty": 0,
+        "byte_width": 8,
+        "freq_ratio": 1.25,
+        "latency": "LOW",
+        "read_power": 18.531,
+        "score": 94,
+        "throughput": "HIGH",
+        "use_for_initrs": false,
+        "write_power": 16.201
+      },
+      "buffers": [],
+      "cacheable": "CACHEABLE_OFF",
+      "fname": "atonbuf.AXISRAM3.raw",
+      "id": 4,
+      "name": "npuRAM3",
+      "offset_start": 0,
+      "persistent": true,
+      "pipelined": "PIPELINED_ON",
+      "rights": "ACC_WRITE",
+      "size_bytes": 458752,
+      "subpools": [],
+      "used_size_bytes": 0,
+      "user_allocated": false
+    },
+    {
+      "address": "873463808",
+      "alignment": 8,
+      "attributes": {
+        "burst_max_length": 4294967295,
+        "burst_penalty": 0,
+        "byte_width": 8,
+        "freq_ratio": 2.5,
+        "latency": "MID",
+        "read_power": 17.324,
+        "score": 84,
+        "throughput": "MID",
+        "use_for_initrs": false,
+        "write_power": 15.321
+      },
+      "buffers": [],
+      "cacheable": "CACHEABLE_OFF",
+      "fname": "atonbuf.AXISRAM2.raw",
+      "id": 5,
+      "name": "cpuRAM2",
+      "offset_start": 0,
+      "persistent": true,
+      "pipelined": "PIPELINED_ON",
+      "rights": "ACC_WRITE",
+      "size_bytes": 1048576,
+      "subpools": [],
+      "used_size_bytes": 0,
+      "user_allocated": false
+    },
+    {
+      "address": "872824832",
+      "alignment": 8,
+      "attributes": {
+        "burst_max_length": 4294967295,
+        "burst_penalty": 0,
+        "byte_width": 8,
+        "freq_ratio": 2.5,
+        "latency": "MID",
+        "read_power": 16.616,
+        "score": 84,
+        "throughput": "MID",
+        "use_for_initrs": false,
+        "write_power": 14.522
+      },
+      "buffers": [],
+      "cacheable": "CACHEABLE_OFF",
+      "fname": "atonbuf.AXISRAM1.raw",
+      "id": 6,
+      "name": "cpuRAM1",
+      "offset_start": 0,
+      "persistent": true,
+      "pipelined": "PIPELINED_ON",
+      "rights": "ACC_WRITE",
+      "size_bytes": 0,
+      "subpools": [],
+      "used_size_bytes": 0,
+      "user_allocated": false
+    },
+    {
+      "address": "872415232",
+      "alignment": 8,
+      "attributes": {
+        "burst_max_length": 4294967295,
+        "burst_penalty": 0,
+        "byte_width": 8,
+        "freq_ratio": 2.5,
+        "latency": "MID",
+        "read_power": 9.381,
+        "score": 84,
+        "throughput": "MID",
+        "use_for_initrs": false,
+        "write_power": 8.569
+      },
+      "buffers": [],
+      "cacheable": "CACHEABLE_OFF",
+      "fname": "atonbuf.AXIFLEXMEM.raw",
+      "id": 7,
+      "name": "flexMEM",
+      "offset_start": 0,
+      "persistent": true,
+      "pipelined": "PIPELINED_ON",
+      "rights": "ACC_WRITE",
+      "size_bytes": 0,
+      "subpools": [],
+      "used_size_bytes": 0,
+      "user_allocated": false
+    },
+    {
+      "address": "2415919104",
+      "alignment": 8,
+      "attributes": {
+        "burst_max_length": 4294967295,
+        "burst_penalty": 0,
+        "byte_width": 2,
+        "freq_ratio": 5,
+        "latency": "HIGH",
+        "read_power": 380,
+        "score": 82,
+        "throughput": "MID",
+        "use_for_initrs": true,
+        "write_power": 340
+      },
+      "buffers": [],
+      "cacheable": "CACHEABLE_ON",
+      "fname": "atonbuf.xSPI1.raw",
+      "id": 8,
+      "name": "hyperRAM",
+      "offset_start": 0,
+      "persistent": true,
+      "pipelined": "PIPELINED_ON",
+      "rights": "ACC_WRITE",
+      "size_bytes": 33554432,
+      "subpools": [],
+      "used_size_bytes": 0,
+      "user_allocated": false
+    },
+    {
+      "address": "1895825408",
+      "alignment": 8,
+      "attributes": {
+        "burst_max_length": 4294967295,
+        "burst_penalty": 0,
+        "byte_width": 1,
+        "freq_ratio": 6,
+        "latency": "HIGH",
+        "read_power": 110,
+        "score": 50,
+        "throughput": "MID",
+        "use_for_initrs": true,
+        "write_power": 400
+      },
+      "buffers": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46
+      ],
+      "cacheable": "CACHEABLE_ON",
+      "fname": "atonbuf.xSPI2.raw",
+      "id": 9,
+      "name": "octoFlash",
+      "offset_start": 0,
+      "persistent": true,
+      "pipelined": "PIPELINED_ON",
+      "rights": "ACC_READ",
+      "size_bytes": 117440512,
+      "subpools": [],
+      "used_size_bytes": 49809,
+      "user_allocated": false
+    },
+    {
+      "address": "873463808",
+      "alignment": 8,
+      "attributes": {
+        "burst_max_length": 4294967295,
+        "burst_penalty": 0,
+        "byte_width": 8,
+        "freq_ratio": 1.25,
+        "latency": "MID",
+        "read_power": 19.006,
+        "score": 91,
+        "throughput": "HIGH",
+        "use_for_initrs": false,
+        "write_power": 16.201
+      },
+      "buffers": [],
+      "cacheable": "CACHEABLE_OFF",
+      "fname": "",
+      "id": 10,
+      "name": "cpuRAM2_npuRAM3_npuRAM4_npuRAM5_npuRAM6",
+      "offset_start": 0,
+      "persistent": true,
+      "pipelined": "PIPELINED_ON",
+      "rights": "ACC_WRITE",
+      "size_bytes": 2883584,
+      "subpools": [
+        5,
+        4,
+        3,
+        2,
+        1
+      ],
+      "used_size_bytes": 1985024,
+      "user_allocated": false
+    }
+  ],
+  "power_estimates": [
+    {
+      "average_acc_power_mw": 0,
+      "average_memory_power_mw": 0,
+      "compute_cycles": 0,
+      "max_cycles": 0,
+      "node_id": 1,
+      "ops": 0
+    },
+    {
+      "average_acc_power_mw": 0,
+      "average_memory_power_mw": 0,
+      "compute_cycles": 0,
+      "max_cycles": 0,
+      "node_id": 34,
+      "ops": 0
+    },
+    {
+      "average_acc_power_mw": 0,
+      "average_memory_power_mw": 0,
+      "compute_cycles": 4800,
+      "max_cycles": 4800,
+      "node_id": 36,
+      "ops": 0
+    },
+    {
+      "average_acc_power_mw": 0,
+      "average_memory_power_mw": 0,
+      "compute_cycles": 6402,
+      "max_cycles": 6402,
+      "node_id": 38,
+      "ops": 0
+    },
+    {
+      "average_acc_power_mw": 5,
+      "average_memory_power_mw": 8,
+      "compute_cycles": 3200,
+      "max_cycles": 3200,
+      "node_id": 40,
+      "ops": 3200
+    },
+    {
+      "average_acc_power_mw": 37,
+      "average_memory_power_mw": 1,
+      "compute_cycles": 51200,
+      "max_cycles": 51200,
+      "node_id": 42,
+      "ops": 985600
+    },
+    {
+      "average_acc_power_mw": 90,
+      "average_memory_power_mw": 49,
+      "compute_cycles": 25600,
+      "max_cycles": 27648,
+      "node_id": 47,
+      "ops": 7404544
+    },
+    {
+      "average_acc_power_mw": 182,
+      "average_memory_power_mw": 222,
+      "compute_cycles": 13824,
+      "max_cycles": 82944,
+      "node_id": 53,
+      "ops": 5319936
+    },
+    {
+      "average_acc_power_mw": 133,
+      "average_memory_power_mw": 224,
+      "compute_cycles": 27648,
+      "max_cycles": 165888,
+      "node_id": 61,
+      "ops": 2657344
+    },
+    {
+      "average_acc_power_mw": 75,
+      "average_memory_power_mw": 660,
+      "compute_cycles": 683,
+      "max_cycles": 12288,
+      "node_id": 69,
+      "ops": 4160
+    },
+    {
+      "average_acc_power_mw": 70,
+      "average_memory_power_mw": 658,
+      "compute_cycles": 43,
+      "max_cycles": 768,
+      "node_id": 73,
+      "ops": 260
+    },
+    {
+      "average_acc_power_mw": 0,
+      "average_memory_power_mw": 0,
+      "compute_cycles": 526,
+      "max_cycles": 526,
+      "node_id": 77,
+      "ops": 0
+    },
+    {
+      "average_acc_power_mw": 0,
+      "average_memory_power_mw": 0,
+      "compute_cycles": 0,
+      "max_cycles": 0,
+      "node_id": 79,
+      "ops": 0
+    }
+  ]
+}

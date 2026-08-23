@@ -1,0 +1,18 @@
+{
+  "source_width": 54,
+  "source_height": 42,
+  "model_width": 64,
+  "model_height": 50,
+  "near_mm": 100,
+  "far_mm": 1200,
+  "invalid_mm": 65535,
+  "near_value": 255,
+  "far_value": 0,
+  "foreground_mode": "nearest_depth_band_crop",
+  "foreground_percentile": 5,
+  "foreground_band_mm": 160,
+  "foreground_margin_pixels": 2,
+  "preserve_aspect_and_center": true,
+  "resize": "nearest",
+  "channel_order": "NHWC"
+}

@@ -1,0 +1,30 @@
+{
+  "seed": 657,
+  "quality_profile": "learning",
+  "model_architecture": "spatial_cnn_v2",
+  "epochs": 35,
+  "batch_size": 32,
+  "learning_rate": 0.001,
+  "early_stopping_patience": 7,
+  "minimum_samples_per_class": 100,
+  "minimum_samples_per_split_per_class": 10,
+  "minimum_train_fraction_per_class": 0.50,
+  "minimum_test_accuracy": 0.50,
+  "maximum_quantization_accuracy_drop": 0.05,
+  "hil": {
+    "minimum_npu_coverage": 0.80,
+    "minimum_class_agreement": 0.95,
+    "maximum_raw_score_delta": 16
+  },
+  "split_percent": {"train": 70, "validation": 15, "test": 15},
+  "capture": {
+    "target_per_class": 100,
+    "minimum_bursts_per_class": 3,
+    "samples_per_burst": 25,
+    "warmup_seconds": 1.5,
+    "save_fps": 3.0,
+    "near_duplicate_mean_mm": 8.0,
+    "stale_frame_seconds": 2.0,
+    "guided_order": ["none", "rock", "paper", "scissors"]
+  }
+}

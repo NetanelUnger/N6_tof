@@ -26,6 +26,7 @@
 #include "debug_uart.h"
 #include "boot_splash.h"
 #include "firmware_build_version.h"
+#include "npu_shared_memory.h"
 #include <string.h>
 
 /* USER CODE END Includes */
@@ -108,6 +109,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  NPU_SharedMemory_Clear();
   (void)Debug_UART_Init();
   static const N6_BootSplashConfig_t application_splash = {
     .stage = "N6 NONSECURE APPLICATION",
@@ -300,7 +302,7 @@ static void MX_SPI5_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN SPI5_Init 2 */
-  Debug_UART_Log("BOOT", "SPI5 initialized (radio remains disabled)");
+  Debug_UART_Log("BOOT", "SPI5 initialized for GC9A01 display TX DMA");
 
   /* USER CODE END SPI5_Init 2 */
 

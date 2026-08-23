@@ -6,6 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'N6-DevCommon.ps1')
 $WorkspaceRoot = Split-Path -Parent $ProjectRoot
 $IdeRoot = 'C:\ST\STM32CubeIDE_2.2.0\STM32CubeIDE'
 $Builder = Join-Path $IdeRoot 'headless-build.bat'
@@ -68,6 +69,31 @@ $nonSecureConfiguration = 'N6_AppliNonSecure/Debug'
 if ($LASTEXITCODE -ne 0) {
     throw "Clean build failed: $nonSecureConfiguration"
 }
+
+Assert-N6NonSecureImage -ProjectRoot $ProjectRoot
+
+# The VL53L9 transform allocates about 356,688 bytes on its first frame before
+# allocator metadata.  Fail the build before signing if linked code/static data
+# leaves less than 360 KiB between _end and the reserved MSP stack.
+$nonSecureMap = Join-Path $ProjectRoot 'AppliNonSecure\Debug\N6_AppliNonSecure.map'
+$mapText = Get-Content -Raw -LiteralPath $nonSecureMap
+$heapStartMatch = [regex]::Match(
+    $mapText,
+    '(?m)^\s*(0x[0-9a-fA-F]+)\s+PROVIDE \(_end = \.\)')
+$heapLimitMatch = [regex]::Match(
+    $mapText,
+    '(?m)^\s*(0x[0-9a-fA-F]+)\s+_sstack = ')
+if (-not $heapStartMatch.Success -or -not $heapLimitMatch.Success) {
+    throw "Unable to determine the Non-Secure C heap capacity from: $nonSecureMap"
+}
+$heapStart = [Convert]::ToUInt64($heapStartMatch.Groups[1].Value.Substring(2), 16)
+$heapLimit = [Convert]::ToUInt64($heapLimitMatch.Groups[1].Value.Substring(2), 16)
+$availableHeapBytes = $heapLimit - $heapStart
+$minimumTofHeapBytes = 360KB
+if ($availableHeapBytes -lt $minimumTofHeapBytes) {
+    throw "Insufficient Non-Secure C heap for VL53L9 transform: $availableHeapBytes bytes available, $minimumTofHeapBytes required."
+}
+Write-Host "Non-Secure C heap capacity: $availableHeapBytes bytes (minimum $minimumTofHeapBytes)."
 
 $images = @(
     @{

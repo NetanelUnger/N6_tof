@@ -13,6 +13,7 @@ Continue developing the STM32N657 firmware that combines:
 - VL53L9CX through I3C1 and DMA.
 - USB CDC through USBX, UCPD1, and TCPP0203.
 - ST67W611M1 through SPI5, Wi-Fi, and BLE.
+- A GC9A01 240x240 round TFT through SPI5 TX DMA while ST67 is disabled.
 - A future authenticated BLE OTA mechanism.
 
 Work must be technically correct and educational. Explain in Hebrew what changed, why it changed, how it was verified, and what risk remains.
@@ -43,11 +44,13 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   multi-hour soak, repeated attach/detach endurance, or deliberate fault
   injection into every recovery branch.
 - Non-Secure Debug C and C++ use `-O3` with `-g3` debug information.
-- The ToF processing task uses a 96 KiB stack, acquisition uses 16 KiB, and the ThreadX application pool is 192 KiB.
+- The ToF processing task uses a 96 KiB stack, acquisition uses 16 KiB, and the ThreadX application pool is 160 KiB.
   The largest visible active optimized chain is about 34 KiB; the much larger
   slow rate-normalization and resize functions shown in `.su` are bypassed by
   `fast_mode` and native 54×42 operation.
-- The USBX device-control task currently uses a conservative 16 KiB stack and a 32 KiB pool.
+- The USBX device-control task currently uses a conservative 16 KiB stack. Its
+  parent ThreadX byte pool is 56 KiB and contains the 32 KiB USBX system arena,
+  the control-task stack, bookkeeping, and about 8 KiB of free headroom.
 - The demonstrated USB stack overflow was in the USB-PD CAD task, not the USBX task.
 - The USB-PD CAD task uses an 8 KiB stack and a 16 KiB pool.
 - CN8 Type-C attachment is now detected correctly on CC2 and reaches the USB Device START notification path.
@@ -65,10 +68,59 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   768-byte control TX slots, two 48 KiB map TX slots, and sixteen 512-byte RX
   slots. All slots are session-tagged and passed through bounded pointer queues.
 - The ST67 shield is not currently installed. APP_ST67W6X_ENABLED must remain 0U unless the user explicitly confirms that the module is attached.
+- The GC9A01 display is enabled and reuses the disabled ST67 hardware mapping:
+  PE15 SCK, PG2 MOSI, PA3 CS, PE10 DC, and PD5 RST. The display and ST67
+  feature flags are compile-time mutually exclusive. VCC is 3.3 V and no MISO
+  connection is required.
+- The priority-8 GC9A01 task uses SPI5 TX DMA and waits on callback-posted
+  ThreadX event flags. It clears the panel, renders `SYSTEM IS LOADING`, and
+  then consumes numbered ToF frames through one shared 404-byte DMA row
+  buffer. Every submitted frame includes the frame-matched RPS status snapshot;
+  the task renders `NOTHING`, `ROCK`, `PAPER`, or `SCISSORS` below the map and
+  records both rendered frame IDs in `Display_App_Status_t`. Non-visual SRAM
+  HIL on 2026-08-23 observed ToF/display frame 356, `NOTHING` at 921/1000,
+  38 submitted/38 rendered, and zero errors.
+- `MAP ON` appends the current frame's prominent NPU summary and all four raw
+  int8 scores to the CDC ANSI map. `MAP ON SCREEN` and `MAP ON DISPLAY` are
+  aliases for the SPI display path; `MAP OFF SCREEN|DISPLAY` clears its map and
+  result area. Preserve the single status snapshot shared by both consumers so
+  neither UI can accidentally label a newer or older frame.
 - Authenticated Non-Secure firmware installation is implemented and build-
   verified: CN8 USB CDC XMODEM feeds a transport-independent Secure byte-array
   service, which writes the inactive A/B slot and uses pending/trial/confirmed
   metadata with rollback. Physical transfer and rollback testing are pending.
+- Use `Tools/Debug-NonSecureRam.ps1 -Run` as the default agent loop for RAM
+  development. With BOOT0=1-2 and BOOT1=2-3 (DEV boot), it incrementally builds
+  Secure and Non-Secure (unchanged targets remain no-ops), loads the existing
+  FSBL ELF into SRAM, lets that FSBL reach Secure from Flash, replaces Secure
+  with the local SRAM1 binary, then replaces Non-Secure through the SRAM2 Secure
+  alias before vectors are cached. Both vector tables are checked. It does not
+  sign, program Flash, or change the firmware version. The local-Secure/NPU
+  form is hardware-verified through ThreadX, VL53L9 acquisition, and
+  Neural-ART initialization from SRAM.
+- Use `Tools/Install-NonSecureUpdate.ps1 -FirmwareVersion <current+1>` only
+  after RAM debugging is complete and a persistent final Non-Secure candidate
+  is intended. It signs only Non-Secure, creates `.n6fw`, sends XMODEM over the
+  auto-detected CN8 CDC port, and checks the running version after reset. It
+  never chooses a version automatically. Physical automated transfer testing
+  is still pending.
+- `training/08_INTEGRATE_MODEL.bat` embeds the exact STEdgeAI raw weights in the
+  signed Non-Secure image and copies them to NPU SRAM6 at runtime. Do not split
+  weights into an unversioned external blob: `.n6fw` v1 A/B atomicity depends
+  on code and weights remaining one signed image.
+- When relocating STEdgeAI's default xSPI2 initializer pool to NPU SRAM6, Stage
+  08 must also change every weight DMA descriptor from cacheable to
+  non-cacheable. Address-only relocation causes a BUSIF1 fault on the first
+  inference and can masquerade as a CN8 USB enumeration failure because the
+  LL_ATON assertion stops the complete firmware.
+- Run `training/08B_BOOTSTRAP_NPU_SWD.bat` once per board before a persistent
+  NPU release. It programs only FSBL + Secure and preserves both app slots and
+  boot metadata. The guided Stage 11 release refuses to proceed until that
+  bootstrap and a matching frame-exact Stage 09 HIL are recorded.
+- The upper SRAM3 window `0x24244000..0x2426FFFF` is reserved by the Non-Secure
+  linker for CDC/RPS transient storage. Current Neural-ART activations are in
+  SRAM5 and weights are in SRAM6. Stage 08 must reject generated networks that
+  use SRAM3; never remove this collision check to make a model fit.
 - Secure update `Begin` must not erase the complete inactive slot synchronously:
   XMODEM cannot ACK the manifest block while that long operation is in progress.
   The writer erases authenticated image storage lazily in 64 KiB sectors before
@@ -113,7 +165,8 @@ These require explicit review after every Generate Code:
 | AppliNonSecure/Core/Startup/startup_stm32n657x0hxq.s | Early Debug_UART_StartupTrace calls |
 | FSBL/Core/Src/extmem.c | Exact image-size and dynamic Non-Secure source hooks |
 | FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c/.h | Dynamic A/B source and pre-jump XSPI handover hook; functional vendor edits outside USER blocks |
-| AppliSecure/Core/Src/main.c | A diagnostic trace between generated calls |
+| AppliSecure/Core/Src/main.c | Diagnostic trace plus Neural-ART clocks, RIF/RISAF, CACHEAXI, and NPU interrupt ownership |
+| AppliSecure/Core/Inc/partition_stm32n657xx.h | SAU region 1 extends through `0x243FFFFF` so Non-Secure can access SRAM2, NPU SRAM3-6, and CACHEAXI RAM |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pcd.c | Temporary Non-Secure-only USB initialization stage logs |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_ll_usb.c | Temporary Non-Secure-only core-reset register and timeout logs |
 
@@ -146,8 +199,13 @@ Files imported from X-CUBE packages are not necessarily CubeMX-owned. The VL53L9
 | AppliNonSecure/Core/Src/stm32n6xx_hal_msp.c | USB HS clocks, VDDUSB, and the N6-specific PHY reset/release sequence |
 | AppliNonSecure/Core/Src/app_threadx.c | Application task creation |
 | AppliNonSecure/Core/Inc/app_features.h | Feature flags, especially ST67 |
+| AppliNonSecure/Core/Src/gc9a01.c and Core/Inc/gc9a01.h | Asynchronous GC9A01 SPI TX primitive, GPIO control, cache maintenance, and ISR completion bridge |
+| AppliNonSecure/Core/Src/display_app.c and Core/Inc/display_app.h | Dedicated display task logic, controller initialization, DMA/event waits, clear, and startup text |
 | AppliNonSecure/Core/Src/tof_app.c | Separate acquisition/processing loops, static raw slots, transform, status, and rendering |
 | AppliNonSecure/Core/Src/tof_image_processing.c | Table-driven, allocation-free depth-map filters and parameter validation |
+| AppliNonSecure/Core/Src/rps_ai.c and Core/Inc/rps_ai.h | Frozen preprocessing, STAI initialization, synchronous Neural-ART run, and result/status contract |
+| AppliNonSecure/Core/Src/npu_shared_memory.c and STM32N657X0HXQ_LRUN.ld | Explicitly cleared upper-SRAM3 workspace that preserves the VL53L9 SRAM2 heap |
+| AppliNonSecure/AI | Stage-08-installed generated network, embedded weights, matched STAI/LL_ATON runtime, device cache layer, and vendor licenses |
 | AppliNonSecure/Utilities/vl53l9-common/platform/platform_utils.c | STM32N6 GPIO/I3C DMA callbacks and ThreadX event bridge |
 | AppliNonSecure/Utilities/vl53l9-common/vl53l9/vl53l9_platform.c | Persistent combined-transfer and TX-DMA contexts |
 | AppliNonSecure/Drivers/BSP/Components/vl53l9/vl53l9.c | Sensor driver plus local stage-level asynchronous frame API |
@@ -161,8 +219,16 @@ Files imported from X-CUBE packages are not necessarily CubeMX-owned. The VL53L9
 | AppliNonSecure/USBX/App/app_usbx_device.c | USB Device state machine and USBX initialization |
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | Type-C CAD task |
 | Tools/build_and_sign.ps1 | Full build, STM32 image signing, default metadata, and versioned update package |
+| Tools/Build-NonSecureIncremental.ps1 | Fast incremental Non-Secure ELF/map/bin build without the disassembly listing |
+| Tools/Debug-NonSecureRam.ps1 | DEV-boot FSBL handoff, verified local Secure SRAM1 replacement, verified Non-Secure SRAM2 replacement, and GDB handoff |
+| Tools/Install-NonSecureUpdate.ps1 | Explicit next-version Non-Secure build/sign/package/XMODEM/install/boot verification |
+| Tools/Send-Xmodem.ps1 | Auto-detected CN8 XMODEM-CRC 1K sender with CRC self-test, retries, and finalization timeout |
+| Tools/N6-DevCommon.ps1 | Shared STM32 tool discovery, build guards, heap check, version transaction, and CDC discovery |
 | Tools/New-FirmwareSigningKey.ps1 | One-time local development P-256 key generation; private blob stays ignored |
 | Tools/New-FirmwareUpdatePackage.ps1 | Signed `.n6fw` manifest plus trusted Non-Secure image |
+| training/README_HE.md | Educational, resumable ToF rock-paper-scissors capture/training/Neural-ART architecture and safety gates |
+| training/scripts | One Python entry point per capture, validation, training, quantization, N6 generation, HIL, and upload stage |
+| training/*.bat | Guided Windows entry points plus resumable model-build orchestration |
 | Tools/program_flash.ps1 | External-NOR programming including both default metadata sectors |
 | FlashImages | Signed programming artifacts |
 | ThirdParty/ST67W6X_Network_Driver | Git-tracked ST67 source subset used by CubeIDE, with license files |
@@ -189,6 +255,27 @@ Preferred command:
 ~~~powershell
 powershell.exe -ExecutionPolicy Bypass -File .\project\Tools\build_and_sign.ps1 -FirmwareVersion 1
 ~~~
+
+For an ordinary change confined to Non-Secure, prefer the fast lane while
+iterating:
+
+~~~powershell
+powershell.exe -ExecutionPolicy Bypass -File .\project\Tools\Debug-NonSecureRam.ps1 -Run
+~~~
+
+This lane must not edit `firmware_build_version.h`, sign an image, or touch
+external Flash. A reset returns to the DEV-boot ROM; restore BOOT1=1-2 and
+press Reset to run the installed Flash image. When final persistent validation
+is explicitly intended, use
+`Install-NonSecureUpdate.ps1` with a user/changelog-selected version exactly
+one greater than the tracked current version. Do not invoke that command merely
+to test compilation; use its `-PackageOnly` mode, which restores the tracked
+version, when build/sign/package verification alone is required.
+
+The fast incremental lane is not valid after changing `ux_user.h` unless
+`-Clean` is supplied. It is never valid as a substitute for the full build when
+FSBL, Secure, startup, linker layout, image addresses, TrustZone ownership, or
+the Secure/Non-Secure interface changed.
 
 Firmware versions are positive and strictly increasing relative to the confirmed
 image. Never reuse a released version number. The local private update key under
@@ -294,6 +381,9 @@ Do not read Non-Secure vectors through an alias that becomes inaccessible after 
 - Match PSP to a byte-pool address before changing a task's stack.
 - Leave room for alignment, exception stacking, and possible floating-point context.
 - Current large stacks are safe bring-up values, not final memory optimization.
+- The linked Non-Secure image must leave at least 360 KiB between `_end` and
+  `_sstack` for the VL53L9 first-frame allocation set and malloc metadata.
+  `build_and_sign.ps1` enforces this before signing.
 
 Current task sizing:
 
@@ -302,6 +392,7 @@ Current task sizing:
 | USB-PD CAD | 1 | 8 KiB |
 | Firmware confirmation | 6 | 2 KiB; one-shot after a five-second trial window |
 | ToF Acquisition | 7 | 16 KiB |
+| GC9A01 display | 8 | 4 KiB; suspends after the startup screen |
 | ToF Main Thread (processing) | 10 | 96 KiB |
 | USBX Device App Main Thread | 8 | 16 KiB |
 | USB CDC RX worker | 9 | 12 KiB, statically allocated |
