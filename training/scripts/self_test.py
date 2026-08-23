@@ -52,6 +52,21 @@ def main() -> int:
     tensor = preprocess_depth(depth)
     assert tensor.shape == (50, 64, 1)
     assert tensor.dtype == np.uint8
+    # A hand with the same relief at a different absolute distance must yield
+    # the same model input. The old absolute-depth mapping failed this test.
+    near_hand = np.full((42, 54), 1000, dtype=np.uint16)
+    far_hand = near_hand.copy()
+    relief = np.tile(np.arange(12, dtype=np.uint16), (14, 1)) * 4
+    near_hand[12:26, 20:32] = 300 + relief
+    far_hand[12:26, 20:32] = 600 + relief
+    assert np.array_equal(preprocess_depth(near_hand), preprocess_depth(far_hand))
+    # Tiny close speckles may be nearer than the hand but must not stretch its
+    # crop or become the learned object.
+    noisy_hand = near_hand.copy()
+    noisy_hand[0, 0] = 120
+    noisy_hand[2, 52] = 130
+    noisy_hand[40, 1] = 140
+    assert np.array_equal(preprocess_depth(noisy_hand), preprocess_depth(near_hand))
     false_marker = FrameReader(io.BytesIO(b"Dataset stream: N6DF v1\r\n" + record))
     assert false_marker.read_frame(timeout=1.0).frame_id == 123
     assert false_marker.framing_errors == 1
@@ -73,6 +88,27 @@ def main() -> int:
     assert prepare_spec and prepare_spec.loader
     prepare = importlib.util.module_from_spec(prepare_spec)
     prepare_spec.loader.exec_module(prepare)
+    train_path = Path(__file__).with_name("05_train_model.py")
+    train_spec = importlib.util.spec_from_file_location(
+        "n6_train_self_test", train_path
+    )
+    assert train_spec and train_spec.loader
+    train = importlib.util.module_from_spec(train_spec)
+    train_spec.loader.exec_module(train)
+    augmentation = {
+        "copies_per_sample": 2,
+        "horizontal_flip_probability": 0.5,
+        "maximum_translation_pixels": 4,
+        "intensity_scale_min": 0.9,
+        "intensity_scale_max": 1.1,
+    }
+    batch = np.stack([preprocess_depth(near_hand)] * 2)
+    labels = np.asarray([1, 2], dtype=np.uint8)
+    augmented_a = train.augment_training_set(batch, labels, augmentation, 657)
+    augmented_b = train.augment_training_set(batch, labels, augmentation, 657)
+    assert np.array_equal(augmented_a[0], augmented_b[0])
+    assert np.array_equal(augmented_a[1], augmented_b[1])
+    assert augmented_a[0].shape[0] == 6
     classes = ("none", "rock", "paper", "scissors")
     grouped_rows = [
         {"label": label, "burst_id": f"{label}-{group}",

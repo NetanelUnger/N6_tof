@@ -1184,6 +1184,24 @@ arm-none-eabi-addr2line.exe -a -f -C -e .\project\AppliNonSecure\Debug\N6_AppliN
   persistent SWD/XMODEM writes still require the explicit `BOOTCHAIN`/`FLASH`
   confirmations.
 
+### 2026-08-23
+
+- Reworked RPS preprocessing after HIL proved that the deployed PC and NPU
+  models agreed exactly but both collapsed to `none`. The shared Python/C
+  contract now selects the nearest non-trivial connected depth component,
+  rejects isolated speckles, crops it, and encodes relative rather than
+  absolute depth. Capture shows and stores the exact 64x50 model input.
+- Replaced global-average classification with a compact spatial CNN, added
+  deterministic train-only translation/mirror/intensity augmentation, eight
+  burst groups per class, session-diversity warnings, per-class test gates and
+  a confusion matrix. `training/RESET_TRAINING_DATA.bat` provides an explicitly
+  confirmed, scoped reset while preserving tools and capture-capable firmware.
+- Capped embedded Neural-ART RPS weights at 64 KiB and compacted the spatial
+  head after a 94,769-byte model reduced the VL53L9 heap below its hard gate.
+  The replacement is 55,441 bytes, improves held-out macro accuracy to 75%,
+  and leaves 387,816 bytes of Non-Secure C heap. Stage 08 now rejects an
+  oversized model before the later Secure bootstrap/build step.
+
 ### 2026-08-22
 
 - Fixed Stage 10 RAM boot after hardware diagnosis showed Non-Secure resetting

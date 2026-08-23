@@ -17,11 +17,12 @@ echo Existing sessions are never erased. Resume one with:
 echo   01_CAPTURE.bat --session SESSION_NAME
 echo.
 set "TARGET_COUNT="
-set /p "TARGET_COUNT=How many saved images per class? [100]: "
-if not defined TARGET_COUNT set "TARGET_COUNT=100"
+set /p "TARGET_COUNT=How many saved images per class? [96]: "
+if not defined TARGET_COUNT set "TARGET_COUNT=96"
 echo Selected target: %TARGET_COUNT% images per class.
-echo The burst limit is computed to guarantee at least three independent bursts
-echo per class (and never exceeds 25). Change pose/distance between bursts.
+echo The burst limit is computed to guarantee at least eight independent bursts
+echo per class (normally 12 frames each). Use at least two capture sessions.
+echo IMPORTANT: verify the whole gesture is clear in the MODEL INPUT preview.
 echo.
 "%TRAINING_PY%" scripts\01_capture.py --target-per-class "%TARGET_COUNT%" %*
 set "RESULT=%ERRORLEVEL%"

@@ -23,7 +23,7 @@ from serial.tools import list_ports
 from common import (CONFIG_ROOT, RAW_ROOT, append_jsonl, atomic_json,
                     class_config, iter_jsonl, load_json, mark_stage, relative,
                     utc_now)
-from dataset import preview_rgb, save_depth_sample
+from dataset import preprocess_depth, preview_rgb, save_depth_sample
 from protocol import DepthFrame, FrameReader
 
 
@@ -103,6 +103,7 @@ class CaptureApp:
         self.burst_saved_count = 0
         self.burst_target_was_already_met = False
         self.notice_text = ""
+        self.model_foreground_ratio = 0.0
         self.stream_faulted = False
         self.last_fault: str | None = None
         self.stop_event = threading.Event()
@@ -133,10 +134,22 @@ class CaptureApp:
 
     def _build_ui(self) -> None:
         self.root.title("N6 ToF dataset capture — Rock / Paper / Scissors")
-        self.root.geometry("850x650")
+        self.root.geometry("980x650")
         self.root.protocol("WM_DELETE_WINDOW", self.close)
-        self.image_label = tk.Label(self.root, bg="black")
-        self.image_label.pack(padx=12, pady=12)
+        previews = tk.Frame(self.root)
+        previews.pack(padx=12, pady=12)
+        raw_column = tk.Frame(previews)
+        raw_column.pack(side=tk.LEFT, padx=8)
+        model_column = tk.Frame(previews)
+        model_column.pack(side=tk.LEFT, padx=8)
+        tk.Label(raw_column, text="RAW DEPTH (what the sensor sees)",
+                 font=("Segoe UI", 10, "bold")).pack()
+        tk.Label(model_column, text="MODEL INPUT (what the NPU learns)",
+                 font=("Segoe UI", 10, "bold")).pack()
+        self.image_label = tk.Label(raw_column, bg="black")
+        self.image_label.pack()
+        self.model_image_label = tk.Label(model_column, bg="black")
+        self.model_image_label.pack()
         self.title_var = tk.StringVar()
         self.status_var = tk.StringVar(value="Connecting to N6DF stream...")
         tk.Label(self.root, textvariable=self.title_var,
@@ -147,7 +160,7 @@ class CaptureApp:
             self.root,
             text=("SPACE: start/stop a burst while moving the hand in position and depth\n"
                   "R/P/S/N: select rock/paper/scissors/none   ESC: safe exit\n"
-                  "A burst is a split group: capture several separate bursts per class."),
+                  "Keep the complete gesture visible in MODEL INPUT; use empty scenes for NONE."),
             font=("Segoe UI", 11), justify="center"
         ).pack(pady=8)
         self.root.bind("<space>", lambda _event: self.toggle_capture())
@@ -270,11 +283,20 @@ class CaptureApp:
     def _show_frame(self, frame: DepthFrame) -> None:
         rgb = preview_rgb(frame.depth_mm, self.pre_cfg["near_mm"],
                           self.pre_cfg["far_mm"], frame.invalid_mm)
-        image = Image.fromarray(rgb).resize((648, 504),
+        image = Image.fromarray(rgb).resize((432, 336),
                                             Image.Resampling.NEAREST)
         photo = ImageTk.PhotoImage(image)
         self.image_label.configure(image=photo)
         self.image_label.image = photo
+        model_tensor = preprocess_depth(frame.depth_mm, self.pre_cfg)[..., 0]
+        self.model_foreground_ratio = float(np.mean(model_tensor != 0))
+        model_rgb = np.repeat(model_tensor[..., np.newaxis], 3, axis=2)
+        model_image = Image.fromarray(model_rgb).resize(
+            (384, 300), Image.Resampling.NEAREST
+        )
+        model_photo = ImageTk.PhotoImage(model_image)
+        self.model_image_label.configure(image=model_photo)
+        self.model_image_label.image = model_photo
 
     def _maybe_save(self, frame: DepthFrame) -> None:
         now = time.monotonic()
@@ -420,6 +442,7 @@ class CaptureApp:
                 f"port={self.serial.port}  session={self.session_id}  frame={frame}\n"
                 f"{count_text}\nreceived={self.frames_received}  "
                 f"near-duplicates skipped={self.frames_rejected_duplicate}  "
+                f"model foreground={self.model_foreground_ratio:.1%}\n"
                 f"parser CRC/framing/timeouts={self.reader.crc_errors}/"
                 f"{self.reader.framing_errors}/{self.reader_timeouts}\n"
                 f"{self.notice_text}"

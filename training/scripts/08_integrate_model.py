@@ -99,6 +99,7 @@ def main() -> int:
 
     generation = load_json(generation_manifest)
     contract = load_json(contract_path)
+    training_config = load_json(CONFIG_ROOT / "training.json")
     network_name = generation.get("network_name", "rps_tof")
     generated_model_files = (
         generated / f"{network_name}.c",
@@ -118,6 +119,16 @@ def main() -> int:
         raise RuntimeError(
             f"Weights need {weights[0].stat().st_size} bytes, but NPU SRAM6 has "
             f"only {WEIGHTS_NPU_RAM_CAPACITY}."
+        )
+    firmware_weight_budget = int(
+        training_config.get("maximum_embedded_weight_bytes", 64 * 1024)
+    )
+    if weights[0].stat().st_size > firmware_weight_budget:
+        raise RuntimeError(
+            f"Generated weights need {weights[0].stat().st_size} bytes, but the "
+            f"firmware integration budget is {firmware_weight_budget}. Larger "
+            "embedded weights reduce the Non-Secure C heap required by the "
+            "VL53L9 transform. Reduce the model and rerun stages 05-08."
         )
 
     tools = load_json(CONFIG_ROOT / "tools.json")
@@ -146,6 +157,7 @@ def main() -> int:
         "stedgeai": str(executable),
         "runtime_library": sha256_file(runtime_library),
         "integration_schema": 3,
+        "firmware_weight_budget": firmware_weight_budget,
     })
 
     firmware_ai = PROJECT_ROOT / "AppliNonSecure" / "AI"
@@ -246,6 +258,7 @@ def main() -> int:
             "sha256": sha256_file(weights[0]),
             "runtime_address": f"0x{WEIGHTS_NPU_RAM_BASE:08X}",
             "storage": "const array inside signed Non-Secure image",
+            "firmware_budget": firmware_weight_budget,
         },
         "atomic_update_contract": {
             "status": "complete",

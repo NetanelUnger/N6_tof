@@ -26,6 +26,7 @@ def main() -> int:
     expected = (cfg["source_height"], cfg["source_width"])
     counts: Counter[str] = Counter()
     sessions: Counter[str] = Counter()
+    sessions_by_class: defaultdict[str, set[str]] = defaultdict(set)
     hashes: defaultdict[str, list[str]] = defaultdict(list)
     errors: list[str] = []
     warnings: list[str] = []
@@ -36,6 +37,8 @@ def main() -> int:
             total += 1
             location = f"{metadata_path.parent.name}:{total}"
             try:
+                if not row.get("accepted", True):
+                    continue
                 label = row["label"]
                 if label not in class_names():
                     raise ValueError(f"unknown label {label!r}")
@@ -45,13 +48,14 @@ def main() -> int:
                 observed_hash = depth_sha256(depth)
                 if observed_hash != row.get("depth_sha256"):
                     raise ValueError("depth hash differs from metadata")
-                for key in ("depth_png", "preview_png"):
+                for key in ("depth_png", "preview_png", "model_input_png"):
                     if not (TRAINING_ROOT / row[key]).exists():
                         raise ValueError(f"missing {key}: {row[key]}")
                 valid = (depth != cfg["invalid_mm"]) & (depth > 0)
                 invalid_ratios.append(1.0 - float(valid.mean()))
                 counts[label] += 1
                 sessions[row.get("session_id", "unknown")] += 1
+                sessions_by_class[label].add(row.get("session_id", "unknown"))
                 hashes[observed_hash].append(location)
             except Exception as exc:
                 errors.append(f"{location}: {exc}")
@@ -64,6 +68,14 @@ def main() -> int:
     for label in class_names():
         if counts[label] < minimum:
             warnings.append(f"{label}: {counts[label]} < recommended {minimum}")
+        minimum_sessions = training_cfg["capture"].get(
+            "minimum_sessions_per_class", 1
+        )
+        if len(sessions_by_class[label]) < minimum_sessions:
+            warnings.append(
+                f"{label}: {len(sessions_by_class[label])} capture session(s); "
+                f"recommended at least {minimum_sessions}"
+            )
     report = {
         "schema": 1,
         "created_utc": utc_now(),
@@ -72,6 +84,9 @@ def main() -> int:
         "valid_records": sum(counts.values()),
         "counts_by_class": dict(counts),
         "counts_by_session": dict(sessions),
+        "sessions_by_class": {
+            label: sorted(sessions_by_class[label]) for label in class_names()
+        },
         "mean_invalid_ratio": float(np.mean(invalid_ratios)) if invalid_ratios else 1.0,
         "exact_duplicate_frames": duplicate_count,
         "duplicate_groups": list(duplicates.values())[:100],
@@ -96,4 +111,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -628,7 +628,7 @@ static const stai_network_info __stai_rps_tof_network_info = {
     .n_weights = STAI_RPS_TOF_WEIGHTS_NUM,
     .n_states = STAI_RPS_TOF_STATES_NUM,
 
-    .c_model_datetime = "2026-08-23 21:13:38",
+    .c_model_datetime = "2026-08-23 23:16:29",
 
     .n_nodes = 32,
 
@@ -924,15 +924,6 @@ static const stai_network_info __stai_rps_tof_network_info = {
         STAI_RPS_TOF_WEIGHTS_30_FORMAT,
         STAI_RPS_TOF_WEIGHTS_30_SIZE_BYTES,
         STAI_DECLARE_ARRAY(int32_t, STAI_RPS_TOF_WEIGHTS_30_RANK, STAI_RPS_TOF_WEIGHTS_30_SHAPE),
-        STAI_EMPTY_ARRAY(),
-        STAI_EMPTY_ARRAY()
-        ),
-      STAI_INIT_TENSOR(
-        STAI_RPS_TOF_WEIGHTS_31_NAME,
-        STAI_RPS_TOF_WEIGHTS_31_FLAGS,
-        STAI_RPS_TOF_WEIGHTS_31_FORMAT,
-        STAI_RPS_TOF_WEIGHTS_31_SIZE_BYTES,
-        STAI_DECLARE_ARRAY(int32_t, STAI_RPS_TOF_WEIGHTS_31_RANK, STAI_RPS_TOF_WEIGHTS_31_SHAPE),
         STAI_EMPTY_ARRAY(),
         STAI_EMPTY_ARRAY()
         ),
