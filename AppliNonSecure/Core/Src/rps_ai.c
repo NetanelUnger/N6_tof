@@ -4,6 +4,13 @@
 #include <stddef.h>
 #include <string.h>
 
+#if defined(__ARM_FEATURE_MVE) && (__ARM_FEATURE_MVE > 0)
+#include <arm_mve.h>
+#define RPS_MVE_ACCELERATED (1U)
+#else
+#define RPS_MVE_ACCELERATED (0U)
+#endif
+
 #include "app_features.h"
 #include "debug_uart.h"
 #include "main.h"
@@ -18,24 +25,39 @@
 #define RPS_SOURCE_WIDTH             (54U)
 #define RPS_SOURCE_HEIGHT            (42U)
 #define RPS_SOURCE_PIXELS            (RPS_SOURCE_WIDTH * RPS_SOURCE_HEIGHT)
-#define RPS_MODEL_WIDTH              (64U)
-#define RPS_MODEL_HEIGHT             (50U)
+#define RPS_MODEL_WIDTH              RPS_AI_MODEL_INPUT_WIDTH
+#define RPS_MODEL_HEIGHT             RPS_AI_MODEL_INPUT_HEIGHT
 #define RPS_MODEL_PIXELS             (RPS_MODEL_WIDTH * RPS_MODEL_HEIGHT)
+#define RPS_MODEL_BORDER_PIXELS      (4U)
+#define RPS_RESIZE_WIDTH             (RPS_MODEL_WIDTH - (2U * RPS_MODEL_BORDER_PIXELS))
+#define RPS_RESIZE_HEIGHT            (RPS_MODEL_HEIGHT - (2U * RPS_MODEL_BORDER_PIXELS))
 #define RPS_NEAR_MM                  (100U)
-#define RPS_FAR_MM                   (1200U)
+#define RPS_SENSOR_VALID_FAR_MM      (1200U)
+#define RPS_MODEL_MAX_DISTANCE_MM    (600U)
 #define RPS_FOREGROUND_BAND_MM       (220U)
-#define RPS_FOREGROUND_MARGIN        (2U)
+#define RPS_NEIGHBOR_DEPTH_JUMP_MM   (120U)
+#define RPS_FOREGROUND_MARGIN        (4U)
 #define RPS_COMPONENT_MIN_PIXELS     (12U)
 #define RPS_RELATIVE_PERCENTILE      (10U)
 #define RPS_RELATIVE_SPAN_MM         (260U)
 #define RPS_FOREGROUND_FLOOR         (32U)
-#define RPS_HISTOGRAM_BINS           (RPS_FAR_MM - RPS_NEAR_MM + 1U)
+#define RPS_FLAT_FOREGROUND_VALUE    (255U)
+#define RPS_STAGE_6_BINARY_THRESHOLD (0U)
+#define RPS_PRODUCTION_BINARY_THRESHOLD (210U)
+#define RPS_BINARY_DILATION_PASSES   (1U)
+#define RPS_OBJECT_7_DEFAULT_THRESHOLD RPS_PRODUCTION_BINARY_THRESHOLD
+#define RPS_HISTOGRAM_BINS           (RPS_SENSOR_VALID_FAR_MM - RPS_NEAR_MM + 1U)
+#define RPS_OUTPUT_ZERO_POINT        (-128)
+#define RPS_OUTPUT_SCALE_DENOMINATOR (256U)
 
 static RPS_AI_Status_t rps_status = {
   .enabled = APP_RPS_NPU_ENABLED,
   .last_frame = UINT32_MAX,
   .class_id = RPS_AI_CLASS_NONE
 };
+
+_Static_assert(RPS_RESIZE_WIDTH > 0U && RPS_RESIZE_HEIGHT > 0U,
+               "RPS model border must leave a non-empty resize area");
 
 #if (APP_RPS_NPU_ENABLED == 1U)
 STAI_NETWORK_CONTEXT_DECLARE(rps_network_context, STAI_RPS_TOF_CONTEXT_SIZE)
@@ -46,9 +68,32 @@ static uint16_t rps_histogram[RPS_HISTOGRAM_BINS] NPU_SHARED_BSS;
 static uint16_t rps_component_labels[RPS_SOURCE_PIXELS] NPU_SHARED_BSS;
 static uint16_t rps_component_queue[RPS_SOURCE_PIXELS] NPU_SHARED_BSS;
 static uint8_t rps_crop[RPS_SOURCE_PIXELS] NPU_SHARED_BSS;
+static uint8_t rps_model_input_snapshot[RPS_MODEL_PIXELS] NPU_SHARED_BSS;
+static uint8_t rps_processing_view_snapshot[RPS_MODEL_PIXELS] NPU_SHARED_BSS;
+static uint8_t rps_resize_offsets[RPS_MODEL_WIDTH] NPU_SHARED_BSS;
+static uint32_t rps_model_input_frame = UINT32_MAX;
+static RPS_AI_ViewSelection_t rps_requested_view = RPS_AI_VIEW_NPU;
+static uint8_t rps_object_7_threshold = RPS_OBJECT_7_DEFAULT_THRESHOLD;
+static RPS_AI_ViewSelection_t rps_published_view = RPS_AI_VIEW_NPU;
+static const uint8_t *rps_published_view_pixels;
+static uint8_t rps_published_view_width;
+static uint8_t rps_published_view_height;
+static uint8_t rps_published_view_is_npu;
 static const uint8_t rps_search_percentiles[] = {
   1U, 2U, 5U, 10U, 15U, 25U, 40U, 60U, 80U, 100U
 };
+
+typedef struct
+{
+  uint32_t count;
+  uint32_t top;
+  uint32_t bottom;
+  uint32_t left;
+  uint32_t right;
+  uint32_t reference_x100;
+  uint16_t label;
+  uint16_t cutoff_mm;
+} RPS_ObjectSelection_t;
 
 static uint32_t rps_round_even(uint32_t numerator, uint32_t denominator)
 {
@@ -76,7 +121,7 @@ static uint16_t rps_histogram_value_at(uint32_t rank)
       return (uint16_t)(RPS_NEAR_MM + index);
     }
   }
-  return RPS_FAR_MM;
+  return RPS_SENSOR_VALID_FAR_MM;
 }
 
 static uint32_t rps_percentile_x100(uint32_t count, uint32_t percentile)
@@ -181,8 +226,98 @@ static uint32_t rps_find_component(uint16_t cutoff, uint16_t *selected_label,
   return best_count;
 }
 
+/* The adaptive 220 mm band is only a robust seed finder. A tilted sheet can
+ * span more than 220 mm from one side to the other while adjacent sensor
+ * pixels still change smoothly. Grow the seed through those locally
+ * continuous neighbors so a single physical object is not sliced into depth
+ * stripes. The hard production maximum (600 mm) remains absolute. */
+static void rps_grow_component(uint16_t maximum_distance_mm,
+                               RPS_ObjectSelection_t *selection)
+{
+  uint32_t head = 0U;
+  uint32_t tail = 0U;
+  uint32_t top = RPS_SOURCE_HEIGHT;
+  uint32_t bottom = 0U;
+  uint32_t left = RPS_SOURCE_WIDTH;
+  uint32_t right = 0U;
+
+  if ((selection == NULL) || (selection->label == 0U))
+  {
+    return;
+  }
+
+  for (uint32_t index = 0U; index < RPS_SOURCE_PIXELS; ++index)
+  {
+    if (rps_component_labels[index] == selection->label)
+    {
+      uint32_t row = index / RPS_SOURCE_WIDTH;
+      uint32_t column = index % RPS_SOURCE_WIDTH;
+      rps_component_queue[tail++] = (uint16_t)index;
+      if (row < top) top = row;
+      if ((row + 1U) > bottom) bottom = row + 1U;
+      if (column < left) left = column;
+      if ((column + 1U) > right) right = column + 1U;
+    }
+  }
+
+  while (head < tail)
+  {
+    uint32_t index = rps_component_queue[head++];
+    uint32_t row = index / RPS_SOURCE_WIDTH;
+    uint32_t column = index % RPS_SOURCE_WIDTH;
+    uint16_t depth = rps_depth_mm[index];
+
+    for (int32_t row_delta = -1; row_delta <= 1; ++row_delta)
+    {
+      for (int32_t column_delta = -1; column_delta <= 1; ++column_delta)
+      {
+        int32_t next_row;
+        int32_t next_column;
+        uint32_t next_index;
+        uint16_t next_depth;
+        uint16_t difference;
+
+        if ((row_delta == 0) && (column_delta == 0)) continue;
+        next_row = (int32_t)row + row_delta;
+        next_column = (int32_t)column + column_delta;
+        if ((next_row < 0) || (next_row >= (int32_t)RPS_SOURCE_HEIGHT) ||
+            (next_column < 0) ||
+            (next_column >= (int32_t)RPS_SOURCE_WIDTH)) continue;
+        next_index = ((uint32_t)next_row * RPS_SOURCE_WIDTH) +
+                     (uint32_t)next_column;
+        if (rps_component_labels[next_index] == selection->label) continue;
+        next_depth = rps_depth_mm[next_index];
+        if ((next_depth < RPS_NEAR_MM) ||
+            (next_depth > maximum_distance_mm)) continue;
+        difference = (next_depth > depth) ? (next_depth - depth) :
+                                            (depth - next_depth);
+        if (difference > RPS_NEIGHBOR_DEPTH_JUMP_MM) continue;
+
+        rps_component_labels[next_index] = selection->label;
+        rps_component_queue[tail++] = (uint16_t)next_index;
+        if ((uint32_t)next_row < top) top = (uint32_t)next_row;
+        if (((uint32_t)next_row + 1U) > bottom)
+        {
+          bottom = (uint32_t)next_row + 1U;
+        }
+        if ((uint32_t)next_column < left) left = (uint32_t)next_column;
+        if (((uint32_t)next_column + 1U) > right)
+        {
+          right = (uint32_t)next_column + 1U;
+        }
+      }
+    }
+  }
+
+  selection->count = tail;
+  selection->top = top;
+  selection->bottom = bottom;
+  selection->left = left;
+  selection->right = right;
+}
+
 static uint8_t rps_map_relative(uint16_t millimetres,
-                                uint32_t reference_x100)
+                                 uint32_t reference_x100)
 {
   uint32_t depth_x100 = (uint32_t)millimetres * 100U;
   uint32_t delta_x100 = (depth_x100 > reference_x100) ?
@@ -195,28 +330,90 @@ static uint8_t rps_map_relative(uint16_t millimetres,
       span_x100));
 }
 
-static void rps_preprocess(const float *depth, uint8_t *output)
+static void rps_copy_model_input(uint8_t *destination,
+                                 const uint8_t *source)
+{
+#if (RPS_MVE_ACCELERATED == 1U)
+  for (uint32_t offset = 0U; offset < RPS_MODEL_PIXELS; offset += 16U)
+  {
+    mve_pred16_t predicate = vctp8q(RPS_MODEL_PIXELS - offset);
+    uint8x16_t pixels = vldrbq_z_u8(&source[offset], predicate);
+    vstrbq_p_u8(&destination[offset], pixels, predicate);
+  }
+#else
+  memcpy(destination, source, RPS_MODEL_PIXELS);
+#endif
+}
+
+static void rps_resize_nearest(const uint8_t *crop, uint32_t crop_width,
+                               uint32_t crop_height, uint8_t *output,
+                               uint32_t resized_width,
+                               uint32_t resized_height)
+{
+  uint32_t x_offset = (RPS_MODEL_WIDTH - resized_width) / 2U;
+  uint32_t y_offset = (RPS_MODEL_HEIGHT - resized_height) / 2U;
+
+  memset(output, 0, RPS_MODEL_PIXELS);
+  for (uint32_t column = 0U; column < resized_width; ++column)
+  {
+    uint32_t source_column = ((2U * column + 1U) * crop_width) /
+                             (2U * resized_width);
+    if (source_column >= crop_width) source_column = crop_width - 1U;
+    rps_resize_offsets[column] = (uint8_t)source_column;
+  }
+
+  for (uint32_t row = 0U; row < resized_height; ++row)
+  {
+    uint32_t source_row = ((2U * row + 1U) * crop_height) /
+                          (2U * resized_height);
+    const uint8_t *source;
+    uint8_t *destination;
+    if (source_row >= crop_height) source_row = crop_height - 1U;
+    source = &crop[source_row * crop_width];
+    destination = &output[((y_offset + row) * RPS_MODEL_WIDTH) + x_offset];
+
+#if (RPS_MVE_ACCELERATED == 1U)
+    for (uint32_t column = 0U; column < resized_width; column += 16U)
+    {
+      mve_pred16_t predicate = vctp8q(resized_width - column);
+      uint8x16_t offsets = vldrbq_z_u8(&rps_resize_offsets[column],
+                                       predicate);
+      uint8x16_t pixels = vldrbq_gather_offset_z_u8(source, offsets,
+                                                    predicate);
+      vstrbq_p_u8(&destination[column], pixels, predicate);
+    }
+#else
+    for (uint32_t column = 0U; column < resized_width; ++column)
+    {
+      destination[column] = source[rps_resize_offsets[column]];
+    }
+#endif
+  }
+}
+
+static uint8_t rps_map_absolute(uint16_t millimetres)
+{
+  uint32_t span = RPS_SENSOR_VALID_FAR_MM - RPS_NEAR_MM;
+  uint32_t delta = millimetres - RPS_NEAR_MM;
+
+  return (uint8_t)(RPS_FOREGROUND_FLOOR + rps_round_even(
+      (span - delta) * (255U - RPS_FOREGROUND_FLOOR), span));
+}
+
+static void rps_select_object(uint16_t maximum_distance_mm,
+                              RPS_ObjectSelection_t *selection)
 {
   uint32_t candidate_count = 0U;
-  uint32_t top = 0U;
-  uint32_t bottom = RPS_SOURCE_HEIGHT;
-  uint32_t left = 0U;
-  uint32_t right = RPS_SOURCE_WIDTH;
-  uint16_t selected_label = 0U;
-  uint32_t selected_count = 0U;
-  uint32_t relative_reference_x100 = RPS_NEAR_MM * 100U;
+
+  memset(selection, 0, sizeof(*selection));
+  selection->cutoff_mm = maximum_distance_mm;
 
   memset(rps_histogram, 0, sizeof(rps_histogram));
   for (uint32_t index = 0U; index < RPS_SOURCE_PIXELS; ++index)
   {
-    float value = depth[index];
-    uint16_t millimetres = UINT16_MAX;
-    if (isfinite(value) && (value > 0.0f) && (value < 65535.0f))
-    {
-      millimetres = (uint16_t)(value + 0.5f);
-    }
-    rps_depth_mm[index] = millimetres;
-    if ((millimetres >= RPS_NEAR_MM) && (millimetres <= RPS_FAR_MM))
+    uint16_t millimetres = rps_depth_mm[index];
+    if ((millimetres >= RPS_NEAR_MM) &&
+        (millimetres <= maximum_distance_mm))
     {
       ++rps_histogram[millimetres - RPS_NEAR_MM];
       ++candidate_count;
@@ -234,84 +431,308 @@ static void rps_preprocess(const float *depth, uint8_t *output)
       uint32_t cutoff_x100 = reference_x100 +
                              (RPS_FOREGROUND_BAND_MM * 100U);
       uint16_t cutoff = (uint16_t)(cutoff_x100 / 100U);
-      if (cutoff > RPS_FAR_MM) cutoff = RPS_FAR_MM;
-      selected_count = rps_find_component(cutoff, &selected_label,
-                                          &top, &bottom, &left, &right);
-      if (selected_count != 0U) break;
+      if (cutoff > maximum_distance_mm) cutoff = maximum_distance_mm;
+      selection->cutoff_mm = cutoff;
+      selection->count = rps_find_component(
+          cutoff, &selection->label, &selection->top, &selection->bottom,
+          &selection->left, &selection->right);
+      if (selection->count != 0U) break;
     }
-    if (selected_count != 0U)
+    if (selection->count != 0U)
     {
-      top = (top > RPS_FOREGROUND_MARGIN) ?
-            (top - RPS_FOREGROUND_MARGIN) : 0U;
-      left = (left > RPS_FOREGROUND_MARGIN) ?
-             (left - RPS_FOREGROUND_MARGIN) : 0U;
-      bottom += RPS_FOREGROUND_MARGIN;
-      right += RPS_FOREGROUND_MARGIN;
-      if (bottom > RPS_SOURCE_HEIGHT) bottom = RPS_SOURCE_HEIGHT;
-      if (right > RPS_SOURCE_WIDTH) right = RPS_SOURCE_WIDTH;
+      rps_grow_component(maximum_distance_mm, selection);
+      selection->top = (selection->top > RPS_FOREGROUND_MARGIN) ?
+                       (selection->top - RPS_FOREGROUND_MARGIN) : 0U;
+      selection->left = (selection->left > RPS_FOREGROUND_MARGIN) ?
+                        (selection->left - RPS_FOREGROUND_MARGIN) : 0U;
+      selection->bottom += RPS_FOREGROUND_MARGIN;
+      selection->right += RPS_FOREGROUND_MARGIN;
+      if (selection->bottom > RPS_SOURCE_HEIGHT)
+      {
+        selection->bottom = RPS_SOURCE_HEIGHT;
+      }
+      if (selection->right > RPS_SOURCE_WIDTH)
+      {
+        selection->right = RPS_SOURCE_WIDTH;
+      }
       memset(rps_histogram, 0, sizeof(rps_histogram));
       for (uint32_t index = 0U; index < RPS_SOURCE_PIXELS; ++index)
       {
-        if (rps_component_labels[index] == selected_label)
+        if (rps_component_labels[index] == selection->label)
         {
           ++rps_histogram[rps_depth_mm[index] - RPS_NEAR_MM];
         }
       }
-      relative_reference_x100 = rps_percentile_x100(
-          selected_count, RPS_RELATIVE_PERCENTILE);
+      selection->reference_x100 = rps_percentile_x100(
+          selection->count, RPS_RELATIVE_PERCENTILE);
     }
   }
+  else
+  {
+    memset(rps_component_labels, 0, sizeof(rps_component_labels));
+  }
+}
 
-  uint32_t crop_width = right - left;
-  uint32_t crop_height = bottom - top;
+static void rps_render_native_view(RPS_AI_ViewSelection_t view,
+                                   const RPS_ObjectSelection_t *selection,
+                                   uint8_t *output)
+{
+  memset(output, 0, RPS_SOURCE_PIXELS);
+  for (uint32_t index = 0U; index < RPS_SOURCE_PIXELS; ++index)
+  {
+    uint16_t millimetres = rps_depth_mm[index];
+    uint32_t include = 0U;
+
+    if ((millimetres < RPS_NEAR_MM) ||
+        (millimetres > RPS_SENSOR_VALID_FAR_MM))
+    {
+      continue;
+    }
+    if (view == RPS_AI_VIEW_OBJECT_1)
+    {
+      include = 1U;
+    }
+    else if ((view == RPS_AI_VIEW_OBJECT_2) && (selection != NULL) &&
+             (millimetres <= selection->cutoff_mm))
+    {
+      include = 1U;
+    }
+    else if ((view == RPS_AI_VIEW_OBJECT_3) && (selection != NULL) &&
+             (selection->count != 0U) &&
+             (rps_component_labels[index] == selection->label))
+    {
+      include = 1U;
+    }
+    if (include != 0U)
+    {
+      output[index] = rps_map_absolute(millimetres);
+    }
+  }
+}
+
+static void rps_render_selection(const RPS_ObjectSelection_t *selection,
+                                 uint8_t *output)
+{
+  if (selection->count == 0U)
+  {
+    memset(output, 0, RPS_MODEL_PIXELS);
+    return;
+  }
+
+  uint32_t crop_width = selection->right - selection->left;
+  uint32_t crop_height = selection->bottom - selection->top;
   for (uint32_t row = 0U; row < crop_height; ++row)
   {
     for (uint32_t column = 0U; column < crop_width; ++column)
     {
-      uint32_t source_index = ((top + row) * RPS_SOURCE_WIDTH) +
-                              left + column;
+      uint32_t source_index =
+          ((selection->top + row) * RPS_SOURCE_WIDTH) +
+          selection->left + column;
       rps_crop[(row * crop_width) + column] =
-          ((selected_count != 0U) &&
-           (rps_component_labels[source_index] == selected_label)) ?
+          (rps_component_labels[source_index] == selection->label) ?
           rps_map_relative(rps_depth_mm[source_index],
-                           relative_reference_x100) : 0U;
+                           selection->reference_x100) : 0U;
     }
   }
 
   uint32_t resized_width;
   uint32_t resized_height;
-  if ((RPS_MODEL_WIDTH * crop_height) <=
-      (RPS_MODEL_HEIGHT * crop_width))
+  if ((RPS_RESIZE_WIDTH * crop_height) <=
+      (RPS_RESIZE_HEIGHT * crop_width))
   {
-    resized_width = RPS_MODEL_WIDTH;
-    resized_height = rps_round_even(crop_height * RPS_MODEL_WIDTH,
+    resized_width = RPS_RESIZE_WIDTH;
+    resized_height = rps_round_even(crop_height * RPS_RESIZE_WIDTH,
                                     crop_width);
   }
   else
   {
-    resized_height = RPS_MODEL_HEIGHT;
-    resized_width = rps_round_even(crop_width * RPS_MODEL_HEIGHT,
+    resized_height = RPS_RESIZE_HEIGHT;
+    resized_width = rps_round_even(crop_width * RPS_RESIZE_HEIGHT,
                                    crop_height);
   }
   if (resized_width == 0U) resized_width = 1U;
   if (resized_height == 0U) resized_height = 1U;
 
-  memset(output, 0, RPS_MODEL_PIXELS);
-  uint32_t x_offset = (RPS_MODEL_WIDTH - resized_width) / 2U;
-  uint32_t y_offset = (RPS_MODEL_HEIGHT - resized_height) / 2U;
-  for (uint32_t row = 0U; row < resized_height; ++row)
+  rps_resize_nearest(rps_crop, crop_width, crop_height, output,
+                     resized_width, resized_height);
+}
+
+/* OBJECT 6 is intentionally much more aggressive than a normal grayscale
+ * threshold. A 3x3 maximum pass first repairs one-pixel sensor dropouts and
+ * the thin black stripes they create after resizing. Then every remaining
+ * non-black pixel becomes fully white. The padded row buffers keep the pass
+ * in-place and let Helium/MVE process 16 pixels at a time without another
+ * 64x50 framebuffer. */
+static void rps_flatten_binary(uint8_t *image, uint8_t threshold)
+{
+  uint8_t rows[3][RPS_MODEL_WIDTH + 2U];
+  uint8_t *previous = rows[0];
+  uint8_t *current = rows[1];
+  uint8_t *next = rows[2];
+
+  for (uint32_t pass = 0U; pass < RPS_BINARY_DILATION_PASSES; ++pass)
   {
-    uint32_t source_row = ((2U * row + 1U) * crop_height) /
-                          (2U * resized_height);
-    if (source_row >= crop_height) source_row = crop_height - 1U;
-    for (uint32_t column = 0U; column < resized_width; ++column)
+    memset(previous, 0, RPS_MODEL_WIDTH + 2U);
+    memset(current, 0, RPS_MODEL_WIDTH + 2U);
+    memset(next, 0, RPS_MODEL_WIDTH + 2U);
+    memcpy(&current[1], image, RPS_MODEL_WIDTH);
+    if (RPS_MODEL_HEIGHT > 1U)
     {
-      uint32_t source_column = ((2U * column + 1U) * crop_width) /
-                               (2U * resized_width);
-      if (source_column >= crop_width) source_column = crop_width - 1U;
-      output[((y_offset + row) * RPS_MODEL_WIDTH) + x_offset + column] =
-          rps_crop[(source_row * crop_width) + source_column];
+      memcpy(&next[1], &image[RPS_MODEL_WIDTH], RPS_MODEL_WIDTH);
     }
+
+    for (uint32_t row = 0U; row < RPS_MODEL_HEIGHT; ++row)
+    {
+#if (RPS_MVE_ACCELERATED == 1U)
+      for (uint32_t column = 0U; column < RPS_MODEL_WIDTH; column += 16U)
+      {
+        mve_pred16_t predicate = vctp8q(RPS_MODEL_WIDTH - column);
+        uint8x16_t maximum = vldrbq_z_u8(&previous[column], predicate);
+        maximum = vmaxq_u8(maximum,
+                           vldrbq_z_u8(&previous[column + 1U], predicate));
+        maximum = vmaxq_u8(maximum,
+                           vldrbq_z_u8(&previous[column + 2U], predicate));
+        maximum = vmaxq_u8(maximum,
+                           vldrbq_z_u8(&current[column], predicate));
+        maximum = vmaxq_u8(maximum,
+                           vldrbq_z_u8(&current[column + 1U], predicate));
+        maximum = vmaxq_u8(maximum,
+                           vldrbq_z_u8(&current[column + 2U], predicate));
+        maximum = vmaxq_u8(maximum,
+                           vldrbq_z_u8(&next[column], predicate));
+        maximum = vmaxq_u8(maximum,
+                           vldrbq_z_u8(&next[column + 1U], predicate));
+        maximum = vmaxq_u8(maximum,
+                           vldrbq_z_u8(&next[column + 2U], predicate));
+        vstrbq_p_u8(&image[(row * RPS_MODEL_WIDTH) + column], maximum,
+                     predicate);
+      }
+#else
+      for (uint32_t column = 0U; column < RPS_MODEL_WIDTH; ++column)
+      {
+        uint8_t maximum = 0U;
+        const uint8_t *source_rows[3] = { previous, current, next };
+        for (uint32_t source_row = 0U; source_row < 3U; ++source_row)
+        {
+          for (uint32_t source_column = column;
+               source_column <= column + 2U; ++source_column)
+          {
+            if (source_rows[source_row][source_column] > maximum)
+            {
+              maximum = source_rows[source_row][source_column];
+            }
+          }
+        }
+        image[(row * RPS_MODEL_WIDTH) + column] = maximum;
+      }
+#endif
+
+      uint8_t *old_previous = previous;
+      previous = current;
+      current = next;
+      next = old_previous;
+      memset(next, 0, RPS_MODEL_WIDTH + 2U);
+      if ((row + 2U) < RPS_MODEL_HEIGHT)
+      {
+        memcpy(&next[1], &image[(row + 2U) * RPS_MODEL_WIDTH],
+               RPS_MODEL_WIDTH);
+      }
+    }
+  }
+
+  for (uint32_t index = 0U; index < RPS_MODEL_PIXELS; ++index)
+  {
+    image[index] = (image[index] > threshold) ?
+                   RPS_FLAT_FOREGROUND_VALUE : 0U;
+  }
+}
+
+static void rps_preprocess(const float *depth, uint8_t *output,
+                           RPS_AI_ViewSelection_t requested_view)
+{
+  RPS_ObjectSelection_t educational_selection;
+  RPS_ObjectSelection_t model_selection;
+
+  for (uint32_t index = 0U; index < RPS_SOURCE_PIXELS; ++index)
+  {
+    float value = depth[index];
+    uint16_t millimetres = UINT16_MAX;
+    if (isfinite(value) && (value > 0.0f) && (value < 65535.0f))
+    {
+      millimetres = (uint16_t)(value + 0.5f);
+    }
+    rps_depth_mm[index] = millimetres;
+  }
+
+  if (requested_view == RPS_AI_VIEW_OBJECT_1)
+  {
+    rps_render_native_view(requested_view, NULL,
+                           rps_processing_view_snapshot);
+  }
+  else if ((requested_view >= RPS_AI_VIEW_OBJECT_2) &&
+           (requested_view <= RPS_AI_VIEW_OBJECT_4))
+  {
+    rps_select_object(RPS_SENSOR_VALID_FAR_MM, &educational_selection);
+    if (requested_view <= RPS_AI_VIEW_OBJECT_3)
+    {
+      rps_render_native_view(requested_view, &educational_selection,
+                             rps_processing_view_snapshot);
+    }
+    else
+    {
+      rps_render_selection(&educational_selection,
+                           rps_processing_view_snapshot);
+    }
+  }
+
+  /* Production selection never admits pixels beyond 600 mm.  Rebuilding the
+   * component map here also guarantees that a farther teaching-stage object
+   * cannot leak into the model crop. */
+  rps_select_object(RPS_MODEL_MAX_DISTANCE_MM, &model_selection);
+
+  /* Build OBJECT 5 first. OBJECT 6 preserves the historical >0 teaching
+   * silhouette, while OBJECT 7 lets the same normalized-depth threshold be
+   * tuned interactively. The production NPU tensor uses the hardware-tested
+   * fixed threshold of 210 regardless of the requested teaching view. Every
+   * binary path includes the MVE-accelerated 3x3 repair pass. */
+  rps_render_selection(&model_selection, output);
+  if ((requested_view == RPS_AI_VIEW_OBJECT_5) ||
+      (requested_view == RPS_AI_VIEW_OBJECT_6) ||
+      (requested_view == RPS_AI_VIEW_OBJECT_7))
+  {
+    rps_copy_model_input(rps_processing_view_snapshot, output);
+  }
+  if (requested_view == RPS_AI_VIEW_OBJECT_6)
+  {
+    rps_flatten_binary(rps_processing_view_snapshot,
+                       RPS_STAGE_6_BINARY_THRESHOLD);
+  }
+  else if (requested_view == RPS_AI_VIEW_OBJECT_7)
+  {
+    rps_flatten_binary(rps_processing_view_snapshot,
+                       rps_object_7_threshold);
+  }
+  rps_flatten_binary(output, RPS_PRODUCTION_BINARY_THRESHOLD);
+
+  rps_published_view = requested_view;
+  if (requested_view == RPS_AI_VIEW_NPU)
+  {
+    rps_published_view_pixels = output;
+    rps_published_view_width = RPS_MODEL_WIDTH;
+    rps_published_view_height = RPS_MODEL_HEIGHT;
+    rps_published_view_is_npu =
+        (requested_view == RPS_AI_VIEW_NPU) ? 1U : 0U;
+  }
+  else
+  {
+    rps_published_view_pixels = rps_processing_view_snapshot;
+    rps_published_view_width =
+        (requested_view <= RPS_AI_VIEW_OBJECT_3) ? RPS_SOURCE_WIDTH :
+                                                  RPS_MODEL_WIDTH;
+    rps_published_view_height =
+        (requested_view <= RPS_AI_VIEW_OBJECT_3) ? RPS_SOURCE_HEIGHT :
+                                                  RPS_MODEL_HEIGHT;
+    rps_published_view_is_npu = 0U;
   }
 }
 #endif /* APP_RPS_NPU_ENABLED */
@@ -386,7 +807,14 @@ int RPS_AI_ProcessDepth(const float *depth, uint8_t width, uint8_t height,
     return -1;
   }
 
-  rps_preprocess(depth, rps_input);
+  /* Neural-ART reuses its activation arena during inference, including the
+   * input address. Keep one exact production snapshot plus the selected
+   * educational view, then use Helium/MVE to feed the preallocated NPU input
+   * without a scalar copy. */
+  RPS_AI_ViewSelection_t requested_view = rps_requested_view;
+  rps_preprocess(depth, rps_model_input_snapshot, requested_view);
+  rps_model_input_frame = frame_id;
+  rps_copy_model_input((uint8_t *)rps_input, rps_model_input_snapshot);
   started = HAL_GetTick();
   result = stai_rps_tof_run(rps_network_context, STAI_MODE_SYNC);
   rps_status.inference_ms = HAL_GetTick() - started;
@@ -405,8 +833,7 @@ int RPS_AI_ProcessDepth(const float *depth, uint8_t width, uint8_t height,
     if (scores[index] > scores[best]) best = (uint8_t)index;
   }
   rps_status.class_id = best;
-  rps_status.confidence_per_mille =
-      (uint16_t)(((uint32_t)((int32_t)scores[best] + 128) * 1000U) / 256U);
+  rps_status.confidence_per_mille = RPS_AI_ScorePerMille(scores[best]);
   rps_status.last_frame = frame_id;
   rps_status.last_error = STAI_SUCCESS;
   ++rps_status.runs;
@@ -432,6 +859,103 @@ void RPS_AI_GetStatus(RPS_AI_Status_t *status)
   {
     *status = rps_status;
   }
+}
+
+void RPS_AI_SetViewSelection(RPS_AI_ViewSelection_t selection)
+{
+#if (APP_RPS_NPU_ENABLED == 1U)
+  if ((uint32_t)selection <= (uint32_t)RPS_AI_VIEW_OBJECT_7)
+  {
+    rps_requested_view = selection;
+  }
+#else
+  (void)selection;
+#endif
+}
+
+void RPS_AI_SetObject7Threshold(uint32_t threshold)
+{
+#if (APP_RPS_NPU_ENABLED == 1U)
+  rps_object_7_threshold = (threshold <= UINT8_MAX) ?
+                           (uint8_t)threshold : UINT8_MAX;
+#else
+  (void)threshold;
+#endif
+}
+
+int RPS_AI_GetImageView(RPS_AI_ImageView_t *view)
+{
+  if (view == NULL)
+  {
+    return -1;
+  }
+
+#if (APP_RPS_NPU_ENABLED == 1U)
+  if ((rps_model_input_frame == UINT32_MAX) || (rps_input == NULL))
+  {
+    return -2;
+  }
+  view->pixels = rps_published_view_pixels;
+  view->frame_id = rps_model_input_frame;
+  view->width = rps_published_view_width;
+  view->height = rps_published_view_height;
+  view->mve_accelerated = RPS_MVE_ACCELERATED;
+  view->is_npu_input = rps_published_view_is_npu;
+  view->selection = rps_published_view;
+  return 0;
+#else
+  view->pixels = NULL;
+  view->frame_id = UINT32_MAX;
+  view->width = 0U;
+  view->height = 0U;
+  view->mve_accelerated = 0U;
+  view->is_npu_input = 0U;
+  view->selection = RPS_AI_VIEW_NPU;
+  return -2;
+#endif
+}
+
+int RPS_AI_GetModelInputView(RPS_AI_ImageView_t *view)
+{
+  if (view == NULL)
+  {
+    return -1;
+  }
+
+#if (APP_RPS_NPU_ENABLED == 1U)
+  if ((rps_model_input_frame == UINT32_MAX) || (rps_input == NULL))
+  {
+    return -2;
+  }
+  view->pixels = rps_model_input_snapshot;
+  view->frame_id = rps_model_input_frame;
+  view->width = RPS_MODEL_WIDTH;
+  view->height = RPS_MODEL_HEIGHT;
+  view->mve_accelerated = RPS_MVE_ACCELERATED;
+  view->is_npu_input = 1U;
+  view->selection = RPS_AI_VIEW_NPU;
+  return 0;
+#else
+  view->pixels = NULL;
+  view->frame_id = UINT32_MAX;
+  view->width = 0U;
+  view->height = 0U;
+  view->mve_accelerated = 0U;
+  view->is_npu_input = 0U;
+  view->selection = RPS_AI_VIEW_NPU;
+  return -2;
+#endif
+}
+
+uint16_t RPS_AI_ScorePerMille(int8_t score)
+{
+  /* The current model output uses scale 1/256 and zero point -128. */
+  uint32_t quantized_probability =
+      (uint32_t)((int32_t)score - RPS_OUTPUT_ZERO_POINT);
+
+  return (uint16_t)((quantized_probability * 1000U +
+                     (RPS_OUTPUT_SCALE_DENOMINATOR / 2U)) /
+                    RPS_OUTPUT_SCALE_DENOMINATOR);
 }
 
 const char *RPS_AI_ClassName(uint8_t class_id)

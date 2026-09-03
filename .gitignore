@@ -40,6 +40,8 @@ Desktop.ini
 !/training/reports/.gitkeep
 /training/state/*
 !/training/state/.gitkeep
+/training/review/*
+!/training/review/.gitkeep
 /training/reset_log.json
 __pycache__/
 *.pyc

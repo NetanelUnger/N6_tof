@@ -23,8 +23,8 @@
     "copies_per_sample": 2,
     "horizontal_flip_probability": 0.5,
     "maximum_translation_pixels": 4,
-    "intensity_scale_min": 0.90,
-    "intensity_scale_max": 1.10
+    "intensity_scale_min": 1.00,
+    "intensity_scale_max": 1.00
   },
   "capture": {
     "target_per_class": 96,

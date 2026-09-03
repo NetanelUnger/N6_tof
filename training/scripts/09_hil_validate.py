@@ -124,6 +124,7 @@ def main() -> int:
     npu_class_matches = 0
     npu_score_deltas = []
     npu_run_counters = []
+    exact_model_tensor_frames = 0
     started = time.monotonic()
     serial = Serial(port, 115200, timeout=0.2, write_timeout=2)
     serial.dtr = True
@@ -181,8 +182,24 @@ def main() -> int:
             frame_ids.append(frame.frame_id)
             timestamps.append(frame.timestamp_ms)
             payload_crcs.append(frame.payload_crc32)
+            host_model_input = preprocess_depth(frame.depth_mm)[..., 0]
+            if (frame.model_input is None or
+                    frame.model_frame_id != frame.frame_id):
+                raise RuntimeError(
+                    f"Frame {frame.frame_id} has no exact frame-matched "
+                    "N6DF v3 device model tensor"
+                )
+            if not np.array_equal(frame.model_input, host_model_input):
+                mismatch = int(np.count_nonzero(
+                    frame.model_input != host_model_input
+                ))
+                raise RuntimeError(
+                    f"Frame {frame.frame_id}: device/Python preprocessing "
+                    f"differs in {mismatch} pixels"
+                )
+            exact_model_tensor_frames += 1
             if interpreter is not None:
-                tensor = preprocess_depth(frame.depth_mm)[np.newaxis]
+                tensor = frame.model_input[np.newaxis, ..., np.newaxis]
                 interpreter.set_tensor(input_info["index"], tensor)
                 interpreter.invoke()
                 output = interpreter.get_tensor(output_info["index"])[0]
@@ -247,7 +264,8 @@ def main() -> int:
                     max_score_delta <= maximum_raw_score_delta)
     pass_gate = (sensor_fps >= required_fps and
                  unique_crcs >= int(0.8 * len(frame_ids)) and
-                 reader.crc_errors == 0 and npu_gate)
+                 reader.crc_errors == 0 and
+                 exact_model_tensor_frames == len(frame_ids) and npu_gate)
     report = {
         "schema": 1, "created_utc": utc_now(), "port": port,
         "frames": len(frame_ids), "first_frame": frame_ids[0],
@@ -261,6 +279,7 @@ def main() -> int:
         "parser_crc_errors": reader.crc_errors,
         "parser_framing_candidates_rejected": reader.framing_errors,
         "unique_payload_crc32": unique_crcs,
+        "device_python_bit_exact_model_tensors": exact_model_tensor_frames,
         "host_tflite_predictions": predictions if interpreter else None,
         "npu_comparison": {
             "preflight": rps_status,
@@ -287,6 +306,7 @@ def main() -> int:
         f"frames: {len(frame_ids)}",
         f"crc_errors: {reader.crc_errors}",
         f"npu_valid_frames: {npu_frames}",
+        f"device_python_bit_exact_model_tensors: {exact_model_tensor_frames}",
         f"class_agreement: {class_agreement}",
         f"maximum_raw_score_delta: {max_score_delta}",
     ])
@@ -301,6 +321,9 @@ def main() -> int:
     print(f"Neural-ART: {npu_frames}/{len(frame_ids)} frame-matched results, "
           f"counter monotonic={counters_monotonic}, "
           f"class agreement={class_agreement}, max raw delta={max_score_delta}")
+    print("Preprocessing: "
+          f"{exact_model_tensor_frames}/{len(frame_ids)} device tensors "
+          "bit-exact with Python")
     return 0 if report["result"] == "pass" else 6
 
 

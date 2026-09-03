@@ -25,6 +25,8 @@ MODELS_ROOT = TRAINING_ROOT / "models"
 GENERATED_ROOT = TRAINING_ROOT / "generated"
 REPORTS_ROOT = TRAINING_ROOT / "reports"
 STATE_ROOT = TRAINING_ROOT / "state"
+REVIEW_ROOT = TRAINING_ROOT / "review"
+REVIEW_PATH = REVIEW_ROOT / "dataset_review.json"
 
 
 def utc_now() -> str:
@@ -33,7 +35,7 @@ def utc_now() -> str:
 
 def ensure_layout() -> None:
     for path in (RAW_ROOT, PREPARED_ROOT, MODELS_ROOT, GENERATED_ROOT,
-                 REPORTS_ROOT, STATE_ROOT):
+                 REPORTS_ROOT, STATE_ROOT, REVIEW_ROOT):
         path.mkdir(parents=True, exist_ok=True)
 
 
@@ -153,6 +155,66 @@ def class_config() -> list[dict[str, Any]]:
 
 def class_names() -> list[str]:
     return [entry["name"] for entry in class_config()]
+
+
+def load_review_decisions() -> dict[str, dict[str, Any]]:
+    """Return immutable-frame review decisions keyed by depth SHA-256."""
+    if not REVIEW_PATH.exists():
+        return {}
+    payload = load_json(REVIEW_PATH)
+    if payload.get("schema") != 1 or not isinstance(payload.get("decisions"), dict):
+        raise RuntimeError(f"Invalid dataset review file: {REVIEW_PATH}")
+    decisions: dict[str, dict[str, Any]] = {}
+    valid_labels = set(class_names())
+    for digest, decision in payload["decisions"].items():
+        if (not isinstance(digest, str) or len(digest) != 64 or
+                not isinstance(decision, dict)):
+            raise RuntimeError(f"Invalid dataset review decision for {digest!r}")
+        accepted = decision.get("accepted")
+        label = decision.get("label")
+        if not isinstance(accepted, bool):
+            raise RuntimeError(f"Review decision lacks boolean accepted: {digest}")
+        if label is not None and label not in valid_labels:
+            raise RuntimeError(f"Review decision has unknown label {label!r}: {digest}")
+        decisions[digest] = dict(decision)
+    return decisions
+
+
+def apply_review(row: dict[str, Any],
+                 decisions: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Overlay a reversible human decision without mutating raw metadata."""
+    reviewed = dict(row)
+    decision = (decisions if decisions is not None else load_review_decisions()).get(
+        str(row.get("depth_sha256", ""))
+    )
+    reviewed["reviewed"] = decision is not None
+    reviewed["original_label"] = row.get("label")
+    if decision is not None:
+        reviewed["accepted"] = decision["accepted"]
+        if decision.get("label") is not None:
+            reviewed["label"] = decision["label"]
+    return reviewed
+
+
+def reviewed_rows(metadata_paths: Iterable[Path], *,
+                  include_rejected: bool = False) -> list[dict[str, Any]]:
+    decisions = load_review_decisions()
+    rows = [
+        apply_review(row, decisions)
+        for path in metadata_paths
+        for row in iter_jsonl(path)
+    ]
+    if not include_rejected:
+        rows = [row for row in rows if row.get("accepted", True)]
+    return rows
+
+
+def dataset_input_fingerprint(metadata_paths: Iterable[Path]) -> str:
+    """Fingerprint raw metadata plus the optional human-review overlay."""
+    paths = list(metadata_paths)
+    if REVIEW_PATH.exists():
+        paths.append(REVIEW_PATH)
+    return file_fingerprint(paths)
 
 
 def run(command: list[str], *, cwd: Path | None = None,

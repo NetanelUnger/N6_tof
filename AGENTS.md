@@ -29,9 +29,37 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   acquisition overlaps transform/rendering without copying raw frames between
   tasks.
 - The displayed depth map has an allocation-free, table-driven processing
-  stage with Off, Box, Median, Gaussian, Sharpen, Min, and Max registrations.
+  stage with Off, Box, Median, Gaussian, Sharpen, Min, Max, cumulative
+  `OBJECT 1..7` teaching views, and `NPU`. OBJECT 7 is an adjustable
+  normalized-depth binary threshold (0..255, default 210) used to inspect arm
+  removal. Hardware testing promoted 210 to the fixed NPU and host preprocessing
+  contract; later interactive OBJECT 7 changes must not alter production until
+  explicitly promoted in both implementations. The final NPU path accepts only a
+  non-trivial nearest component in 100..600 mm, produces black when none exists,
+  grows the near seed through 8-neighbors whose local depth jump is at most
+  120 mm, adds a four-source-pixel crop margin and guarantees another
+  four-pixel border in the 64x50 model canvas even at a sensor edge,
+  resizes the normalized crop to a centered 64x50 image, then maps every
+  non-zero pixel to 255 and applies one 3x3 dilation to repair thin sensor
+  dropout stripes. The empty image remains completely black.
+  CDC preserves only the requested teaching snapshot plus the exact NPU input
+  before Neural-ART reuses its activation arena; resize, binary dilation, and
+  the NPU-input copy use Cortex-M55 Helium/MVE. The SPI display intentionally stays on its 54x42
+  depth path in these modes.
   One fixed 54x42 float workspace supports filtering; settings are changed
   through `MAP PROCESSING` and are snapshotted before each displayed frame.
+- `DATASET STREAM ON` emits N6DF v3 records. Each record contains raw 54x42
+  uint16 millimetres plus the exact frame-matched 64x50 uint8 tensor preserved
+  before NPU inference, with independent raw/model CRC32 values and a header
+  CRC. Capture must compare all 3,200 device bytes with Python before saving;
+  Stage 04 normally trains from the stored device tensor and refuses samples
+  without it unless `--allow-host-preprocessing` is explicit.
+- `training/VIEW_LIVE.bat` is the full-rate diagnostic display. It decodes the
+  raw and model width/height fields already carried by N6DF v3, validates the
+  complete record and CRCs, then atomically swaps complete Tk bitmaps. It may
+  discard older complete frames for latency but must never display a partial
+  frame. ANSI `MAP ON` remains useful for a terminal but cannot offer atomic
+  row rendering.
 - The USB CDC CLI has allocation-free Tab completion generated from command and
   filter descriptor tables plus a fixed 16-entry Up/Down command history.
 - The steady-state sensor path uses PD9 falling-edge EXTI and I3C TX/RX DMA.
@@ -108,6 +136,12 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   signed Non-Secure image and copies them to NPU SRAM6 at runtime. Do not split
   weights into an unversioned external blob: `.n6fw` v1 A/B atomicity depends
   on code and weights remaining one signed image.
+- The 2026-08-28 preprocessing contract changed the NPU input to a 100..600 mm
+  locally grown, aggressively filled binary silhouette and invalidated the
+  currently embedded model's accuracy
+  claim. The Neural-ART runtime still builds, but do not call the classifier
+  matched again until stages 04 through 09 regenerate, integrate, and perform
+  frame-exact HIL on new weights.
 - When relocating STEdgeAI's default xSPI2 initializer pool to NPU SRAM6, Stage
   08 must also change every weight DMA descriptor from cacheable to
   non-cacheable. Address-only relocation causes a BUSIF1 fault on the first

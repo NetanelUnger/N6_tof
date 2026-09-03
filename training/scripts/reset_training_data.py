@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
+import stat
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -24,9 +27,12 @@ TRAINING_TARGETS = (
     TRAINING_ROOT / "generated",
     TRAINING_ROOT / "reports",
     TRAINING_ROOT / "state",
+    TRAINING_ROOT / "review",
 )
 EXTERNAL_TARGETS = (PROJECT_ROOT / "st_ai_output",)
 KEEP_NAMES = {".gitkeep"}
+DELETE_ATTEMPTS = 10
+DELETE_INITIAL_DELAY_SECONDS = 0.25
 
 
 def _validate_targets() -> None:
@@ -62,18 +68,72 @@ def _measure(path: Path) -> tuple[int, int]:
     return files, size
 
 
-def _clear_directory(path: Path, dry_run: bool) -> None:
-    if not path.exists():
+def _rmtree_onerror(function, filename: str, exc_info) -> None:
+    """Retry read-only entries, but leave sharing violations to the outer loop."""
+    error = exc_info[1]
+    if isinstance(error, PermissionError) and getattr(error, "winerror", None) == 5:
+        os.chmod(filename, stat.S_IWRITE)
+        function(filename)
         return
+    raise error
+
+
+def _remove_once(path: Path) -> None:
+    if not path.exists() and not path.is_symlink():
+        return
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path, onerror=_rmtree_onerror)
+        return
+    try:
+        path.unlink()
+    except PermissionError as error:
+        if getattr(error, "winerror", None) != 5:
+            raise
+        path.chmod(stat.S_IWRITE)
+        path.unlink()
+
+
+def _remove_with_retries(path: Path) -> None:
+    last_error: OSError | None = None
+    for attempt in range(1, DELETE_ATTEMPTS + 1):
+        try:
+            _remove_once(path)
+            return
+        except FileNotFoundError:
+            return
+        except OSError as error:
+            last_error = error
+            if attempt == DELETE_ATTEMPTS:
+                break
+            delay = min(
+                DELETE_INITIAL_DELAY_SECONDS * (2 ** (attempt - 1)), 2.0
+            )
+            print(
+                f"Windows is still using {path}; retry "
+                f"{attempt}/{DELETE_ATTEMPTS} in {delay:.2f}s...",
+                flush=True,
+            )
+            time.sleep(delay)
+    assert last_error is not None
+    winerror = getattr(last_error, "winerror", None)
+    detail = f"WinError {winerror}" if winerror is not None else type(last_error).__name__
+    raise RuntimeError(f"{detail}: {path}: {last_error}") from last_error
+
+
+def _clear_directory(path: Path, dry_run: bool) -> list[str]:
+    failures: list[str] = []
+    if not path.exists():
+        return failures
     for child in list(path.iterdir()):
         if child.name in KEEP_NAMES:
             continue
         if dry_run:
             continue
-        if child.is_dir() and not child.is_symlink():
-            shutil.rmtree(child)
-        else:
-            child.unlink()
+        try:
+            _remove_with_retries(child)
+        except RuntimeError as error:
+            failures.append(str(error))
+    return failures
 
 
 def main() -> int:
@@ -96,15 +156,32 @@ def main() -> int:
         print("Dry run only; nothing was changed.")
         return 0
 
+    failures = []
     for target in TRAINING_TARGETS:
         target.mkdir(parents=True, exist_ok=True)
-        _clear_directory(target, dry_run=False)
+        failures.extend(_clear_directory(target, dry_run=False))
     for target in EXTERNAL_TARGETS:
         if target.exists():
-            shutil.rmtree(target)
+            try:
+                _remove_with_retries(target)
+            except RuntimeError as error:
+                failures.append(str(error))
+
+    if failures:
+        print("\nReset incomplete. These paths remained locked:")
+        for failure in failures:
+            print(f"  - {failure}")
+        print(
+            "Close Capture/VIEW_LIVE/dataset review windows and any File "
+            "Explorer window inside training. If necessary, pause Dropbox "
+            "sync briefly, then run RESET_TRAINING_DATA.bat again. The reset "
+            "is idempotent and will only remove what remains."
+        )
+        return 2
 
     report = {
         "reset_utc": datetime.now(timezone.utc).isoformat(),
+        "completed": True,
         "removed": rows,
         "total_files": sum(row["files"] for row in rows),
         "total_bytes": sum(row["bytes"] for row in rows),

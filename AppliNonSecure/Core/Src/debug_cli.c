@@ -95,7 +95,7 @@ static void cli_show_display_status(void);
 static void cli_show_usb_status(void);
 static void cli_show_map_processing(void);
 static const TOF_ImageFilterDescriptor_t *cli_find_map_filter(
-    const char *command);
+    int argc, char *const argv[], size_t *filter_argument_count);
 static const char *cli_tof_state_name(TOF_App_State_t state);
 static const char *cli_radio_state_name(WifiBle_State_t state);
 static const char *cli_log_level_name(uint32_t level);
@@ -576,6 +576,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
            (cli_token_equals(argv[1], "processing") != 0U))
   {
     const TOF_ImageFilterDescriptor_t *descriptor;
+    size_t filter_argument_count = 0U;
 
     if (argc == 2)
     {
@@ -583,31 +584,67 @@ static void cli_command_map(Menu_t *menu, const char *command)
       return;
     }
 
-    descriptor = cli_find_map_filter(argv[2]);
+    descriptor = cli_find_map_filter(argc, argv, &filter_argument_count);
     if (descriptor == NULL)
     {
       (void)Menu_Reply(menu,
-                       "Usage: MAP PROCESSING <filter> [parameter value]");
+                       "Usage: MAP PROCESSING <filter> [value | parameter value]");
       return;
     }
 
-    if (argc == 3)
+    if ((size_t)argc == (2U + filter_argument_count))
     {
       (void)TOF_App_SelectMapFilter(descriptor->filter);
       cli_show_map_processing();
       return;
     }
 
-    if (argc == 5)
+    if (((size_t)argc == (3U + filter_argument_count)) &&
+        (descriptor->parameter_count == 1U))
+    {
+      uint32_t value;
+      size_t value_argument = 2U + filter_argument_count;
+      const TOF_ImageFilterParameter_t *parameter =
+          &descriptor->parameters[0];
+
+      if (cli_parse_u32(argv[value_argument], &value) == 0)
+      {
+        (void)Menu_Reply(menu, "Invalid unsigned integer value.");
+        return;
+      }
+
+      TOF_ImageProcessingStatus_t result =
+          TOF_App_SetMapFilterParameter(descriptor->filter, 0U, value);
+      if (result == TOF_IMAGE_PROCESSING_VALUE_OUT_OF_RANGE)
+      {
+        cli_print("%s must be in the range %" PRIu32 "..%" PRIu32 " %s.\r\n",
+                  parameter->name, parameter->minimum, parameter->maximum,
+                  parameter->unit);
+        return;
+      }
+      if (result != TOF_IMAGE_PROCESSING_OK)
+      {
+        (void)Menu_Reply(menu, "Unable to update map processing setting.");
+        return;
+      }
+
+      (void)TOF_App_SelectMapFilter(descriptor->filter);
+      cli_show_map_processing();
+      return;
+    }
+
+    if ((size_t)argc == (4U + filter_argument_count))
     {
       size_t parameter_index;
       uint32_t value;
+      size_t parameter_argument = 2U + filter_argument_count;
+      size_t value_argument = parameter_argument + 1U;
 
       for (parameter_index = 0U;
            parameter_index < descriptor->parameter_count;
            ++parameter_index)
       {
-        if (cli_token_equals(argv[3],
+        if (cli_token_equals(argv[parameter_argument],
                              descriptor->parameters[parameter_index].name) != 0U)
         {
           break;
@@ -615,7 +652,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
       }
 
       if ((parameter_index >= descriptor->parameter_count) ||
-          (cli_parse_u32(argv[4], &value) == 0))
+          (cli_parse_u32(argv[value_argument], &value) == 0))
       {
         (void)Menu_Reply(menu,
                          "Unknown parameter or invalid unsigned integer value.");
@@ -646,7 +683,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
     }
 
     (void)Menu_Reply(menu,
-                     "Usage: MAP PROCESSING <filter> [parameter value]");
+                     "Usage: MAP PROCESSING <filter> [value | parameter value]");
   }
   else
   {
@@ -695,7 +732,7 @@ cli_command_dataset(Menu_t *menu, const char *command)
       (cli_token_equals(argv[2], "on") != 0U))
   {
     (void)Menu_Reply(menu,
-                     "Dataset stream enabled: N6DF v2, 54x42 uint16 millimetres + frame-matched NPU scores, CRC32 protected.");
+                     "Dataset stream enabled: N6DF v3, raw 54x42 depth + exact frame-matched 64x50 NPU input + scores, separately CRC32 protected.");
     TOF_App_SetDatasetStreamEnabled(1U);
   }
   else if ((argc == 3) &&
@@ -1439,7 +1476,7 @@ static void cli_show_help(void)
 #endif
             "  MAP PROCESSING                 select/configure depth filtering\r\n"
             "  tof status|pause|resume        inspect/control ranging\r\n"
-            "  DATASET STREAM ON|OFF|STATUS   CRC-protected 16-bit ToF training frames\r\n"
+            "  DATASET STREAM ON|OFF|STATUS   N6DF v3 raw depth + exact NPU tensor\r\n"
             "  RPS ON|OFF|STATUS              Neural-ART inference and raw int8 scores\r\n"
             "  debug off|error|warn|info|debug ST67 runtime log level\r\n"
             "  Start UART Firmware Update      receive signed .n6fw via XMODEM-CRC\r\n"
@@ -1611,7 +1648,7 @@ static void cli_show_map_processing(void)
         TOF_ImageProcessing_GetDescriptorByIndex(filter_index);
     size_t parameter_index;
 
-    cli_print("  [%c] %-7s %-12s - %s\r\n",
+    cli_print("  [%c] %-10s %-15s - %s\r\n",
               (config.selected_filter == descriptor->filter) ? 'V' : ' ',
               descriptor->command, descriptor->display_name,
               descriptor->description);
@@ -1628,28 +1665,72 @@ static void cli_show_map_processing(void)
     }
   }
   cli_print("Select:    MAP PROCESSING BOX\r\n"
+            "           MAP PROCESSING OBJECT 1   (raw valid depth)\r\n"
+            "           MAP PROCESSING OBJECT 2   (adaptive candidates)\r\n"
+            "           MAP PROCESSING OBJECT 3   (nearest component)\r\n"
+            "           MAP PROCESSING OBJECT 4   (crop + normalize + resize)\r\n"
+            "           MAP PROCESSING OBJECT 5   (+ 600 mm limit + wider crop/model margins)\r\n"
+            "           MAP PROCESSING OBJECT 6   (+ aggressive >0 binary + 3x3 stripe repair)\r\n"
+            "           MAP PROCESSING OBJECT 7 210 (near-depth binary; higher removes more arm)\r\n"
+            "           MAP PROCESSING NPU        (exact model input; fixed threshold 210)\r\n"
             "Configure: MAP PROCESSING BOX radius 2\r\n"
             "           MAP PROCESSING BOX passes 2\r\n"
             "           MAP PROCESSING MEDIAN threshold_mm 100\r\n"
             "           MAP PROCESSING GAUSSIAN passes 2\r\n"
             "           MAP PROCESSING SHARPEN amount_percent 125\r\n"
-            "Median threshold_mm=0 applies the median to every pixel.\r\n");
+            "           MAP PROCESSING OBJECT 7 threshold 210 (equivalent long form)\r\n"
+            "Median threshold_mm=0 applies the median to every pixel.\r\n"
+            "OBJECT 1..7 are cumulative views; NPU uses the promoted fixed threshold 210.\r\n"
+            "Legacy MAP PROCESSING OBJECT is an alias for MAP PROCESSING NPU.\r\n");
 }
 
 static const TOF_ImageFilterDescriptor_t *cli_find_map_filter(
-    const char *command)
+    int argc, char *const argv[], size_t *filter_argument_count)
 {
   size_t index;
+  char two_token_command[32];
+
+  if ((argc < 3) || (argv == NULL) || (filter_argument_count == NULL))
+  {
+    return NULL;
+  }
+
+  if (argc >= 4)
+  {
+    int length = snprintf(two_token_command, sizeof(two_token_command),
+                          "%s %s", argv[2], argv[3]);
+    if ((length > 0) && ((size_t)length < sizeof(two_token_command)))
+    {
+      for (index = 0U; index < TOF_ImageProcessing_GetFilterCount(); ++index)
+      {
+        const TOF_ImageFilterDescriptor_t *descriptor =
+            TOF_ImageProcessing_GetDescriptorByIndex(index);
+        if ((descriptor != NULL) &&
+            (cli_token_equals(two_token_command, descriptor->command) != 0U))
+        {
+          *filter_argument_count = 2U;
+          return descriptor;
+        }
+      }
+    }
+  }
 
   for (index = 0U; index < TOF_ImageProcessing_GetFilterCount(); ++index)
   {
     const TOF_ImageFilterDescriptor_t *descriptor =
         TOF_ImageProcessing_GetDescriptorByIndex(index);
     if ((descriptor != NULL) &&
-        (cli_token_equals(command, descriptor->command) != 0U))
+        (cli_token_equals(argv[2], descriptor->command) != 0U))
     {
+      *filter_argument_count = 1U;
       return descriptor;
     }
+  }
+
+  if (cli_token_equals(argv[2], "OBJECT") != 0U)
+  {
+    *filter_argument_count = 1U;
+    return TOF_ImageProcessing_GetDescriptor(TOF_IMAGE_FILTER_NPU);
   }
   return NULL;
 }

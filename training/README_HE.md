@@ -12,12 +12,12 @@ VL53L9CX (54x42 מרחקים במ"מ)
         |
         v
 FW transform task --> DATASET STREAM ON --> USB CDC / CN8
-        |                    N6DF v2 + CRC32 + frame_id + NPU scores
+        |             N6DF v3: raw depth + exact NPU tensor + scores + CRCs
         v
-Python capture --> uint16 NPZ + 16-bit depth PNG + RGB preview + JSONL
+Python capture --> NPZ עם raw uint16 + tensor מדויק מהבקר + previews + JSONL
         |
         v
-validate --> preprocess 64x50x1 uint8 --> split by capture burst
+validate --> bit-exact MCU/Python check --> split device tensor by capture burst
         |
         v
 small Keras CNN --> full-integer TFLite --> STEdgeAI Neural-ART compiler
@@ -35,11 +35,13 @@ PC reference/HIL <---- exact scores ---- signed FW embeds weights, copies to SRA
 ## למה לא לשמור BMP
 
 BMP איננו קלט "קל יותר" ל־STM32Cube.AI או ל־STEdgeAI. יוצר המודל איננו לומד
-מתיקיית BMP באופן ישיר; קוד האימון טוען מערכי מספרים, מבצע preprocessing ומזין
-TensorFlow. בפועל יש כאן שלושה צרכים שונים:
+מתיקיית BMP באופן ישיר; במסלול N6DF v3 קוד האימון טוען את מערך ה־NPU המספרי
+שהבקר שלח. מימוש ה־preprocessing ב־Python משמש לבדיקה עצמאית bit-for-bit
+ול־legacy מפורש בלבד, ולא כמקור התמונה במסלול המודרך. בפועל יש כאן שלושה
+צרכים שונים:
 
-1. מקור מדעי מדויק: `NPZ` מכיל מערך `uint16` של 54×42 ערכי מילימטר. זה מקור
-   האמת הנוח והמהיר ביותר ל־Python.
+1. מקור מדעי מדויק: `NPZ` מכיל מערך `uint16` של 54×42 ערכי מילימטר, ובצילום
+   N6DF v3 גם את מערך ה־`uint8` המדויק שהבקר הכניס ל־NPU.
 2. פורמט פתוח לצפייה/ייבוא: `*.depth.png` הוא PNG grayscale של 16 bit. הוא
    lossless, קטן מ־BMP ושומר כל ערך מילימטר. `65535` מסמן pixel לא תקין.
 3. תצוגה לאדם: `*.preview.png` הוא RGB מוגדל וצבוע. הוא נוח לבדיקת תמונות אבל
@@ -80,26 +82,72 @@ MAP ON DISPLAY
 מדווחים גם את frame ה־ToF האחרון שצויר ואת frame תוצאת ה־NPU שצוירה, וכך אפשר
 לבצע HIL למסך בלי להסתמך על צפייה פיזית בפאנל.
 
+`MAP PROCESSING OBJECT 1` עד `OBJECT 7` מציגים ב־`MAP ON` את העיבוד המצטבר:
+
+1. עומק תקין בטווח האבחון 100..1200mm;
+2. מועמדי העומק שנכנסו לסף האדפטיבי;
+3. הרכיב המחובר הקרוב לאחר דחיית כתמים קטנים והתרחבות לאורך משטח רציף מקומית;
+4. crop עם margin, נרמול עומק יחסי ו־resize ממורכז ל־64×50;
+5. אותו עיבוד עם מגבלת מודל של 600mm, margin של 4 pixels בחיישן ומסגרת נוספת
+   של 4 pixels בקנבס המודל; ללא אובייקט קרוב מתקבלת תמונה שחורה;
+6. צללית בינארית אגרסיבית: כל פיקסל שאינו שחור בשלב 5 הופך ל־255,
+   ולאחר מכן הרחבת 3×3 אחת מתקנת חורים ופסי dropout דקים; הרקע נשאר 0.
+7. צללית בינארית ניסיונית המסננת לפי העומק היחסי המנורמל של שלב 5. רק
+   פיקסלים שעוצמתם גבוהה מה־`threshold` נשארים לבנים; לכן ערך גבוה יותר
+   מסיר חלקים רחוקים יותר ממשטח כף היד, ובדרך כלל מסנן בהדרגה את הזרוע.
+
+את הסף של שלב 7 אפשר לבחור ולהפעיל בפקודה אחת:
+
+```text
+MAP PROCESSING OBJECT 7 210
+```
+
+הטווח הוא `0..255` וברירת המחדל היא `210`, שנבחר לאחר בדיקה על החומרה.
+ערך `0` נותן אותה צללית כמו שלב 6, ו־`255` נותן תמונה שחורה. הצורה הארוכה
+`MAP PROCESSING OBJECT 7 threshold 210` שקולה לפקודה המקוצרת. הסף פועל על
+עוצמה מנורמלת ולא ישירות על מילימטרים: `255` הוא המשטח הקרוב ביותר, וערכים
+נמוכים יותר הם חלקים רחוקים יותר בתוך אותו אובייקט. גם שלב 7 מפעיל הרחבת
+3×3 מואצת ב־Helium/MVE כדי לסגור חורי חיישן דקים.
+
+`MAP PROCESSING NPU` מציג את מערך ה־`uint8` המדויק שנמסר ל־Neural‑ART, כלומר
+כל שלבי הייצור ובפרט סינון שלב 7 עם סף קבוע `210`. נשמרים רק snapshot לימודי אחד וה־snapshot
+הסופי, ולא שבעה buffers. ה־resize, הרחבת 3×3 והעתקת הפלט ל־input משתמשים
+ב־Helium/MVE של
+Cortex‑M55; ה־inference עצמו רץ ב־Neural‑ART. התצוגה הזו משנה את ה־CDC בלבד;
+`MAP ON SCREEN` ממשיך להציג את מפת העומק 54×42. הפקודה הישנה
+`MAP PROCESSING OBJECT` נשארה alias ל־`MAP PROCESSING NPU`.
+
+הערך `210` קודם לחוזה הייצור: קלט ה־NPU בבקר ו־`preprocessing.json` של
+Python משתמשים שניהם באותו סף. הפקודה של OBJECT 7 עדיין מאפשרת להציג ערכים
+אחרים לצורך ניסוי, אך שינוי תצוגת OBJECT 7 אינו משנה בשקט את קלט ה־NPU.
+שינוי ייצור עתידי חייב להתבצע יחד בקושחה וב־Python ולעבור שוב השוואה מלאה.
+
+חשוב: המשקולות שמוטמעות כרגע נלמדו לפני חוזה הצללית החדש. הן מוכיחות שה־NPU
+רץ, אך לא את איכות הזיהוי עם הקלט החדש. אחרי בדיקת התמונות יש להריץ מחדש את
+שלבים 04–09; רק HIL תואם־frame מחזיר את טענת ההתאמה בין Python לקושחה.
+
 `DATASET STREAM ON` מכבה אוטומטית את מפת ה־ANSI של `MAP ON`, אבל איננו עוצר
 את החיישן ואיננו תלוי במסך SPI. task העיבוד ממיר כל pixel של מערך ה־float
 הטרנספורמי ל־`uint16` מילימטר, מסמן invalid כ־`0xFFFF`, מכין record בתוך אחד
 משני buffers סטטיים של CDC ושולח ללא allocation וללא המתנה ל־USB הפיזי. אם
 שני buffers תפוסים, הפריים נספר כ־dropped וה־ToF ממשיך—זרם האימון לעולם אינו
-אמור לעצור את acquisition task.
+אמור לעצור את acquisition task. אותו record מכיל גם snapshot של 64×50 bytes
+שנלקח לפני ש־Neural‑ART משתמש מחדש ב־activation arena; לכן שני ה־payloads
+חולקים frame ID ואינם יכולים להגיע מפריימים סמוכים.
 
-### N6DF v2
+### N6DF v3
 
-כל המספרים little-endian. גודל header הוא 64 bytes ואחריו 4536 bytes של
-`54 * 42 * uint16`.
+כל המספרים little-endian. גודל header הוא 84 bytes. אחריו 4536 bytes של
+`54 * 42 * uint16`, ומיד אחריהם 3200 bytes של `64 * 50 * uint8`.
 
 | Offset | Field | משמעות |
 |---:|---|---|
 | 0 | `N6DF` | magic לסנכרון מחדש גם אם טקסט CLI נמצא בזרם |
-| 4 | version/header size | `2` ו־`64` |
+| 4 | version/header size | `3` ו־`84` |
 | 8 | frame ID | המספר שהגיע ממנגנון ה־processing של החיישן |
 | 12 | timestamp ms | `HAL_GetTick()` בזמן processing |
 | 16 | width/height | `54`, `42` |
-| 20 | format/flags | format 1 = `uint16 mm`; bit 0 = עומק לא מסונן |
+| 20 | format/flags | format 1 = `uint16 mm`; bit 0 raw, bit 1 model tensor קיים |
 | 24 | payload size | 4536 bytes |
 | 28 | valid count | מספר pixels שאינם invalid |
 | 32 | min/max | טווח valid שנמדד בפריים |
@@ -110,19 +158,69 @@ MAP ON DISPLAY
 | 52 | class/valid | class ID ו־1 רק אם תוצאת ה־NPU שייכת ל־frame הנוכחי |
 | 54 | confidence | הסתברות quantized ביחידות permille |
 | 56 | NPU run count | מונה inference מונוטוני שמוכיח שה־NPU ממשיך לעבוד |
-| 60 | header CRC32 | CRC‑32/IEEE של bytes 0..59 |
+| 60 | model width/height | `64`, `50` |
+| 64 | model format/flags | format 2 = `uint8`; exact, binary 0/255 וסטטוס MVE |
+| 68 | model payload size | 3200 bytes |
+| 72 | model frame ID | חייב להיות זהה ל־raw frame ID |
+| 76 | model CRC32 | CRC‑32/IEEE נפרד של ה־tensor שהוזן ל־NPU |
+| 80 | header CRC32 | CRC‑32/IEEE של bytes 0..79 |
 
-Python מחפש magic, בודק sanity, ממתין לאורך המלא ובודק את שני ה־CRC. במקרה של
+Python מחפש magic, בודק sanity, ממתין לאורך המלא ובודק raw CRC, model CRC
+ו־header CRC. לאחר מכן הוא מפעיל `preprocess_depth()` על ה־raw ומשווה את כל
+3200 ה־bytes ל־tensor של הבקר. הבדל של pixel אחד עוצר את Capture לפני שמירה.
+במקרה של
 byte חסר או טקסט בין records הוא מתקדם byte אחד ומסתנכרן מחדש. HIL דורש גם
 ש־frame ID יתקדם; CRC תקין לבדו לא מגלה FW שמשדר שוב ושוב record ישן.
-ה־decoder עדיין קורא N6DF v1 כדי שלא לשבור captures וכלי בדיקה ישנים, אך רק
-v2 מסוגל להוכיח inference ב־Neural‑ART עבור אותו frame.
+ה־decoder עדיין קורא N6DF v1/v2 לכלים ישנים, אך Capture דורש v3. v2 יכול
+להצמיד scores לפריים, אך אינו מסוגל להוכיח מה היו 3200 bytes בכניסת ה־NPU.
 
 ניתוק CN8, כניסה ל־firmware update או reset מכבים את הזרם. גם סגירת handle של
 ה־COM במחשב מורידה DTR ומכבה מייד את `MAP` ואת `DATASET STREAM`, בעוד רכישת
 ה־ToF ממשיכה ברקע. כך גם קריסה של Python אינה משאירה producer בינארי שממלא
 את תור ה־CDC; הפעלה הבאה יכולה לפתוח את אותו COM ולהמשיך. הפקודה `MAP ON`
 מכבה את הזרם הבינארי גם היא כדי שלא לערבב binary ו־ANSI.
+
+### VIEW_LIVE — צפייה מלאה ללא קריעת פריימים
+
+`MAP ON` שולח פקודות צבע ANSI ו־Tera Term מצייר אותן שורה אחר שורה. זה טוב
+לדיבוג CLI, אבל צילום המסך עלול לתפוס את הטרמינל באמצע מעבר בין שני frames.
+`VIEW_LIVE.bat` אינו קורא ANSI: הוא משתמש בחבילות התמונה הבינאריות והממוסגרות
+של `N6DF v3`, ולכן יודע היכן frame מתחיל ונגמר.
+
+לצפייה חיה יש לסגור תחילה את Tera Term, משום שרק תוכנה אחת יכולה להחזיק את
+CN8/COM בכל רגע, ואז להפעיל מתוך תיקיית `training`:
+
+```bat
+VIEW_LIVE.bat
+```
+
+ללא פרמטרים מופיע תפריט דומה לזה:
+
+```text
+Available serial ports:
+  1. COM8   USB Serial Device  [CN8 - recommended]
+  2. COM6   STMicroelectronics STLink Virtual COM Port
+Select COM port [default 1]:
+```
+
+אפשר ללחוץ Enter לבחירה המומלצת, להקליד את המספר משמאל, או לדלג על התפריט:
+
+```bat
+VIEW_LIVE.bat --port COM8
+```
+
+ה־viewer מדפיס תמיד איזה COM נפתח ושולח אוטומטית `MAP OFF` ולאחריו
+`DATASET STREAM ON`. בכל record קיימים `frame_id`, רוחב וגובה raw בשדות
+16/18, רוחב וגובה model בשדות 60/62, אורכי שני ה־payloads ושלושה CRCs.
+התוכנה ממתינה לחבילה שלמה ותקינה ורק אז מחליפה bitmap שלם ב־Tk; פריים חדש
+אינו יכול להיכנס באמצע ציור של הפריים הקודם.
+
+בחלון מוצגות זו לצד זו מפת העומק הגולמית ותמונת ה־`uint8` המדויקת שנמסרה
+ל־NPU. מתחתיהן מופיעים המידות שהגיעו מהבקר, מספר frame, קצב התצוגה, CRC של
+כל payload ו־`DEVICE/PYTHON BIT-EXACT`. אם הממשק הגרפי איטי, פריימים שלמים
+ישנים נזרקים לטובת latency נמוך — אף פעם לא מוצג חצי פריים. סגירת החלון או
+Escape שולחים `DATASET STREAM OFF` וסוגרים את ה־COM. הכלי אינו שומר דוגמאות
+אימון ואינו משנה את המודל.
 
 ## מבנה התיקייה
 
@@ -135,8 +233,10 @@ training/
   models/                  checkpoint, Keras, TFLite וחוזה tensors
   generated/               פלט STEdgeAI ו־firmware integration staging
   reports/                 דוחות JSON/CSV ו־HIL
+  review/                  החלטות ביקורת ו-cache של דירוג חשודים
   state/                   manifests שמאפשרים resume/idempotence
   00_SETUP.bat ...         כניסה מודרכת לכל שלב
+  VIEW_LIVE.bat            Viewer מלא ל־raw ול־NPU עם בחירת COM
   BUILD_MODEL_FOR_N6.bat   orchestrator משלבים 03–08
   99_STATUS_RESUME.bat     תמונת מצב read-only
   RESET_TRAINING_DATA.bat  איפוס מוגן של data ותוצרי הלמידה
@@ -145,10 +245,48 @@ training/
 התיקיות הגדולות/מקומיות מוחרגות מ־Git, אבל קובצי `.gitkeep`, הקוד וה־config
 נשמרים. אין מחיקה אוטומטית של raw data, model או checkpoint. כשרוצים להתחיל
 ניסוי נקי מריצים `RESET_TRAINING_DATA.bat` ומקלידים `DELETE`. הוא מוחק רק את
-`data/raw`, `data/prepared`, `models`, `generated`, `reports`, `state` ואת
+`data/raw`, `data/prepared`, `models`, `generated`, `reports`, `review`, `state` ואת
 `st_ai_output`. הוא משאיר את כלי העבודה ואת המודל האחרון שכבר נמצא
 ב־`AppliNonSecure/AI`, כדי שה־FW יישאר buildable ויוכל לצלם dataset חדש; שלב
 08 יחליף את המודל הזה בהמשך. נכתב גם `reset_log.json` עם פירוט האיפוס.
+
+## דוח HTML אינטראקטיבי — ANALYZE_TRAINING
+
+`ANALYZE_TRAINING.bat` הוא כלי לימודי ו־read-only ביחס לשרשרת המודל. אפשר
+להריץ אותו בכל שלב; הוא אינו מצלם, מאמן, משנה raw/prepared data, מחליף מודל,
+בונה firmware או ניגש ללוח. הוא קורא את ה־metadata, הדוחות, ה־CSV, מודלי
+Keras/TFLite ודוח ה־HIL הקיימים, מריץ inference מקומי על הפריימים השמורים
+כאשר המודלים זמינים, ופותח דוח HTML בעברית.
+
+כל הפעלה יוצרת snapshot חדש תחת:
+
+```text
+reports/html/YYYYMMDD_HHMMSS__<model-hash>/
+```
+
+`reports/html/latest.html` הוא רק קיצור דרך לדוח האחרון. תיקיות ה־snapshot
+הקודמות אינן נדרסות, אך הן עדיין snapshots של ה־pipeline הנוכחי ולא מערכת
+model-runs מלאה ששומרת עותק עצמאי של כל model artifact.
+
+הדוח כולל:
+
+- `index.html` — תמונת מצב ומסלול קריאה;
+- `dataset.html` — samples, sessions, bursts וחלוקת train/validation/test;
+- `training.html` — עקומות accuracy/loss, confusion matrix ו־Precision/Recall/F1;
+- `predictions.html` — גלריה מסוננת של raw preview, model input, label,
+  תשובת TFLite, confidence וארבעת ציוני ה־int8;
+- `quantization.html` — Keras מול TFLite וחוזה tensor;
+- `npu_hil.html` — coverage, class agreement, raw-score delta ותחבורת N6DF;
+- `files.html` — המקור, זמן העדכון ו־SHA-256 של כל דוח משמעותי.
+
+אפשר ליצור דוח מהיר ללא טעינת TensorFlow באמצעות:
+
+```bat
+ANALYZE_TRAINING.bat --skip-inference
+```
+
+דוח מהיר עדיין מסביר את JSON/CSV הקיימים, אך גלריית הפריימים לא תקבל תחזיות
+Keras/TFLite חדשות. ברירת המחדל המומלצת היא ההרצה המלאה ללא arguments.
 
 ## עבודה לפי שלבים
 
@@ -169,19 +307,26 @@ training/
 
 לאחר מכן מריצים `01_CAPTURE.bat`:
 
+- ללא arguments נפתח תפריט: session חדש, המשך session קיים מתוך רשימה עם
+  ספירות, הגדרות מתקדמות, או הצגת sessions. במצב המתקדם אפשר לבחור את כל
+  אפשרויות הסקריפט: `port`, `session`, `label`, יעד למחלקה, samples ל־burst
+  וקצב שמירה. העברת arguments מפורשים ל־BAT ממשיכה לעקוף את התפריט.
 - התוכנה מאתרת בדיוק device אחד עם VID `0483`, PID `5740`. אפשר להעביר
   `--port COM12` כשמחוברים כמה devices.
 - היא שולחת `MAP OFF`, לאחר מכן `DATASET STREAM ON`, ומציגה זו לצד זו את מפת
-  העומק הגולמית ואת `MODEL INPUT` המדויק שהלמידה וה־NPU יקבלו. אם האצבעות אינן
-  ברורות בחלון הימני — לא מצלמים את ה־burst.
+  העומק הגולמית ואת `MODEL INPUT` שהגיע מהבקר. לפני התצוגה Python מחשב את אותו
+  input עצמאית ודורש התאמה bit-for-bit; השורה
+  `DEVICE/PYTHON BIT-EXACT` מאשרת זאת. אם האצבעות אינן ברורות בחלון הימני —
+  לא מצלמים את ה־burst.
 - `R`, `P`, `S`, `N` בוחרים label.
 - רווח מתחיל burst רציף; מזיזים את היד ימינה/שמאלה, למעלה/למטה, מסובבים מעט
   ומשנים מרחק. לאחר הלחיצה יש countdown של 1.5 שניות שבו מחזיקים את המחווה
   יציבה; רק אחריו מתחילה שמירה. כך פריים של מעבר בין תנוחות אינו מקבל label
   שגוי. רווח נוסף מסיים את ה־burst.
 - ה־BAT שואל בתחילתו כמה samples לשמור בכל מחלקה. ברירת המחדל היא 96.
-  כל sample שומר גם `model_inputs/*.model.png`, ולכן אפשר לבדוק בדיעבד בדיוק
-  מה הוזן למודל ולא רק preview צבעוני של החיישן.
+  כל sample שומר את tensor הבקר בתוך ה־NPZ וגם
+  `model_inputs/*.model.png`, ולכן אפשר לבדוק בדיעבד בדיוק מה הוזן למודל ולא
+  רק preview צבעוני של החיישן.
 - פריימים נשמרים בקצב 3Hz כברירת מחדל. פריימים כמעט זהים מדולגים כדי לא למלא
   את הדאטה במאות העתקים של אותה תנוחה.
 - כל לחיצה חדשה על רווח יוצרת `burst_id`. ברירת המחדל דורשת לפחות 8 bursts
@@ -225,6 +370,27 @@ D:\old_depth\none\*.png
 8-bit מתקבל רק עם `--allow-8bit`, מומר בקירוב לפי near/far ומסומן
 `approximate_from_uint8` כדי שלא נתבלבל בעת ניתוח איכות.
 
+### 02 — ביקורת אנושית לא־הרסנית
+
+לאחר כל סבב צילום או יבוא מריצים `02_REVIEW_DATASET.bat`. הכלי אינו מוחק או
+משנה RAW/metadata; הוא שומר החלטות לפי SHA-256 ב־`review/dataset_review.json`.
+`Accept`, `Reject` ו־`Relabel` מיושמים אחר כך באופן אחיד ב־Capture, Validate,
+Prepare ובדוח HTML. החלטה ניתנת לביטול או לניקוי בכל רגע.
+
+ברירת המחדל `Recommended first` מדרגת קודם אובייקט חסר, חיתוך אפשרי בגבול,
+גודל חריג, כפילות, חוסר הסכמה עם המודל ו־confidence נמוך. אלה המלצות לבדיקה
+בלבד; המודל לעולם אינו פוסל פריים אוטומטית. `→ none/rock/paper/scissors`
+גם מתקן label וגם מאשר את הפריים, ולכן אין צורך ללחוץ אחריו `Accept`.
+`Recommended first`, `Unreviewed` ו־`Flagged only` מסתירים מיד פריים שקיבל
+החלטה; כשהתור ריק סיימנו אותו. `All` ו־`Rejected` מאפשרים לחזור להחלטות.
+
+אם Review מגלה שבתוך burst אחד נשמרו בטעות כמה מחוות, מותר לתקן כל פריים לפי
+מה שבאמת מופיע בו או לדחות אותו. Stage 04 מקבץ לפי `session_id + burst_id`,
+ללא תלות ב־label, ולכן כל הפריימים הסמוכים נשארים יחד באותו split ולא נוצרת
+דליפה בין Train ל־Test. `Apply action to entire burst` נשאר כאפשרות נוחה כאשר
+כל ה־burst תויג לא נכון; Relabel קבוצתי אינו מאשר מחדש פריימים שכבר נדחו.
+כל כפתור החלטה עובר אוטומטית לפריים הבא, ו־`Undo` משחזר גם פעולה קבוצתית.
+
 ### 03 — ולידציה
 
 `03_VALIDATE.bat` אינו משנה raw data. הוא בודק:
@@ -243,29 +409,43 @@ D:\old_depth\none\*.png
 `04_PREPARE.bat` מיישם חוזה יחיד שמאוחר יותר חייב להיות משוכפל bit-for-bit
 ב־FW:
 
-1. invalid וכל מה שמחוץ ל־100..1200mm הופכים לרקע 0;
+1. invalid וכל מה שמחוץ לטווח הייצור 100..600mm הופכים לרקע 0;
 2. ספי עומק נבדקים בהדרגה מ־percentile 1 ועד 100;
 3. בכל סף נמצאים רכיבי 8-neighbor מחוברים. רעש קטן מ־12 pixels נדחה, ונבחר
    הרכיב התקין הקרוב ביותר לפני שמרחיבים את החיפוש לרקע הרחוק;
-4. נשמרת רק רצועת עומק של 220mm סביב הרכיב הנבחר ומתבצע crop עם margin של 2;
-5. ערכי הרכיב מנורמלים ביחס ל־percentile 10 *של אותו רכיב*: טווח תבליט של
-   260mm ממופה ל־32..255, והרקע נשאר 0. לכן אותה יד ב־300mm וב־600mm נראית
-   כמעט זהה למודל, במקום שהמרחק האבסולוטי ישלוט בהחלטה;
-6. ה־crop מוגדל ב־nearest-neighbor, שומר יחס ממדים, ממורכז ב־64×50 ומתקבל
-   `uint8` NHWC `[N,50,64,1]`.
+4. רצועת 220mm משמשת רק למציאת seed אמין. ממנו מתבצעת צמיחת אזור אל שכנים
+   שהפרש העומק המקומי שלהם עד 120mm. כך נייר אלכסוני בעל טווח עומק מצטבר גדול
+   אינו נחתך לרצועות, ומגבלת 600mm עדיין מוחלטת;
+5. מתבצע crop עם margin של 4 pixels ברזולוציית החיישן. בנוסף נשמרת מסגרת
+   קבועה של 4 pixels בקנבס 64×50, גם כאשר האובייקט נוגע בשפת החיישן;
+6. ערכי הרכיב מנורמלים ביחס ל־percentile 10 *של אותו רכיב*: טווח תבליט של
+   260mm ממופה זמנית ל־32..255 והרקע נשאר 0;
+7. ה־crop מוגדל ב־nearest-neighbor, שומר יחס ממדים וממורכז ב־64×50;
+8. רק pixel שעוצמת העומק המנורמלת שלו גבוהה מ־210 נדרס ל־255; השאר הופכים
+   לרקע 0. לאחר מכן dilation יחיד של 3×3 מתקן חורים ופסי dropout דקים. כך
+   הזרוע הרחוקה יותר מסוננת ותבליט עומק פנימי אינו הופך לרעש. התוצאה היא
+   `uint8` בינארי NHWC `[N,50,64,1]`.
 
 Nearest-neighbor נבחר מפני שקל לממש אותו באופן זהה ב־C והוא אינו ממציא מרחק
-ביניים. percentile/crop דורשים ב־FW histogram קטן ו־bounding box, ועדיין אינם
+ביניים. ה־dilation מתבצע ב־Helium/MVE. percentile/crop דורשים ב־FW histogram קטן ו־bounding box, ועדיין אינם
 דורשים floating point או allocator. הקונפיגורציה נמצאת ב־`config/preprocessing.json`;
 שינוי בה משנה hash ומכריח הכנה ואימון מחדש.
 
-הפיצול איננו random לפי frame. כל `burst_id` נשאר כולו ב־train, validation או
+במסלול המודרך Stage 04 משתמש ב־tensor שהבקר שמר בתוך ה־NPZ, מחשב שוב את
+גרסת Python ודורש שוויון מלא לפני הכנסת הדוגמה ל־train/validation/test. דגימה
+ישנה או מיובאת שאין בה tensor של N6DF v3 נדחית כברירת מחדל. רק שימוש מפורש
+ב־`04_prepare_dataset.py --allow-host-preprocessing` מאפשר legacy data ומסומן
+ב־manifest כ־host-only; זו איננה הוכחת התאמה לבקר.
+
+הפיצול איננו random לפי frame. כל צמד `session_id + burst_id` נשאר כולו
+ב־train, validation או
 test. אחרת frame 100 יכול להיות ב־train ו־frame 101 הכמעט זהה ב־test, ולקבל
 accuracy מרשים אך שקרי. exact duplicates נשמרים פעם אחת בלבד. מבין החלוקות
 החוקיות נבחרת החלוקה הקרובה ביותר ל־70/15/15 לפי מספר samples בכל מחלקה—not
 לפי מספר bursts בלבד. שער נוסף דורש לפחות 10 samples מכל מחלקה בכל split
 ולפחות 50% מדוגמאות המחלקה ב־train; burst זעיר של תמונה אחת אינו יכול להפוך
-ל־validation שקרי.
+ל־validation שקרי. אם ביקורת אנושית תיקנה labels שונים בתוך אותו burst,
+החלוקה מאזנת את כל המחלקות יחד אך עדיין שומרת את ה־burst הפיזי בשלמותו.
 
 ### 05 — אימון
 
@@ -273,7 +453,8 @@ accuracy מרשים אך שקרי. exact duplicates נשמרים פעם אחת �
 `GlobalAveragePooling`, שאיבד את מיקום האצבעות ועודד את המודל לספור בעיקר את
 שטח הכתם, נעשה `Flatten` ולאחריו Dense קטן. כך נשמר המבנה המרחבי של אגרוף,
 כף יד ושתי אצבעות. רק נתוני train עוברים augmentation דטרמיניסטי: הזזה של עד
-4 pixels, mirror אופקי ושינוי עוצמה קטן. validation ו־test נשארים מדידות אמת
+4 pixels ו־mirror אופקי. שינוי עוצמה מבוטל כדי לשמור על חוזה הצללית 0/255;
+validation ו־test נשארים מדידות אמת
 בלתי משונות. הרשת עדיין פשוטה בכוונה:
 
 - מעט parameters וזיכרון;
@@ -360,6 +541,15 @@ set STEDGEAI_PATH=C:\path\to\stedgeai.exe
 stedgeai generate -m rps_int8.tflite --target stm32n6 --st-neural-art \
   -n rps_tof -o generated/st_ai_output
 ```
+
+אם מריצים את `07_GENERATE_N6.bat` והפלט כבר תואם ל־TFLite ולכלי הנוכחיים,
+ה־BAT שואל אם ליצור אותו מחדש עם `--force`. תשובת `N` משאירה את הקבצים
+התקינים כפי שהם; תשובת `Y` מוחקת רק את `generated/st_ai_output` ומפעילה שוב
+את קומפיילר Neural‑ART. קריאה ישירה מה־orchestrator נשארת לא־אינטראקטיבית.
+
+שלב 07 מקמפל את **המודל** ל־Neural‑ART בלבד. שינוי בקובצי Firmware כגון
+`tof_app.c` דורש Build של `AppliNonSecure`, ולא מצריך `--force` בשלב 07 כל
+עוד קובץ ה־TFLite עצמו לא השתנה.
 
 סוגי ה־I/O נלקחים מה־TFLite הכמותי עצמו; אין להעביר כאן
 `--input-data-type uint8`, משום שב־STEdgeAI 4.0 הדגל מיועד להמרת טיפוס ועלול

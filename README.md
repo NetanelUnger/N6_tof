@@ -3,7 +3,13 @@
 The guided, resumable ToF rock-paper-scissors pipeline is documented in
 [training/README_HE.md](training/README_HE.md). It includes the
 `DATASET STREAM ON|OFF|STATUS` binary CDC protocol, capture/validation/model
-BAT stages, atomic embedded-weight deployment, and frame-exact Neural-ART HIL.
+BAT stages, atomic embedded-weight deployment, frame-exact Neural-ART HIL, and
+`VIEW_LIVE.bat`, which atomically swaps complete CRC-validated raw/model frames
+at full stream rate without relying on progressive ANSI terminal rendering, plus
+`ANALYZE_TRAINING.bat`, which creates an offline Hebrew HTML explanation of
+the dataset, learning curves, confusion matrix, saved-frame Keras/TFLite
+predictions, quantization contract, and current HIL report without modifying
+the model or firmware.
 
 This document explains the architecture, STM32CubeMX configuration, post-generation changes, RTOS tasks, build and programming flow, debugging strategy, and current engineering status of the project.
 
@@ -37,7 +43,7 @@ Current status:
 | USB CDC | Working; Windows creates a separate COM port backed by a manager task, independent RX/TX workers, callback-driven TX, and fixed static slots |
 | USB CDC XMODEM firmware update | Implemented and build-verified; hardware transfer and rollback validation are pending |
 | GC9A01 round display | Working from SRAM: the DMA-backed task renders the numbered ToF map and its frame-matched NPU summary; 38/38 submitted frames rendered with zero errors in the latest non-visual HIL check |
-| Rock/paper/scissors Neural-ART | Working on hardware from SRAM: 100/100 frame-matched NPU results, monotonic run counter, zero NPU errors, and 100% host/device class agreement |
+| Rock/paper/scissors Neural-ART | Runtime is hardware-proven, but the embedded weights predate the new 600 mm binary-silhouette contract and must be retrained/reintegrated before classification accuracy is considered valid |
 | ST67 Wi-Fi/BLE | Driver and dedicated task are present, but intentionally disabled because the shield is not currently installed |
 | Wi-Fi/BLE OTA transport | Not implemented; it can reuse the authenticated byte-stream installer when the radio is enabled |
 
@@ -69,7 +75,9 @@ submitted ToF frame and exposes the rendered result through `status`; a
 non-visual hardware check observed NPU frame 356 and rendered frame 356,
 `NOTHING` at 921/1000 confidence, 38 submitted/38 rendered, and zero display
 errors. This validation was performed from SRAM and did not change Flash or
-the persistent firmware version.
+the persistent firmware version. It proves the Neural-ART runtime and
+frame-matching path, but its accuracy result predates the 2026-08-28 binary
+preprocessing change and is not a validation of the new classifier contract.
 
 The authenticated A/B updater added later on 2026-07-31 has passed compilation,
 linking, image signing, and package-generation checks. It has not yet been sent
@@ -517,11 +525,11 @@ Available CLI commands:
 | usb status | Show CDC session, static-slot usage, queues, callback completions, flow control, and errors |
 | map on / map off | Show or hide the depth map |
 | map processing | Show the depth-filter submenu and current `[V]` selection |
-| map processing off/box/median/gaussian/sharpen/min/max | Select the displayed depth filter |
+| map processing off/box/median/gaussian/sharpen/min/max/object 1..6/npu | Select a displayed depth filter, one cumulative teaching stage, or the exact NPU input |
 | map processing `<filter>` `<parameter>` `<value>` | Configure the selected filter, for example `MAP PROCESSING BOX radius 2` |
 | tof status | Show ToF state, rate, and range |
 | tof pause / tof resume | Stop or restart the autonomous ranging stream |
-| dataset stream on / off / status | Start, stop, or inspect CRC-protected `N6DF` 54x42 `uint16` millimetre frames for the Python training pipeline |
+| dataset stream on / off / status | Stream N6DF v3 records containing raw 54x42 `uint16` depth and the exact frame-matched 64x50 `uint8` NPU tensor with separate CRCs |
 | debug off/error/warn/info/debug | Change ST67 log verbosity |
 | clear | Clear the terminal |
 | Start UART Firmware Update | Enter raw XMODEM-CRC receive mode on the CN8 USB CDC terminal (`update` is an alias) |
@@ -948,7 +956,8 @@ Separate pools help diagnose failures. A PSP address can be matched to a pool to
 
 The upper 176 KiB of NPU SRAM3 (`0x24244000..0x2426FFFF`) holds the CDC worker
 stacks/slots and RPS preprocessing scratch. This keeps 396,264 bytes between
-the SRAM2 `_end` symbol and MSP stack in the current linked image, above the
+the SRAM2 `_end` symbol and MSP stack in the older linked image; the current
+N6DF v3 build reports 384,360 bytes of C heap capacity, still above the
 360 KiB VL53L9 guard. The current generated network uses SRAM5 for activations
 and SRAM6 for its 49,809-byte weight blob; Stage 08 rejects a future network
 that selects the reserved SRAM3 bank.
@@ -1046,7 +1055,7 @@ has been authenticated and finalized. The `version` CLI command reports the
 running application version and is also used by the automation after reset.
 Run `training\08B_BOOTSTRAP_NPU_SWD.bat` once first: it programs only signed
 FSBL + Secure and preserves both application slots/metadata. The guided release
-BAT also requires a passing N6DF v2 host-vs-NPU HIL fingerprint before it asks
+BAT also requires a passing N6DF v3 raw-vs-device-tensor-vs-NPU HIL fingerprint before it asks
 for the explicit `FLASH` confirmation.
 
 ### 9.3 Jumper positions
@@ -1140,7 +1149,35 @@ display and return to the menu. `MAP PROCESSING` opens the filter submenu.
 Box and Gaussian blur provide configurable radius and pass count. Median has a
 radius and outlier threshold, Sharpen has radius and amount, while Min and Max
 select the nearest or farthest valid neighbor. The selected filter is marked
-with `[V]` and is applied only to the displayed map.
+with `[V]` and is applied only to the displayed map. The cumulative
+`MAP PROCESSING OBJECT 1` through `OBJECT 7` views expose the object pipeline
+one transformation at a time: valid depth, adaptive candidates, selected
+connected component, crop/relative normalization/resize, the 600 mm model
+limit plus local surface growth (up to 120 mm between neighbors), a wider
+four-source-pixel crop margin, and a guaranteed four-pixel model-canvas border,
+and finally an aggressive binary silhouette: every non-zero OBJECT 5
+pixel becomes 255 and one MVE-accelerated 3x3 dilation repairs thin sensor
+dropout stripes. Experimental OBJECT 7 instead keeps only normalized OBJECT 5
+intensities above a configurable threshold, so increasing the value removes
+surfaces farther behind the palm. Use `MAP PROCESSING OBJECT 7 210` for the
+short form or `MAP PROCESSING OBJECT 7 threshold 210`; the accepted range is
+0..255 and the default is 210. Hardware testing selected 210 for production,
+so the NPU tensor and Python bit-exact verifier use that fixed threshold.
+Changing the OBJECT 7 teaching value remains display-only and cannot silently
+alter the production contract. `MAP PROCESSING NPU` shows the exact
+64x50 production tensor consumed by Neural-ART for that frame. It is black when
+no component of at least 12 connected pixels exists between 100 and 600 mm;
+otherwise its selected object is 255 and its background is 0. This deliberately
+removes centimetre-scale relief inside a hand while retaining its outline.
+
+The persistent display snapshot is necessary because the generated NPU network
+reuses its activation arena, including the input address, during a run. The
+aspect-preserving nearest-neighbor resize and copy into the preallocated NPU
+input use Cortex-M55 Helium/MVE vector gather/load/store instructions;
+inference remains on Neural-ART. Only the requested teaching view is preserved,
+so the seven stages do not reserve seven frame buffers. The GC9A01 `MAP ON SCREEN`
+path intentionally remains the 54x42 depth map in these modes. The old
+`MAP PROCESSING OBJECT` spelling remains an alias for `MAP PROCESSING NPU`.
 
 ## 11. Recommended debugging order
 
@@ -1161,6 +1198,76 @@ arm-none-eabi-addr2line.exe -a -f -C -e .\project\AppliNonSecure\Debug\N6_AppliN
 ~~~
 
 ## 12. Change log
+
+### 2026-08-29
+
+- Added `MAP PROCESSING OBJECT 7 <threshold>`. It thresholds the
+  normalized OBJECT 5 depth image before producing a repaired 0/255 silhouette;
+  higher values retain only surfaces nearer the palm and can suppress the arm.
+  The parameter range is 0..255 with a default of 210, and the named form
+  `MAP PROCESSING OBJECT 7 threshold <value>` remains available. This teaching
+  experiment selected 210 on hardware; that value is now fixed in the NPU
+  tensor and host bit-exact preprocessing contract. Further interactive OBJECT
+  7 changes remain display-only until promoted in both implementations.
+
+### 2026-08-28
+
+- Extended the training stream to N6DF v3. Every record now contains both the
+  raw 54x42 millimetre map and the exact frame-matched 64x50 pre-inference
+  tensor preserved by the MCU, with independent payload CRCs and a header CRC.
+  Capture recomputes Python preprocessing and stops before saving if any of the
+  3,200 bytes differs. The verified device tensor is stored in the sample NPZ;
+  Stage 04 uses it as the training input, rechecks Python equality, and refuses
+  legacy/host-only samples unless `--allow-host-preprocessing` is explicit.
+- Replaced the single object view with cumulative `MAP PROCESSING OBJECT 1..6`
+  teaching views and `MAP PROCESSING NPU` for the exact model input. The final
+  production path now ignores all depth beyond 600 mm, produces an all-black
+  image when no nearby non-trivial component exists, grows its near seed across
+  locally continuous depth so tilted sheets are not sliced into bands, uses a
+  four-source-pixel crop margin plus a four-pixel model-canvas border, and flattens the selected
+  object to a 0/255 silhouette after resize. Every non-zero pixel becomes 255,
+  then one MVE-accelerated 3x3 dilation repairs thin sensor dropout stripes so
+  internal hand relief cannot become model noise. Python preprocessing and augmentation use
+  the same binary contract; this configuration change invalidates prepared
+  tensors and requires stages 04 through 09 before the embedded classifier can
+  be considered matched again.
+- The firmware preserves one requested teaching snapshot plus the final NPU
+  snapshot because the Neural-ART activation schedule overwrites its input
+  arena. Nearest-neighbor resize and the snapshot-to-NPU copy use Cortex-M55
+  MVE vector operations with a scalar build fallback; the binary dilation does
+  too, and inference continues on
+  Neural-ART. The SPI screen path remains a 54x42 depth visualization.
+
+### 2026-08-25
+
+- Changed the live ToF terminal's four NPU outputs from raw signed INT8 scores
+  to decoded percentages with one decimal place. The displayed class list and
+  winning-class confidence now share the model's `scale=1/256`,
+  `zero_point=-128` conversion and nearest-tenth rounding.
+- Made `training/07_GENERATE_N6.bat` ask whether to regenerate with `--force`
+  when its Neural-ART output is already current, while keeping direct pipeline
+  script calls non-interactive.
+- Added a guided `01_CAPTURE.bat` menu for new sessions, numbered resume with
+  per-class counts, all advanced capture settings, and read-only session
+  listing; explicit command-line arguments still bypass the menu.
+- Added non-destructive `02_REVIEW_DATASET.bat`: it prioritizes technically
+  suspicious/model-disagreement frames for human Accept/Reject/Relabel,
+  persists reversible SHA-keyed decisions outside raw metadata, supports a
+  whole-burst action when useful, and feeds the same reviewed labels into
+  Capture, Validate, Prepare and HTML analysis. Stage 04 now supports corrected
+  mixed-label bursts by grouping on physical session+burst identity and finding
+  a global class-balanced split, so adjacent frames never leak across splits.
+
+### 2026-08-24
+
+- Added `training/ANALYZE_TRAINING.bat` and a read-only Python analysis stage.
+  Each invocation creates a timestamped offline HTML snapshot with a dashboard,
+  dataset/session/burst and split analysis, training accuracy/loss curves,
+  explained confusion matrix and per-class metrics, an interactive saved-frame
+  gallery with Keras/TFLite inference, quantization details, HIL interpretation,
+  and traceable source-file hashes. `reports/html/latest.html` points only to
+  the newest snapshot; no raw/prepared data, model, state, generated NPU code,
+  firmware, or hardware is changed.
 
 ### 2026-08-23
 

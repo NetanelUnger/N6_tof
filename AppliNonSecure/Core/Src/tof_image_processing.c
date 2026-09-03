@@ -77,6 +77,11 @@ static const TOF_ImageFilterParameter_t tof_extremum_parameters[] =
     { "radius", "pixels", 1U, 3U, 1U },
 };
 
+static const TOF_ImageFilterParameter_t tof_object_7_parameters[] =
+{
+    { "threshold", "level", 0U, 255U, 210U },
+};
+
 /* Adding a filter requires one registration and one allocation-free callback. */
 static const TOF_ImageFilterRegistration_t tof_filters[] =
 {
@@ -130,6 +135,56 @@ static const TOF_ImageFilterRegistration_t tof_filters[] =
           sizeof(tof_extremum_parameters) /
           sizeof(tof_extremum_parameters[0]) },
         tof_apply_maximum
+    },
+    {
+        { TOF_IMAGE_FILTER_OBJECT_1, "OBJECT 1", "Object stage 1",
+          "valid 100..1200 mm depth before object selection",
+          NULL, 0U },
+        tof_apply_none
+    },
+    {
+        { TOF_IMAGE_FILTER_OBJECT_2, "OBJECT 2", "Object stage 2",
+          "adaptive near-depth candidates before component selection",
+          NULL, 0U },
+        tof_apply_none
+    },
+    {
+        { TOF_IMAGE_FILTER_OBJECT_3, "OBJECT 3", "Object stage 3",
+          "nearest component grown across locally continuous depth",
+          NULL, 0U },
+        tof_apply_none
+    },
+    {
+        { TOF_IMAGE_FILTER_OBJECT_4, "OBJECT 4", "Object stage 4",
+          "crop, relative-depth normalization and centered 64x50 resize",
+          NULL, 0U },
+        tof_apply_none
+    },
+    {
+        { TOF_IMAGE_FILTER_OBJECT_5, "OBJECT 5", "Object stage 5",
+          "600 mm surface growth plus wider crop and model margins",
+          NULL, 0U },
+        tof_apply_none
+    },
+    {
+        { TOF_IMAGE_FILTER_OBJECT_6, "OBJECT 6", "Object stage 6",
+          "non-zero becomes white; 3x3 repair fills thin dropout stripes",
+          NULL, 0U },
+        tof_apply_none
+    },
+    {
+        { TOF_IMAGE_FILTER_OBJECT_7, "OBJECT 7", "Object stage 7",
+          "near-depth binary threshold; higher values remove more arm",
+          tof_object_7_parameters,
+          sizeof(tof_object_7_parameters) /
+          sizeof(tof_object_7_parameters[0]) },
+        tof_apply_none
+    },
+    {
+        { TOF_IMAGE_FILTER_NPU, "NPU", "NPU processing",
+          "all production stages; exact 64x50 tensor with threshold 210",
+          NULL, 0U },
+        tof_apply_none
     },
 };
 

@@ -12,7 +12,10 @@ echo The script invokes --target stm32n6 --st-neural-art and rejects
 echo output that does not contain Neural-ART/LL_ATON code or weight blobs.
 echo It never silently falls back to Cortex-M55 inference.
 echo.
-"%TRAINING_PY%" scripts\07_generate_n6.py %*
+rem This BAT is the interactive entry point. If the generated Neural-ART
+rem artifacts are already current, Python asks whether to regenerate them.
+rem Direct script/orchestrator calls remain non-interactive.
+"%TRAINING_PY%" scripts\07_generate_n6.py --ask-force %*
 set "RESULT=%ERRORLEVEL%"
 pause
 exit /b %RESULT%

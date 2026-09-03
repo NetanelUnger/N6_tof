@@ -52,9 +52,10 @@
 #define TOF_DEPTH_PIXEL_COUNT      (TOF_DEPTH_WIDTH * TOF_DEPTH_HEIGHT)
 #define TOF_PIPELINE_READY_FLAG    (1UL << 0)
 #define TOF_DATASET_MAGIC          (0x4644364EUL) /* "N6DF", little-endian */
-#define TOF_DATASET_VERSION        (2U)
-#define TOF_DATASET_HEADER_SIZE    (64U)
+#define TOF_DATASET_VERSION        (3U)
+#define TOF_DATASET_HEADER_SIZE    (84U)
 #define TOF_DATASET_PIXEL_FORMAT   (1U) /* unsigned 16-bit millimetres */
+#define TOF_DATASET_MODEL_FORMAT   (2U) /* unsigned 8-bit model input */
 #define TOF_DATASET_INVALID_MM     (0xFFFFU)
 
 typedef struct
@@ -128,7 +129,8 @@ static void __attribute__((optimize("Os")))
 tof_render_frame(const float *depth, uint8_t width, uint8_t height,
                  uint32_t frame_counter, uint32_t elapsed_ms,
                  const TOF_ImageProcessingConfig_t *processing,
-                 const RPS_AI_Status_t *rps_status);
+                 const RPS_AI_Status_t *rps_status,
+                 const RPS_AI_ImageView_t *processing_view);
 static void __attribute__((optimize("Os")))
 tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
                          uint32_t frame_counter, uint32_t timestamp_ms,
@@ -142,6 +144,10 @@ tof_write_u32(uint8_t *destination, uint32_t value);
 static size_t append_text(size_t pos, const char *text);
 static size_t append_u32(size_t pos, uint32_t value);
 static uint8_t depth_to_color(float distance_mm);
+static uint8_t model_input_to_color(uint8_t value);
+static uint32_t tof_filter_is_rps_view(TOF_ImageFilter_t filter);
+static RPS_AI_ViewSelection_t tof_rps_view_selection(
+    TOF_ImageFilter_t filter);
 static TOF_RawFrame_t *tof_acquire_raw_frame(void);
 static void tof_release_raw_frame(TOF_RawFrame_t *frame);
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
@@ -559,20 +565,27 @@ void TOF_App_Process(void)
         uint32_t elapsed_ms = now - previous_tick;
         TOF_ImageProcessingConfig_t processing;
         RPS_AI_Status_t rps_status;
+        RPS_AI_ImageView_t processing_view = { 0 };
         const float *display_depth = tof_depth_data;
         uint32_t display_owns_raw_frame = 0U;
         previous_tick = now;
+        TOF_App_GetMapProcessingConfig(&processing);
+        RPS_AI_SetObject7Threshold(
+            processing.values[TOF_IMAGE_FILTER_OBJECT_7][0]);
+        RPS_AI_SetViewSelection(
+            tof_rps_view_selection(processing.selected_filter));
         (void)RPS_AI_ProcessDepth(tof_depth_data, tof_depth_width,
                                  tof_depth_height,
                                  frame.p_metadata->frame_counter);
         RPS_AI_GetStatus(&rps_status);
-        TOF_App_GetMapProcessingConfig(&processing);
+        (void)RPS_AI_GetImageView(&processing_view);
         if (((tof_map_enabled != 0U)
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
              || (Display_App_IsMapEnabled() != 0U)
 #endif
             ) &&
-            (processing.selected_filter != TOF_IMAGE_FILTER_NONE))
+            (processing.selected_filter != TOF_IMAGE_FILTER_NONE) &&
+            (tof_filter_is_rps_view(processing.selected_filter) == 0U))
         {
             display_depth = TOF_ImageProcessing_Apply(
                 tof_depth_data, tof_processing_workspace,
@@ -580,7 +593,7 @@ void TOF_App_Process(void)
         }
         tof_render_frame(display_depth, tof_depth_width, tof_depth_height,
                          frame.p_metadata->frame_counter, elapsed_ms,
-                         &processing, &rps_status);
+                         &processing, &rps_status, &processing_view);
         tof_stream_dataset_frame(tof_depth_data, tof_depth_width,
                                  tof_depth_height,
                                  frame.p_metadata->frame_counter, now,
@@ -954,14 +967,57 @@ static int tof_configure_transform(transform_t *transform,
     return transform_prepare(transform);
 }
 
+static uint32_t tof_filter_is_rps_view(TOF_ImageFilter_t filter)
+{
+    return ((filter >= TOF_IMAGE_FILTER_OBJECT_1) &&
+            (filter <= TOF_IMAGE_FILTER_NPU)) ? 1U : 0U;
+}
+
+static RPS_AI_ViewSelection_t tof_rps_view_selection(
+    TOF_ImageFilter_t filter)
+{
+    switch (filter)
+    {
+        case TOF_IMAGE_FILTER_OBJECT_1: return RPS_AI_VIEW_OBJECT_1;
+        case TOF_IMAGE_FILTER_OBJECT_2: return RPS_AI_VIEW_OBJECT_2;
+        case TOF_IMAGE_FILTER_OBJECT_3: return RPS_AI_VIEW_OBJECT_3;
+        case TOF_IMAGE_FILTER_OBJECT_4: return RPS_AI_VIEW_OBJECT_4;
+        case TOF_IMAGE_FILTER_OBJECT_5: return RPS_AI_VIEW_OBJECT_5;
+        case TOF_IMAGE_FILTER_OBJECT_6: return RPS_AI_VIEW_OBJECT_6;
+        case TOF_IMAGE_FILTER_OBJECT_7: return RPS_AI_VIEW_OBJECT_7;
+        case TOF_IMAGE_FILTER_NPU:      return RPS_AI_VIEW_NPU;
+        default:                        return RPS_AI_VIEW_NPU;
+    }
+}
+
 static void __attribute__((optimize("Os")))
 tof_render_frame(const float *depth, uint8_t width, uint8_t height,
                  uint32_t frame_counter, uint32_t elapsed_ms,
                  const TOF_ImageProcessingConfig_t *processing,
-                 const RPS_AI_Status_t *rps_status)
+                 const RPS_AI_Status_t *rps_status,
+                 const RPS_AI_ImageView_t *processing_view)
 {
     const TOF_ImageFilterDescriptor_t *filter_descriptor =
         TOF_ImageProcessing_GetDescriptor(processing->selected_filter);
+    uint32_t object_requested =
+        tof_filter_is_rps_view(processing->selected_filter);
+    RPS_AI_ViewSelection_t expected_view =
+        tof_rps_view_selection(processing->selected_filter);
+    uint8_t expected_width =
+        ((expected_view >= RPS_AI_VIEW_OBJECT_1) &&
+         (expected_view <= RPS_AI_VIEW_OBJECT_3)) ? TOF_DEPTH_WIDTH :
+                                                   RPS_AI_MODEL_INPUT_WIDTH;
+    uint8_t expected_height =
+        ((expected_view >= RPS_AI_VIEW_OBJECT_1) &&
+         (expected_view <= RPS_AI_VIEW_OBJECT_3)) ? TOF_DEPTH_HEIGHT :
+                                                   RPS_AI_MODEL_INPUT_HEIGHT;
+    uint32_t object_available =
+        ((object_requested != 0U) && (processing_view != NULL) &&
+         (processing_view->pixels != NULL) &&
+         (processing_view->frame_id == frame_counter) &&
+         (processing_view->selection == expected_view) &&
+         (processing_view->width == expected_width) &&
+         (processing_view->height == expected_height)) ? 1U : 0U;
     uint32_t valid_min = UINT32_MAX;
     uint32_t valid_max = 0U;
     uint32_t valid_count = 0U;
@@ -1024,27 +1080,66 @@ tof_render_frame(const float *depth, uint8_t width, uint8_t height,
     pos = append_text(pos, " mm  filter ");
     pos = append_text(pos, (filter_descriptor != NULL) ?
                            filter_descriptor->display_name : "Off");
+    if ((object_requested != 0U) && (object_available == 0U))
+    {
+        pos = append_text(pos, " (input unavailable; raw fallback)");
+    }
     pos = append_text(pos, "\033[K\r\n");
 
-    pos = append_text(pos, "near ");
-    for (size_t i = 0U; i < sizeof(depth_palette); ++i)
+    if (object_available != 0U)
     {
-        pos = append_text(pos, "\033[48;5;");
-        pos = append_u32(pos, depth_palette[i]);
-        pos = append_text(pos, "m  ");
+        pos = append_text(pos, (processing_view->is_npu_input != 0U) ?
+                               "NPU MODEL INPUT  " :
+                               "OBJECT PIPELINE VIEW  ");
+        pos = append_text(pos, (filter_descriptor != NULL) ?
+                               filter_descriptor->description : "");
+        pos = append_text(pos, "  ");
+        pos = append_u32(pos, processing_view->width);
+        pos = append_text(pos, "x");
+        pos = append_u32(pos, processing_view->height);
+        if ((processing_view->selection == RPS_AI_VIEW_NPU) ||
+            (processing_view->selection >= RPS_AI_VIEW_OBJECT_4))
+        {
+            pos = append_text(pos, "  resize ");
+            pos = append_text(pos,
+                              (processing_view->mve_accelerated != 0U) ?
+                              "Helium/MVE" : "scalar fallback");
+        }
+        else
+        {
+            pos = append_text(pos, "  native sensor grid");
+        }
+        pos = append_text(pos, "\033[K\r\n");
     }
-    pos = append_text(pos, "\033[0m far   display scale ");
-    pos = append_u32(pos, TOF_MIN_DISPLAY_MM);
-    pos = append_text(pos, "..");
-    pos = append_u32(pos, TOF_MAX_DISPLAY_MM);
-    pos = append_text(pos, " mm\033[K\r\n");
+    else
+    {
+        pos = append_text(pos, "near ");
+        for (size_t i = 0U; i < sizeof(depth_palette); ++i)
+        {
+            pos = append_text(pos, "\033[48;5;");
+            pos = append_u32(pos, depth_palette[i]);
+            pos = append_text(pos, "m  ");
+        }
+        pos = append_text(pos, "\033[0m far   display scale ");
+        pos = append_u32(pos, TOF_MIN_DISPLAY_MM);
+        pos = append_text(pos, "..");
+        pos = append_u32(pos, TOF_MAX_DISPLAY_MM);
+        pos = append_text(pos, " mm\033[K\r\n");
+    }
 
-    for (uint32_t y = 0U; y < height; ++y)
+    uint32_t render_width = (object_available != 0U) ?
+                            processing_view->width : width;
+    uint32_t render_height = (object_available != 0U) ?
+                             processing_view->height : height;
+    for (uint32_t y = 0U; y < render_height; ++y)
     {
         uint8_t previous_color = UINT8_MAX;
-        for (uint32_t x = 0U; x < width; ++x)
+        for (uint32_t x = 0U; x < render_width; ++x)
         {
-            uint8_t color = depth_to_color(depth[((size_t)y * width) + x]);
+            size_t index = ((size_t)y * render_width) + x;
+            uint8_t color = (object_available != 0U) ?
+                model_input_to_color(processing_view->pixels[index]) :
+                depth_to_color(depth[index]);
             if (color != previous_color)
             {
                 pos = append_text(pos, "\033[48;5;");
@@ -1088,24 +1183,42 @@ tof_render_frame(const float *depth, uint8_t width, uint8_t height,
     pos = append_text(pos, "\033[K\r\n");
     if ((rps_status != NULL) && (rps_status->runs != 0U))
     {
-        pos = append_text(pos, "NPU scores [nothing,rock,paper,scissors] = ");
+        pos = append_text(pos,
+                          "NPU probabilities [nothing,rock,paper,scissors] = ");
         for (uint32_t index = 0U; index < RPS_AI_CLASS_COUNT; ++index)
         {
-            int32_t score = rps_status->scores[index];
+            uint16_t probability_per_mille =
+                RPS_AI_ScorePerMille(rps_status->scores[index]);
             if (index != 0U)
             {
                 pos = append_text(pos, ", ");
             }
-            if (score < 0)
-            {
-                pos = append_text(pos, "-");
-                score = -score;
-            }
-            pos = append_u32(pos, (uint32_t)score);
+            pos = append_u32(pos, probability_per_mille / 10U);
+            pos = append_text(pos, ".");
+            pos = append_u32(pos, probability_per_mille % 10U);
+            pos = append_text(pos, "%");
         }
         pos = append_text(pos, "\033[K\r\n");
     }
-    pos = append_text(pos, "Close = red, far = blue, invalid = black. Press Enter to return to MENU.\033[K");
+    if (object_available != 0U)
+    {
+        if (processing_view->is_npu_input != 0U)
+        {
+            pos = append_text(pos,
+                              "Exact binary pre-inference uint8 tensor; Neural-ART may reuse its own input arena after launch. ");
+        }
+        else
+        {
+            pos = append_text(pos,
+                              "Educational cumulative stage; inference still uses the final NPU silhouette for this frame. ");
+        }
+    }
+    else
+    {
+        pos = append_text(pos,
+                          "Close = red, far = blue, invalid = black. ");
+    }
+    pos = append_text(pos, "Press Enter to return to MENU.\033[K");
     if (pos < terminal_capacity)
     {
         (void)App_Console_CommitFrameBuffer(&output, (ULONG)pos);
@@ -1124,9 +1237,10 @@ tof_render_frame(const float *depth, uint8_t width, uint8_t height,
  * derive PNG previews without throwing away millimetres or invalid pixels.
  *
  * Record layout (all integers little-endian):
- * N6DF v2 keeps the v1 depth metadata and adds the exact on-device NPU result
- * for this frame.  This makes HIL compare Neural-ART with host TFLite without
- * trying to infer timing from separate text messages.
+ * N6DF v3 keeps the v2 depth/result metadata and appends the exact 64x50 uint8
+ * tensor copied into Neural-ART for the same frame.  Raw depth and model input
+ * have independent CRCs, so Python can prove its preprocessing bit-for-bit
+ * before saving or training on a frame.
  *
  *   0  magic "N6DF"             24 payload bytes
  *   4  protocol/header u16,u16  28 valid pixels u32
@@ -1137,8 +1251,14 @@ tof_render_frame(const float *depth, uint8_t width, uint8_t height,
  *                               48 four signed int8 output scores
  *                               52 class/valid u8,u8, confidence u16
  *                               56 completed inference count u32
- *                               60 header CRC32 over bytes 0..59
- * The payload is width*height uint16 millimetres; 0xFFFF means invalid.
+ *                               60 model width/height u16,u16
+ *                               64 model format/flags u16,u16
+ *                               68 model payload bytes u32
+ *                               72 model frame id u32
+ *                               76 model payload CRC32
+ *                               80 header CRC32 over bytes 0..79
+ * Payload 1 is width*height uint16 millimetres; 0xFFFF means invalid.
+ * Payload 2 immediately follows it and is the exact 64x50 uint8 NPU input.
  */
 static void __attribute__((optimize("Os")))
 tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
@@ -1147,20 +1267,35 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
 {
     App_Console_FrameBuffer_t output = { 0 };
     RPS_AI_Status_t rps = { 0 };
+    RPS_AI_ImageView_t model_input = { 0 };
     uint8_t *bytes;
     size_t pixel_count = (size_t)width * (size_t)height;
     size_t payload_size = pixel_count * sizeof(uint16_t);
-    size_t record_size = TOF_DATASET_HEADER_SIZE + payload_size;
+    size_t model_payload_size;
+    size_t record_size;
     uint32_t valid_count = 0U;
     uint16_t valid_min = UINT16_MAX;
     uint16_t valid_max = 0U;
     uint32_t payload_crc;
+    uint32_t model_payload_crc;
 
     if ((tof_dataset_stream_enabled == 0U) ||
         (App_Console_IsReady() == UX_FALSE))
     {
         return;
     }
+    if ((RPS_AI_GetModelInputView(&model_input) != 0) ||
+        (model_input.pixels == NULL) ||
+        (model_input.frame_id != frame_counter) ||
+        (model_input.width != RPS_AI_MODEL_INPUT_WIDTH) ||
+        (model_input.height != RPS_AI_MODEL_INPUT_HEIGHT) ||
+        (model_input.is_npu_input == 0U))
+    {
+        ++tof_dataset_frames_dropped;
+        return;
+    }
+    model_payload_size = (size_t)model_input.width * model_input.height;
+    record_size = TOF_DATASET_HEADER_SIZE + payload_size + model_payload_size;
     if ((App_Console_AcquireFrameBuffer(&output) != TX_SUCCESS) ||
         ((size_t)output.capacity < record_size))
     {
@@ -1193,7 +1328,11 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
         valid_min = 0U;
     }
 
+    (void)memcpy(&bytes[TOF_DATASET_HEADER_SIZE + payload_size],
+                 model_input.pixels, model_payload_size);
     payload_crc = tof_crc32(&bytes[TOF_DATASET_HEADER_SIZE], payload_size);
+    model_payload_crc = tof_crc32(
+        &bytes[TOF_DATASET_HEADER_SIZE + payload_size], model_payload_size);
     RPS_AI_GetStatus(&rps);
     tof_write_u32(&bytes[0], TOF_DATASET_MAGIC);
     tof_write_u16(&bytes[4], TOF_DATASET_VERSION);
@@ -1203,7 +1342,8 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
     tof_write_u16(&bytes[16], width);
     tof_write_u16(&bytes[18], height);
     tof_write_u16(&bytes[20], TOF_DATASET_PIXEL_FORMAT);
-    tof_write_u16(&bytes[22], 1U); /* bit 0: unfiltered transformed depth */
+    /* bit 0: unfiltered transformed depth; bit 1: exact NPU tensor follows */
+    tof_write_u16(&bytes[22], 3U);
     tof_write_u32(&bytes[24], (uint32_t)payload_size);
     tof_write_u32(&bytes[28], valid_count);
     tof_write_u16(&bytes[32], valid_min);
@@ -1221,7 +1361,17 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
                            (rps.last_frame == frame_counter)) ? 1U : 0U);
     tof_write_u16(&bytes[54], rps.confidence_per_mille);
     tof_write_u32(&bytes[56], rps.runs);
-    tof_write_u32(&bytes[60], tof_crc32(bytes, 60U));
+    tof_write_u16(&bytes[60], model_input.width);
+    tof_write_u16(&bytes[62], model_input.height);
+    tof_write_u16(&bytes[64], TOF_DATASET_MODEL_FORMAT);
+    /* bit 0: exact pre-inference tensor; bit 1: binary 0/255 contract;
+     * bit 2: resize/copy path was built with Helium/MVE. */
+    tof_write_u16(&bytes[66], 3U |
+                  ((model_input.mve_accelerated != 0U) ? 4U : 0U));
+    tof_write_u32(&bytes[68], (uint32_t)model_payload_size);
+    tof_write_u32(&bytes[72], model_input.frame_id);
+    tof_write_u32(&bytes[76], model_payload_crc);
+    tof_write_u32(&bytes[80], tof_crc32(bytes, 80U));
 
     if (App_Console_CommitFrameBuffer(&output, (ULONG)record_size) == TX_SUCCESS)
     {
@@ -1289,6 +1439,15 @@ static uint8_t depth_to_color(float distance_mm)
                        (float)(TOF_MAX_DISPLAY_MM - TOF_MIN_DISPLAY_MM);
     size_t index = (size_t)(normalized * (float)(sizeof(depth_palette) - 1U));
     return depth_palette[index];
+}
+
+static uint8_t model_input_to_color(uint8_t value)
+{
+    if (value == 0U)
+    {
+        return 16U;
+    }
+    return (uint8_t)(232U + ((((uint32_t)value * 23U) + 127U) / 255U));
 }
 
 static size_t append_text(size_t pos, const char *text)

@@ -13,6 +13,9 @@ echo It preserves scripts, configuration, the Python environment, and the
 echo model currently embedded in the firmware so the board can still be
 echo used to capture the replacement dataset.
 echo.
+echo Close Capture, VIEW_LIVE, the dataset review window, and any Explorer
+echo window opened inside training. Dropbox locks are retried automatically.
+echo.
 echo WARNING: The local deletion is not undone by this script.
 set /p RESET_CONFIRM=Type DELETE to continue: 
 if not "%RESET_CONFIRM%"=="DELETE" (

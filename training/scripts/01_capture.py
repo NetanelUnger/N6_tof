@@ -6,6 +6,7 @@ import argparse
 import logging
 import math
 import queue
+import re
 import threading
 import time
 import tkinter as tk
@@ -21,10 +22,10 @@ from serial import Serial
 from serial.tools import list_ports
 
 from common import (CONFIG_ROOT, RAW_ROOT, append_jsonl, atomic_json,
-                    class_config, iter_jsonl, load_json, mark_stage, relative,
-                    utc_now)
+                    apply_review, class_config, iter_jsonl, load_json,
+                    load_review_decisions, mark_stage, relative, utc_now)
 from dataset import preprocess_depth, preview_rgb, save_depth_sample
-from protocol import DepthFrame, FrameReader
+from protocol import VERSION_V3, DepthFrame, FrameReader
 
 
 def find_n6_port(requested: str | None) -> str:
@@ -66,7 +67,9 @@ class CaptureApp:
         self.logger.addHandler(log_handler)
         self.counts: Counter[str] = Counter()
         self.bursts_by_class: defaultdict[str, set[str]] = defaultdict(set)
-        for row in iter_jsonl(self.metadata_path):
+        review_decisions = load_review_decisions()
+        for raw_row in iter_jsonl(self.metadata_path):
+            row = apply_review(raw_row, review_decisions)
             if row.get("accepted", True):
                 label = row.get("label", "unknown")
                 self.counts[label] += 1
@@ -266,11 +269,15 @@ class CaptureApp:
                     )
                     newest = None
         if newest is not None:
+            model_tensor = self._verified_model_input(newest)
+            if model_tensor is None:
+                newest = None
+        if newest is not None:
             self.latest = newest
             self.last_frame_time = time.monotonic()
             self.frames_received += 1
-            self._show_frame(newest)
-            self._maybe_save(newest)
+            self._show_frame(newest, model_tensor)
+            self._maybe_save(newest, model_tensor)
         stale = time.monotonic() - self.last_frame_time
         if self.last_frame_time and stale > self.capture_cfg["stale_frame_seconds"]:
             self._set_stream_fault(
@@ -280,7 +287,39 @@ class CaptureApp:
         if not self.stop_event.is_set():
             self.root.after(30, self._poll)
 
-    def _show_frame(self, frame: DepthFrame) -> None:
+    def _verified_model_input(self, frame: DepthFrame) -> np.ndarray | None:
+        if (frame.protocol_version != VERSION_V3 or
+                frame.model_input is None or
+                frame.model_frame_id != frame.frame_id or
+                (frame.model_flags & 0x3) != 0x3):
+            self._set_stream_fault(
+                "firmware does not provide an exact frame-matched N6DF v3 "
+                "model tensor; load the current RAM firmware before capture"
+            )
+            return None
+        host = preprocess_depth(frame.depth_mm, self.pre_cfg)[..., 0]
+        if frame.model_input.shape != host.shape:
+            self._set_stream_fault(
+                "device/Python model-input geometry differs: "
+                f"device={frame.model_input.shape}, host={host.shape}"
+            )
+            return None
+        different = frame.model_input != host
+        if np.any(different):
+            mismatch = int(np.count_nonzero(different))
+            maximum_delta = int(np.max(np.abs(
+                frame.model_input.astype(np.int16) - host.astype(np.int16)
+            )))
+            self._set_stream_fault(
+                "device/Python preprocessing is not bit-exact: "
+                f"{mismatch} pixels differ, maximum delta {maximum_delta}; "
+                "capture stopped before saving"
+            )
+            return None
+        return frame.model_input
+
+    def _show_frame(self, frame: DepthFrame,
+                    model_tensor: np.ndarray) -> None:
         rgb = preview_rgb(frame.depth_mm, self.pre_cfg["near_mm"],
                           self.pre_cfg["far_mm"], frame.invalid_mm)
         image = Image.fromarray(rgb).resize((432, 336),
@@ -288,7 +327,6 @@ class CaptureApp:
         photo = ImageTk.PhotoImage(image)
         self.image_label.configure(image=photo)
         self.image_label.image = photo
-        model_tensor = preprocess_depth(frame.depth_mm, self.pre_cfg)[..., 0]
         self.model_foreground_ratio = float(np.mean(model_tensor != 0))
         model_rgb = np.repeat(model_tensor[..., np.newaxis], 3, axis=2)
         model_image = Image.fromarray(model_rgb).resize(
@@ -298,7 +336,8 @@ class CaptureApp:
         self.model_image_label.configure(image=model_photo)
         self.model_image_label.image = model_photo
 
-    def _maybe_save(self, frame: DepthFrame) -> None:
+    def _maybe_save(self, frame: DepthFrame,
+                    model_tensor: np.ndarray) -> None:
         now = time.monotonic()
         if (not self.capturing or now < self.capture_armed_at or
                 now - self.last_saved_time < self.save_period):
@@ -322,17 +361,21 @@ class CaptureApp:
             "schema": 1,
             "session_id": self.session_id,
             "burst_id": self.burst_id,
-            "source": "n6df_v1_cdc",
+            "source": "n6df_v3_raw_plus_device_model_cdc",
             "captured_utc": utc_now(),
             "firmware_frame_id": frame.frame_id,
             "firmware_timestamp_ms": frame.timestamp_ms,
             "payload_crc32": f"{frame.payload_crc32:08x}",
+            "model_payload_crc32": f"{frame.model_payload_crc32:08x}",
+            "model_frame_id": frame.model_frame_id,
             "valid_count": frame.valid_count,
             "minimum_mm": frame.minimum_mm,
             "maximum_mm": frame.maximum_mm,
             "processing_filter": frame.processing_filter,
             "protocol_flags": frame.flags,
-        })
+            "model_protocol_flags": frame.model_flags,
+            "protocol_version": frame.protocol_version,
+        }, device_model_input=model_tensor)
         append_jsonl(self.metadata_path, record)
         self.counts[self.current_label] += 1
         if self.burst_id:
@@ -443,6 +486,7 @@ class CaptureApp:
                 f"{count_text}\nreceived={self.frames_received}  "
                 f"near-duplicates skipped={self.frames_rejected_duplicate}  "
                 f"model foreground={self.model_foreground_ratio:.1%}\n"
+                "N6DF v3 model tensor: DEVICE/PYTHON BIT-EXACT\n"
                 f"parser CRC/framing/timeouts={self.reader.crc_errors}/"
                 f"{self.reader.framing_errors}/{self.reader_timeouts}\n"
                 f"{self.notice_text}"
@@ -530,6 +574,13 @@ def main() -> int:
     parser.add_argument("--samples-per-burst", type=int)
     parser.add_argument("--save-fps", type=float)
     args = parser.parse_args()
+    if (args.session is not None and
+            (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", args.session)
+             or args.session in {".", ".."})):
+        parser.error(
+            "--session must be 1-64 letters, digits, dot, underscore or hyphen; "
+            "path separators are not allowed"
+        )
     if args.target_per_class is not None and args.target_per_class <= 0:
         parser.error("--target-per-class must be positive")
     if args.samples_per_burst is not None and args.samples_per_burst <= 0:

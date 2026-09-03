@@ -6,13 +6,14 @@ import json
 from collections import Counter, defaultdict
 
 from common import (CONFIG_ROOT, MODELS_ROOT, RAW_ROOT, STATE_ROOT,
-                    class_names, iter_jsonl, load_json,
-                    npu_deployment_fingerprint)
+                    class_names, load_json, npu_deployment_fingerprint,
+                    reviewed_rows)
 
 
 STAGES = (
     ("00_setup", "00_SETUP.bat"),
     ("01_capture", "01_CAPTURE.bat"),
+    ("02_review", "02_REVIEW_DATASET.bat"),
     ("03_validate", "03_VALIDATE.bat"),
     ("04_prepare", "04_PREPARE.bat"),
     ("05_train", "05_TRAIN.bat"),
@@ -30,14 +31,13 @@ def main() -> int:
     counts: Counter[str] = Counter()
     bursts: defaultdict[str, set[str]] = defaultdict(set)
     sessions = 0
-    for metadata in RAW_ROOT.glob("*/metadata.jsonl"):
-        sessions += 1
-        for row in iter_jsonl(metadata):
-            if row.get("accepted", True):
-                label = row.get("label", "unknown")
-                counts[label] += 1
-                if row.get("burst_id"):
-                    bursts[label].add(row["burst_id"])
+    metadata_files = list(RAW_ROOT.glob("*/metadata.jsonl"))
+    sessions = len(metadata_files)
+    for row in reviewed_rows(metadata_files):
+        label = row.get("label", "unknown")
+        counts[label] += 1
+        if row.get("burst_id"):
+            bursts[label].add(row["burst_id"])
     print("\nDataset")
     print(f"  sessions: {sessions}")
     minimum_bursts = load_json(CONFIG_ROOT / "training.json")["capture"][

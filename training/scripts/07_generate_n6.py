@@ -15,6 +15,10 @@ from common import (CONFIG_ROOT, GENERATED_ROOT, MODELS_ROOT, atomic_json,
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--force", action="store_true")
+    parser.add_argument(
+        "--ask-force", action="store_true",
+        help="When output is current, ask whether to regenerate it.",
+    )
     args = parser.parse_args()
     model = MODELS_ROOT / "rps_int8.tflite"
     if not model.exists():
@@ -37,13 +41,34 @@ def main() -> int:
                                "network_name": network_name})
     prior = stage_state("07_generate_n6")
     prior_manifest = GENERATED_ROOT / "generation_manifest.json"
-    if (not args.force and prior.get("status") == "complete" and
-            prior.get("input_fingerprint") == fingerprint and
-            prior_manifest.exists() and
-            all((GENERATED_ROOT.parent / path).exists()
-                for path in prior.get("outputs", []))):
-        print("Neural-ART output is current; reusing it. Pass --force to regenerate.")
-        return 0
+    output_is_current = (
+        prior.get("status") == "complete" and
+        prior.get("input_fingerprint") == fingerprint and
+        prior_manifest.exists() and
+        all((GENERATED_ROOT.parent / path).exists()
+            for path in prior.get("outputs", []))
+    )
+    if not args.force and output_is_current:
+        if args.ask_force:
+            print("Neural-ART output is current.")
+            try:
+                answer = input(
+                    "Regenerate it now with --force? [y/N]: "
+                ).strip().lower()
+            except EOFError:
+                answer = ""
+            if answer in {"y", "yes"}:
+                args.force = True
+                print("Regenerating Neural-ART output with --force...")
+            else:
+                print("Keeping the current Neural-ART output.")
+                return 0
+        else:
+            print(
+                "Neural-ART output is current; reusing it. "
+                "Pass --force to regenerate."
+            )
+            return 0
     if args.force and output.exists():
         shutil.rmtree(output)
     output.mkdir(parents=True, exist_ok=True)

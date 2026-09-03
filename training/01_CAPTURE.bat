@@ -16,15 +16,18 @@ echo A session-specific capture.log records CRC, timeout and frame diagnostics.
 echo Existing sessions are never erased. Resume one with:
 echo   01_CAPTURE.bat --session SESSION_NAME
 echo.
-set "TARGET_COUNT="
-set /p "TARGET_COUNT=How many saved images per class? [96]: "
-if not defined TARGET_COUNT set "TARGET_COUNT=96"
-echo Selected target: %TARGET_COUNT% images per class.
-echo The burst limit is computed to guarantee at least eight independent bursts
-echo per class (normally 12 frames each). Use at least two capture sessions.
-echo IMPORTANT: verify the whole gesture is clear in the MODEL INPUT preview.
-echo.
-"%TRAINING_PY%" scripts\01_capture.py --target-per-class "%TARGET_COUNT%" %*
+
+rem With no arguments, present a guided menu for new/resumed/custom capture.
+rem Explicit arguments preserve the original advanced/non-interactive path.
+if not "%~1"=="" goto RUN_WITH_ARGUMENTS
+"%TRAINING_PY%" scripts\01_capture_menu.py
+goto FINISH
+
+:RUN_WITH_ARGUMENTS
+echo [ARGUMENT MODE] Running capture with: %*
+"%TRAINING_PY%" scripts\01_capture.py %*
+
+:FINISH
 set "RESULT=%ERRORLEVEL%"
 if not "%RESULT%"=="0" echo [ERROR] Capture ended with code %RESULT%.
 pause

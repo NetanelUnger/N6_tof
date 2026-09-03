@@ -556,7 +556,7 @@ static void LL_ATON_Start_EpochBlock_5(const LL_ATON_RT_EpochBlockItem_t *epoch_
     .round_mode_o = 1,
     .relu_mode_o = 0,
     .outbytes_o = 1,
-    .shift_o = 21,
+    .shift_o = 20,
     .scalar = 0,
     .dualinput = 0,
     .operation = ARITH_AFFINE,
@@ -1495,7 +1495,7 @@ static void LL_ATON_Start_EpochBlock_7(const LL_ATON_RT_EpochBlockItem_t *epoch_
     .round_mode_o = 1,
     .relu_mode_o = 0,
     .outbytes_o = 1,
-    .shift_o = 20,
+    .shift_o = 19,
     .scalar = 0,
     .dualinput = 0,
     .operation = ARITH_AFFINE,
@@ -1896,7 +1896,7 @@ static void LL_ATON_Start_EpochBlock_8(const LL_ATON_RT_EpochBlockItem_t *epoch_
     .zfbias = 0,
     .inbytes_f = 1,
     .shift_f = 0,
-    .shift_a = 6,
+    .shift_a = 4,
     .rounding_o = 1,
     .saturation_o = 1,
     .round_mode_o = 1,
@@ -2058,7 +2058,7 @@ static void LL_ATON_Start_EpochBlock_8(const LL_ATON_RT_EpochBlockItem_t *epoch_
     .round_mode_o = 1,
     .relu_mode_o = 0,
     .outbytes_o = 2,
-    .shift_o = 6,
+    .shift_o = 4,
     .raw_o = 0,
     .fWidth = 8,
     .fHeight = 6,
@@ -2104,7 +2104,7 @@ static void LL_ATON_Start_EpochBlock_8(const LL_ATON_RT_EpochBlockItem_t *epoch_
     .round_mode_o = 1,
     .relu_mode_o = 0,
     .outbytes_o = 1,
-    .shift_o = 18,
+    .shift_o = 20,
     .scalar = 0,
     .dualinput = 0,
     .operation = ARITH_AFFINE,
@@ -2625,7 +2625,7 @@ static void LL_ATON_Start_EpochBlock_10(const LL_ATON_RT_EpochBlockItem_t *epoch
     .zfbias = 0,
     .inbytes_f = 1,
     .shift_f = 0,
-    .shift_a = 7,
+    .shift_a = 8,
     .rounding_o = 1,
     .saturation_o = 1,
     .round_mode_o = 1,
@@ -2735,7 +2735,7 @@ static void LL_ATON_Start_EpochBlock_10(const LL_ATON_RT_EpochBlockItem_t *epoch
     .round_mode_o = 1,
     .relu_mode_o = 0,
     .outbytes_o = 2,
-    .shift_o = 7,
+    .shift_o = 8,
     .raw_o = 0,
     .fWidth = 1,
     .fHeight = 1,
@@ -2781,7 +2781,7 @@ static void LL_ATON_Start_EpochBlock_10(const LL_ATON_RT_EpochBlockItem_t *epoch
     .round_mode_o = 1,
     .relu_mode_o = 0,
     .outbytes_o = 1,
-    .shift_o = 18,
+    .shift_o = 17,
     .scalar = 0,
     .dualinput = 0,
     .operation = ARITH_AFFINE,
@@ -3179,7 +3179,7 @@ static void LL_ATON_Start_EpochBlock_11(const LL_ATON_RT_EpochBlockItem_t *epoch
     .round_mode_o = 1,
     .relu_mode_o = 0,
     .outbytes_o = 1,
-    .shift_o = 20,
+    .shift_o = 19,
     .scalar = 0,
     .dualinput = 0,
     .operation = ARITH_AFFINE,
@@ -3280,7 +3280,7 @@ static void LL_ATON_Start_EpochBlock_11(const LL_ATON_RT_EpochBlockItem_t *epoch
 
   /* Dma output units from cycle: */
   /* Unit= 9 [STREAM_ENG_V2 9] */
-  /* Emit conf for STREAM_ENG_V2 node=Gemm_33_conv_10_off_bias_63 output ports=0 range=1[1024,1028] */
+  /* Emit conf for STREAM_ENG_V2 node=Gemm_33_conv_10_off_bias_63 output ports=0 range=1[528,532] */
 
   static const LL_Streng_TensorInitTypeDef Gemm_33_conv_10_off_bias_63_dma_init_out_0_11 = {
     /* to memory with batch=4 */
@@ -3290,9 +3290,9 @@ static void LL_ATON_Start_EpochBlock_11(const LL_ATON_RT_EpochBlockItem_t *epoch
     .align_right = 0,
     .nbits_unsigned = 0,
     .addr_base = {(unsigned char *)(0x242e0000UL) /* Equivalent hex address = 0x242e0000UL */}, /* Gemm_33_conv_10_off_bias_out_64 */
-    .offset_start = 1024,
-    .offset_end = 1028,
-    .offset_limit = 1096,
+    .offset_start = 528,
+    .offset_end = 532,
+    .offset_limit = 600,
     .frame_count = 0,
     .fwidth = 0,
     .fheight = 0,
@@ -3327,9 +3327,9 @@ static void LL_ATON_Start_EpochBlock_11(const LL_ATON_RT_EpochBlockItem_t *epoch
 
   /* *** MCU cache invalidate (only) operation (HW, whole range) *** */
   /*     memory pool: 1 */
-  /*     start: ((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 1024))) */
-  /*     end:   ((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 1056))) */
-  LL_ATON_Cache_MCU_Invalidate_Range(((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 1024))) /* Equivalent hex address = 0x242e0400UL */, 32);
+  /*     start: ((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 512))) */
+  /*     end:   ((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 544))) */
+  LL_ATON_Cache_MCU_Invalidate_Range(((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 512))) /* Equivalent hex address = 0x242e0200UL */, 32);
 
   static const LL_ATON_EnableUnits_InitTypeDef Enable_epoch_11_all_units[] = {
     { {STRENG, 9} }, /* STREAM_ENG_V2 */
@@ -3385,9 +3385,9 @@ static void LL_ATON_End_EpochBlock_12(const LL_ATON_RT_EpochBlockItem_t *epoch_b
 
   /* *** MCU cache invalidate (only) operation for unaligned buffer end address (last line) *** */
   /*     memory pool: 1 */
-  /*     start: ((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 992))) */
-  /*     end:   ((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 1024))) */
-  LL_ATON_Cache_MCU_Invalidate_Range(((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 992))) /* Equivalent hex address = 0x242e03e0UL */, 32);
+  /*     start: ((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 512))) */
+  /*     end:   ((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 544))) */
+  LL_ATON_Cache_MCU_Invalidate_Range(((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 512))) /* Equivalent hex address = 0x242e0200UL */, 32);
 
 
 /* Unit= 27 [PROCESSOR 0] */
@@ -3403,7 +3403,7 @@ static void LL_ATON_End_EpochBlock_12(const LL_ATON_RT_EpochBlockItem_t *epoch_b
     .general.input.stride.h = 4,
     .general.input.stride.w = 1,
     .general.input.stride.c = 1,
-    .general.input.mem.start_offset = ((unsigned char *)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 1024))) /* Equivalent hex address = 0x242e0400UL */,
+    .general.input.mem.start_offset = ((unsigned char *)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 528))) /* Equivalent hex address = 0x242e0210UL */,
     .general.input.format.is_signed = 1,
     /* "is" tensor-related info: */
     .is.mem.start_offset = ((unsigned char *)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x24350000UL + 55280))) /* Equivalent hex address = 0x7100d7f0UL */,
@@ -3424,11 +3424,11 @@ static void LL_ATON_End_EpochBlock_12(const LL_ATON_RT_EpochBlockItem_t *epoch_b
     /* "scratch" tensor-related info: */
     .scratch.dim.tensor_b = 1,
     .scratch.dim.tensor_h = 1,
-    .scratch.dim.tensor_w = 249,
+    .scratch.dim.tensor_w = 125,
     .scratch.dim.tensor_c = 1,
-    .scratch.dim.num_elem = 249,
-    .scratch.stride.b = 996,
-    .scratch.stride.h = 996,
+    .scratch.dim.num_elem = 125,
+    .scratch.stride.b = 500,
+    .scratch.stride.h = 500,
     .scratch.stride.w = 4,
     .scratch.stride.c = 4,
     .scratch.mem.start_offset = ((unsigned char *)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 0))) /* Equivalent hex address = 0x242e0000UL */,
@@ -3443,12 +3443,12 @@ static void LL_ATON_End_EpochBlock_12(const LL_ATON_RT_EpochBlockItem_t *epoch_b
     .general.output.stride.h = 4,
     .general.output.stride.w = 1,
     .general.output.stride.c = 1,
-    .general.output.mem.start_offset = ((unsigned char *)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 1008))) /* Equivalent hex address = 0x242e03f0UL */,
+    .general.output.mem.start_offset = ((unsigned char *)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 512))) /* Equivalent hex address = 0x242e0200UL */,
     .general.output.format.is_signed = 1,
     /* Node-specific Hyper-parameters: */
-    .quantized_multiplier = 1638331648,
-    .left_shift = 23,
-    .diff_min = -248,
+    .quantized_multiplier = 1091607296,
+    .left_shift = 24,
+    .diff_min = -124,
     .axis = 3,
     .general.type = LL_SW_SOFTMAX,
   };
@@ -3459,8 +3459,8 @@ static void LL_ATON_End_EpochBlock_12(const LL_ATON_RT_EpochBlockItem_t *epoch_b
   /* *** MCU cache clean (only) operation (SW, whole range) *** */
   /*     memory pool: 1 */
   /*     start: ((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 0))) */
-  /*     end:   ((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 1024))) */
-  LL_ATON_Cache_MCU_Clean_Range(((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 0))) /* Equivalent hex address = 0x242e0000UL */, 1024);
+  /*     end:   ((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 544))) */
+  LL_ATON_Cache_MCU_Clean_Range(((uintptr_t)(ATON_LIB_PHYSICAL_TO_VIRTUAL_ADDR(0x242e0000UL + 0))) /* Equivalent hex address = 0x242e0000UL */, 544);
 
 
 }
@@ -3622,8 +3622,8 @@ const LL_ATON_RT_EpochBlockItem_t *LL_ATON_EpochBlockItems_rps_tof(void) {
       .last_epoch_num = 12,
       .in_streng_mask = 0x00000000,
       .out_streng_mask = 0x00000000,
-      .estimated_npu_cycles = 510,
-      .estimated_tot_cycles = 510,
+      .estimated_npu_cycles = 262,
+      .estimated_tot_cycles = 262,
 #endif // LL_ATON_EB_DBG_INFO
     },
     {
@@ -3646,46 +3646,46 @@ const LL_Buffer_InfoTypeDef *LL_ATON_Input_Buffers_Info_rps_tof(void)
   static const uint32_t buff_info__mem_shape_U_1[] = { 1 };
   static const uint32_t buff_info__shape_16_1_3_3[] = { 16, 3, 3, 1 };
   static const uint32_t buff_info__mem_shape_F_16_1_3_3[] = { 16, 1, 3, 3 };
-  static const float buff_info_Conv2D_5_weights_quant_scale[] = { 7.13562440068927e-06, 6.59266697766725e-06, 5.98896576775587e-06, 6.15317821939243e-06, 7.7188087743707e-06, 6.05353397986619e-06, 7.8763468991383e-06, 5.6681310525164e-06, 6.87672763888258e-06, 6.30673184787156e-06, 6.92463208906702e-06, 6.80512721373816e-06, 7.25663812772837e-06, 6.42983468424063e-06, 7.83594987296965e-06, 7.03313207850442e-06 };
+  static const float buff_info_Conv2D_5_weights_quant_scale[] = { 7.74587624619016e-06, 7.78836420067819e-06, 6.39686413705931e-06, 6.13314841757528e-06, 8.11318841442699e-06, 9.28466488403501e-06, 8.00232010078616e-06, 6.42193799649249e-06, 7.10603035258828e-06, 6.64853541820776e-06, 7.20250181984738e-06, 1.05182689367211e-05, 8.05430772743421e-06, 6.56422980682692e-06, 8.69711857376387e-06, 5.8530881688057e-06 };
   static const int16_t buff_info_Conv2D_5_weights_quant_offset[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   static const uint32_t buff_info__shape_24_16_3_3[] = { 24, 3, 3, 16 };
   static const uint32_t buff_info__mem_shape_M8_24_16_3_3[] = { 24, 2, 3, 3, 8 };
-  static const float buff_info_Conv2D_11_weights_quant_scale[] = { 0.00153764965943992, 0.0014314946020022, 0.00108351581729949, 0.00136769528035074, 0.00133643869776279, 0.00130445428658277, 0.00138381612487137, 0.00124875199981034, 0.00124535674694926, 0.0014804198872298, 0.00122972228564322, 0.00153191282879561, 0.00154837663285434, 0.00140513980295509, 0.00130859494674951, 0.00163899338804185, 0.00126981805078685, 0.00134717568289489, 0.00136662228032947, 0.00109888962469995, 0.00121276814024895, 0.00139763962943107, 0.00123867020010948, 0.0013819559244439 };
+  static const float buff_info_Conv2D_11_weights_quant_scale[] = { 0.00148110766895115, 0.00153469666838646, 0.00162304833065718, 0.00167655851691961, 0.00211146520450711, 0.00141325709410012, 0.00178695865906775, 0.00198337901383638, 0.00164974317885935, 0.00173893920145929, 0.00196518027223647, 0.00146768102422357, 0.00156269234139472, 0.0016496047610417, 0.00154882238712162, 0.00164554372895509, 0.00203010975383222, 0.00168740306980908, 0.00141964503563941, 0.00137072522193193, 0.00176705361809582, 0.00159852567594498, 0.00201393431052566, 0.00147586199454963 };
   static const int16_t buff_info_Conv2D_11_weights_quant_offset[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   static const uint32_t buff_info__shape_32_24_3_3[] = { 32, 3, 3, 24 };
   static const uint32_t buff_info__mem_shape_M8_32_24_3_3[] = { 32, 3, 3, 3, 8 };
-  static const float buff_info_Conv2D_17_weights_quant_scale[] = { 0.00116927514318377, 0.0011705526849255, 0.00136522855609655, 0.001285360311158, 0.00114312162622809, 0.00121091248001903, 0.00112949230242521, 0.00116533110849559, 0.00115392333827913, 0.00113021524157375, 0.00143009482417256, 0.00133040512446314, 0.00126400415319949, 0.00114948325790465, 0.00129256793297827, 0.00122254819143564, 0.00127600773703307, 0.00125185109209269, 0.00120586797129363, 0.00115452974569052, 0.00106051319744438, 0.00127837632317096, 0.00130125717259943, 0.00124867970589548, 0.00131669454276562, 0.00112868554424495, 0.00136373774148524, 0.00120179203804582, 0.00140331801958382, 0.00122009066399187, 0.00164507783483714, 0.00140632467810065 };
+  static const float buff_info_Conv2D_17_weights_quant_scale[] = { 0.00280312146060169, 0.00167371425777674, 0.00172488216776401, 0.00244582933373749, 0.00153417605906725, 0.00203319382853806, 0.00187642872333527, 0.00182832567952573, 0.00159165181685239, 0.00195601652376354, 0.00153705209959298, 0.00191543123219162, 0.00156161864288151, 0.00161989219486713, 0.00173062551766634, 0.0016643803101033, 0.00153172167483717, 0.00121053878683597, 0.00182324345223606, 0.00129393930546939, 0.00168160651810467, 0.00185738503932953, 0.00166744971647859, 0.00166947639081627, 0.00181156303733587, 0.0012999203754589, 0.00175735750235617, 0.00185915036126971, 0.00151629350148141, 0.00167399155907333, 0.00187943177297711, 0.00173373345751315 };
   static const int16_t buff_info_Conv2D_17_weights_quant_offset[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   static const uint32_t buff_info__shape_24_32_3_3[] = { 24, 3, 3, 32 };
   static const uint32_t buff_info__mem_shape_M8_24_32_3_3[] = { 24, 4, 3, 3, 8 };
-  static const float buff_info_Conv2D_23_weights_quant_scale[] = { 0.00127757852897048, 0.00126375234685838, 0.00120973773300648, 0.00116047484334558, 0.00123026850633323, 0.00113768235314637, 0.0013769306242466, 0.00169385422486812, 0.00117908138781786, 0.00142045295797288, 0.0014507609885186, 0.00123677181545645, 0.00132242729887366, 0.00130241678562015, 0.00122084433678538, 0.00112092553172261, 0.00130764360073954, 0.00114594236947596, 0.00106774654705077, 0.00133148091845214, 0.00128627906087786, 0.00117858254816383, 0.00132330413907766, 0.00123312557116151 };
+  static const float buff_info_Conv2D_23_weights_quant_scale[] = { 0.00258686300367117, 0.00206675752997398, 0.00158733117859811, 0.00153720786329359, 0.00243278546258807, 0.00197122571989894, 0.00166602595709264, 0.00172801979351789, 0.0016780155710876, 0.00171061104629189, 0.00151969108264893, 0.00142635952215642, 0.00137993111275136, 0.00225930009037256, 0.00133788958191872, 0.00211898586712778, 0.00207851221784949, 0.00155499239917845, 0.00179154507350177, 0.00157080928329378, 0.00260304682888091, 0.00152271310798824, 0.00239923549816012, 0.00240488746203482 };
   static const int16_t buff_info_Conv2D_23_weights_quant_offset[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   static const uint32_t buff_info__shape_32_1152_1_1[] = { 32, 1, 1, 1152 };
   static const uint32_t buff_info__mem_shape_M128_32_1152_1_1[] = { 32, 9, 1, 1, 128 };
-  static const float buff_info_Gemm_29_weights_transposed_3_quant_scale[] = { 0.00101633789017797, 0.00134547450579703, 0.000651597627438605, 0.000984122161753476, 0.00124181690625846, 0.000725429621525109, 0.00105842063203454, 0.000950552988797426, 0.000630159745924175, 0.000625933695118874, 0.00112299609463662, 0.00114539836067706, 0.000606170273385942, 0.000687711406499147, 0.001073855208233, 0.00124220491852611, 0.00112130760680884, 0.00115798192564398, 0.000613073352724314, 0.000606030807830393, 0.0010358348954469, 0.00111203209962696, 0.000642108847387135, 0.00108013860881329, 0.00117115816101432, 0.00104735384229571, 0.0010374418925494, 0.00108600920066237, 0.000840656110085547, 0.00112757936585695, 0.00109983282163739, 0.00061710987938568 };
+  static const float buff_info_Gemm_29_weights_transposed_3_quant_scale[] = { 0.00159043038729578, 0.00212819618172944, 0.00172279274556786, 0.00175947265233845, 0.00179263250902295, 0.00161409610882401, 0.00162796606309712, 0.00076011149212718, 0.00072773196734488, 0.000603756867349148, 0.00167171854991466, 0.00166353350505233, 0.0016028507379815, 0.000772871484514326, 0.00159993104171008, 0.000632707378827035, 0.00143792398739606, 0.000775720691308379, 0.00160493329167366, 0.000834457343444228, 0.00163690454792231, 0.00178379588760436, 0.00148843950591981, 0.00161498575471342, 0.00151392270345241, 0.00165395101066679, 0.00151391257531941, 0.00151880946941674, 0.00141154183074832, 0.00156277394853532, 0.000604042550548911, 0.000635407690424472 };
   static const int16_t buff_info_Gemm_29_weights_transposed_3_quant_offset[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   static const uint32_t buff_info__shape_4_32_1_1[] = { 4, 1, 1, 32 };
   static const uint32_t buff_info__mem_shape_F_4_32_1_1[] = { 4, 32, 1, 1 };
-  static const float buff_info_Gemm_33_weights_transposed_9_quant_scale[] = { 0.00313733005896211, 0.00322145991958678, 0.00298647256568074, 0.00335316942073405 };
+  static const float buff_info_Gemm_33_weights_transposed_9_quant_scale[] = { 0.00434471108019352, 0.00318865873850882, 0.00341434706933796, 0.00333979330025613 };
   static const int16_t buff_info_Gemm_33_weights_transposed_9_quant_offset[] = { 0, 0, 0, 0 };
   static const float buff_info_Conv2D_5_zero_off_14_quant_scale[] = { 1 };
   static const int16_t buff_info_Conv2D_5_zero_off_14_quant_offset[] = { 0 };
   static const uint32_t buff_info__shape_16_1_1[] = { 1, 1, 1, 16 };
   static const uint32_t buff_info__mem_shape_M8_16_1_1[] = { 2, 1, 1, 8 };
-  static const float buff_info_Conv2D_11_zero_off_23_quant_scale[] = { 0.00419523008167744 };
+  static const float buff_info_Conv2D_11_zero_off_23_quant_scale[] = { 0.00423772726207972 };
   static const int16_t buff_info_Conv2D_11_zero_off_23_quant_offset[] = { 0 };
   static const uint32_t buff_info__shape_24_1_1[] = { 1, 1, 1, 24 };
   static const uint32_t buff_info__mem_shape_M8_24_1_1[] = { 3, 1, 1, 8 };
-  static const float buff_info_Conv2D_17_zero_off_32_quant_scale[] = { 0.0101293260231614 };
+  static const float buff_info_Conv2D_17_zero_off_32_quant_scale[] = { 0.0104388082399964 };
   static const int16_t buff_info_Conv2D_17_zero_off_32_quant_offset[] = { 0 };
   static const uint32_t buff_info__shape_32_1_1[] = { 1, 1, 1, 32 };
   static const uint32_t buff_info__mem_shape_M8_32_1_1[] = { 4, 1, 1, 8 };
-  static const float buff_info_Conv2D_23_zero_off_41_quant_scale[] = { 0.0191074497997761 };
+  static const float buff_info_Conv2D_23_zero_off_41_quant_scale[] = { 0.023015484213829 };
   static const int16_t buff_info_Conv2D_23_zero_off_41_quant_offset[] = { 0 };
-  static const float buff_info_Gemm_29_conv_4_zero_off_50_quant_scale[] = { 0.0234331097453833 };
+  static const float buff_info_Gemm_29_conv_4_zero_off_50_quant_scale[] = { 0.0430470928549767 };
   static const int16_t buff_info_Gemm_29_conv_4_zero_off_50_quant_offset[] = { 0 };
   static const uint32_t buff_info__mem_shape_M16_32_1_1[] = { 2, 1, 1, 16 };
-  static const float buff_info_Gemm_33_conv_10_zero_off_59_quant_scale[] = { 0.0645484104752541 };
+  static const float buff_info_Gemm_33_conv_10_zero_off_59_quant_scale[] = { 0.131228044629097 };
   static const int16_t buff_info_Gemm_33_conv_10_zero_off_59_quant_offset[] = { 0 };
   static const uint32_t buff_info__shape_4_1_1[] = { 1, 1, 1, 4 };
   static const uint32_t buff_info__mem_shape_F_4_1_1[] = { 4, 1, 1 };
@@ -3942,8 +3942,8 @@ const LL_Buffer_InfoTypeDef *LL_ATON_Input_Buffers_Info_rps_tof(void)
       .mem_shape = buff_info__mem_shape_M8_16_1_1,
       .mem_ndims = 4,
       .chpos = CHPos_Mixed,
-      .Qm = 10,
-      .Qn = 21,
+      .Qm = 11,
+      .Qn = 20,
       .Qunsigned = 0,
       .type = DataType_FXP,
       .nbits = 32,
@@ -4032,8 +4032,8 @@ const LL_Buffer_InfoTypeDef *LL_ATON_Input_Buffers_Info_rps_tof(void)
       .mem_shape = buff_info__mem_shape_M8_32_1_1,
       .mem_ndims = 4,
       .chpos = CHPos_Mixed,
-      .Qm = 11,
-      .Qn = 20,
+      .Qm = 12,
+      .Qn = 19,
       .Qunsigned = 0,
       .type = DataType_FXP,
       .nbits = 32,
@@ -4077,8 +4077,8 @@ const LL_Buffer_InfoTypeDef *LL_ATON_Input_Buffers_Info_rps_tof(void)
       .mem_shape = buff_info__mem_shape_M8_24_1_1,
       .mem_ndims = 4,
       .chpos = CHPos_Mixed,
-      .Qm = 13,
-      .Qn = 18,
+      .Qm = 11,
+      .Qn = 20,
       .Qunsigned = 0,
       .type = DataType_FXP,
       .nbits = 32,
@@ -4122,8 +4122,8 @@ const LL_Buffer_InfoTypeDef *LL_ATON_Input_Buffers_Info_rps_tof(void)
       .mem_shape = buff_info__mem_shape_M16_32_1_1,
       .mem_ndims = 4,
       .chpos = CHPos_Mixed,
-      .Qm = 13,
-      .Qn = 18,
+      .Qm = 14,
+      .Qn = 17,
       .Qunsigned = 0,
       .type = DataType_FXP,
       .nbits = 32,
@@ -4167,8 +4167,8 @@ const LL_Buffer_InfoTypeDef *LL_ATON_Input_Buffers_Info_rps_tof(void)
       .mem_shape = buff_info__mem_shape_F_4_1_1,
       .mem_ndims = 3,
       .chpos = CHPos_First,
-      .Qm = 11,
-      .Qn = 20,
+      .Qm = 12,
+      .Qn = 19,
       .Qunsigned = 0,
       .type = DataType_FXP,
       .nbits = 32,
@@ -4188,8 +4188,8 @@ const LL_Buffer_InfoTypeDef *LL_ATON_Input_Buffers_Info_rps_tof(void)
       .mem_shape = buff_info__mem_shape_F_16_1_1,
       .mem_ndims = 3,
       .chpos = CHPos_First,
-      .Qm = -6,
-      .Qn = 21,
+      .Qm = -5,
+      .Qn = 20,
       .Qunsigned = 0,
       .type = DataType_FXP,
       .nbits = 16,
@@ -4230,8 +4230,8 @@ const LL_Buffer_InfoTypeDef *LL_ATON_Input_Buffers_Info_rps_tof(void)
       .mem_shape = buff_info__mem_shape_F_32_1_1,
       .mem_ndims = 3,
       .chpos = CHPos_First,
-      .Qm = -5,
-      .Qn = 20,
+      .Qm = -4,
+      .Qn = 19,
       .Qunsigned = 0,
       .type = DataType_FXP,
       .nbits = 16,
@@ -4251,8 +4251,8 @@ const LL_Buffer_InfoTypeDef *LL_ATON_Input_Buffers_Info_rps_tof(void)
       .mem_shape = buff_info__mem_shape_F_24_1_1,
       .mem_ndims = 3,
       .chpos = CHPos_First,
-      .Qm = -3,
-      .Qn = 18,
+      .Qm = -5,
+      .Qn = 20,
       .Qunsigned = 0,
       .type = DataType_FXP,
       .nbits = 16,
@@ -4272,8 +4272,8 @@ const LL_Buffer_InfoTypeDef *LL_ATON_Input_Buffers_Info_rps_tof(void)
       .mem_shape = buff_info__mem_shape_F_32_1_1,
       .mem_ndims = 3,
       .chpos = CHPos_First,
-      .Qm = -3,
-      .Qn = 18,
+      .Qm = -2,
+      .Qn = 17,
       .Qunsigned = 0,
       .type = DataType_FXP,
       .nbits = 16,
@@ -4293,8 +4293,8 @@ const LL_Buffer_InfoTypeDef *LL_ATON_Input_Buffers_Info_rps_tof(void)
       .mem_shape = buff_info__mem_shape_F_4_1_1,
       .mem_ndims = 3,
       .chpos = CHPos_First,
-      .Qm = -5,
-      .Qn = 20,
+      .Qm = -4,
+      .Qn = 19,
       .Qunsigned = 0,
       .type = DataType_FXP,
       .nbits = 16,
@@ -4404,9 +4404,9 @@ const LL_Buffer_InfoTypeDef *LL_ATON_Output_Buffers_Info_rps_tof(void)
     {
       .name = "Quantize_37_out_0",
       .addr_base = {(unsigned char *)(0x242e0000UL) /* Equivalent hex address = 0x242e0000UL */},
-      .offset_start = 1008,
-      .offset_end = 1012,
-      .offset_limit = 1080,
+      .offset_start = 512,
+      .offset_end = 516,
+      .offset_limit = 584,
       .is_user_allocated = 0,
       .is_param = 0,
       .epoch = 12,
