@@ -9,11 +9,15 @@
 #include "app_features.h"
 #include "app_logging.h"
 #include "debug_uart.h"
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#include "display_app.h"
+#endif
 #include "firmware_update.h"
 #include "firmware_build_version.h"
 #include "logging_levels.h"
 #include "main.h"
 #include "menu.h"
+#include "rps_ai.h"
 #include "tof_app.h"
 #include "usb_cdc_transport.h"
 #include "wifi_ble_app.h"
@@ -67,11 +71,15 @@ static size_t cli_completion_candidate_count(void);
 static int cli_completion_candidate(size_t index, char *candidate,
                                     size_t capacity);
 static void cli_command_help(Menu_t *menu, const char *command);
+static void cli_command_version(Menu_t *menu, const char *command);
 static void cli_command_status(Menu_t *menu, const char *command);
 static void cli_command_usb(Menu_t *menu, const char *command);
 static void cli_command_clear(Menu_t *menu, const char *command);
 static void cli_command_map(Menu_t *menu, const char *command);
 static void cli_command_tof(Menu_t *menu, const char *command);
+static void __attribute__((optimize("Os")))
+cli_command_dataset(Menu_t *menu, const char *command);
+static void cli_command_rps(Menu_t *menu, const char *command);
 static void cli_command_debug(Menu_t *menu, const char *command);
 static void cli_command_reboot(Menu_t *menu, const char *command);
 static void cli_command_firmware_update(Menu_t *menu, const char *command);
@@ -81,10 +89,14 @@ static void cli_prompt(void);
 static void cli_show_help(void);
 static void cli_show_status(void);
 static void cli_show_tof_status(void);
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+static void cli_show_display_status(void);
+#endif
 static void cli_show_usb_status(void);
+static void cli_show_map_channels(void);
 static void cli_show_map_processing(void);
 static const TOF_ImageFilterDescriptor_t *cli_find_map_filter(
-    const char *command);
+    int argc, char *const argv[], size_t *filter_argument_count);
 static const char *cli_tof_state_name(TOF_App_State_t state);
 static const char *cli_radio_state_name(WifiBle_State_t state);
 static const char *cli_log_level_name(uint32_t level);
@@ -109,12 +121,17 @@ static const Menu_Object_t cli_menu_objects[] =
   MENU_OBJECT("help", cli_command_help),
   MENU_OBJECT("menu", cli_command_help),
   MENU_OBJECT("?", cli_command_help),
+  MENU_OBJECT("version", cli_command_version),
   MENU_OBJECT("status", cli_command_status),
   MENU_OBJECT("usb", cli_command_usb),
   MENU_OBJECT("clear", cli_command_clear),
   MENU_OBJECT("MAP", cli_command_map),
   MENU_OBJECT("map", cli_command_map),
   MENU_OBJECT("tof", cli_command_tof),
+  MENU_OBJECT("DATASET", cli_command_dataset),
+  MENU_OBJECT("dataset", cli_command_dataset),
+  MENU_OBJECT("RPS", cli_command_rps),
+  MENU_OBJECT("rps", cli_command_rps),
   MENU_OBJECT("debug", cli_command_debug),
   MENU_OBJECT("Start UART Firmware Update", cli_command_firmware_update),
   MENU_OBJECT("update", cli_command_firmware_update),
@@ -130,15 +147,29 @@ static const char *const cli_completion_base[] =
 {
   "help",
   "menu",
+  "version",
   "status",
   "usb status",
   "clear",
   "MAP ON",
   "MAP OFF",
+  "MAP CHANNELS",
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+  "MAP ON SCREEN",
+  "MAP OFF SCREEN",
+  "MAP ON DISPLAY",
+  "MAP OFF DISPLAY",
+#endif
   "MAP PROCESSING",
   "tof status",
   "tof pause",
   "tof resume",
+  "DATASET STREAM ON",
+  "DATASET STREAM OFF",
+  "DATASET STREAM STATUS",
+  "RPS STATUS",
+  "RPS ON",
+  "RPS OFF",
   "debug off",
   "debug error",
   "debug warn",
@@ -205,6 +236,7 @@ void Debug_CLI_Run(void)
       cli_cdc_session_ready = 0U;
       Menu_Reset(&cli_menu);
       TOF_App_SetMapEnabled(0U);
+      TOF_App_SetDatasetStreamEnabled(0U);
       tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 10U);
       continue;
     }
@@ -279,6 +311,16 @@ static void cli_process_byte(uint8_t byte)
 
   if (cli_console_mode == 0U)
   {
+    if ((byte >= '1') && (byte <= '5'))
+    {
+      TOF_App_Channel_t channel = (TOF_App_Channel_t)(byte - '0');
+      uint32_t mask = TOF_App_ToggleMapChannel(channel);
+      Debug_UART_Log("CLI", "MAP channel %lu (%s) toggled; mask=0x%02lx",
+                     (unsigned long)channel,
+                     TOF_App_GetChannelName(channel),
+                     (unsigned long)mask);
+      return;
+    }
     if ((byte == '\r') || (byte == '\n'))
     {
       cli_enter_console();
@@ -464,6 +506,13 @@ static void cli_command_help(Menu_t *menu, const char *command)
   cli_show_help();
 }
 
+static void cli_command_version(Menu_t *menu, const char *command)
+{
+  (void)command;
+  (void)Menu_Reply(menu,
+                   "Firmware version: " NATI_LAB_FIRMWARE_VERSION_TEXT);
+}
+
 static void cli_command_status(Menu_t *menu, const char *command)
 {
   (void)menu;
@@ -501,10 +550,31 @@ static void cli_command_map(Menu_t *menu, const char *command)
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
 
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+  if ((argc == 3) &&
+      (cli_token_equals(argv[1], "on") != 0U) &&
+      ((cli_token_equals(argv[2], "screen") != 0U) ||
+       (cli_token_equals(argv[2], "display") != 0U)))
+  {
+    Display_App_SetMapEnabled(1U);
+    (void)Menu_Reply(menu,
+                     "Screen depth map enabled; processing will publish numbered frames to the display task.");
+  }
+  else if ((argc == 3) &&
+           (cli_token_equals(argv[1], "off") != 0U) &&
+           ((cli_token_equals(argv[2], "screen") != 0U) ||
+            (cli_token_equals(argv[2], "display") != 0U)))
+  {
+    Display_App_SetMapEnabled(0U);
+    (void)Menu_Reply(menu,
+                     "Screen depth map disabled; the display task will clear the centered map area.");
+  }
+  else
+#endif
   if ((argc == 2) && (cli_token_equals(argv[1], "on") != 0U))
   {
     (void)Menu_Reply(menu,
-                     "Depth map enabled. Press Enter to return to the console.");
+                     "Sensor map enabled. Keys 1..5 toggle channels; Enter returns to the console.");
     TOF_App_SetMapEnabled(1U);
     cli_console_mode = 0U;
   }
@@ -515,9 +585,30 @@ static void cli_command_map(Menu_t *menu, const char *command)
                      "Depth map disabled; ranging remains active.");
   }
   else if ((argc >= 2) &&
+           (cli_token_equals(argv[1], "channels") != 0U))
+  {
+    if (argc == 2)
+    {
+      cli_show_map_channels();
+      return;
+    }
+
+    if ((argc == 3) && (strlen(argv[2]) == 1U) &&
+        (argv[2][0] >= '1') && (argv[2][0] <= '5'))
+    {
+      (void)TOF_App_ToggleMapChannel(
+          (TOF_App_Channel_t)(argv[2][0] - '0'));
+      cli_show_map_channels();
+      return;
+    }
+
+    (void)Menu_Reply(menu, "Usage: MAP CHANNELS [1..5]");
+  }
+  else if ((argc >= 2) &&
            (cli_token_equals(argv[1], "processing") != 0U))
   {
     const TOF_ImageFilterDescriptor_t *descriptor;
+    size_t filter_argument_count = 0U;
 
     if (argc == 2)
     {
@@ -525,31 +616,67 @@ static void cli_command_map(Menu_t *menu, const char *command)
       return;
     }
 
-    descriptor = cli_find_map_filter(argv[2]);
+    descriptor = cli_find_map_filter(argc, argv, &filter_argument_count);
     if (descriptor == NULL)
     {
       (void)Menu_Reply(menu,
-                       "Usage: MAP PROCESSING <filter> [parameter value]");
+                       "Usage: MAP PROCESSING <filter> [value | parameter value]");
       return;
     }
 
-    if (argc == 3)
+    if ((size_t)argc == (2U + filter_argument_count))
     {
       (void)TOF_App_SelectMapFilter(descriptor->filter);
       cli_show_map_processing();
       return;
     }
 
-    if (argc == 5)
+    if (((size_t)argc == (3U + filter_argument_count)) &&
+        (descriptor->parameter_count == 1U))
+    {
+      uint32_t value;
+      size_t value_argument = 2U + filter_argument_count;
+      const TOF_ImageFilterParameter_t *parameter =
+          &descriptor->parameters[0];
+
+      if (cli_parse_u32(argv[value_argument], &value) == 0)
+      {
+        (void)Menu_Reply(menu, "Invalid unsigned integer value.");
+        return;
+      }
+
+      TOF_ImageProcessingStatus_t result =
+          TOF_App_SetMapFilterParameter(descriptor->filter, 0U, value);
+      if (result == TOF_IMAGE_PROCESSING_VALUE_OUT_OF_RANGE)
+      {
+        cli_print("%s must be in the range %" PRIu32 "..%" PRIu32 " %s.\r\n",
+                  parameter->name, parameter->minimum, parameter->maximum,
+                  parameter->unit);
+        return;
+      }
+      if (result != TOF_IMAGE_PROCESSING_OK)
+      {
+        (void)Menu_Reply(menu, "Unable to update map processing setting.");
+        return;
+      }
+
+      (void)TOF_App_SelectMapFilter(descriptor->filter);
+      cli_show_map_processing();
+      return;
+    }
+
+    if ((size_t)argc == (4U + filter_argument_count))
     {
       size_t parameter_index;
       uint32_t value;
+      size_t parameter_argument = 2U + filter_argument_count;
+      size_t value_argument = parameter_argument + 1U;
 
       for (parameter_index = 0U;
            parameter_index < descriptor->parameter_count;
            ++parameter_index)
       {
-        if (cli_token_equals(argv[3],
+        if (cli_token_equals(argv[parameter_argument],
                              descriptor->parameters[parameter_index].name) != 0U)
         {
           break;
@@ -557,7 +684,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
       }
 
       if ((parameter_index >= descriptor->parameter_count) ||
-          (cli_parse_u32(argv[4], &value) == 0))
+          (cli_parse_u32(argv[value_argument], &value) == 0))
       {
         (void)Menu_Reply(menu,
                          "Unknown parameter or invalid unsigned integer value.");
@@ -588,12 +715,12 @@ static void cli_command_map(Menu_t *menu, const char *command)
     }
 
     (void)Menu_Reply(menu,
-                     "Usage: MAP PROCESSING <filter> [parameter value]");
+                     "Usage: MAP PROCESSING <filter> [value | parameter value]");
   }
   else
   {
     (void)Menu_Reply(menu,
-                     "Usage: MAP ON|OFF or MAP PROCESSING");
+                     "Usage: MAP ON|OFF [SCREEN] | MAP CHANNELS [1..5] | MAP PROCESSING");
   }
 }
 
@@ -622,6 +749,91 @@ static void cli_command_tof(Menu_t *menu, const char *command)
   {
     (void)Menu_Reply(menu, "Usage: tof status|pause|resume");
   }
+}
+
+static void __attribute__((optimize("Os")))
+cli_command_dataset(Menu_t *menu, const char *command)
+{
+  char copy[CLI_LINE_SIZE];
+  char *argv[CLI_MAX_ARGUMENTS];
+  int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
+                               CLI_MAX_ARGUMENTS);
+
+  if ((argc == 3) &&
+      (cli_token_equals(argv[1], "stream") != 0U) &&
+      (cli_token_equals(argv[2], "on") != 0U))
+  {
+    (void)Menu_Reply(menu,
+                     "Dataset stream enabled: N6DF v3, raw 54x42 depth + exact frame-matched 64x50 NPU input + scores, separately CRC32 protected.");
+    TOF_App_SetDatasetStreamEnabled(1U);
+  }
+  else if ((argc == 3) &&
+           (cli_token_equals(argv[1], "stream") != 0U) &&
+           (cli_token_equals(argv[2], "off") != 0U))
+  {
+    TOF_App_SetDatasetStreamEnabled(0U);
+    (void)Menu_Reply(menu,
+                     "Dataset stream disabled; ToF ranging remains active.");
+  }
+  else if ((argc == 3) &&
+           (cli_token_equals(argv[1], "stream") != 0U) &&
+           (cli_token_equals(argv[2], "status") != 0U))
+  {
+    TOF_App_Status_t status;
+    TOF_App_GetStatus(&status);
+    cli_print("Dataset stream: %s, submitted %" PRIu32
+              ", dropped %" PRIu32 ", last frame %" PRIu32
+              ", last CRC32 0x%08" PRIX32 "\r\n",
+              (status.dataset_stream_enabled != 0U) ? "on" : "off",
+              status.dataset_frames_submitted,
+              status.dataset_frames_dropped,
+              status.dataset_last_frame,
+              status.dataset_last_crc32);
+  }
+  else
+  {
+    (void)Menu_Reply(menu, "Usage: DATASET STREAM ON|OFF|STATUS");
+  }
+}
+
+static void cli_command_rps(Menu_t *menu, const char *command)
+{
+  char copy[CLI_LINE_SIZE];
+  char *argv[CLI_MAX_ARGUMENTS];
+  RPS_AI_Status_t status;
+  int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
+                               CLI_MAX_ARGUMENTS);
+
+  if ((argc == 2) && (cli_token_equals(argv[1], "on") != 0U))
+  {
+    RPS_AI_SetEnabled(1U);
+    (void)Menu_Reply(menu, "Neural-ART rock/paper/scissors inference enabled.");
+    return;
+  }
+  if ((argc == 2) && (cli_token_equals(argv[1], "off") != 0U))
+  {
+    RPS_AI_SetEnabled(0U);
+    (void)Menu_Reply(menu, "Neural-ART inference disabled; ToF acquisition remains active.");
+    return;
+  }
+  if ((argc != 2) || (cli_token_equals(argv[1], "status") == 0U))
+  {
+    (void)Menu_Reply(menu, "Usage: RPS ON|OFF|STATUS");
+    return;
+  }
+
+  RPS_AI_GetStatus(&status);
+  cli_print("RPS status: enabled=%" PRIu32 " ready=%" PRIu32
+            " frame=%" PRIu32 " class=%s class_id=%u confidence_permille=%u"
+            " scores=%d,%d,%d,%d runs=%" PRIu32 " errors=%" PRIu32
+            " last_error=%" PRId32 " inference_ms=%" PRIu32 "\r\n",
+            status.enabled, status.ready, status.last_frame,
+            RPS_AI_ClassName(status.class_id), (unsigned int)status.class_id,
+            (unsigned int)status.confidence_per_mille,
+            (int)status.scores[0], (int)status.scores[1],
+            (int)status.scores[2], (int)status.scores[3],
+            status.runs, status.errors, status.last_error,
+            status.inference_ms);
 }
 
 static void cli_command_debug(Menu_t *menu, const char *command)
@@ -829,6 +1041,7 @@ static void cli_command_firmware_update(Menu_t *menu, const char *command)
 {
   (void)command;
   Menu_Reset(menu);
+  TOF_App_SetDatasetStreamEnabled(0U);
   if (Firmware_Update_Start() != 0)
   {
     (void)Menu_Reply(menu, "Unable to start firmware update mode.");
@@ -1284,12 +1497,20 @@ static void cli_prompt(void)
 static void cli_show_help(void)
 {
   cli_print("Commands:\r\n"
-            "  (MAP ON shows the map; Enter returns to this menu.)\r\n"
+            "  (MAP ON: keys 1..5 toggle sensor channels; Enter returns.)\r\n"
+            "  version                        running application version\r\n"
             "  status                         system summary\r\n"
             "  usb status                     USB queues, pool, flow/error counters\r\n"
             "  MAP ON                         show map until Enter is pressed\r\n"
+            "  MAP CHANNELS [1..5]            list channels or toggle one\r\n"
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+            "  MAP ON SCREEN|DISPLAY          show map + NPU result on the SPI display\r\n"
+            "  MAP OFF SCREEN|DISPLAY         stop and clear the SPI display map\r\n"
+#endif
             "  MAP PROCESSING                 select/configure depth filtering\r\n"
             "  tof status|pause|resume        inspect/control ranging\r\n"
+            "  DATASET STREAM ON|OFF|STATUS   N6DF v3 raw depth + exact NPU tensor\r\n"
+            "  RPS ON|OFF|STATUS              Neural-ART inference and raw int8 scores\r\n"
             "  debug off|error|warn|info|debug ST67 runtime log level\r\n"
             "  Start UART Firmware Update      receive signed .n6fw via XMODEM-CRC\r\n"
             "  update                          short alias for firmware update\r\n"
@@ -1316,7 +1537,7 @@ static void cli_show_status(void)
 
   cli_print("Uptime: %" PRIu32 " ms\r\n"
             "USB CDC: %s, session %lu, TX queue %lu, RX queue %lu\r\n"
-            "ToF: %s, map %s, frame %" PRIu32 ", %" PRIu32 ".%" PRIu32 " fps\r\n"
+            "ToF: %s, map %s, channels 0x%02" PRIx32 ", active %" PRIu32 ", dataset %s, frame %" PRIu32 ", %" PRIu32 ".%" PRIu32 " fps\r\n"
             "ST67: %s, Wi-Fi %s, BLE %s, advertising %s\r\n"
             "Log level: %s\r\n",
             HAL_GetTick(), (usb.active != 0U) ? "active" : "inactive",
@@ -1324,13 +1545,19 @@ static void cli_show_status(void)
             (unsigned long)usb.tx_queue_depth,
             (unsigned long)usb.rx_queue_depth,
             cli_tof_state_name(tof.state),
-            (tof.map_enabled != 0U) ? "on" : "off", tof.frame_counter,
+            (tof.map_enabled != 0U) ? "on" : "off",
+            tof.map_channel_mask, (uint32_t)tof.map_active_channel,
+            (tof.dataset_stream_enabled != 0U) ? "on" : "off",
+            tof.frame_counter,
             tof.fps_x10 / 10U, tof.fps_x10 % 10U,
             cli_radio_state_name(radio.state),
             (radio.wifi_connected != 0U) ? ((radio.wifi_has_ip != 0U) ? "IP ready" : "connected") : "disconnected",
             (radio.ble_connected != 0U) ? "connected" : "disconnected",
             (radio.ble_advertising != 0U) ? "on" : "off",
             cli_log_level_name(App_Logging_GetVerbosity()));
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+  cli_show_display_status();
+#endif
 }
 
 static void cli_show_usb_status(void)
@@ -1390,15 +1617,20 @@ static void cli_show_tof_status(void)
             "Frame: %" PRIu32 ", rate: %" PRIu32 ".%" PRIu32 " fps\r\n"
             "Pipeline: acquired %" PRIu32 ", processed %" PRIu32 ", dropped %" PRIu32 ", queue failures %" PRIu32 "\r\n"
             "Last valid range: %" PRIu32 "..%" PRIu32 " mm\r\n"
-            "Map: %s, processing: %s, acquisition: %s\r\n",
+            "Map: %s, channels: 0x%02" PRIx32 ", active: %" PRIu32 " %s, processing: %s, acquisition: %s\r\n",
             cli_tof_state_name(status.state), status.width, status.height,
             status.frame_counter, status.fps_x10 / 10U, status.fps_x10 % 10U,
             status.acquired_frames, status.processed_frames,
             status.dropped_frames, status.queue_failures,
             status.minimum_mm, status.maximum_mm,
             (status.map_enabled != 0U) ? "on" : "off",
+            status.map_channel_mask, (uint32_t)status.map_active_channel,
+            TOF_App_GetChannelName(status.map_active_channel),
             (filter != NULL) ? filter->display_name : "Off",
             (status.paused != 0U) ? "paused" : "running");
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+  cli_show_display_status();
+#endif
   if (status.state == TOF_APP_STATE_ERROR)
   {
     cli_print("Last error: %s (%d)\r\n",
@@ -1406,6 +1638,54 @@ static void cli_show_tof_status(void)
               status.error_code);
   }
 }
+
+static void cli_show_map_channels(void)
+{
+  uint32_t mask = TOF_App_GetMapChannelMask();
+
+  cli_print("MAP sensor channels (enabled channels alternate one per sensor frame):\r\n");
+  for (uint32_t channel = TOF_APP_CHANNEL_DEPTH;
+       channel <= TOF_APP_CHANNEL_COUNT;
+       ++channel)
+  {
+    uint32_t bit = 1UL << (channel - 1U);
+    cli_print("  [%c] %" PRIu32 " %-11s - %s\r\n",
+              ((mask & bit) != 0U) ? 'V' : ' ', channel,
+              TOF_App_GetChannelName((TOF_App_Channel_t)channel),
+              TOF_App_GetChannelDescription((TOF_App_Channel_t)channel));
+  }
+  cli_print("Toggle here with MAP CHANNELS <1..5>, or press 1..5 during MAP ON.\r\n");
+}
+
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+static void cli_show_display_status(void)
+{
+  Display_App_Status_t status;
+
+  Display_App_GetStatus(&status);
+  cli_print(
+      "Display: %s, screen map %s, frame in flight %s\r\n"
+      "Display frames: submitted %" PRIu32 ", rendered %" PRIu32
+      ", dropped %" PRIu32 ", errors %" PRIu32 "\r\n"
+      "Display frame IDs: submitted %" PRIu32 ", rendered %" PRIu32 "\r\n"
+      "Display NPU result: valid %u, frame %" PRIu32
+      ", class %s, confidence %u/1000\r\n"
+      "Display DMA: completions %" PRIu32 ", errors %" PRIu32
+      ", last frame %" PRIu32 ", clears %" PRIu32 "\r\n",
+      (status.initialized != 0U) ? "ready" : "not ready",
+      (status.map_enabled != 0U) ? "on" : "off",
+      (status.frame_in_flight != 0U) ? "yes" : "no",
+      status.submitted_frames, status.rendered_frames,
+      status.dropped_frames, status.render_errors,
+      status.last_submitted_frame, status.last_rendered_frame,
+      (unsigned int)status.last_rendered_rps_valid,
+      status.last_rendered_rps_frame,
+      RPS_AI_ClassDisplayName(status.last_rendered_rps_class_id),
+      (unsigned int)status.last_rendered_rps_confidence_per_mille,
+      status.dma_completions, status.dma_errors,
+      status.last_render_dma_completions, status.clear_operations);
+}
+#endif
 
 static void cli_show_map_processing(void)
 {
@@ -1422,7 +1702,7 @@ static void cli_show_map_processing(void)
         TOF_ImageProcessing_GetDescriptorByIndex(filter_index);
     size_t parameter_index;
 
-    cli_print("  [%c] %-7s %-12s - %s\r\n",
+    cli_print("  [%c] %-10s %-15s - %s\r\n",
               (config.selected_filter == descriptor->filter) ? 'V' : ' ',
               descriptor->command, descriptor->display_name,
               descriptor->description);
@@ -1439,28 +1719,72 @@ static void cli_show_map_processing(void)
     }
   }
   cli_print("Select:    MAP PROCESSING BOX\r\n"
+            "           MAP PROCESSING OBJECT 1   (raw valid depth)\r\n"
+            "           MAP PROCESSING OBJECT 2   (adaptive candidates)\r\n"
+            "           MAP PROCESSING OBJECT 3   (nearest component)\r\n"
+            "           MAP PROCESSING OBJECT 4   (crop + normalize + resize)\r\n"
+            "           MAP PROCESSING OBJECT 5   (+ 600 mm limit + wider crop/model margins)\r\n"
+            "           MAP PROCESSING OBJECT 6   (+ aggressive >0 binary + 3x3 stripe repair)\r\n"
+            "           MAP PROCESSING OBJECT 7 210 (near-depth binary; higher removes more arm)\r\n"
+            "           MAP PROCESSING NPU        (exact model input; fixed threshold 210)\r\n"
             "Configure: MAP PROCESSING BOX radius 2\r\n"
             "           MAP PROCESSING BOX passes 2\r\n"
             "           MAP PROCESSING MEDIAN threshold_mm 100\r\n"
             "           MAP PROCESSING GAUSSIAN passes 2\r\n"
             "           MAP PROCESSING SHARPEN amount_percent 125\r\n"
-            "Median threshold_mm=0 applies the median to every pixel.\r\n");
+            "           MAP PROCESSING OBJECT 7 threshold 210 (equivalent long form)\r\n"
+            "Median threshold_mm=0 applies the median to every pixel.\r\n"
+            "OBJECT 1..7 are cumulative views; NPU uses the promoted fixed threshold 210.\r\n"
+            "Legacy MAP PROCESSING OBJECT is an alias for MAP PROCESSING NPU.\r\n");
 }
 
 static const TOF_ImageFilterDescriptor_t *cli_find_map_filter(
-    const char *command)
+    int argc, char *const argv[], size_t *filter_argument_count)
 {
   size_t index;
+  char two_token_command[32];
+
+  if ((argc < 3) || (argv == NULL) || (filter_argument_count == NULL))
+  {
+    return NULL;
+  }
+
+  if (argc >= 4)
+  {
+    int length = snprintf(two_token_command, sizeof(two_token_command),
+                          "%s %s", argv[2], argv[3]);
+    if ((length > 0) && ((size_t)length < sizeof(two_token_command)))
+    {
+      for (index = 0U; index < TOF_ImageProcessing_GetFilterCount(); ++index)
+      {
+        const TOF_ImageFilterDescriptor_t *descriptor =
+            TOF_ImageProcessing_GetDescriptorByIndex(index);
+        if ((descriptor != NULL) &&
+            (cli_token_equals(two_token_command, descriptor->command) != 0U))
+        {
+          *filter_argument_count = 2U;
+          return descriptor;
+        }
+      }
+    }
+  }
 
   for (index = 0U; index < TOF_ImageProcessing_GetFilterCount(); ++index)
   {
     const TOF_ImageFilterDescriptor_t *descriptor =
         TOF_ImageProcessing_GetDescriptorByIndex(index);
     if ((descriptor != NULL) &&
-        (cli_token_equals(command, descriptor->command) != 0U))
+        (cli_token_equals(argv[2], descriptor->command) != 0U))
     {
+      *filter_argument_count = 1U;
       return descriptor;
     }
+  }
+
+  if (cli_token_equals(argv[2], "OBJECT") != 0U)
+  {
+    *filter_argument_count = 1U;
+    return TOF_ImageProcessing_GetDescriptor(TOF_IMAGE_FILTER_NPU);
   }
   return NULL;
 }

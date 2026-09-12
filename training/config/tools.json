@@ -1,0 +1,8 @@
+{
+  "python": "py -3.11",
+  "stedgeai_env": "STEDGEAI_PATH",
+  "stedgeai_executable": "stedgeai.exe",
+  "stm32_target": "stm32n6",
+  "network_name": "rps_tof"
+}
+

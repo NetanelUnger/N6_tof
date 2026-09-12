@@ -51,10 +51,16 @@ extern "C" {
 
 /* USER CODE BEGIN EC */
 
-/* Allow for the 32 KiB USBX system pool plus the enlarged USB control-thread
- * stack and byte-pool bookkeeping. */
+/* The enabled application threads reserve 124 KiB of pool-backed stacks.
+ * Keep more than 34 KiB for ThreadX byte-pool headers and future allocations,
+ * while returning 1 KiB to the C heap for the display-frame control path. */
+#undef TX_APP_MEM_POOL_SIZE
+#define TX_APP_MEM_POOL_SIZE                     (159U * 1024U)
+
+/* Allow for the 32 KiB USBX system arena plus the 16 KiB USB control-thread
+ * stack, byte-pool bookkeeping, and about 8 KiB of parent-pool headroom. */
 #undef UX_APP_MEM_POOL_SIZE
-#define UX_APP_MEM_POOL_SIZE                     (64U * 1024U)
+#define UX_APP_MEM_POOL_SIZE                     (56U * 1024U)
 
 /* Queue storage, control blocks and the enlarged USB-PD CAD-thread stack. */
 #undef USBPD_DEVICE_APP_MEM_POOL_SIZE

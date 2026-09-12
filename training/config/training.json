@@ -1,0 +1,42 @@
+{
+  "seed": 657,
+  "quality_profile": "focused_spatial",
+  "model_architecture": "spatial_cnn_v3_compact",
+  "epochs": 50,
+  "batch_size": 32,
+  "learning_rate": 0.001,
+  "early_stopping_patience": 10,
+  "minimum_samples_per_class": 96,
+  "minimum_samples_per_split_per_class": 10,
+  "minimum_train_fraction_per_class": 0.50,
+  "minimum_test_accuracy": 0.50,
+  "minimum_per_class_test_accuracy": 0.35,
+  "maximum_quantization_accuracy_drop": 0.05,
+  "maximum_embedded_weight_bytes": 65536,
+  "hil": {
+    "minimum_npu_coverage": 0.80,
+    "minimum_class_agreement": 0.95,
+    "maximum_raw_score_delta": 16,
+    "minimum_nonempty_model_ratio": 0.20,
+    "minimum_unique_model_tensors": 4
+  },
+  "split_percent": {"train": 70, "validation": 15, "test": 15},
+  "augmentation": {
+    "copies_per_sample": 2,
+    "horizontal_flip_probability": 0.5,
+    "maximum_translation_pixels": 4,
+    "intensity_scale_min": 1.00,
+    "intensity_scale_max": 1.00
+  },
+  "capture": {
+    "target_per_class": 96,
+    "minimum_bursts_per_class": 8,
+    "minimum_sessions_per_class": 2,
+    "samples_per_burst": 12,
+    "warmup_seconds": 1.5,
+    "save_fps": 3.0,
+    "near_duplicate_mean_mm": 8.0,
+    "stale_frame_seconds": 2.0,
+    "guided_order": ["none", "rock", "paper", "scissors"]
+  }
+}

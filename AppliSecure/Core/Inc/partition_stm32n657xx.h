@@ -159,7 +159,7 @@ extern uint32_t _eNSCVeneer;
 /*
 //     <o>End Address <0x1F-0xFFFFFFFF>
 */
-#define SAU_INIT_END1       0x241FFFFF      /* end address of SAU region 1 */
+#define SAU_INIT_END1       0x243FFFFF      /* SRAM2 + NPU SRAM3..6 + CACHEAXI RAM */
 /*
 //     <o>Region is
 //         <0=>Non-Secure

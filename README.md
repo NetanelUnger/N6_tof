@@ -1,5 +1,16 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+The guided, resumable ToF rock-paper-scissors pipeline is documented in
+[training/README_HE.md](training/README_HE.md). It includes the
+`DATASET STREAM ON|OFF|STATUS` binary CDC protocol, capture/validation/model
+BAT stages, atomic embedded-weight deployment, frame-exact Neural-ART HIL, and
+`VIEW_LIVE.bat`, which atomically swaps complete CRC-validated raw/model frames
+at full stream rate without relying on progressive ANSI terminal rendering, plus
+`ANALYZE_TRAINING.bat`, which creates an offline Hebrew HTML explanation of
+the dataset, learning curves, confusion matrix, saved-frame Keras/TFLite
+predictions, quantization contract, and current HIL report without modifying
+the model or firmware.
+
 This document explains the architecture, STM32CubeMX configuration, post-generation changes, RTOS tasks, build and programming flow, debugging strategy, and current engineering status of the project.
 
 The goal is not only to describe how to run the firmware, but also to explain why it is structured this way and how to reason about failures.
@@ -14,6 +25,7 @@ The project combines:
 - NUCLEO-N657X0-Q with an STM32N657X0H3Q MCU.
 - X-NUCLEO-53L9A1 with a VL53L9CX Time-of-Flight sensor.
 - X-NUCLEO-67W61M1 with an ST67W611M1 Wi-Fi + BLE network coprocessor.
+- A 1.28-inch, 240x240 round TFT using the GC9A01 controller.
 - USB Device CDC ACM for a fast terminal, an ANSI color depth map, and a command-line interface.
 - USART1 through the on-board ST-LINK Virtual COM Port for boot and fault diagnostics that remain available even when USB fails.
 
@@ -25,11 +37,14 @@ Current status:
 | BootROM → FSBL → Secure → Non-Secure | Working |
 | VL53L9CX initialization | Working |
 | Full 54×42 depth frames | Working |
+| Five educational ToF image channels | Implemented and build-verified in the CDC map; hardware validation is pending |
 | I3C DMA acquisition | Working on hardware as a callback/event-driven steady-state pipeline |
 | ANSI color-map renderer | Working through USB CDC |
 | ST-LINK UART at 115200 baud | Working |
 | USB CDC | Working; Windows creates a separate COM port backed by a manager task, independent RX/TX workers, callback-driven TX, and fixed static slots |
 | USB CDC XMODEM firmware update | Implemented and build-verified; hardware transfer and rollback validation are pending |
+| GC9A01 round display | Working from SRAM: the DMA-backed task renders the numbered ToF map and its frame-matched NPU summary; 38/38 submitted frames rendered with zero errors in the latest non-visual HIL check |
+| Rock/paper/scissors Neural-ART | A model for the 600 mm binary-silhouette contract is regenerated and integrated with a safe quantized input boundary; a fresh Stage 10 RAM load and Stage 11 hardware HIL are still required before accuracy is considered validated |
 | ST67 Wi-Fi/BLE | Driver and dedicated task are present, but intentionally disabled because the shield is not currently installed |
 | Wi-Fi/BLE OTA transport | Not implemented; it can reuse the authenticated byte-stream installer when the radio is enabled |
 
@@ -51,6 +66,19 @@ RX/TX architecture and rare-event diagnostics enabled.
 This is a successful functional hardware checkpoint. It is not yet evidence of
 a multi-hour soak test, repeated attach/detach endurance, or deliberate fault
 injection into every recovery branch. Those remain separate validation tasks.
+
+On 2026-08-23, the SRAM development image added the inference result to both
+live map consumers. `MAP ON` now appends a prominent `NPU RESULT` line plus
+the four quantized scores to every CDC ANSI frame. `MAP ON SCREEN` and its
+`MAP ON DISPLAY` alias render `NOTHING`, `ROCK`, `PAPER`, or `SCISSORS` below
+the centered GC9A01 map. The display task snapshots the NPU result with the
+submitted ToF frame and exposes the rendered result through `status`; a
+non-visual hardware check observed NPU frame 356 and rendered frame 356,
+`NOTHING` at 921/1000 confidence, 38 submitted/38 rendered, and zero display
+errors. This validation was performed from SRAM and did not change Flash or
+the persistent firmware version. It proves the Neural-ART runtime and
+frame-matching path, but its accuracy result predates the 2026-08-28 binary
+preprocessing change and is not a validation of the new classifier contract.
 
 The authenticated A/B updater added later on 2026-07-31 has passed compilation,
 linking, image signing, and package-generation checks. It has not yet been sent
@@ -122,6 +150,8 @@ TrustZone divides the MCU into Secure and Non-Secure worlds. AppliSecure:
 
 - Defines which SRAM regions are accessible from Non-Secure state.
 - Programs RISAF and RIF access control.
+- Enables Neural-ART/CACHEAXI, opens SRAM3-6 to Non-Secure, and targets NPU
+  interrupts to the Non-Secure runtime.
 - Owns XSPI2, PKA, signature validation, bounded inactive-slot writes, read-back
   hashing, and atomic update-metadata commits behind narrow NSC entry points.
 - Rejects all update calls if XSPI2, XSPIM, ExtMem/SFDP, or PKA initialization
@@ -145,6 +175,9 @@ A mistake in these permissions may look like an ordinary HardFault even though t
 
 Each application slot is 1 MiB. `N6-Firmware-v<version>.n6fw` contains a
 256-byte signed update manifest followed by the trusted Non-Secure STM32 image.
+The generated Neural-ART weights are a const array inside that image and are
+copied to NPU SRAM6 at runtime, so the existing single-payload A/B transaction
+installs and rolls back application code and its exact weights together.
 `N6-BootMetadata.bin` describes the factory Slot-A version and is programmed to
 both metadata sectors so a development reflash cannot retain a stale Slot-B
 selection.
@@ -156,10 +189,14 @@ digest. This rejects corrupted, unsigned, wrong-target, oversized, and
 non-incrementing packages in the current firmware. It does not turn the current
 development board into a complete physical root of trust: `-nk` remains in the
 BootROM image flow, the update public key is compiled into replaceable firmware,
-and the local development private key is not an HSM-backed production key.
-Production must enable the STM32 authenticated secure-boot/OTP chain, protect or
-immutably bind the update public key, protect the anti-rollback state, and keep
-the private signing key outside developer workstations.
+and the shared development private key is not an HSM-backed production key.
+This educational repository intentionally tracks that development key so the
+complete signing and update exercise can be transferred to another learner.
+Anyone with a copy can sign an update accepted by this development firmware.
+Production must therefore use a different key, enable the STM32 authenticated
+secure-boot/OTP chain, protect or immutably bind the update public key, protect
+the anti-rollback state, and keep its private signing key outside the repository
+and developer workstations.
 
 ## 4. Important N6.ioc settings
 
@@ -229,7 +266,43 @@ SPI5 remains generated by CubeMX, but when APP_ST67W6X_ENABLED is 0:
 - W6X_Init and all radio hardware initialization are skipped.
 - The unused PE9 interrupt source is disabled.
 
-### 4.5 USB CDC and USB-PD
+### 4.5 GC9A01 round display through SPI5 TX DMA
+
+The display currently reuses the idle ST67 SPI5 pin group. The feature flags
+contain a compile-time error if both devices are enabled together, because they
+share the same bus and control pins without separate ownership arbitration.
+
+| Display pin | STM32 pin | Existing project signal | Function |
+|---|---|---|---|
+| SCL | PE15 | SPI_CLK | SPI5_SCK |
+| SDA | PG2 | SPI_MOSI | SPI5_MOSI |
+| DC | PE10 | CHIP_EN | GPIO command/data select |
+| CS | PA3 | SPI_CS | Active-low chip select |
+| RST | PD5 | BOOT | Active-low hardware reset |
+| VCC | 3.3 V | - | Display power; do not connect to a 5 V GPIO supply |
+| GND | GND | - | Common ground |
+
+The module's SDA/SCL labels describe a write-only SPI connection here, not
+I2C. Its MISO input is not required. SPI5 runs in mode 0 at approximately
+30 Mbit/s. The dedicated priority-8 display task performs the reset and GC9A01
+initialization sequence, clears the panel, and centers `SYSTEM IS LOADING`.
+Commands, clear chunks, and text pixels all use `HAL_SPI_Transmit_DMA`; the task
+waits on ThreadX event flags posted by the SPI completion/error callback, so it
+does not poll while DMA is active. Panel clearing and the 202x14 text bitmap are
+streamed through one shared, cache-cleaned 404-byte DMA row buffer instead of
+reserving two large static buffers.
+
+The task is intentionally the only display/SPI owner and suspends after the
+startup screen. The next display phase will add a bounded queue and explicit
+RGB565 buffer-ownership/completion rules at that suspension point. The current
+startup text uses only a tiny private glyph subset and is not intended to be
+the future graphics library.
+
+No `N6.ioc` change was required because SPI5, GPDMA1 channel 10, its interrupt,
+and all five pins were already generated for the disabled ST67 feature. CubeMX
+Generate Code is therefore not required for this addition.
+
+### 4.6 USB CDC and USB-PD
 
 - PH0/PH1 are assigned to the FSBL as the 48 MHz HSE digital-bypass input.
 - The FSBL must leave HSE running because USBPHY1 uses HSE/2 and OTGHS1 uses
@@ -249,7 +322,7 @@ SPI5 remains generated by CubeMX, but when APP_ST67W6X_ENABLED is 0:
 
 The board's TCPP0203 protects the Type-C path and measures VBUS. It requires I2C2, ADC12, UCPD1, and several GPIOs to be accessible from the Non-Secure application.
 
-### 4.6 CubeMX warnings seen during generation
+### 4.7 CubeMX warnings seen during generation
 
 Warnings about free pins that are not assigned to a context, and GPIO pins changed into EXTI mode, are related to the multi-context project and shared pins. They are not automatically fatal.
 
@@ -337,14 +410,23 @@ resolution. The largest visible active chain is the optimized sharpener at
 about 34 KiB, before its callers and exception/FPU context. A 96 KiB stack
 therefore retains generous margin.
 
-The ThreadX application pool is 160 KiB. Its active stacks reserve about
-120 KiB, while the smaller pool leaves an additional 32 KiB for the C heap.
+The ThreadX application pool is 160 KiB. Its active pool-backed stacks reserve
+about 124 KiB after adding the 4 KiB display task. The USBX parent byte pool is
+56 KiB: it contains the 32 KiB USBX system arena, the 16 KiB device-control
+stack, allocator bookkeeping, and about 8 KiB of unused parent-pool headroom.
 With the update and static CDC buffers linked, the first-frame transform needs
 about 356,688 bytes at peak; a 192 KiB pool left only 356,872 bytes before
 allocator overhead and therefore returned `MEDIA_ERROR_UNKNOWN` (`-14`). Stack
-and heap requirements must be budgeted together.
+and heap requirements must be budgeted together. The current linked image leaves
+371,240 bytes between `_end` and the reserved MSP stack. The build helper now
+refuses to sign a Non-Secure image with less than 360 KiB of C-heap capacity.
 
-The USBX device-control stack is currently 16 KiB and the USBX pool is 32 KiB. The 16 KiB value was introduced as a conservative bring-up value during the initial fault investigation. Later address mapping proved that the observed STKOF was in the USB-PD CAD task, not the USBX task. Therefore, this larger USBX stack is not evidence of an ST USBX defect.
+The USBX device-control stack is currently 16 KiB, the USBX system arena is
+32 KiB, and their parent ThreadX byte pool is 56 KiB. The 16 KiB stack value was
+introduced as a conservative bring-up value during the initial fault
+investigation. Later address mapping proved that the observed STKOF was in the
+USB-PD CAD task, not the USBX task. Therefore, this larger USBX stack is not
+evidence of an ST USBX defect.
 
 The USB-PD CAD stack was increased from 1 KiB to 8 KiB and its pool from 5000 bytes to 16 KiB. On cable attachment the CAD path executes:
 
@@ -443,14 +525,17 @@ Available CLI commands:
 | Command | Action |
 |---|---|
 | help, menu, ? | Show help |
+| version | Report the exact running Non-Secure firmware version |
 | status | Show a system summary |
 | usb status | Show CDC session, static-slot usage, queues, callback completions, flow control, and errors |
-| map on / map off | Show or hide the depth map |
+| map on / map off | Show or hide the sensor map; while it is open, keys `1`..`5` toggle channels and Enter returns to the menu |
+| map channels `[1..5]` | List the five sensor channels and their current selection, or toggle one channel |
 | map processing | Show the depth-filter submenu and current `[V]` selection |
-| map processing off/box/median/gaussian/sharpen/min/max | Select the displayed depth filter |
+| map processing off/box/median/gaussian/sharpen/min/max/object 1..6/npu | Select a displayed depth filter, one cumulative teaching stage, or the exact NPU input |
 | map processing `<filter>` `<parameter>` `<value>` | Configure the selected filter, for example `MAP PROCESSING BOX radius 2` |
 | tof status | Show ToF state, rate, and range |
 | tof pause / tof resume | Stop or restart the autonomous ranging stream |
+| dataset stream on / off / status | Stream N6DF v3 records containing raw 54x42 `uint16` depth and the exact frame-matched 64x50 `uint8` NPU tensor with separate CRCs |
 | debug off/error/warn/info/debug | Change ST67 log verbosity |
 | clear | Clear the terminal |
 | Start UART Firmware Update | Enter raw XMODEM-CRC receive mode on the CN8 USB CDC terminal (`update` is an alias) |
@@ -664,10 +749,10 @@ CFSR_NS = 0x00100000 means STKOF on Cortex-M55. The value 0xEFEFEFEF is the Thre
 
 - `Tools/build_and_sign.ps1 -FirmwareVersion <n>` clean-builds the required
   contexts, creates STM32 version-2.3 trusted images, creates factory metadata,
-  and signs `N6-Firmware-v<n>.n6fw` when the ignored local update key exists.
+  and signs `N6-Firmware-v<n>.n6fw` with the shared educational update key.
 - `Tools/New-FirmwareSigningKey.ps1` creates a development P-256 key once. The
-  private blob stays under ignored `.local-dependencies`; only the generated
-  public-key header is tracked.
+  designated private blob and generated public-key header are both tracked for
+  this reproducible educational project; neither is suitable for production.
 - `Tools/New-FirmwareUpdatePackage.ps1` can package an already-built trusted
   Non-Secure image with an explicit increasing firmware version.
 - `Tools/program_flash.ps1` programs and verifies FSBL, Secure, factory Slot A,
@@ -847,7 +932,7 @@ In ThreadX, a smaller priority number means a higher scheduling priority.
 | USB-PD CAD | 1 | 8 KiB | USB-PD pool | CC attach/detach detection, TCPP0203 VBUS setup, USB notifications |
 | Firmware confirmation | 6 | 2 KiB | TX application pool | Sleeps five seconds, commits a TRIAL image, then exits; priority prevents ToF starvation |
 | ToF Acquisition | 7 | 16 KiB | TX application pool | Sensor ownership, PD9 event wait, fully asynchronous I3C DMA sequence, raw-slot publication |
-| ToF Main Thread | 10 | 96 KiB | TX application pool | Raw-frame transform, metadata parsing, ANSI rendering, and raw-slot release |
+| ToF Main Thread | 10 | 96 KiB | TX application pool | Raw-frame transform, RPS preprocessing/Neural-ART inference, metadata parsing, ANSI rendering, and raw-slot release |
 | USBX Device App Main Thread | 8 | 16 KiB | USBX pool | USB lifecycle manager: PCD/USBX, CDC callbacks, worker start/stop, error events |
 | USB CDC RX worker | 9 | 12 KiB | Static BSS | Dispatches callback-filled static RX slots into the application delivery queue |
 | USB CDC TX worker | 9 | 12 KiB | Static BSS | Submits one static TX slot and waits for the USBX completion callback before advancing |
@@ -861,7 +946,7 @@ Additional internal ThreadX and USBX tasks may be created by the middleware, suc
 | Pool | Size | Main use |
 |---|---:|---|
 | tx_app_byte_pool | 160 KiB | ToF, CLI, optional ST67, compatibility objects |
-| ux_device_app_byte_pool | 32 KiB | USBX system memory and USB Device task |
+| ux_device_app_byte_pool | 56 KiB | 32 KiB USBX system arena, 16 KiB USB Device task stack, bookkeeping, and headroom |
 | usbpd_app_byte_pool | 16 KiB | CAD queue, CAD task, and USB-PD objects |
 
 The CDC data plane does not have a byte pool. Its memory is fixed in BSS:
@@ -874,6 +959,14 @@ The CDC data plane does not have a byte pool. Its memory is fixed in BSS:
 | CDC RX slots | 16 × 512 bytes | Completed USB bulk-OUT payloads |
 
 Separate pools help diagnose failures. A PSP address can be matched to a pool to identify which task was actually running.
+
+The upper 176 KiB of NPU SRAM3 (`0x24244000..0x2426FFFF`) holds the CDC worker
+stacks/slots and RPS preprocessing scratch. This keeps 396,264 bytes between
+the SRAM2 `_end` symbol and MSP stack in the older linked image; the current
+N6DF v3 build reports 384,360 bytes of C heap capacity, still above the
+360 KiB VL53L9 guard. The current generated network uses SRAM5 for activations
+and SRAM6 for its 49,809-byte weight blob; Stage 08 rejects a future network
+that selects the reserved SRAM3 bank.
 
 ## 9. Build, sign, and program
 
@@ -896,7 +989,88 @@ powershell.exe -ExecutionPolicy Bypass -File .\project\Tools\build_and_sign.ps1
 
 Signed images are placed in project/FlashImages.
 
+#### 9.2.1 Fast Non-Secure development loop
+
+Ordinary Non-Secure source iterations do not need a clean build, image
+signing, or an external-NOR write. The incremental builder invokes the
+generated makefile directly and produces only the ELF, map, and raw binary;
+it deliberately skips the large disassembly listing generated by the normal
+`all` target:
+
+~~~powershell
+powershell.exe -ExecutionPolicy Bypass `
+  -File .\project\Tools\Build-NonSecureIncremental.ps1
+~~~
+
+For a RAM debug session, put the board in DEV boot mode (`BOOT0=1-2`,
+`BOOT1=2-3`) and press Reset. Flash boot closes STM32N6 debug access before the
+FSBL runs, while DEV boot deliberately leaves Secure and Non-Secure debug open.
+The helper loads the already-built FSBL ELF into SRAM and lets it reach the
+signed Secure runtime from external Flash. At Secure `main()` it replaces that
+runtime with the locally built Secure binary in SRAM1 and restarts it, then
+replaces the incrementally built Non-Secure image through SRAM2's Secure alias.
+Both vector tables are verified before execution. This makes Neural-ART clocks,
+TrustZone ownership, network code, and weights testable entirely from SRAM:
+
+~~~powershell
+powershell.exe -ExecutionPolicy Bypass `
+  -File .\project\Tools\Debug-NonSecureRam.ps1
+~~~
+
+The default leaves an interactive GDB session. Pass `-Run` when an agent or
+script should load the image, run it, and detach. Pass `-NoBuild` to reload an
+already-built binary. No external Flash or firmware version is changed. A
+Reset discards the RAM image and returns to the DEV-boot ROM, so rerun the
+helper after every Reset. To boot the installed persistent image again, return
+`BOOT1` to `1-2` and press Reset.
+
+This lane incrementally builds both Secure and Non-Secure; unchanged targets
+remain make no-ops. It loads both local binaries so SAU/RISAF and the
+Neural-ART bootstrap can be exercised without a Flash write. Persistent Secure,
+FSBL, startup, TrustZone ownership, or NSC changes still require the full
+build/sign/SWD flow. Use `-Clean` after
+changing `ux_user.h`, after CubeMX generation, or when explicitly investigating
+stale generated objects.
+
+#### 9.2.2 Final Non-Secure update through USB CDC/XMODEM
+
+When RAM debugging is complete, one command advances the explicitly supplied
+release version, incrementally builds only Non-Secure, signs only that image,
+creates a signed `.n6fw`, auto-detects the CN8 USB CDC port by VID/PID, sends
+XMODEM-CRC 1K blocks, waits through reset and the five-second confirmation
+window, and checks the running `version` command:
+
+~~~powershell
+powershell.exe -ExecutionPolicy Bypass `
+  -File .\project\Tools\Install-NonSecureUpdate.ps1 `
+  -FirmwareVersion 9
+~~~
+
+The normal policy accepts exactly `current + 1`; the script never chooses or
+increments a version automatically. `-PackageOnly` exercises build, signing,
+and package generation without modifying hardware or retaining the tentative
+version in the tracked header. After the device acknowledges XMODEM EOT, the
+new version is retained because the Secure service has committed PENDING boot
+metadata. If a defect is discovered after that commit and confirmation, its
+replacement must use the next version; reusing a confirmed number would weaken
+the anti-rollback policy.
+
+The XMODEM lane changes only the inactive Non-Secure slot. FSBL, Secure, the
+active slot, and the last confirmed metadata remain untouched until the package
+has been authenticated and finalized. The `version` CLI command reports the
+running application version and is also used by the automation after reset.
+Run `training\09_BOOTSTRAP_NPU_SWD.bat` once first: it programs only signed
+FSBL + Secure and preserves both application slots/metadata. The guided release
+BAT also requires a passing N6DF v3 raw-vs-device-tensor-vs-NPU HIL fingerprint before it asks
+for the explicit `FLASH` confirmation.
+
 ### 9.3 Jumper positions
+
+For the fast SRAM development loop:
+
+- BOOT0 = 1-2.
+- BOOT1 = 2-3.
+- Press RESET before running `Tools/Debug-NonSecureRam.ps1`.
 
 For programming:
 
@@ -975,13 +1149,58 @@ After successful enumeration, Windows should create a second COM port. It is
 not the ST-LINK COM port. CN8 USB CDC is intentionally UI-only. Opening it
 displays the NATI LAB control menu; background diagnostics are never mirrored
 to this port. The port carries only commands and replies, the XMODEM update
-protocol, and a requested depth map. The map is disabled after boot and after
-every disconnect. Enter `MAP ON` to display it, then press Enter to stop the
-display and return to the menu. `MAP PROCESSING` opens the filter submenu.
+protocol, and a requested sensor map. The map is disabled after boot and after
+every disconnect. Enter `MAP ON` to display it. While the map is active, keys
+`1` through `5` toggle depth, amplitude, ambient, reflectance, and confidence;
+press Enter to stop the display and return to the menu. `MAP CHANNELS` lists
+the same numbered submenu and `MAP CHANNELS <number>` toggles an entry before
+opening the map. Channel 1 is enabled by default.
+
+Each ANSI frame carries its sensor frame number, numeric channel ID, channel
+name, and complete enabled-channel set. When several channels are enabled, the
+renderer sends one complete channel image per sensor frame and rotates through
+the enabled set. This bounds every CDC map transfer to one image and keeps the
+autonomous sensor pipeline non-blocking. The ST transform still produces the
+depth image every time for the existing NPU; only the auxiliary image needed
+for the current terminal frame is copied into the existing shared 54x42
+processing workspace. It is rendered before that workspace is reused for a
+filtered depth image on the SPI display.
+Depth uses the fixed 200..4000 mm palette and can use `MAP PROCESSING` filters;
+the other channels use per-frame auto-scaling and bypass depth filters.
+
+`MAP PROCESSING` opens the filter submenu.
 Box and Gaussian blur provide configurable radius and pass count. Median has a
 radius and outlier threshold, Sharpen has radius and amount, while Min and Max
 select the nearest or farthest valid neighbor. The selected filter is marked
-with `[V]` and is applied only to the displayed map.
+with `[V]` and is applied only to the displayed map. The cumulative
+`MAP PROCESSING OBJECT 1` through `OBJECT 7` views expose the object pipeline
+one transformation at a time: valid depth, adaptive candidates, selected
+connected component, crop/relative normalization/resize, the 600 mm model
+limit plus local surface growth (up to 120 mm between neighbors), a wider
+four-source-pixel crop margin, and a guaranteed four-pixel model-canvas border,
+and finally an aggressive binary silhouette: every non-zero OBJECT 5
+pixel becomes 255 and one MVE-accelerated 3x3 dilation repairs thin sensor
+dropout stripes. Experimental OBJECT 7 instead keeps only normalized OBJECT 5
+intensities above a configurable threshold, so increasing the value removes
+surfaces farther behind the palm. Use `MAP PROCESSING OBJECT 7 210` for the
+short form or `MAP PROCESSING OBJECT 7 threshold 210`; the accepted range is
+0..255 and the default is 210. Hardware testing selected 210 for production,
+so the NPU tensor and Python bit-exact verifier use that fixed threshold.
+Changing the OBJECT 7 teaching value remains display-only and cannot silently
+alter the production contract. `MAP PROCESSING NPU` shows the exact
+64x50 production tensor consumed by Neural-ART for that frame. It is black when
+no component of at least 12 connected pixels exists between 100 and 600 mm;
+otherwise its selected object is 255 and its background is 0. This deliberately
+removes centimetre-scale relief inside a hand while retaining its outline.
+
+The persistent display snapshot is necessary because the generated NPU network
+reuses its activation arena, including the input address, during a run. The
+aspect-preserving nearest-neighbor resize and copy into the preallocated NPU
+input use Cortex-M55 Helium/MVE vector gather/load/store instructions;
+inference remains on Neural-ART. Only the requested teaching view is preserved,
+so the seven stages do not reserve seven frame buffers. The GC9A01 `MAP ON SCREEN`
+path intentionally remains the 54x42 depth map in these modes. The old
+`MAP PROCESSING OBJECT` spelling remains an alias for `MAP PROCESSING NPU`.
 
 ## 11. Recommended debugging order
 
@@ -1002,6 +1221,221 @@ arm-none-eabi-addr2line.exe -a -f -C -e .\project\AppliNonSecure\Debug\N6_AppliN
 ~~~
 
 ## 12. Change log
+
+### 2026-09-12
+
+- Diagnosed a misleading Neural-ART failure in which black input matched host
+  TFLite exactly, while every non-empty live tensor produced the same
+  `NOTHING` result. The sensor stream and device preprocessing were bit-exact;
+  the mismatch began at the generated network input.
+- Changed the Keras boundary from uint8 to float32 in the original 0..255 pixel
+  domain. Stage 06 now emits and enforces a genuine uint8 TFLite input with
+  scale 1 and zero-point 0 and rejects any input CAST. This prevents STEdgeAI
+  4.0 from generating the former in-place UINT8-to-FLOAT expansion from 3,200
+  to 12,800 bytes, which corrupted non-zero input while allowing all-zero input
+  to appear correct.
+- Regenerated and integrated the Neural-ART network. The generated input is
+  QLinear(1, 0, uint8), its first conversion is an NPU byte-sized quantization
+  stage rather than a CPU float Cast, and the Non-Secure incremental build
+  passes. Final confirmation remains the Stage 10 RAM load followed by Stage 11
+  HIL with a moving hand.
+
+### 2026-09-03
+
+- Added a five-channel educational ToF map explorer. `MAP ON` accepts keys
+  `1`..`5` as independent toggles for depth, amplitude, ambient, reflectance,
+  and confidence; multiple selections rotate one identified image per sensor
+  frame. `MAP CHANNELS [1..5]`, `status`, and `tof status` expose the same
+  selection state. Every internal map message now includes a frame ID and
+  channel ID. Depth remains the only input to the current RPS model, and the
+  N6DF v3 training record is deliberately unchanged in this first integration.
+- Kept the implementation within the VL53L9 transform's memory budget by
+  retaining depth and reusing the existing processing workspace for one
+  auxiliary output instead of keeping five simultaneous float images.
+
+### 2026-08-29
+
+- Added `MAP PROCESSING OBJECT 7 <threshold>`. It thresholds the
+  normalized OBJECT 5 depth image before producing a repaired 0/255 silhouette;
+  higher values retain only surfaces nearer the palm and can suppress the arm.
+  The parameter range is 0..255 with a default of 210, and the named form
+  `MAP PROCESSING OBJECT 7 threshold <value>` remains available. This teaching
+  experiment selected 210 on hardware; that value is now fixed in the NPU
+  tensor and host bit-exact preprocessing contract. Further interactive OBJECT
+  7 changes remain display-only until promoted in both implementations.
+
+### 2026-08-28
+
+- Extended the training stream to N6DF v3. Every record now contains both the
+  raw 54x42 millimetre map and the exact frame-matched 64x50 pre-inference
+  tensor preserved by the MCU, with independent payload CRCs and a header CRC.
+  Capture recomputes Python preprocessing and stops before saving if any of the
+  3,200 bytes differs. The verified device tensor is stored in the sample NPZ;
+  Stage 04 uses it as the training input, rechecks Python equality, and refuses
+  legacy/host-only samples unless `--allow-host-preprocessing` is explicit.
+- Replaced the single object view with cumulative `MAP PROCESSING OBJECT 1..6`
+  teaching views and `MAP PROCESSING NPU` for the exact model input. The final
+  production path now ignores all depth beyond 600 mm, produces an all-black
+  image when no nearby non-trivial component exists, grows its near seed across
+  locally continuous depth so tilted sheets are not sliced into bands, uses a
+  four-source-pixel crop margin plus a four-pixel model-canvas border, and flattens the selected
+  object to a 0/255 silhouette after resize. Every non-zero pixel becomes 255,
+  then one MVE-accelerated 3x3 dilation repairs thin sensor dropout stripes so
+  internal hand relief cannot become model noise. Python preprocessing and augmentation use
+  the same binary contract; this configuration change invalidates prepared
+  tensors and requires stages 04 through 08 plus a passing Stage 11 HIL before
+  the embedded classifier can be considered matched again.
+- The firmware preserves one requested teaching snapshot plus the final NPU
+  snapshot because the Neural-ART activation schedule overwrites its input
+  arena. Nearest-neighbor resize and the snapshot-to-NPU copy use Cortex-M55
+  MVE vector operations with a scalar build fallback; the binary dilation does
+  too, and inference continues on
+  Neural-ART. The SPI screen path remains a 54x42 depth visualization.
+
+### 2026-08-25
+
+- Changed the live ToF terminal's four NPU outputs from raw signed INT8 scores
+  to decoded percentages with one decimal place. The displayed class list and
+  winning-class confidence now share the model's `scale=1/256`,
+  `zero_point=-128` conversion and nearest-tenth rounding.
+- Made `training/07_GENERATE_N6.bat` ask whether to regenerate with `--force`
+  when its Neural-ART output is already current, while keeping direct pipeline
+  script calls non-interactive.
+- Added a guided `01_CAPTURE.bat` menu for new sessions, numbered resume with
+  per-class counts, all advanced capture settings, and read-only session
+  listing; explicit command-line arguments still bypass the menu.
+- Added non-destructive `02_REVIEW_DATASET.bat`: it prioritizes technically
+  suspicious/model-disagreement frames for human Accept/Reject/Relabel,
+  persists reversible SHA-keyed decisions outside raw metadata, supports a
+  whole-burst action when useful, and feeds the same reviewed labels into
+  Capture, Validate, Prepare and HTML analysis. Stage 04 now supports corrected
+  mixed-label bursts by grouping on physical session+burst identity and finding
+  a global class-balanced split, so adjacent frames never leak across splits.
+
+### 2026-08-24
+
+- Added `training/ANALYZE_TRAINING.bat` and a read-only Python analysis stage.
+  Each invocation creates a timestamped offline HTML snapshot with a dashboard,
+  dataset/session/burst and split analysis, training accuracy/loss curves,
+  explained confusion matrix and per-class metrics, an interactive saved-frame
+  gallery with Keras/TFLite inference, quantization details, HIL interpretation,
+  and traceable source-file hashes. `reports/html/latest.html` points only to
+  the newest snapshot; no raw/prepared data, model, state, generated NPU code,
+  firmware, or hardware is changed.
+
+### 2026-08-23
+
+- Diagnosed the apparent CN8 USB descriptor hang as a Neural-ART BUSIF1 fault,
+  not a USB PHY failure. Stage 08 had relocated the xSPI2 weight addresses to
+  NPU SRAM6 but retained `cacheable=1`, so the first weight fetch selected the
+  xSPI/cache bus path and the LL_ATON interrupt assertion stopped the complete
+  firmware. Stage 08 now converts every initializer DMA descriptor to the
+  non-cacheable SRAM6 contract and rejects any cacheable descriptor left after
+  relocation.
+- Rebuilt and loaded Secure + Non-Secure from SRAM without changing external
+  Flash. Hardware reached the first completed ToF transform, CN8 enumerated as
+  `VID_0483&PID_5740`, and Windows created the board CDC port.
+- Stage 09 passed 100 CRC-valid, distinct frames with 100/100 frame-matched NPU
+  results, monotonic run counters, zero NPU errors, 100% class agreement, and a
+  maximum raw int8 delta of 10. The learning profile now documents a configurable
+  raw-score tolerance of 16 (0.0625 at the model's 1/256 output scale), while
+  retaining 95% minimum class agreement and 80% minimum NPU coverage.
+- Stage 11 now checks the one-time 08B bootstrap and exact-model HIL before
+  prompting for a new firmware version. The signed 08B build-only path passed;
+  persistent SWD/XMODEM writes still require the explicit `BOOTCHAIN`/`FLASH`
+  confirmations.
+
+### 2026-08-23
+
+- Reworked RPS preprocessing after HIL proved that the deployed PC and NPU
+  models agreed exactly but both collapsed to `none`. The shared Python/C
+  contract now selects the nearest non-trivial connected depth component,
+  rejects isolated speckles, crops it, and encodes relative rather than
+  absolute depth. Capture shows and stores the exact 64x50 model input.
+- Replaced global-average classification with a compact spatial CNN, added
+  deterministic train-only translation/mirror/intensity augmentation, eight
+  burst groups per class, session-diversity warnings, per-class test gates and
+  a confusion matrix. `training/RESET_TRAINING_DATA.bat` provides an explicitly
+  confirmed, scoped reset while preserving tools and capture-capable firmware.
+- Capped embedded Neural-ART RPS weights at 64 KiB and compacted the spatial
+  head after a 94,769-byte model reduced the VL53L9 heap below its hard gate.
+  The replacement is 55,441 bytes, improves held-out macro accuracy to 75%,
+  and leaves 387,816 bytes of Non-Secure C heap. Stage 08 now rejects an
+  oversized model before the later Secure bootstrap/build step.
+
+### 2026-08-22
+
+- Fixed Stage 10 RAM boot after hardware diagnosis showed Non-Secure resetting
+  in the first SRAM3 clear. RISAF6 was already open, but SAU region 1 ended at
+  `0x241FFFFF`; it now extends through `0x243FFFFF`, covering SRAM2, NPU
+  SRAM3-6, and CACHEAXI RAM. The RAM helper now incrementally rebuilds Secure
+  as well as Non-Secure, uses the local FSBL handoff to replace both images,
+  verifies vectors, and confirms progress through SRAM3 clear, peripheral init,
+  and ThreadX before detaching. Hardware UART logs reached VL53L9 ready and
+  `Neural-ART ready`; external Flash was not modified.
+- Completed Stage 08 for the ToF rock/paper/scissors model. STEdgeAI 4.0 output,
+  its matched STAI/LL_ATON/ThreadX runtime, and the 49,809-byte raw weight blob
+  now compile into the Non-Secure image. Boot copies the embedded weights to
+  NPU SRAM6, preserving atomic `.n6fw` v1 A/B update and rollback semantics.
+- Added the Secure Neural-ART bootstrap for clocks, CACHEAXI, RIF/RISAF and NPU
+  interrupt targeting, plus a one-time SWD boot-chain installer that preserves
+  application slots. The RAM debug helper now replaces and verifies both local
+  Secure and Non-Secure binaries without writing external Flash.
+- Ported the frozen 54x42-mm to 64x50-uint8 preprocessing contract to firmware,
+  runs Neural-ART synchronously in the ToF processing task, and added `RPS
+  ON|OFF|STATUS`. N6DF v3 carries the exact NPU frame ID, four raw int8 scores,
+  class, confidence and monotonic run count under header CRC.
+- Added HIL gates for frame-matched NPU coverage, advancing run counter, at
+  least 95% host/device class agreement and raw-score delta <=3. Large CDC/RPS
+  scratch buffers moved to reserved SRAM3; the clean linked image retains
+  396,264 bytes of VL53L9 heap. Firmware and Python synthetic builds pass;
+  physical NPU HIL and persistent XMODEM installation remain pending.
+- Stage 09 now performs an `RPS ON`/`RPS STATUS` preflight before importing
+  TensorFlow or collecting frames. It rejects stale SRAM images and NPU init
+  failures immediately and records the diagnostic in `hil_validation.log`.
+
+### 2026-08-21
+
+- Added a fast Non-Secure development lane. It invokes the generated makefile
+  incrementally without producing the large disassembly listing, preserves the
+  firmware version, and can load the raw image into SRAM2 through its Secure
+  alias while retaining ELF symbols for interactive GDB. The loader reaches
+  Secure `main()` by loading the known-good FSBL ELF in DEV boot and letting it
+  load Secure from external Flash before replacing the Non-Secure RAM image, so
+  TrustZone and board initialization remain representative. Reset intentionally
+  returns to the DEV-boot ROM without touching external Flash.
+- Added an automated final Non-Secure release lane. It accepts an explicit
+  `current + 1` version, builds and signs only Non-Secure, creates the signed
+  `.n6fw`, auto-detects CN8, sends XMODEM-CRC 1K blocks with bounded retries,
+  waits through trial confirmation, and verifies the running `version` command.
+  `PackageOnly` restores the tracked version and does not modify hardware.
+- Verified the incremental build, heap/image guards, version transaction,
+  STM32 v2.3 signing, `.n6fw` generation, and XMODEM CRC self-test. Hardware
+  probing confirmed that Flash boot closes N6 debug access as designed. The
+  corrected DEV-boot helper then loaded the FSBL, stopped at Secure `main()`,
+  replaced and verified Non-Secure in SRAM, reached Non-Secure `main()`, and
+  detached in 13.4 seconds without a rebuild. CN8 returned `Firmware version:
+  8`, confirming that the new RAM image was running. Physical XMODEM transfer
+  and rollback validation remain pending. CubeMX Generate Code is not required.
+
+### 2026-08-18
+
+- Fixed the reintroduced VL53L9 first-frame transform error `-14`. The exact
+  programmed ELF left only 353,512 bytes between `_end` and `_sstack`, below
+  the transform's measured 356,688-byte allocation set even before malloc
+  metadata. Sensor initialization and the complete first I3C DMA frame had
+  already succeeded, confirming that this was SRAM pressure rather than a
+  VL53L9CX communication or wiring fault.
+- Replaced the GC9A01 startup screen's separate 4,096-byte clear buffer and
+  5,656-byte text bitmap with one shared 404-byte DMA row buffer. Reduced the
+  USBX parent ThreadX pool from 64 KiB to 56 KiB while preserving its 32 KiB
+  system arena and 16 KiB control-task stack. The clean-linked image now leaves
+  371,240 bytes for the C heap.
+- Added a pre-signing build guard requiring at least 360 KiB between `_end` and
+  `_sstack`. Clean-built all three contexts as firmware version 8, regenerated
+  the trusted images and signed update package, and programmed and verified all
+  five external-NOR regions without a full erase. Post-reset ToF/CDC validation
+  still requires returning BOOT1 to external-Flash boot position.
 
 ### 2026-08-01
 
@@ -1361,6 +1795,10 @@ arm-none-eabi-addr2line.exe -a -f -C -e .\project\AppliNonSecure\Debug\N6_AppliN
 10. Replace `-nk` and the workstation development key with a protected,
     provisioned production signing/root-of-trust and anti-rollback chain before
     treating physical update security as production-ready.
+11. Follow the numbered release sequence: Stage 09 installs the one-time Secure
+    boot chain, Stage 10 loads the exact integrated model into SRAM, Stage 11
+    runs HIL against that live SRAM image, and Stage 12 installs the persistent
+    update only after the HIL fingerprint passes.
 
 ## 14. The project's golden rule
 

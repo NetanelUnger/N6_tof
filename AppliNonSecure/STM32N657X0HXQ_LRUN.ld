@@ -44,7 +44,10 @@ _Min_Stack_Size = 0x800; /* required amount of stack */
 /* Memories definition */
 MEMORY
 {
-  RAM    (xrw)    : ORIGIN = 0x24100400,   LENGTH = 1023K
+  RAM          (xrw) : ORIGIN = 0x24100400, LENGTH = 1023K
+  /* Reserve the upper 176 KiB of SRAM3 for CPU-side transient workspaces.
+     Stage 08 rejects a generated network that also selects SRAM3. */
+  NPU_RAM3     (xrw) : ORIGIN = 0x24244000, LENGTH = 176K
 }
 
 /* Sections */
@@ -169,6 +172,21 @@ SECTIONS
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
   } >RAM
+
+  /* Large zero-initialized transport and preprocessing workspaces.  SRAM3 is
+     configured as Non-Secure by AppliSecure before this image starts. */
+  .npu_shared_bss (NOLOAD) :
+  {
+    . = ALIGN(64);
+    __snpu_shared_bss = .;
+    *(.npu_shared_bss)
+    *(.npu_shared_bss*)
+    . = ALIGN(64);
+    __enpu_shared_bss = .;
+  } >NPU_RAM3
+
+  ASSERT(SIZEOF(.npu_shared_bss) <= LENGTH(NPU_RAM3),
+         "NPU SRAM3 shared workspace overflow")
 
   /* User_heap_stack section, used to check that there is enough "RAM" Ram  type memory left */
   ._user_heap_stack :

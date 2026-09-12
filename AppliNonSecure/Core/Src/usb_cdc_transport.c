@@ -1,4 +1,5 @@
 #include "usb_cdc_transport.h"
+#include "npu_shared_memory.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -79,17 +80,20 @@ static TX_THREAD usb_cdc_rx_thread;
 static ULONG usb_cdc_tx_queue_storage[USB_CDC_TX_QUEUE_DEPTH];
 static ULONG usb_cdc_rx_ingress_storage[USB_CDC_RX_SLOT_COUNT];
 static ULONG usb_cdc_rx_delivery_storage[USB_CDC_RX_SLOT_COUNT];
-static ULONG usb_cdc_tx_stack[USB_CDC_TX_STACK_SIZE / sizeof(ULONG)];
-static ULONG usb_cdc_rx_stack[USB_CDC_RX_STACK_SIZE / sizeof(ULONG)];
+static ULONG usb_cdc_tx_stack[USB_CDC_TX_STACK_SIZE / sizeof(ULONG)]
+                              NPU_SHARED_BSS;
+static ULONG usb_cdc_rx_stack[USB_CDC_RX_STACK_SIZE / sizeof(ULONG)]
+                              NPU_SHARED_BSS;
 
 static UCHAR usb_cdc_control_storage[USB_CDC_TX_CONTROL_SLOT_COUNT]
-                                     [USB_CDC_TX_CONTROL_SLOT_SIZE];
+                                     [USB_CDC_TX_CONTROL_SLOT_SIZE]
+                                     NPU_SHARED_BSS;
 static UCHAR usb_cdc_map_storage[USB_CDC_TX_MAP_SLOT_COUNT]
                                  [USB_CDC_TX_MAP_SLOT_SIZE]
-                                 __attribute__((aligned(32)));
+                                 NPU_SHARED_BSS;
 static USB_CDC_TxSlot_t usb_cdc_tx_slots[USB_CDC_TX_QUEUE_DEPTH];
 static USB_CDC_RxSlot_t usb_cdc_rx_slots[USB_CDC_RX_SLOT_COUNT]
-                                       __attribute__((aligned(32)));
+                                             NPU_SHARED_BSS;
 
 static UINT usb_cdc_initialized;
 static UINT usb_cdc_active;
