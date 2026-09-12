@@ -13,6 +13,9 @@ from common import (CONFIG_ROOT, MODELS_ROOT, PREPARED_ROOT, REPORTS_ROOT,
                     stable_hash, utc_now)
 
 
+QUANTIZATION_CONTRACT_REVISION = 2
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--force", action="store_true")
@@ -30,6 +33,7 @@ def main() -> int:
     fingerprint = stable_hash({
         "model": sha256_file(source_model),
         "prepared": file_fingerprint(PREPARED_ROOT.glob("*.npz")),
+        "quantization_contract_revision": QUANTIZATION_CONTRACT_REVISION,
     })
     output_model = MODELS_ROOT / "rps_int8.tflite"
     contract_path = MODELS_ROOT / "model_contract.json"
@@ -40,6 +44,14 @@ def main() -> int:
         print("Quantized model is current; reusing it. Pass --force to rebuild.")
         return 0
     model = tf.keras.models.load_model(source_model)
+    source_input_dtype = tf.as_dtype(model.inputs[0].dtype)
+    if source_input_dtype != tf.float32:
+        raise RuntimeError(
+            "The Keras source still has a uint8 input, which leaves an "
+            "expanding UINT8-to-FLOAT Cast inside the STEdgeAI graph and "
+            "corrupts non-zero STM32N6 inputs. Rerun 05_TRAIN.bat; the "
+            "updated architecture automatically rejects the old checkpoint."
+        )
 
     def representative_dataset():
         # Deterministic stride covers the dataset without loading new copies.
@@ -47,7 +59,10 @@ def main() -> int:
         indexes = np.linspace(0, len(representative_x) - 1, limit,
                               dtype=np.int64)
         for index in indexes:
-            yield [representative_x[index:index + 1].astype(np.uint8)]
+            # The Keras boundary is float32 in the original 0..255 pixel
+            # domain. The converter uses these real values to derive a uint8
+            # input scale of exactly 1 and a zero-point of 0.
+            yield [representative_x[index:index + 1].astype(np.float32)]
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
@@ -85,8 +100,26 @@ def main() -> int:
     macro_accuracy = float(np.mean(list(per_class_accuracy.values())))
     input_scale, input_zero = input_info["quantization"]
     output_scale, output_zero = output_info["quantization"]
+    if (not np.isfinite(input_scale) or
+            not np.isclose(input_scale, 1.0, rtol=0.0, atol=1e-6) or
+            int(input_zero) != 0):
+        raise RuntimeError(
+            "Unsafe TFLite input contract: expected uint8 scale=1 and "
+            f"zero_point=0, got scale={input_scale}, "
+            f"zero_point={input_zero}. Refusing a model that cannot consume "
+            "the firmware's exact 0/255 bytes directly."
+        )
+    operation_names = [
+        operation["op_name"] for operation in interpreter._get_ops_details()
+    ]
+    if "CAST" in operation_names:
+        raise RuntimeError(
+            "Unsafe TFLite graph: CAST remains at the quantized input. "
+            "STEdgeAI may expand it in-place and corrupt non-zero input."
+        )
     contract = {
-        "schema": 1, "created_utc": utc_now(),
+        "schema": 2, "created_utc": utc_now(),
+        "quantization_contract_revision": QUANTIZATION_CONTRACT_REVISION,
         "model_sha256": sha256_file(output_model),
         "model_size_bytes": output_model.stat().st_size,
         "classes": class_names(),
@@ -99,6 +132,7 @@ def main() -> int:
                    "dtype": "int8", "scale": float(output_scale),
                    "zero_point": int(output_zero)},
         "preprocessing": load_json(CONFIG_ROOT / "preprocessing.json"),
+        "tflite_operations": operation_names,
         "test_accuracy": accuracy,
         "test_macro_accuracy": macro_accuracy,
         "test_per_class_accuracy": per_class_accuracy,

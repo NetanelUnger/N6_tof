@@ -7,6 +7,8 @@ echo ================================================================
 echo Stage 05 - Train the float reference model
 echo ================================================================
 echo Trains a deliberately small Conv2D classifier on the computer CPU/GPU.
+echo The Keras input is float32 in the original 0..255 pixel domain so Stage 06
+echo can create a true quantized uint8 boundary without an in-model CAST.
 echo Every epoch writes rps_checkpoint.keras and training_progress.json.
 echo If interrupted, rerunning resumes only when data/config hashes match.
 echo The held-out test split is evaluated only after training.

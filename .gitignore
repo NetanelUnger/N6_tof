@@ -1,5 +1,10 @@
-# Local downloads, reference PDFs, extracted SDKs, and backups
-/.local-dependencies/
+# Local downloads, reference PDFs, extracted SDKs, and backups.  The one
+# exception is the shared educational firmware-update key: this project is a
+# classroom/development system, not a production trust root.
+/.local-dependencies/*
+!/.local-dependencies/keys/
+/.local-dependencies/keys/*
+!/.local-dependencies/keys/firmware-update-p256-private.blob
 
 # STM32CubeIDE and generated build output
 /**/Debug/

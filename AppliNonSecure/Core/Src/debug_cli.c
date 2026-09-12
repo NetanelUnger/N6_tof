@@ -93,6 +93,7 @@ static void cli_show_tof_status(void);
 static void cli_show_display_status(void);
 #endif
 static void cli_show_usb_status(void);
+static void cli_show_map_channels(void);
 static void cli_show_map_processing(void);
 static const TOF_ImageFilterDescriptor_t *cli_find_map_filter(
     int argc, char *const argv[], size_t *filter_argument_count);
@@ -152,6 +153,7 @@ static const char *const cli_completion_base[] =
   "clear",
   "MAP ON",
   "MAP OFF",
+  "MAP CHANNELS",
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
   "MAP ON SCREEN",
   "MAP OFF SCREEN",
@@ -309,6 +311,16 @@ static void cli_process_byte(uint8_t byte)
 
   if (cli_console_mode == 0U)
   {
+    if ((byte >= '1') && (byte <= '5'))
+    {
+      TOF_App_Channel_t channel = (TOF_App_Channel_t)(byte - '0');
+      uint32_t mask = TOF_App_ToggleMapChannel(channel);
+      Debug_UART_Log("CLI", "MAP channel %lu (%s) toggled; mask=0x%02lx",
+                     (unsigned long)channel,
+                     TOF_App_GetChannelName(channel),
+                     (unsigned long)mask);
+      return;
+    }
     if ((byte == '\r') || (byte == '\n'))
     {
       cli_enter_console();
@@ -562,7 +574,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
   if ((argc == 2) && (cli_token_equals(argv[1], "on") != 0U))
   {
     (void)Menu_Reply(menu,
-                     "Depth map enabled. Press Enter to return to the console.");
+                     "Sensor map enabled. Keys 1..5 toggle channels; Enter returns to the console.");
     TOF_App_SetMapEnabled(1U);
     cli_console_mode = 0U;
   }
@@ -571,6 +583,26 @@ static void cli_command_map(Menu_t *menu, const char *command)
     TOF_App_SetMapEnabled(0U);
     (void)Menu_Reply(menu,
                      "Depth map disabled; ranging remains active.");
+  }
+  else if ((argc >= 2) &&
+           (cli_token_equals(argv[1], "channels") != 0U))
+  {
+    if (argc == 2)
+    {
+      cli_show_map_channels();
+      return;
+    }
+
+    if ((argc == 3) && (strlen(argv[2]) == 1U) &&
+        (argv[2][0] >= '1') && (argv[2][0] <= '5'))
+    {
+      (void)TOF_App_ToggleMapChannel(
+          (TOF_App_Channel_t)(argv[2][0] - '0'));
+      cli_show_map_channels();
+      return;
+    }
+
+    (void)Menu_Reply(menu, "Usage: MAP CHANNELS [1..5]");
   }
   else if ((argc >= 2) &&
            (cli_token_equals(argv[1], "processing") != 0U))
@@ -688,7 +720,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
   else
   {
     (void)Menu_Reply(menu,
-                     "Usage: MAP ON|OFF [SCREEN] or MAP PROCESSING");
+                     "Usage: MAP ON|OFF [SCREEN] | MAP CHANNELS [1..5] | MAP PROCESSING");
   }
 }
 
@@ -1465,11 +1497,12 @@ static void cli_prompt(void)
 static void cli_show_help(void)
 {
   cli_print("Commands:\r\n"
-            "  (MAP ON shows the map; Enter returns to this menu.)\r\n"
+            "  (MAP ON: keys 1..5 toggle sensor channels; Enter returns.)\r\n"
             "  version                        running application version\r\n"
             "  status                         system summary\r\n"
             "  usb status                     USB queues, pool, flow/error counters\r\n"
             "  MAP ON                         show map until Enter is pressed\r\n"
+            "  MAP CHANNELS [1..5]            list channels or toggle one\r\n"
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
             "  MAP ON SCREEN|DISPLAY          show map + NPU result on the SPI display\r\n"
             "  MAP OFF SCREEN|DISPLAY         stop and clear the SPI display map\r\n"
@@ -1504,7 +1537,7 @@ static void cli_show_status(void)
 
   cli_print("Uptime: %" PRIu32 " ms\r\n"
             "USB CDC: %s, session %lu, TX queue %lu, RX queue %lu\r\n"
-            "ToF: %s, map %s, dataset %s, frame %" PRIu32 ", %" PRIu32 ".%" PRIu32 " fps\r\n"
+            "ToF: %s, map %s, channels 0x%02" PRIx32 ", active %" PRIu32 ", dataset %s, frame %" PRIu32 ", %" PRIu32 ".%" PRIu32 " fps\r\n"
             "ST67: %s, Wi-Fi %s, BLE %s, advertising %s\r\n"
             "Log level: %s\r\n",
             HAL_GetTick(), (usb.active != 0U) ? "active" : "inactive",
@@ -1513,6 +1546,7 @@ static void cli_show_status(void)
             (unsigned long)usb.rx_queue_depth,
             cli_tof_state_name(tof.state),
             (tof.map_enabled != 0U) ? "on" : "off",
+            tof.map_channel_mask, (uint32_t)tof.map_active_channel,
             (tof.dataset_stream_enabled != 0U) ? "on" : "off",
             tof.frame_counter,
             tof.fps_x10 / 10U, tof.fps_x10 % 10U,
@@ -1583,13 +1617,15 @@ static void cli_show_tof_status(void)
             "Frame: %" PRIu32 ", rate: %" PRIu32 ".%" PRIu32 " fps\r\n"
             "Pipeline: acquired %" PRIu32 ", processed %" PRIu32 ", dropped %" PRIu32 ", queue failures %" PRIu32 "\r\n"
             "Last valid range: %" PRIu32 "..%" PRIu32 " mm\r\n"
-            "Map: %s, processing: %s, acquisition: %s\r\n",
+            "Map: %s, channels: 0x%02" PRIx32 ", active: %" PRIu32 " %s, processing: %s, acquisition: %s\r\n",
             cli_tof_state_name(status.state), status.width, status.height,
             status.frame_counter, status.fps_x10 / 10U, status.fps_x10 % 10U,
             status.acquired_frames, status.processed_frames,
             status.dropped_frames, status.queue_failures,
             status.minimum_mm, status.maximum_mm,
             (status.map_enabled != 0U) ? "on" : "off",
+            status.map_channel_mask, (uint32_t)status.map_active_channel,
+            TOF_App_GetChannelName(status.map_active_channel),
             (filter != NULL) ? filter->display_name : "Off",
             (status.paused != 0U) ? "paused" : "running");
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
@@ -1601,6 +1637,24 @@ static void cli_show_tof_status(void)
               (status.error_stage != NULL) ? status.error_stage : "unknown",
               status.error_code);
   }
+}
+
+static void cli_show_map_channels(void)
+{
+  uint32_t mask = TOF_App_GetMapChannelMask();
+
+  cli_print("MAP sensor channels (enabled channels alternate one per sensor frame):\r\n");
+  for (uint32_t channel = TOF_APP_CHANNEL_DEPTH;
+       channel <= TOF_APP_CHANNEL_COUNT;
+       ++channel)
+  {
+    uint32_t bit = 1UL << (channel - 1U);
+    cli_print("  [%c] %" PRIu32 " %-11s - %s\r\n",
+              ((mask & bit) != 0U) ? 'V' : ' ', channel,
+              TOF_App_GetChannelName((TOF_App_Channel_t)channel),
+              TOF_App_GetChannelDescription((TOF_App_Channel_t)channel));
+  }
+  cli_print("Toggle here with MAP CHANNELS <1..5>, or press 1..5 during MAP ON.\r\n");
 }
 
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)

@@ -7,7 +7,8 @@ echo ================================================================
 echo Stage 06 - Full-integer TFLite quantization
 echo ================================================================
 echo Uses real training samples as the representative dataset, requires a
-echo uint8 input and int8 output, then runs the complete test set through the
+echo genuine uint8 scale=1 input with no CAST and an int8 output, then runs the
+echo complete test set through the
 echo TFLite interpreter. models\model_contract.json freezes tensor shapes,
 echo scales, zero points, class order and preprocessing for the firmware.
 echo.
@@ -15,4 +16,3 @@ echo.
 set "RESULT=%ERRORLEVEL%"
 pause
 exit /b %RESULT%
-

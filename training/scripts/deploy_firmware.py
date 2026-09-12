@@ -44,20 +44,26 @@ def main() -> int:
                    details={"external_flash_modified": False})
         return 0
     if not args.package_only:
-        bootstrap = stage_state("08_secure_bootstrap")
+        bootstrap = stage_state("09_secure_bootstrap")
+        if bootstrap.get("status") != "complete":
+            # Accept state written by releases that used the old 08B filename.
+            bootstrap = stage_state("08_secure_bootstrap")
         if bootstrap.get("status") != "complete":
             raise RuntimeError(
                 "The one-time persistent FSBL + Secure Neural-ART bootstrap "
                 "has not been installed/recorded. The RAM image and CN8 CDC "
                 "can be healthy while this prerequisite is still missing. "
-                "Run 08B_BOOTSTRAP_NPU_SWD.bat once; it preserves both "
+                "Run 09_BOOTSTRAP_NPU_SWD.bat once; it preserves both "
                 "Non-Secure A/B slots and asks for BOOTCHAIN before SWD writes."
             )
-        hil = stage_state("09_hil")
+        hil = stage_state("11_hil")
+        if hil.get("status") != "complete":
+            # Accept a matching PASS written before the stages were renumbered.
+            hil = stage_state("09_hil")
         if (hil.get("status") != "complete" or
                 hil.get("input_fingerprint") != fingerprint):
             raise RuntimeError(
-                "Run 10_LOAD_RAM.bat and then 09_HIL.bat successfully for this "
+                "Run 10_LOAD_RAM.bat and then 11_HIL.bat successfully for this "
                 "exact integrated model before persistent installation."
             )
     expected = current_version() + 1
@@ -87,7 +93,7 @@ def main() -> int:
     if args.package_only:
         command.append("-PackageOnly")
     run(command, cwd=PROJECT_ROOT)
-    stage = "11_package" if args.package_only else "11_flash"
+    stage = "12_package" if args.package_only else "12_flash"
     mark_stage(stage, status="complete", inputs=fingerprint,
                details={"firmware_version": version,
                         "board_modified": not args.package_only})

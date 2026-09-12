@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    rps_tof.h
   * @author  STEdgeAI
-  * @date    2026-08-28 16:39:38
+  * @date    2026-09-12 19:04:22
   * @brief   Minimal description of the generated c-implemention of the network
   ******************************************************************************
   * @attention
@@ -34,7 +34,7 @@
 
 /************************** OUTPUTS *******************************************/
 #define LL_ATON_RPS_TOF_OUT_NUM        (1)    // Total number of output buffers
-// Output buffer 1 -- Quantize_37_out_0
+// Output buffer 1 -- Quantize_39_out_0
 #define LL_ATON_RPS_TOF_OUT_1_ALIGNMENT   (32)
 #define LL_ATON_RPS_TOF_OUT_1_SIZE_BYTES  (4)
 

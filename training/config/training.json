@@ -16,7 +16,9 @@
   "hil": {
     "minimum_npu_coverage": 0.80,
     "minimum_class_agreement": 0.95,
-    "maximum_raw_score_delta": 16
+    "maximum_raw_score_delta": 16,
+    "minimum_nonempty_model_ratio": 0.20,
+    "minimum_unique_model_tensors": 4
   },
   "split_percent": {"train": 70, "validation": 15, "test": 15},
   "augmentation": {

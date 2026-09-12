@@ -47,7 +47,7 @@ def main() -> int:
                       "-BootChainOnly"], cwd=PROJECT_ROOT)
     secure_image = PROJECT_ROOT / "FlashImages" / "N6_AppliSecure-trusted.bin"
     mark_stage(
-        "08_secure_bootstrap",
+        "09_secure_bootstrap",
         status="complete",
         inputs=fingerprint,
         outputs=[str(secure_image)],

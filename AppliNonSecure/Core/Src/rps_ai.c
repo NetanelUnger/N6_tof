@@ -58,6 +58,8 @@ static RPS_AI_Status_t rps_status = {
 
 _Static_assert(RPS_RESIZE_WIDTH > 0U && RPS_RESIZE_HEIGHT > 0U,
                "RPS model border must leave a non-empty resize area");
+_Static_assert((RPS_MODEL_PIXELS % 32U) == 0U,
+               "RPS model input must span complete Cortex-M55 cache lines");
 
 #if (APP_RPS_NPU_ENABLED == 1U)
 STAI_NETWORK_CONTEXT_DECLARE(rps_network_context, STAI_RPS_TOF_CONTEXT_SIZE)
@@ -745,6 +747,13 @@ int RPS_AI_Init(void)
 
   memcpy((void *)(uintptr_t)RPS_MODEL_WEIGHTS_NPU_ADDRESS, rps_model_weights,
          RPS_MODEL_WEIGHTS_SIZE);
+#if defined(__DCACHE_PRESENT) && (__DCACHE_PRESENT == 1U)
+  /* The CPU and Neural-ART access SRAM6 through different bus masters.  Make
+   * the embedded initializer bytes visible before the NPU reads them. */
+  SCB_CleanDCache_by_Addr(
+      (void *)(uintptr_t)RPS_MODEL_WEIGHTS_NPU_ADDRESS,
+      (int32_t)RPS_MODEL_WEIGHTS_SIZE);
+#endif
   __DSB();
 
   result = stai_runtime_init();
@@ -815,6 +824,14 @@ int RPS_AI_ProcessDepth(const float *depth, uint8_t width, uint8_t height,
   rps_preprocess(depth, rps_model_input_snapshot, requested_view);
   rps_model_input_frame = frame_id;
   rps_copy_model_input((uint8_t *)rps_input, rps_model_input_snapshot);
+#if defined(__DCACHE_PRESENT) && (__DCACHE_PRESENT == 1U)
+  /* STEdgeAI begins its CPU-side uint8-to-float epoch by invalidating this
+   * preallocated SRAM5 range.  Without a clean here, that invalidate discards
+   * the dirty cache lines written above and the network repeatedly sees the
+   * old all-zero tensor even though the published snapshot is correct. */
+  SCB_CleanDCache_by_Addr((void *)rps_input, (int32_t)RPS_MODEL_PIXELS);
+#endif
+  __DSB();
   started = HAL_GetTick();
   result = stai_rps_tof_run(rps_network_context, STAI_MODE_SYNC);
   rps_status.inference_ms = HAL_GetTick() - started;

@@ -148,5 +148,5 @@ if (Test-Path -LiteralPath $FirmwareKey) {
 }
 else {
     Write-Warning 'No private update-signing key was found; trusted images were built but no .n6fw package was created.'
-    Write-Warning 'Run Tools\New-FirmwareSigningKey.ps1 once, protect the key, then rebuild.'
+    Write-Warning 'Run Tools\New-FirmwareSigningKey.ps1 once, then rebuild. The generated key is for this shared educational project only.'
 }

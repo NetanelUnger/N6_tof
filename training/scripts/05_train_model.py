@@ -14,6 +14,14 @@ from common import (CONFIG_ROOT, MODELS_ROOT, PREPARED_ROOT, REPORTS_ROOT,
                     is_stage_current, mark_stage, relative, stable_hash, utc_now)
 
 
+# Revision 4 changes the Keras boundary from uint8 to float32.  The TFLite
+# converter still exposes the final model as uint8, but it can now assign that
+# boundary a real quantization scale instead of preserving a UINT8 -> FLOAT
+# Cast inside the graph.  The latter expands 3,200 input bytes to 12,800 bytes
+# in-place in STEdgeAI's generated STM32N6 code and corrupts non-zero inputs.
+MODEL_ARCHITECTURE_REVISION = 4
+
+
 def load_split(name: str) -> tuple[np.ndarray, np.ndarray]:
     with np.load(PREPARED_ROOT / f"{name}.npz", allow_pickle=False) as archive:
         return archive["x"], archive["y"]
@@ -24,9 +32,14 @@ def build_model(tf, input_shape: tuple[int, int, int], classes: int,
     # Flatten keeps the spatial arrangement of fingers. GlobalAveragePooling
     # made the previous network unusually good at measuring total blob area,
     # but nearly blind to whether that area contained zero, two or five fingers.
-    # All inference operations remain integer-friendly for Neural-ART.
-    inputs = tf.keras.Input(shape=input_shape, dtype=tf.uint8, name="tof_u8")
-    x = tf.keras.layers.Rescaling(1.0 / 255.0, name="to_float")(inputs)
+    # The reference model consumes float32 values in the original 0..255 pixel
+    # domain. Stage 06 converts this boundary to a genuinely quantized uint8
+    # tensor (scale 1, zero-point 0), so the firmware can still copy its exact
+    # binary 0/255 image without runtime normalization or an expanding Cast.
+    inputs = tf.keras.Input(shape=input_shape, dtype=tf.float32,
+                            name="tof_pixels")
+    x = tf.keras.layers.Rescaling(1.0 / 255.0,
+                                  name="normalize_pixels")(inputs)
     x = tf.keras.layers.Conv2D(16, 3, padding="same", activation="relu",
                                name="conv1")(x)
     x = tf.keras.layers.MaxPooling2D(2, name="pool1")(x)
@@ -143,7 +156,11 @@ def main() -> int:
             f"(minimum {minimum_split}): {', '.join(weak_splits)}. "
             "Capture more full bursts, then rerun stages 03 and 04."
         )
-    config_hash = stable_hash({"training": config, "prepared": manifest})
+    config_hash = stable_hash({
+        "training": config,
+        "prepared": manifest,
+        "model_architecture_revision": MODEL_ARCHITECTURE_REVISION,
+    })
     fingerprint = stable_hash({
         "config": config_hash,
         "splits": file_fingerprint(PREPARED_ROOT.glob("*.npz")),
@@ -257,7 +274,9 @@ def main() -> int:
         "test_per_class_accuracy": per_class_accuracy,
         "model_parameters": int(model.count_params()),
         "classes": class_names(), "input_shape": list(x_train.shape[1:]),
-        "input_dtype": "uint8", "config_hash": config_hash,
+        "input_dtype": "float32", "input_value_domain": [0, 255],
+        "model_architecture_revision": MODEL_ARCHITECTURE_REVISION,
+        "config_hash": config_hash,
         "train_counts": train_counts.astype(int).tolist(),
         "measured_train_samples": original_train_samples,
         "augmented_train_samples": len(y_train),

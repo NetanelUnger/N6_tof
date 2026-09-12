@@ -7,13 +7,15 @@ import os
 import re
 import time
 import warnings
+import zlib
 
 import numpy as np
 from serial import Serial
 
 from common import (CONFIG_ROOT, MODELS_ROOT, REPORTS_ROOT, atomic_json,
                     class_names, load_json, mark_stage,
-                    npu_deployment_fingerprint, relative, utc_now)
+                    npu_deployment_fingerprint, relative, stage_state,
+                    utc_now)
 from dataset import preprocess_depth
 from protocol import FrameReader
 
@@ -76,7 +78,7 @@ def rps_preflight(serial: Serial) -> tuple[dict[str, int], str]:
         raise RuntimeError(
             "The connected board is running an older SRAM image without the "
             "RPS command/NPU integration. Run 10_LOAD_RAM.bat again, wait for "
-            "the board to boot, and then rerun 09_HIL.bat."
+            "the board to boot, and then rerun 11_HIL.bat."
         )
     match = RPS_STATUS_RE.search(response)
     if match is None:
@@ -112,6 +114,14 @@ def main() -> int:
     if args.frames < 10:
         raise RuntimeError("HIL requires at least 10 frames.")
     deployment_fingerprint = npu_deployment_fingerprint()
+    ram_state = stage_state("10_ram")
+    if (ram_state.get("status") != "complete" or
+            ram_state.get("input_fingerprint") != deployment_fingerprint):
+        raise RuntimeError(
+            "The current integrated firmware has not been loaded to RAM. "
+            "Run 10_LOAD_RAM.bat now, do not reset the board, and then run "
+            "11_HIL.bat."
+        )
     port = find_port(args.port)
     interpreter = None
     input_info = None
@@ -119,6 +129,8 @@ def main() -> int:
     predictions = {name: 0 for name in class_names()}
     frame_ids = []
     payload_crcs = []
+    model_tensor_crcs = []
+    nonempty_model_tensors = 0
     timestamps = []
     npu_frames = 0
     npu_class_matches = 0
@@ -153,7 +165,7 @@ def main() -> int:
                 "error": str(exc),
             }
             atomic_json(report_path, preflight_report)
-            mark_stage("09_hil", status="failed",
+            mark_stage("11_hil", status="failed",
                        inputs=deployment_fingerprint,
                        outputs=[relative(report_path)],
                        details=preflight_report)
@@ -198,6 +210,8 @@ def main() -> int:
                     f"differs in {mismatch} pixels"
                 )
             exact_model_tensor_frames += 1
+            model_tensor_crcs.append(zlib.crc32(frame.model_input.tobytes()))
+            nonempty_model_tensors += int(np.any(frame.model_input))
             if interpreter is not None:
                 tensor = frame.model_input[np.newaxis, ..., np.newaxis]
                 interpreter.set_tensor(input_info["index"], tensor)
@@ -248,6 +262,14 @@ def main() -> int:
     maximum_raw_score_delta = int(
         hil_config.get("maximum_raw_score_delta", 16)
     )
+    minimum_nonempty_model_ratio = float(
+        hil_config.get("minimum_nonempty_model_ratio", 0.2)
+    )
+    minimum_unique_model_tensors = int(
+        hil_config.get("minimum_unique_model_tensors", 4)
+    )
+    nonempty_model_ratio = nonempty_model_tensors / len(frame_ids)
+    unique_model_tensors = len(set(model_tensor_crcs))
     npu_coverage = npu_frames / len(frame_ids)
     counters_monotonic = bool(npu_run_counters) and all(
         right > left for left, right in
@@ -264,6 +286,8 @@ def main() -> int:
                     max_score_delta <= maximum_raw_score_delta)
     pass_gate = (sensor_fps >= required_fps and
                  unique_crcs >= int(0.8 * len(frame_ids)) and
+                 nonempty_model_ratio >= minimum_nonempty_model_ratio and
+                 unique_model_tensors >= minimum_unique_model_tensors and
                  reader.crc_errors == 0 and
                  exact_model_tensor_frames == len(frame_ids) and npu_gate)
     report = {
@@ -279,6 +303,13 @@ def main() -> int:
         "parser_crc_errors": reader.crc_errors,
         "parser_framing_candidates_rejected": reader.framing_errors,
         "unique_payload_crc32": unique_crcs,
+        "nonempty_model_tensors": nonempty_model_tensors,
+        "nonempty_model_tensor_ratio": nonempty_model_ratio,
+        "unique_model_tensor_crc32": unique_model_tensors,
+        "model_tensor_requirements": {
+            "minimum_nonempty_ratio": minimum_nonempty_model_ratio,
+            "minimum_unique_tensors": minimum_unique_model_tensors,
+        },
         "device_python_bit_exact_model_tensors": exact_model_tensor_frames,
         "host_tflite_predictions": predictions if interpreter else None,
         "npu_comparison": {
@@ -307,11 +338,13 @@ def main() -> int:
         f"crc_errors: {reader.crc_errors}",
         f"npu_valid_frames: {npu_frames}",
         f"device_python_bit_exact_model_tensors: {exact_model_tensor_frames}",
+        f"nonempty_model_tensors: {nonempty_model_tensors}",
+        f"unique_model_tensors: {unique_model_tensors}",
         f"class_agreement: {class_agreement}",
         f"maximum_raw_score_delta: {max_score_delta}",
     ])
     write_log(log_lines)
-    mark_stage("09_hil", status="complete" if pass_gate else "failed",
+    mark_stage("11_hil", status="complete" if pass_gate else "failed",
                inputs=deployment_fingerprint,
                outputs=[relative(report_path)],
                details=report)
@@ -323,7 +356,13 @@ def main() -> int:
           f"class agreement={class_agreement}, max raw delta={max_score_delta}")
     print("Preprocessing: "
           f"{exact_model_tensor_frames}/{len(frame_ids)} device tensors "
-          "bit-exact with Python")
+          f"bit-exact with Python, {nonempty_model_tensors} non-empty, "
+          f"{unique_model_tensors} distinct model tensors")
+    if (nonempty_model_ratio < minimum_nonempty_model_ratio or
+            unique_model_tensors < minimum_unique_model_tensors):
+        print("HIL INPUT FAIL: move a visible hand through ROCK, PAPER and "
+              "SCISSORS during Stage 11; an empty/static scene cannot prove "
+              "the live NPU input path.")
     return 0 if report["result"] == "pass" else 6
 
 

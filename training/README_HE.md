@@ -69,6 +69,34 @@ MAP ON SCREEN
 MAP ON DISPLAY
 ```
 
+ל־`MAP ON` נוסף תת־תפריט לימודי של חמש תמונות שה־VL53L9CX וה־transform של
+ST מפיקים מאותו פריים:
+
+1. `DEPTH` — מרחק מכויל במילימטרים;
+2. `AMPLITUDE` — עוצמת החזרת האור הפעיל של החיישן;
+3. `AMBIENT` — רמת אור הסביבה;
+4. `REFLECTANCE` — אומדן ההחזריות של המטרה;
+5. `CONFIDENCE` — מידת הביטחון במדידת המרחק.
+
+ברירת המחדל היא ערוץ 1. בזמן שהמפה פתוחה, לחיצה על `1` עד `5` מפעילה או
+מכבה כל ערוץ בנפרד. אם הופעלו, לדוגמה, 1 ו־2, נשלחת תמונת עומק בפריים אחד
+ותמונת amplitude בפריים הבא, וחוזר חלילה. כל כותרת כוללת את מספר הפריים,
+מזהה הערוץ, שמו ורשימת כל הערוצים הפעילים, ולכן תוכנת מחשב יכולה לדעת מה
+מוצג. לחיצה נוספת על 1 משאירה רק את 2. הפקודות הבאות מציגות ומעדכנות את
+אותו מצב מתוך התפריט:
+
+```text
+MAP CHANNELS
+MAP CHANNELS 1
+```
+
+רק ערוץ העומק עובר דרך `MAP PROCESSING`; שאר הערוצים מוצגים בסקאלה אוטומטית
+לכל פריים. מבחינת זיכרון, ערוץ העזר משתמש מחדש בשטח העבודה של מסנני העומק
+ומצויר לפני שאותו שטח ממוחזר; לא נשמרות חמש תמונות מלאות. ערוץ העומק
+ממשיך להזין לבדו את מודל ה־RPS הקיים. פורמט ההקלטה `N6DF v3` עדיין לא השתנה:
+הרחבה עתידית לאימון רב־ערוצי תצטרך להגדיר record חדש ששומר ערוצים מאותו
+פריים באופן אטומי, ולא לנסות להסיק סנכרון מתצוגת ANSI מתחלפת.
+
 `MAP ON` מציג ב־CDC, מתחת למפת ה־ANSI, שורת `NPU RESULT` עם אחת מארבע
 התוצאות `NOTHING`, `ROCK`, `PAPER`, `SCISSORS`, אחוז confidence, מספר ה־frame
 וזמן inference. שורה נוספת מציגה את ארבעת ציוני ה־`int8` לפי סדר המחלקות.
@@ -303,7 +331,7 @@ Keras/TFLite חדשות. ברירת המחדל המומלצת היא ההרצה 
 ### 01 — צילום מודרך
 
 לפני הצילום טוענים ל־SRAM את ה־FW החדש באמצעות `10_LOAD_RAM.bat`, או מתקינים
-אותו באופן persistent רק בבדיקת release באמצעות `11_FLASH_RELEASE.bat`.
+אותו באופן persistent רק בבדיקת release באמצעות `12_FLASH_RELEASE.bat`.
 
 לאחר מכן מריצים `01_CAPTURE.bat`:
 
@@ -462,6 +490,14 @@ validation ו־test נשארים מדידות אמת
 - אין post-processing מורכב;
 - אפשר לאמן מהר גם על CPU.
 
+גבול הכניסה של מודל Keras הוא `float32` בתחום הערכים המקורי `0..255`, ורק
+בתוך המודל מתבצעת חלוקה ב־255. אין פירוש הדבר שה־Firmware שולח float: שלב 06
+ממיר את הגבול ל־`uint8` quantized אמיתי עם `scale=1` ו־`zero_point=0`, ולכן
+הבקר ממשיך למסור בדיוק את 3,200 הבתים הבינריים 0/255 ללא המרה בזמן ריצה.
+המבנה הזה חשוב ל־STEdgeAI: מודל Keras שקלטו כבר `uint8` השאיר בגרף פעולת
+`UINT8 -> FLOAT` שהקוד המיוצר הרחיב באותו buffer מ־3,200 ל־12,800 בתים. קלט
+שחור הסתיר את התקלה, אך פיקסלים לא־אפסיים נדרסו במהלך ההמרה.
+
 גרסת `compact` משתמשת ב־24 channels בשכבת convolution האחרונה וב־Dense של
 32 יחידות. היא שומרת את מפת המיקום אך מגבילה את blob המשקולות ל־64KiB, כדי
 להשאיר ל־VL53L9 את ה־heap הנדרש. שלב 08 בודק את התקציב ומפסיק מוקדם עם
@@ -505,6 +541,10 @@ accuracy. בפרופיל `learning` הנוכחי השער הוא 50% macro כד�
 converter וב־representative dataset אמיתי כדי לקבוע scale ו־zero-point לכל
 tensor. הוא דורש conversion מלא ל־integer: input `uint8`, output `int8`; אם op
 נשאר float, השלב נכשל.
+
+בנוסף הוא דורש במפורש input `scale=1`, `zero_point=0` ומוודא שאין פעולת
+`CAST` בגרף TFLite. כך שלב 06 עוצר לפני STEdgeAI אם חוזר מבנה הכניסה שהוביל
+לתוצאות `NOTHING` קבועות עבור כל תמונה לא־ריקה.
 
 לאחר מכן כל test set רץ שוב דרך TFLite Interpreter. בודקים את ירידת הדיוק ולא
 רק שהקובץ נוצר. `models/model_contract.json` מקפיא:
@@ -603,18 +643,29 @@ external Flash Slot A/B
 שלב 08 גם מתקין snapshot תואם של headers, sources וספריית runtime מתוך אותה
 גרסת STEdgeAI שיצרה את הרשת. הוא אינו מבצע fallback ל־M55.
 
-### 08B — bootstrap חד־פעמי של Secure
+### 09 — bootstrap חד־פעמי של Secure
 
 הפעלת שעוני NPU/CACHEAXI, פתיחת SRAM3–6 והעברת NPU interrupts ל־Non‑Secure
 שייכות ל־TrustZone Secure. `.n6fw` מעדכן בכוונה רק את האפליקציה, ולכן מריצים
-פעם אחת לכל לוח את `08B_BOOTSTRAP_NPU_SWD.bat`. הוא בונה וחותם הכול, ואז—רק
+פעם אחת לכל לוח את `09_BOOTSTRAP_NPU_SWD.bat`. הוא בונה וחותם הכול, ואז—רק
 אחרי הקלדת `BOOTCHAIN`—צורב דרך SWD רק FSBL + Secure. שני app slots ו־A/B
 metadata נשמרים. `--build-only` בודק את כל התוצרים בלי לשנות חומרה.
 
-## HIL
+### 10 — טעינת המודל המשולב ל־RAM
 
-`09_HIL.bat` קורא ברירת מחדל של 100 frames אמיתיים ובודק:
+`10_LOAD_RAM.bat` הוא מסלול הפיתוח המהיר: incremental build ל־Secure
+ול־Non‑Secure (target שלא השתנה הוא no-op) וטעינת שניהם דרך SWD ל־SRAM. כך גם
+SAU/RISAF ו־bootstrap ה־NPU נבדקים בלי Flash. אין חתימה, write ל־Flash או שינוי
+version; reset מוחק את ההרצה.
 
+### 11 — HIL על תמונת ה־RAM הנוכחית
+
+מריצים את `11_HIL.bat` מיד אחרי `10_LOAD_RAM.bat`, בלי לבצע RESET ביניהם.
+במהלך הבדיקה מציגים לחיישן יד ומחליפים בין אבן, נייר ומספריים. הבדיקה קוראת
+ברירת מחדל של 100 frames אמיתיים ובודקת:
+
+- רישום Stage 10 חייב להכיל fingerprint זהה לקוד ולמודל הנוכחיים; שינוי קוד
+  או מודל מחייב להריץ שוב `10_LOAD_RAM.bat` לפני שה־HIL ניגש ללוח;
 - לפני טעינת TensorFlow או איסוף frames הוא שולח `RPS ON` ו־`RPS STATUS`.
   image ישן, פקודה חסרה או `ready=0` נעצרים מיד עם הסבר ולא אחרי 100 frames;
 - שני CRC לכל frame;
@@ -625,6 +676,8 @@ metadata נשמרים. `--build-only` בודק את כל התוצרים בלי �
 - לפחות 80% מה־frames מכילים תוצאת NPU של אותו frame;
 - מונה ה־NPU עולה בכל תוצאה ואינו נתקע;
 - לפחות 95% התאמה בין class של TFLite ושל Neural‑ART;
+- לפחות 20% טנזורי מודל שאינם שחורים ולפחות ארבעה טנזורים שונים, כדי שסצנה
+  ריקה או קבועה לא תוכל לאשר בטעות נתיב NPU שאינו מקבל את הקלט החי;
 - הפרש מרבי שמוגדר ב־`config/training.json`. בפרופיל הלימודי הוא 16 יחידות
   raw `int8`, כלומר 0.0625 לפי output scale של 1/256.
 
@@ -641,18 +694,16 @@ SPI. ההשוואה היא על אותו frame ID ועל raw output quantized, �
 אפס שגיאות CRC, IDs שאינם חוזרים ולפחות 80% payloads שונים. כך sensor של 10Hz
 יכול לדלג על frames ב־transport ועדיין לספק קצב צילום תקין ומדיד.
 
-## שני מסלולי FW
+### 12 — התקנת release קבועה
 
-`10_LOAD_RAM.bat` הוא מסלול הפיתוח המהיר: incremental build ל־Secure
-ול־Non‑Secure (target שלא השתנה הוא no-op) וטעינת שניהם דרך SWD ל־SRAM. כך גם
-SAU/RISAF ו־bootstrap ה־NPU נבדקים בלי Flash. אין חתימה, write ל־Flash או שינוי
-version; reset מוחק את ההרצה.
-
-`11_FLASH_RELEASE.bat` הוא מסלול בדיקת מערכת סופית: version נוכחי + 1, build
+`12_FLASH_RELEASE.bat` הוא מסלול בדיקת מערכת סופית: version נוכחי + 1, build
 incremental, חתימת Non‑Secure, `.n6fw`, שליחת XMODEM דרך CN8, reset ואימות
-אחרי חלון trial. המשקולות כבר בתוך אותו image. הוא דורש 08B שהושלם ו־HIL
+אחרי חלון trial. המשקולות כבר בתוך אותו image. הוא דורש Stage 09 שהושלם ו־Stage 11 HIL
 שעבר עבור fingerprint זהה, ומבקש להקליד `FLASH` לפני השינוי. `--package-only`
 בונה וחותם בלי לשנות את הלוח ובלי להשאיר version חדש ב־header.
+מיד לאחר HIL על RAM מחזירים את BOOT0 ואת BOOT1 ל־`1-2` בלי ללחוץ RESET:
+תמונת ה־RAM המאומתת ממשיכה לרוץ, ו־Stage 12 משתמש בה להעברת XMODEM. ה־reset
+שהסקריפט מבצע בסוף יעלה אז את הגרסה החדשה מה־Flash החיצוני.
 
 ## Resume וכללי אמינות
 
@@ -673,7 +724,7 @@ incremental, חתימת Non‑Secure, `.n6fw`, שליחת XMODEM דרך CN8, res
 3. לפחות 2 sessions של `01_CAPTURE.bat`, ובסך הכול 8 bursts לכל מחלקה.
 4. `03_VALIDATE.bat`; לצלם עוד אם class/session diversity חלשים.
 5. `BUILD_MODEL_FOR_N6.bat`.
-6. `10_LOAD_RAM.bat` שוב כדי להריץ את המודל המשולב ב־SRAM.
-7. `09_HIL.bat` ולהמשיך רק אם PC ו־NPU עברו את השער.
-8. `08B_BOOTSTRAP_NPU_SWD.bat` פעם אחת ללוח; להחזיר BOOT0/BOOT1 ל־1-2.
-9. רק בסוף, `11_FLASH_RELEASE.bat` לגרסת flash שעולה אחרי RESET.
+6. `09_BOOTSTRAP_NPU_SWD.bat` פעם אחת ללוח; להחזיר BOOT0/BOOT1 ל־1-2.
+7. `10_LOAD_RAM.bat` שוב כדי להריץ את המודל המשולב ב־SRAM.
+8. מיד לאחר מכן, בלי RESET, להריץ `11_HIL.bat` ולהמשיך רק אם PC ו־NPU עברו את השער.
+9. רק בסוף, `12_FLASH_RELEASE.bat` לגרסת flash שעולה אחרי RESET.

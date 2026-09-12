@@ -617,7 +617,7 @@ def build_hil_page(context: dict[str, Any], report_id: str) -> str:
     result = str(hil.get("result", "not available"))
     kind = "good" if result == "pass" else "bad" if result == "fail" else "warn"
     body = f"""
-{notice(kind, f"תוצאת דוח HIL: {result}", "העמוד מציג את קובץ hil_validation.json הנוכחי. הרצה חדשה של 09_HIL.bat עשויה להחליף אותו; מערכת runs מלאה תתווסף בשלב נפרד.")}
+{notice(kind, f"תוצאת דוח HIL: {result}", "העמוד מציג את קובץ hil_validation.json הנוכחי. הרצה חדשה של 11_HIL.bat עשויה להחליף אותו; מערכת runs מלאה תתווסף בשלב נפרד.")}
 <section class="hero-grid">
 {metric_card("Frames", str(hil.get("frames", "לא זמין")), "CRC-valid frames")}
 {metric_card("NPU coverage", fmt_percent(comparison.get("coverage")), f'נדרש {fmt_percent(requirements.get("coverage"))}')}

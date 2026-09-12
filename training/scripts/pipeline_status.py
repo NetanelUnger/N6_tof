@@ -11,19 +11,20 @@ from common import (CONFIG_ROOT, MODELS_ROOT, RAW_ROOT, STATE_ROOT,
 
 
 STAGES = (
-    ("00_setup", "00_SETUP.bat"),
-    ("01_capture", "01_CAPTURE.bat"),
-    ("02_review", "02_REVIEW_DATASET.bat"),
-    ("03_validate", "03_VALIDATE.bat"),
-    ("04_prepare", "04_PREPARE.bat"),
-    ("05_train", "05_TRAIN.bat"),
-    ("06_quantize", "06_QUANTIZE.bat"),
-    ("07_generate_n6", "07_GENERATE_N6.bat"),
-    ("08_integrate", "08_INTEGRATE_MODEL.bat"),
-    ("10_ram", "10_LOAD_RAM.bat"),
-    ("09_hil", "09_HIL.bat"),
-    ("08_secure_bootstrap", "08B_BOOTSTRAP_NPU_SWD.bat"),
-    ("11_flash", "11_FLASH_RELEASE.bat"),
+    ("00_setup", "00_SETUP.bat", None),
+    ("01_capture", "01_CAPTURE.bat", None),
+    ("02_review", "02_REVIEW_DATASET.bat", None),
+    ("03_validate", "03_VALIDATE.bat", None),
+    ("04_prepare", "04_PREPARE.bat", None),
+    ("05_train", "05_TRAIN.bat", None),
+    ("06_quantize", "06_QUANTIZE.bat", None),
+    ("07_generate_n6", "07_GENERATE_N6.bat", None),
+    ("08_integrate", "08_INTEGRATE_MODEL.bat", None),
+    ("09_secure_bootstrap", "09_BOOTSTRAP_NPU_SWD.bat",
+     "08_secure_bootstrap"),
+    ("10_ram", "10_LOAD_RAM.bat", None),
+    ("11_hil", "11_HIL.bat", "09_hil"),
+    ("12_flash", "12_FLASH_RELEASE.bat", "11_flash"),
 )
 
 
@@ -56,8 +57,19 @@ def main() -> int:
     except RuntimeError:
         pass
     first_action = None
-    for stage, bat in STAGES:
+    for stage, bat, legacy_stage in STAGES:
+        if (stage == "00_setup" and
+                (STATE_ROOT.parent / ".venv" / "Scripts" /
+                 "python.exe").is_file()):
+            print(f"  {stage:20s} complete   environment present  [{bat}]")
+            continue
         state_path = STATE_ROOT / f"{stage}.json"
+        legacy = False
+        if not state_path.exists() and legacy_stage is not None:
+            legacy_path = STATE_ROOT / f"{legacy_stage}.json"
+            if legacy_path.exists():
+                state_path = legacy_path
+                legacy = True
         if not state_path.exists():
             print(f"  {stage:20s} not-run     -> {bat}")
             if first_action is None:
@@ -66,11 +78,13 @@ def main() -> int:
         try:
             state = json.loads(state_path.read_text(encoding="utf-8"))
             status = state.get("status", "?")
-            if (stage == "09_hil" and status == "complete" and deployment and
+            if (stage in {"10_ram", "11_hil", "12_flash"} and
+                    status == "complete" and deployment and
                     state.get("input_fingerprint") != deployment):
                 status = "stale"
+            legacy_suffix = " (legacy state accepted)" if legacy else ""
             print(f"  {stage:20s} {status:10s} "
-                  f"{state.get('updated_utc', '')}  [{bat}]")
+                  f"{state.get('updated_utc', '')}  [{bat}]{legacy_suffix}")
             if first_action is None and status not in {"complete"}:
                 first_action = bat
         except Exception as exc:

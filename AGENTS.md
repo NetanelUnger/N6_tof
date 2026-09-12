@@ -23,6 +23,18 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 - FSBL, Secure, and Non-Secure boot from external NOR.
 - The ST-LINK diagnostic UART works on USART1, PE5/PE6, at 115200 baud.
 - The VL53L9CX initializes and returns complete 54×42 frames.
+- The CDC sensor-map explorer exposes five numbered VL53L9 transform outputs:
+  1 depth, 2 amplitude, 3 ambient, 4 reflectance, and 5 confidence. During
+  `MAP ON`, keys `1..5` independently toggle channels; enabled channels rotate
+  one complete identified image per sensor frame. The downstream map envelope
+  carries frame ID and channel ID. Depth is retained every frame for the NPU,
+  while all non-depth outputs reuse the depth-processing 54x42 float workspace
+  and are copied only when selected. An auxiliary CDC map must be rendered
+  before that workspace is reused for an SPI depth filter. Preserve this
+  bounded-memory design and the
+  existing N6DF v3 format until a synchronized multi-channel dataset revision
+  is designed explicitly. This channel explorer is build-verified but not yet
+  validated on hardware.
 - The VL53L9CX runs as a 100 ms autonomous stream. A priority-7 acquisition
   task and priority-10 processing task exchange pointers to three fixed
   14,842-byte raw-frame objects from a static DMA-safe pool, so the next DMA
@@ -60,6 +72,19 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   discard older complete frames for latency but must never display a partial
   frame. ANSI `MAP ON` remains useful for a terminal but cannot offer atomic
   row rendering.
+- Before every Neural-ART inference, clean the 3,200-byte preallocated SRAM5
+  input range from the Cortex-M55 D-cache. STEdgeAI's first CPU epoch
+  invalidates that range; omitting the preceding clean discards the newly
+  copied tensor and makes every inference observe the old all-zero image.
+- The Keras reference model must expose a float32 input in the original 0..255
+  pixel domain. Stage 06 must turn it into a genuine uint8 TFLite boundary with
+  scale 1 and zero-point 0 and must reject any input CAST. A Keras uint8 input
+  leaves an internal UINT8-to-FLOAT Cast which STEdgeAI 4.0 expands in-place
+  from 3,200 to 12,800 bytes; zero input appears correct, while non-zero pixels
+  are overwritten and Neural-ART diverges completely from host TFLite.
+- Stage 11 HIL must exercise a moving hand, require non-empty and distinct model
+  tensors, and compare their frame-matched raw scores. An all-black stream is
+  not sufficient evidence even when host and Neural-ART agree exactly.
 - The USB CDC CLI has allocation-free Tab completion generated from command and
   filter descriptor tables plus a fixed 16-entry Up/Down command history.
 - The steady-state sensor path uses PD9 falling-edge EXTI and I3C TX/RX DMA.
@@ -108,8 +133,9 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   records both rendered frame IDs in `Display_App_Status_t`. Non-visual SRAM
   HIL on 2026-08-23 observed ToF/display frame 356, `NOTHING` at 921/1000,
   38 submitted/38 rendered, and zero errors.
-- `MAP ON` appends the current frame's prominent NPU summary and all four raw
-  int8 scores to the CDC ANSI map. `MAP ON SCREEN` and `MAP ON DISPLAY` are
+- `MAP ON` identifies the active sensor channel, lists the enabled channel IDs,
+  and appends the current frame's prominent NPU summary and all four raw int8
+  scores to the CDC ANSI map. `MAP ON SCREEN` and `MAP ON DISPLAY` are
   aliases for the SPI display path; `MAP OFF SCREEN|DISPLAY` clears its map and
   result area. Preserve the single status snapshot shared by both consumers so
   neither UI can accidentally label a newer or older frame.
@@ -139,18 +165,18 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 - The 2026-08-28 preprocessing contract changed the NPU input to a 100..600 mm
   locally grown, aggressively filled binary silhouette and invalidated the
   currently embedded model's accuracy
-  claim. The Neural-ART runtime still builds, but do not call the classifier
-  matched again until stages 04 through 09 regenerate, integrate, and perform
-  frame-exact HIL on new weights.
+  claim. Do not call a regenerated classifier matched until stages 04 through
+  08 prepare, train, quantize, generate and integrate it, followed by a passing
+  frame-exact Stage 11 HIL on the new weights.
 - When relocating STEdgeAI's default xSPI2 initializer pool to NPU SRAM6, Stage
   08 must also change every weight DMA descriptor from cacheable to
   non-cacheable. Address-only relocation causes a BUSIF1 fault on the first
   inference and can masquerade as a CN8 USB enumeration failure because the
   LL_ATON assertion stops the complete firmware.
-- Run `training/08B_BOOTSTRAP_NPU_SWD.bat` once per board before a persistent
+- Run `training/09_BOOTSTRAP_NPU_SWD.bat` once per board before a persistent
   NPU release. It programs only FSBL + Secure and preserves both app slots and
-  boot metadata. The guided Stage 11 release refuses to proceed until that
-  bootstrap and a matching frame-exact Stage 09 HIL are recorded.
+  boot metadata. The guided Stage 12 release refuses to proceed until that
+  bootstrap and a matching frame-exact Stage 11 HIL are recorded.
 - The upper SRAM3 window `0x24244000..0x2426FFFF` is reserved by the Non-Secure
   linker for CDC/RPS transient storage. Current Neural-ART activations are in
   SRAM5 and weights are in SRAM6. Stage 08 must reject generated networks that
@@ -258,7 +284,7 @@ Files imported from X-CUBE packages are not necessarily CubeMX-owned. The VL53L9
 | Tools/Install-NonSecureUpdate.ps1 | Explicit next-version Non-Secure build/sign/package/XMODEM/install/boot verification |
 | Tools/Send-Xmodem.ps1 | Auto-detected CN8 XMODEM-CRC 1K sender with CRC self-test, retries, and finalization timeout |
 | Tools/N6-DevCommon.ps1 | Shared STM32 tool discovery, build guards, heap check, version transaction, and CDC discovery |
-| Tools/New-FirmwareSigningKey.ps1 | One-time local development P-256 key generation; private blob stays ignored |
+| Tools/New-FirmwareSigningKey.ps1 | One-time educational P-256 key generation; the designated development private blob is tracked so the complete teaching project can be shared |
 | Tools/New-FirmwareUpdatePackage.ps1 | Signed `.n6fw` manifest plus trusted Non-Secure image |
 | training/README_HE.md | Educational, resumable ToF rock-paper-scissors capture/training/Neural-ART architecture and safety gates |
 | training/scripts | One Python entry point per capture, validation, training, quantization, N6 generation, HIL, and upload stage |
@@ -266,7 +292,7 @@ Files imported from X-CUBE packages are not necessarily CubeMX-owned. The VL53L9
 | Tools/program_flash.ps1 | External-NOR programming including both default metadata sectors |
 | FlashImages | Signed programming artifacts |
 | ThirdParty/ST67W6X_Network_Driver | Git-tracked ST67 source subset used by CubeIDE, with license files |
-| .local-dependencies | Ignored local SDK archives, PDFs, examples, backups, and diagnostics; never required by a clean clone |
+| .local-dependencies | Local SDK archives, PDFs, examples, backups, and diagnostics remain ignored; only the explicitly designated educational update-signing key is tracked |
 
 The Git repository root is `project`. Do not restore build references to the
 ignored full X-CUBE-ST67W61 package. CubeIDE include paths and linked resources
@@ -312,8 +338,11 @@ FSBL, Secure, startup, linker layout, image addresses, TrustZone ownership, or
 the Secure/Non-Secure interface changed.
 
 Firmware versions are positive and strictly increasing relative to the confirmed
-image. Never reuse a released version number. The local private update key under
-`.local-dependencies/keys` is ignored and must never be committed or printed.
+image. Never reuse a released version number. This is an explicitly educational
+project: `.local-dependencies/keys/firmware-update-p256-private.blob` is a shared
+development key and is intentionally tracked so another learner can reproduce
+the update flow. It must never be treated as a production secret or production
+root of trust. Do not print its contents in logs or normal user-facing output.
 
 If the headless IDE hangs, a direct make.exe build from the Debug directory is acceptable. The resulting binary must still be passed through STM32_SigningTool_CLI and the new trusted image must be written to project/FlashImages.
 
