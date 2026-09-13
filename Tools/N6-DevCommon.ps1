@@ -76,6 +76,64 @@ function Enable-N6DevelopmentToolPath {
     $env:Path = "$($Tools.GnuBin);$makeBin;$env:Path"
 }
 
+function Repair-N6MakeDependencyFiles {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BuildRoot,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectRoot
+    )
+
+    # GCC 14.3 emits absolute Windows prerequisites such as C:/source.c for
+    # linked CubeIDE resources.  GNU make then treats the drive colon in the
+    # generated .d rule as another target separator and reports "multiple
+    # target patterns" on the next incremental build.  This project's Debug
+    # folders are exactly two levels below the project root, so convert both
+    # raw and previously escaped absolute project prefixes to ../../ instead
+    # of relying on make's inconsistent Windows drive-colon parsing.
+    $resolvedBuildRoot = (Resolve-Path -LiteralPath $BuildRoot).Path.TrimEnd('\', '/')
+    $resolvedProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path.TrimEnd('\', '/')
+    $expectedProjectRoot = Split-Path -Parent (Split-Path -Parent $resolvedBuildRoot)
+    if (-not $expectedProjectRoot.Equals(
+            $resolvedProjectRoot,
+            [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Unexpected generated build path; cannot relativize dependencies: $resolvedBuildRoot"
+    }
+
+    $projectPrefix = ($resolvedProjectRoot -replace '\\', '/') + '/'
+    $escapedProjectPrefix = $projectPrefix.Insert(1, '\')
+    $extendedProjectPrefix = '\\?\' + $resolvedProjectRoot + '\'
+    $repairedCount = 0
+    $dependencyFiles = Get-ChildItem `
+        -LiteralPath $BuildRoot `
+        -Filter '*.d' `
+        -File `
+        -Recurse `
+        -ErrorAction SilentlyContinue
+    foreach ($dependencyFile in $dependencyFiles) {
+        $text = [IO.File]::ReadAllText($dependencyFile.FullName)
+        $repaired = $text.Replace($projectPrefix, '../../')
+        $repaired = $repaired.Replace($escapedProjectPrefix, '../../')
+        $repaired = $repaired.Replace($extendedProjectPrefix, '../../')
+        $repaired = [regex]::Replace(
+            $repaired,
+            '\.\./\.\./[^ \t\r\n]+',
+            { param($match) $match.Value.Replace('\', '/') })
+        if ($repaired -ne $text) {
+            [IO.File]::WriteAllText(
+                $dependencyFile.FullName,
+                $repaired,
+                [Text.UTF8Encoding]::new($false))
+            ++$repairedCount
+        }
+    }
+
+    if ($repairedCount -gt 0) {
+        Write-Host "Repaired $repairedCount generated make dependency files."
+    }
+}
+
 function Assert-N6NonSecureBuildSafety {
     param(
         [Parameter(Mandatory = $true)]
@@ -192,6 +250,9 @@ function Invoke-N6NonSecureIncrementalBuild {
 
     Push-Location $debugRoot
     try {
+        Repair-N6MakeDependencyFiles `
+            -BuildRoot $debugRoot `
+            -ProjectRoot $ProjectRoot
         if ($Clean) {
             Write-Host 'Cleaning the Non-Secure build because -Clean was requested.'
             & $Tools.Make clean
@@ -206,7 +267,11 @@ function Invoke-N6NonSecureIncrementalBuild {
         # Building the generated `all` target also regenerates a multi-megabyte
         # disassembly listing, which adds latency without helping either lane.
         & $Tools.Make "-j$jobs" N6_AppliNonSecure.bin
-        if ($LASTEXITCODE -ne 0) {
+        $buildExitCode = $LASTEXITCODE
+        Repair-N6MakeDependencyFiles `
+            -BuildRoot $debugRoot `
+            -ProjectRoot $ProjectRoot
+        if ($buildExitCode -ne 0) {
             throw 'Incremental Non-Secure build failed.'
         }
     }
@@ -236,8 +301,15 @@ function Invoke-N6SecureIncrementalBuild {
     try {
         $jobs = [Math]::Max(1, [Environment]::ProcessorCount)
         Write-Host "Incrementally building Secure with $jobs parallel jobs..."
+        Repair-N6MakeDependencyFiles `
+            -BuildRoot $debugRoot `
+            -ProjectRoot $ProjectRoot
         & $Tools.Make "-j$jobs" N6_AppliSecure.bin
-        if ($LASTEXITCODE -ne 0) {
+        $buildExitCode = $LASTEXITCODE
+        Repair-N6MakeDependencyFiles `
+            -BuildRoot $debugRoot `
+            -ProjectRoot $ProjectRoot
+        if ($buildExitCode -ne 0) {
             throw 'Incremental Secure build failed.'
         }
     }

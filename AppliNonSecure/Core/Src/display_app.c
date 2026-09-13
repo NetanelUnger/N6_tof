@@ -42,7 +42,7 @@
              (((uint16_t)(green) & 0xFCU) << 3) | \
              ((uint16_t)(blue) >> 3))
 
-extern SPI_HandleTypeDef hspi5;
+extern SPI_HandleTypeDef hspi4;
 
 typedef struct
 {
@@ -260,13 +260,13 @@ static UINT Display_SetAddressWindow(uint16_t x, uint16_t y,
 static UINT Display_InitializePanel(void)
 {
   GC9A01_Config_t config = {
-    .spi = &hspi5,
-    .cs_port = SPI_CS_GPIO_Port,
-    .cs_pin = SPI_CS_Pin,
-    .dc_port = CHIP_EN_GPIO_Port,
-    .dc_pin = CHIP_EN_Pin,
-    .reset_port = BOOT_GPIO_Port,
-    .reset_pin = BOOT_Pin,
+    .spi = &hspi4,
+    .cs_port = LCD_CS_GPIO_Port,
+    .cs_pin = LCD_CS_Pin,
+    .dc_port = LCD_DC_GPIO_Port,
+    .dc_pin = LCD_DC_Pin,
+    .reset_port = LCD_RST_GPIO_Port,
+    .reset_pin = LCD_RST_Pin,
     .transfer_callback = Display_TransferCallback,
     .callback_context = &display_events
   };
@@ -746,7 +746,7 @@ void Display_App_Run(void)
 {
   ULONG actual_flags;
 
-  Debug_UART_Log("DISPLAY", "GC9A01 task started on SPI5 TX DMA");
+  Debug_UART_Log("DISPLAY", "GC9A01 task started on SPI4 TX DMA");
 
   if ((Display_InitializePanel() != TX_SUCCESS) ||
       (Display_Clear() != TX_SUCCESS) ||

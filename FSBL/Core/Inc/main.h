@@ -80,10 +80,16 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define TOF_SDA_Pin GPIO_PIN_1
 #define TOF_SDA_GPIO_Port GPIOC
+#define LCD_CS_Pin GPIO_PIN_13
+#define LCD_CS_GPIO_Port GPIOE
 #define SPI_CLK_Pin GPIO_PIN_15
 #define SPI_CLK_GPIO_Port GPIOE
 #define SPI_RDY_Pin GPIO_PIN_9
 #define SPI_RDY_GPIO_Port GPIOE
+#define LCD_DIN_Pin GPIO_PIN_14
+#define LCD_DIN_GPIO_Port GPIOE
+#define LCD_CLK_Pin GPIO_PIN_12
+#define LCD_CLK_GPIO_Port GPIOE
 #define CHIP_EN_Pin GPIO_PIN_10
 #define CHIP_EN_GPIO_Port GPIOE
 #define TOF_SCL_Pin GPIO_PIN_9
@@ -102,6 +108,10 @@ void Error_Handler(void);
 #define TRACECLK_GPIO_Port GPIOB
 #define TRACED0_Pin GPIO_PIN_3
 #define TRACED0_GPIO_Port GPIOE
+#define LCD_RST_Pin GPIO_PIN_2
+#define LCD_RST_GPIO_Port GPIOE
+#define LCD_DC_Pin GPIO_PIN_1
+#define LCD_DC_GPIO_Port GPIOE
 #define TOF_INT_Pin GPIO_PIN_9
 #define TOF_INT_GPIO_Port GPIOD
 #define I2C2_SDA_Pin GPIO_PIN_11

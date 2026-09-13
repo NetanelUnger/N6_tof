@@ -13,7 +13,8 @@ Continue developing the STM32N657 firmware that combines:
 - VL53L9CX through I3C1 and DMA.
 - USB CDC through USBX, UCPD1, and TCPP0203.
 - ST67W611M1 through SPI5, Wi-Fi, and BLE.
-- A GC9A01 240x240 round TFT through SPI5 TX DMA while ST67 is disabled.
+- A GC9A01 240x240 round TFT through a dedicated SPI4 TX-DMA path, leaving
+  SPI5 reserved for ST67.
 - A future authenticated BLE OTA mechanism.
 
 Work must be technically correct and educational. Explain in Hebrew what changed, why it changed, how it was verified, and what risk remains.
@@ -121,11 +122,12 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   768-byte control TX slots, two 48 KiB map TX slots, and sixteen 512-byte RX
   slots. All slots are session-tagged and passed through bounded pointer queues.
 - The ST67 shield is not currently installed. APP_ST67W6X_ENABLED must remain 0U unless the user explicitly confirms that the module is attached.
-- The GC9A01 display is enabled and reuses the disabled ST67 hardware mapping:
-  PE15 SCK, PG2 MOSI, PA3 CS, PE10 DC, and PD5 RST. The display and ST67
-  feature flags are compile-time mutually exclusive. VCC is 3.3 V and no MISO
-  connection is required.
-- The priority-8 GC9A01 task uses SPI5 TX DMA and waits on callback-posted
+- The GC9A01 display is enabled. `N6.ioc` now reserves a dedicated SPI4 path:
+  PE12 SCK, PE14 MOSI, PE13 CS, PE1 DC, and PE2 RST. SPI4 TX uses
+  GPDMA1 channel 5 at an initial 12.5 Mbit/s. The generated initialization and
+  hand-written display port use this mapping; hardware validation is still
+  required. VCC is 3.3 V and no MISO connection is required.
+- The priority-8 GC9A01 task uses SPI TX DMA and waits on callback-posted
   ThreadX event flags. It clears the panel, renders `SYSTEM IS LOADING`, and
   then consumes numbered ToF frames through one shared 404-byte DMA row
   buffer. Every submitted frame includes the frame-matched RPS status snapshot;
