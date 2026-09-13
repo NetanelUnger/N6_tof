@@ -37,14 +37,14 @@ Current status:
 | BootROM → FSBL → Secure → Non-Secure | Working |
 | VL53L9CX initialization | Working |
 | Full 54×42 depth frames | Working |
-| Five educational ToF image channels | Implemented and build-verified in the CDC map; hardware validation is pending |
+| Five educational ToF image channels | Working through the CDC map on hardware; enabled channels rotate one identified image per sensor frame |
 | I3C DMA acquisition | Working on hardware as a callback/event-driven steady-state pipeline |
 | ANSI color-map renderer | Working through USB CDC |
 | ST-LINK UART at 115200 baud | Working |
 | USB CDC | Working; Windows creates a separate COM port backed by a manager task, independent RX/TX workers, callback-driven TX, and fixed static slots |
-| USB CDC XMODEM firmware update | Implemented and build-verified; hardware transfer and rollback validation are pending |
+| USB CDC XMODEM firmware update | Working for a signed physical CN8 transfer and confirmed trial boot; interruption and deliberate rollback fault-injection tests remain pending |
 | GC9A01 round display | Working from SRAM: the DMA-backed task renders the numbered ToF map and its frame-matched NPU summary; 38/38 submitted frames rendered with zero errors in the latest non-visual HIL check |
-| Rock/paper/scissors Neural-ART | A model for the 600 mm binary-silhouette contract is regenerated and integrated with a safe quantized input boundary; a fresh Stage 10 RAM load and Stage 11 hardware HIL are still required before accuracy is considered validated |
+| Rock/paper/scissors Neural-ART | Working on hardware; the current model passed frame-exact Stage 11 HIL with 100% host/NPU class agreement |
 | ST67 Wi-Fi/BLE | Driver and dedicated task are present, but intentionally disabled because the shield is not currently installed |
 | Wi-Fi/BLE OTA transport | Not implemented; it can reuse the authenticated byte-stream installer when the radio is enabled |
 
@@ -80,9 +80,20 @@ the persistent firmware version. It proves the Neural-ART runtime and
 frame-matching path, but its accuracy result predates the 2026-08-28 binary
 preprocessing change and is not a validation of the new classifier contract.
 
-The authenticated A/B updater added later on 2026-07-31 has passed compilation,
-linking, image signing, and package-generation checks. It has not yet been sent
-through XMODEM or exercised through trial boot and rollback on physical hardware.
+On 2026-09-12, the regenerated binary-silhouette model passed repeated
+frame-exact Stage 11 HIL runs on hardware. Every compared Neural-ART result was
+attached to the same sensor frame as the host TFLite result, class agreement
+was 100%, device/Python preprocessing was bit-exact, and the maximum raw int8
+score delta was 4-5 against the configured limit of 16. The earlier constant
+`NOTHING` result was traced to an unsafe uint8 Keras boundary that caused
+STEdgeAI to generate an in-place UINT8-to-FLOAT expansion. The current TFLite
+boundary is QLinear uint8 with scale 1 and zero-point 0 and contains no input
+CAST.
+
+The authenticated A/B updater has also completed a signed physical CN8 XMODEM
+installation and confirmed trial boot. Deliberate interruption during transfer,
+invalid-signature/version injection, and reset-before-confirm rollback remain
+separate tests; one successful installation does not prove all recovery paths.
 
 ### 1.2 Repository layout and local reference material
 
@@ -210,7 +221,7 @@ The CubeMX source of truth is [N6.ioc](N6.ioc).
 - Project type: SecureNSecure.
 - Contexts: FSBL, AppliSecure, AppliNonSecure, and ExtMemLoader.
 - KeepUserCode is enabled.
-- Main ThreadX application pool: 160 KiB.
+- Main ThreadX application pool: 159 KiB.
 
 ### 4.2 Clock configuration
 
@@ -393,6 +404,25 @@ sequenceDiagram
 
 Additional tasks are created in app_threadx.c and controlled by feature flags in app_features.h.
 
+The current linker/map-level RAM ownership is:
+
+| Region | Current range/use |
+|---|---|
+| Secure SRAM1 | `0x34000400..0x340FFFFF`, 1023 KiB for AppliSecure |
+| FSBL staging | `0x34180400..0x341FFFFF`, 511 KiB used transiently during boot/development loading |
+| Non-Secure SRAM2 | `0x24100400..0x241FFFFF`, 1023 KiB for the application image, BSS, ThreadX pools, sensor buffers, C heap, and MSP stack |
+| Upper NPU SRAM3 | `0x24244000..0x2426FFFF`, 176 KiB reserved for CPU-side CDC/RPS static workspaces; 162,048 bytes are currently linked |
+| NPU SRAM4 | `0x24270000..0x242DFFFF`, unused by the current model |
+| NPU SRAM5 | input plus Neural-ART activations from `0x242E0000`, currently 17,408 bytes |
+| NPU SRAM6 | copied model weights from `0x24350000`, currently 55,425 bytes |
+
+STM32N6 exposes Secure `0x34...` and Non-Secure `0x24...` aliases for these
+banks. STEdgeAI initially describes the NPU banks through their Secure alias;
+Stage 08 installs the Non-Secure aliases used by the running application. The
+generated model is deliberately rejected if it selects SRAM3, because the CPU
+already uses a fixed part of that bank and silent overlap would corrupt either
+USB/RPS scratch or NPU activations.
+
 The Non-Secure Debug C and C++ code is compiled with `-O3` while retaining
 debug symbols. At `-O0`, one complete VL53L9 transform took about 264 ms in the
 measured UART trace, so a sequential loop could not reach 10 fps even though
@@ -410,7 +440,7 @@ resolution. The largest visible active chain is the optimized sharpener at
 about 34 KiB, before its callers and exception/FPU context. A 96 KiB stack
 therefore retains generous margin.
 
-The ThreadX application pool is 160 KiB. Its active pool-backed stacks reserve
+The ThreadX application pool is 159 KiB. Its active pool-backed stacks reserve
 about 124 KiB after adding the 4 KiB display task. The USBX parent byte pool is
 56 KiB: it contains the 32 KiB USBX system arena, the 16 KiB device-control
 stack, allocator bookkeeping, and about 8 KiB of unused parent-pool headroom.
@@ -418,7 +448,7 @@ With the update and static CDC buffers linked, the first-frame transform needs
 about 356,688 bytes at peak; a 192 KiB pool left only 356,872 bytes before
 allocator overhead and therefore returned `MEDIA_ERROR_UNKNOWN` (`-14`). Stack
 and heap requirements must be budgeted together. The current linked image leaves
-371,240 bytes between `_end` and the reserved MSP stack. The build helper now
+393,352 bytes between `_end` and the reserved MSP stack. The build helper now
 refuses to sign a Non-Secure image with less than 360 KiB of C-heap capacity.
 
 The USBX device-control stack is currently 16 KiB, the USBX system arena is
@@ -531,7 +561,7 @@ Available CLI commands:
 | map on / map off | Show or hide the sensor map; while it is open, keys `1`..`5` toggle channels and Enter returns to the menu |
 | map channels `[1..5]` | List the five sensor channels and their current selection, or toggle one channel |
 | map processing | Show the depth-filter submenu and current `[V]` selection |
-| map processing off/box/median/gaussian/sharpen/min/max/object 1..6/npu | Select a displayed depth filter, one cumulative teaching stage, or the exact NPU input |
+| map processing off/box/median/gaussian/sharpen/min/max/object 1..7/npu | Select a displayed depth filter, one cumulative teaching stage, or the exact NPU input |
 | map processing `<filter>` `<parameter>` `<value>` | Configure the selected filter, for example `MAP PROCESSING BOX radius 2` |
 | tof status | Show ToF state, rate, and range |
 | tof pause / tof resume | Stop or restart the autonomous ranging stream |
@@ -945,7 +975,7 @@ Additional internal ThreadX and USBX tasks may be created by the middleware, suc
 
 | Pool | Size | Main use |
 |---|---:|---|
-| tx_app_byte_pool | 160 KiB | ToF, CLI, optional ST67, compatibility objects |
+| tx_app_byte_pool | 159 KiB | ToF, CLI, optional ST67, compatibility objects |
 | ux_device_app_byte_pool | 56 KiB | 32 KiB USBX system arena, 16 KiB USB Device task stack, bookkeeping, and headroom |
 | usbpd_app_byte_pool | 16 KiB | CAD queue, CAD task, and USB-PD objects |
 
@@ -961,12 +991,13 @@ The CDC data plane does not have a byte pool. Its memory is fixed in BSS:
 Separate pools help diagnose failures. A PSP address can be matched to a pool to identify which task was actually running.
 
 The upper 176 KiB of NPU SRAM3 (`0x24244000..0x2426FFFF`) holds the CDC worker
-stacks/slots and RPS preprocessing scratch. This keeps 396,264 bytes between
-the SRAM2 `_end` symbol and MSP stack in the older linked image; the current
-N6DF v3 build reports 384,360 bytes of C heap capacity, still above the
-360 KiB VL53L9 guard. The current generated network uses SRAM5 for activations
-and SRAM6 for its 49,809-byte weight blob; Stage 08 rejects a future network
-that selects the reserved SRAM3 bank.
+stacks/slots and RPS preprocessing scratch. The current `.npu_shared_bss` uses
+162,048 bytes of that reservation. Moving these deterministic large objects out
+of SRAM2 leaves 393,352 bytes between the current `_end` symbol and the reserved
+MSP stack, above the 360 KiB VL53L9 guard. The generated network uses 17,408
+bytes in SRAM5 for its input/activations and 55,425 bytes in SRAM6 for its
+weight blob; Stage 08 rejects a future network that selects the reserved SRAM3
+bank.
 
 ## 9. Build, sign, and program
 
@@ -1172,7 +1203,23 @@ the other channels use per-frame auto-scaling and bypass depth filters.
 Box and Gaussian blur provide configurable radius and pass count. Median has a
 radius and outlier threshold, Sharpen has radius and amount, while Min and Max
 select the nearest or farthest valid neighbor. The selected filter is marked
-with `[V]` and is applied only to the displayed map. The cumulative
+with `[V]` and is applied only to the displayed map.
+
+| Filter | Parameters | Exact intent |
+|---|---|---|
+| `OFF` | none | Unprocessed depth reference |
+| `BOX` | radius 1..3, passes 1..3 | Average valid neighbors; fast smoothing at the cost of blurred edges |
+| `MEDIAN` | radius 1..2, threshold 0..1000 mm | Replace an invalid/outlying center with the neighborhood median; threshold 0 always selects the median |
+| `GAUSSIAN` | radius 1..2, passes 1..3 | Separable weighted smoothing with less blockiness than Box |
+| `SHARPEN` | radius 1..3, amount 0..200% | Unsharp masking that emphasizes depth transitions and can also amplify noise |
+| `MIN` | radius 1..3 | Select the nearest valid neighbor, expanding near objects |
+| `MAX` | radius 1..3 | Select the farthest valid neighbor, shrinking near objects |
+
+These seven filters do not alter the raw N6DF depth or the production model
+tensor. Full Hebrew explanations, examples, and parameter tradeoffs are in
+[`training/README_HE.md`](training/README_HE.md).
+
+The cumulative
 `MAP PROCESSING OBJECT 1` through `OBJECT 7` views expose the object pipeline
 one transformation at a time: valid depth, adaptive candidates, selected
 connected component, crop/relative normalization/resize, the 600 mm model
@@ -1787,9 +1834,10 @@ arm-none-eabi-addr2line.exe -a -f -C -e .\project\AppliNonSecure\Debug\N6_AppliN
 5. Move CubeMX-managed outside-USER changes into custom files or a reproducible patch process.
 6. Physically install X-NUCLEO-67W61M1 before enabling its feature flag.
 7. Verify ST67 SPI handshaking and NCP firmware before enabling Wi-Fi/BLE.
-8. Validate one complete CN8 XMODEM update, a confirmed trial boot, interruption
-   during transfer, invalid signature/version rejection, and reset-before-confirm
-   rollback on hardware.
+8. Repeat CN8 XMODEM installation across both A/B directions and validate
+   interruption during transfer, invalid signature/version rejection, and
+   reset-before-confirm rollback on hardware. One signed installation and
+   confirmed trial boot have passed.
 9. Integrate the future Wi-Fi/BLE downloader as another producer for the existing
    Secure byte-array update interface; it must not own flash or boot metadata.
 10. Replace `-nk` and the workstation development key with a protected,

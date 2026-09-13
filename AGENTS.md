@@ -97,7 +97,7 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   multi-hour soak, repeated attach/detach endurance, or deliberate fault
   injection into every recovery branch.
 - Non-Secure Debug C and C++ use `-O3` with `-g3` debug information.
-- The ToF processing task uses a 96 KiB stack, acquisition uses 16 KiB, and the ThreadX application pool is 160 KiB.
+- The ToF processing task uses a 96 KiB stack, acquisition uses 16 KiB, and the ThreadX application pool is 159 KiB.
   The largest visible active optimized chain is about 34 KiB; the much larger
   slow rate-normalization and resize functions shown in `.su` are bypassed by
   `fast_mode` and native 54×42 operation.

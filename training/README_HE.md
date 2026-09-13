@@ -32,6 +32,109 @@ PC reference/HIL <---- exact scores ---- signed FW embeds weights, copies to SRA
 בלעדיה המודל מוכרח לבחור אחת משלוש המחוות גם כשהיד איננה, כשהתמונה פגומה או
 כשהעצם כלל לא דומה למחווה מוכרת.
 
+המסמך הזה מתמקד במסלול הלמידה ובחיבור שלו ל־Firmware. לתיאור מפורט של
+החומרה, הפינים, השעונים, USB, TrustZone, A/B update והשינויים ביחס לקוד של ST
+ראו גם את [`../README.md`](../README.md). שני המסמכים משלימים זה את זה:
+ה־README הראשי הוא ספר הארכיטקטורה של המוצר, והמסמך הנוכחי הוא ספר המעבדה של
+החיישן והמודל.
+
+## הארכיטקטורה הפנימית
+
+### ארבעת הקונטקסטים והאתחול
+
+זה אינו קובץ יחיד שרץ ישירות אחרי Reset. הפרויקט מכיל ארבעה קונטקסטים;
+שלושה מהם משתתפים בשרשרת האתחול הרגילה והרביעי הוא כלי צריבה:
+
+```text
+BootROM
+  |
+  v
+FSBL ---- בוחר Slot A/B, מאמת image ומעתיק אותו מה־NOR החיצוני
+  |
+  v
+AppliSecure ---- TrustZone, SAU/RIF/RISAF, שעוני NPU ושירות update מאובטח
+  |
+  v
+AppliNonSecure ---- ThreadX, חיישן, USB, מסך, preprocessing ו־Neural-ART
+
+ExtMemLoader ------ קונטקסט צריבה נפרד שבו STM32CubeProgrammer משתמש דרך SWD
+```
+
+`ExtMemLoader` אינו שלב שמורץ בכל Reset ואינו ענף מתוך `AppliNonSecure`.
+זהו יישום עזר נפרד ש־STM32CubeProgrammer טוען בעת הצורך כדי לגשת ל־NOR
+החיצוני בזמן צריבה.
+
+- ה־`FSBL` מאתחל את ה־xSPI, קורא metadata כפול, בוחר image מאושר מ־Slot A או
+  Slot B ומבצע rollback אם גרסת trial לא אישרה את עצמה.
+- `AppliSecure` פותח ל־Non‑Secure רק את אזורי הזיכרון והפסיקות הדרושים. הוא
+  גם הבעלים של כתיבת ה־Flash, בדיקת SHA‑256/ECDSA ומדיניות version עולה.
+- `AppliNonSecure` הוא היישום עצמו. הוא אינו כותב ישירות ל־NOR: בזמן update
+  הוא מעביר chunks דרך ממשק NSC צר אל השירות המאובטח.
+- ה־weights הם חלק מאותו image חתום של `AppliNonSecure`. בזמן האתחול הם
+  מועתקים ל־SRAM6, ולכן קוד ומשקולות מתעדכנים וחוזרים לאחור כיחידה אחת.
+
+### זרימת פריים בתוך ה־Firmware
+
+```text
+PD9 interrupt
+  -> ToF Acquisition task
+  -> I3C1 + GPDMA אל אחד משלושה raw slots
+  -> ready queue
+  -> ToF Processing task
+       -> VL53L9 transform: depth/amplitude/ambient/reflectance/confidence
+       -> preprocessing קבוע של depth ל־64x50x1
+       -> D-cache clean
+       -> STAI / LL_ATON / Neural-ART
+       -> snapshot יחיד של frame ID, scores ותוצאת המחלקה
+       -> CDC ANSI / N6DF v3 / GC9A01
+  -> החזרת ה־raw slot לתור החופשי
+```
+
+משימת ה־acquisition בעדיפות 7 מחזיקה לבדה את החיישן ואת I3C. משימת העיבוד
+בעדיפות 10 מחזיקה את ה־transform והמודל. שלושת ה־raw slots מאפשרים לרכישת
+הפריים הבא לחפוף לעיבוד הקודם. אם הצרכן מפגר, נזרק הפריים הישן ביותר שטרם
+עובד במקום לעצור את החיישן או לצבור latency. אותו עיקרון קיים ב־USB: מספר
+buffers סטטי ומוגבל, ללא allocation במסלול הרציף.
+
+### מפת ה־RAM הנוכחית
+
+הכתובות הבאות מגיעות מ־linker scripts ומ־map של ה־build הנוכחי. הכתובות
+`0x34...` הן ה־Secure alias והכתובות `0x24...` הן ה־Non‑Secure alias של בנקי
+ה־SRAM. לכן פלט ראשוני של STEdgeAI עשוי להזכיר `0x342E0000`, בעוד שלב 08
+מתקין ברשת שרצה ב־Non‑Secure את `0x242E0000`.
+
+| אזור | טווח/גודל נוכחי | מה נמצא בו ולמה |
+|---|---:|---|
+| Secure SRAM1 | `0x34000400..0x340FFFFF`, ‏1023KiB | קוד, data, heap ו־stack של `AppliSecure` |
+| FSBL staging | `0x34180400..0x341FFFFF`, ‏511KiB | סביבת הריצה הזמנית של ה־FSBL; לאחר המעבר ליישום אין צורך לשמר אותה |
+| Non‑Secure SRAM2 | `0x24100400..0x241FFFFF`, ‏1023KiB | קוד ו־rodata שהועתקו מה־Flash, BSS, שלושת ה־raw frames, עומק/workspace, שלושת ThreadX pools ו־C heap |
+| NPU SRAM3, אזור CPU שמור | `0x24244000..0x2426FFFF`, ‏176KiB | `npu_shared_bss`: שני snapshots של RPS, scratch של preprocessing, stacks ו־slots סטטיים של CDC |
+| NPU SRAM3, חלק תחתון | `0x24200000..0x24243FFF` | אינו מוקצה ביישום הנוכחי; שלב 08 דוחה מודל שבוחר SRAM3 כדי למנוע חפיפה עתידית |
+| NPU SRAM4 | `0x24270000..0x242DFFFF`, ‏448KiB | פנוי במודל הנוכחי |
+| NPU SRAM5 | החל מ־`0x242E0000`; ‏17,408 bytes בשימוש | input ו־activation arena שהקומפיילר Neural‑ART הקצה לרשת הנוכחית |
+| NPU SRAM6 | החל מ־`0x24350000`; ‏55,425 bytes בשימוש | weights שמוטמעים ב־Firmware ומועתקים לכאן בזמן `RPS_AI_Init()` |
+
+בתוך SRAM2 נמצאים שלושה pools סטטיים עוד לפני תחילת ה־C heap:
+
+| Pool | גודל | שימוש עיקרי |
+|---|---:|---|
+| `tx_app_byte_pool` | 159KiB | stack של עיבוד ToF ‏96KiB, acquisition ‏16KiB, display ‏4KiB, CLI ‏6KiB ו־firmware confirmation ‏2KiB |
+| `ux_device_app_byte_pool` | 56KiB | USBX arena ‏32KiB, משימת USB device ‏16KiB, bookkeeping ו־headroom |
+| `usbpd_app_byte_pool` | 16KiB | משימת USB‑PD CAD בעלת stack של 8KiB ואובייקטי Type‑C |
+
+ה־map האחרון מציב את `_end` ב־`0x2419F778` ואת תחילת MSP השמור ב־
+`0x241FF800`. ההפרש הוא 393,352 bytes של קיבולת C heap. זהו תקציב חשוב:
+ספריית ה־VL53L9 transform משתמשת ב־heap בזמן יצירת pipeline, ולכן build תקין
+מבחינת גודל binary עדיין יכול להיכשל בזמן ריצה אם pools או BSS גדלים יותר
+מדי. כלי ה־build עוצר אם נשארים פחות מ־360KiB.
+
+האזור `npu_shared_bss` תופס כרגע 162,048 מתוך 176KiB. מתוכם כ־24.1KiB הם
+RPS וכ־134.2KiB הם CDC. ה־CDC כולל שני TX slots של 48KiB, שמונה control slots
+של 768 bytes, שישה־עשר RX slots של 512 bytes ושני worker stacks של 12KiB.
+ההפרדה הזו משאירה את ה־C heap הגדול ל־VL53L9 ומונעת פיצול זיכרון במסלול
+ה־USB הרציף. כלומר, אין הקצאות ושחרורים חוזרים שעלולים לפצל את השטח
+החופשי ולגרום לכשל שמופיע רק אחרי זמן ריצה ממושך.
+
 ## למה לא לשמור BMP
 
 BMP איננו קלט "קל יותר" ל־STM32Cube.AI או ל־STEdgeAI. יוצר המודל איננו לומד
@@ -110,6 +213,40 @@ MAP CHANNELS 1
 מדווחים גם את frame ה־ToF האחרון שצויר ואת frame תוצאת ה־NPU שצוירה, וכך אפשר
 לבצע HIL למסך בלי להסתמך על צפייה פיזית בפאנל.
 
+### פילטרי `MAP PROCESSING`
+
+פותחים את התפריט באמצעות `MAP PROCESSING`, בוחרים פילטר, ומשנים פרמטר בצורה
+`MAP PROCESSING <FILTER> <PARAMETER> <VALUE>`. לדוגמה:
+
+```text
+MAP PROCESSING BOX radius 2
+MAP PROCESSING BOX passes 2
+MAP PROCESSING MEDIAN threshold_mm 150
+MAP PROCESSING SHARPEN amount_percent 75
+```
+
+הפילטרים `OFF` עד `MAX` משפיעים על תצוגת העומק בלבד. הם אינם משנים את raw
+depth שנשמר ב־N6DF ואינם משנים את ה־tensor הקבוע שנכנס למודל. כך אפשר ללמוד
+על סינון תמונה בלי להפוך שינוי תצוגה לשינוי שקט בחוזה האימון.
+
+| מצב | פעולה | פרמטרים | מתי הוא מועיל ומה המחיר |
+|---|---|---|---|
+| `OFF` | מחזיר את העומק ללא עיבוד | אין | נקודת הייחוס למדידה ולהשוואה |
+| `BOX` | ממוצע פשוט של כל השכנים התקינים בחלון | `radius=1..3`, ‏`passes=1..3` | מפחית רעש אקראי במהירות, אך מטשטש קצוות ועלול לחבר עצמים קרובים |
+| `MEDIAN` | ממיין שכנים תקינים ובוחר את החציון | `radius=1..2`, ‏`threshold_mm=0..1000` | מצוין להסרת pixel חריג בלי למרוח קצה. המרכז מוחלף רק אם הוא invalid או אם ההפרש מהחציון גדול מהסף; `0` פירושו החלפה תמידית בחציון |
+| `GAUSSIAN` | טשטוש משוקלל separable: קודם אופקי ואז אנכי | `radius=1..2`, ‏`passes=1..3` | נותן מעבר חלק ופחות מרובע מ־BOX. שכנים קרובים מקבלים משקל גדול יותר, אך עדיין נגרם טשטוש |
+| `SHARPEN` | unsharp mask: ‏`original + amount*(original-blur)` | `radius=1..3`, ‏`amount_percent=0..200` | מדגיש מעברי עומק וקצוות; ערך גבוה מדי מגביר רעש ויוצר overshoot. ‏`0%` משאיר את התמונה כמעט ללא שינוי |
+| `MIN` | בוחר את המרחק התקין הקטן ביותר בשכונה | `radius=1..3` | בעומק, קטן פירושו קרוב: עצמים קרובים מתרחבים וחורים קטנים בהם נסגרים, אך הפרטים שלהם מתעבים |
+| `MAX` | בוחר את המרחק התקין הגדול ביותר בשכונה | `radius=1..3` | הרקע הרחוק מתרחב ועצם קרוב מצטמצם; שימושי לניקוי בליטות קרובות קטנות, אך עלול למחוק אצבעות דקות |
+
+כל הפילטרים מדלגים על ערכים שאינם finite או שאינם גדולים מאפס. אם אין אף
+שכן תקין נשמר הערך המקורי. `BOX` מחליף בין image ו־workspace בכל pass;
+`GAUSSIAN` מבצע שני מעברים חד־ממדיים; אין הקצאת heap לכל פריים.
+
+המצבים `OBJECT 1..7` ו־`NPU` שונים: הם אינם פילטרי blur כלליים אלא חלונות
+לימוד לתוך שלבי ה־preprocessing של RPS. הם מאפשרים לראות מדוע pixel מסוים
+נכנס או לא נכנס למודל.
+
 `MAP PROCESSING OBJECT 1` עד `OBJECT 7` מציגים ב־`MAP ON` את העיבוד המצטבר:
 
 1. עומק תקין בטווח האבחון 100..1200mm;
@@ -150,9 +287,11 @@ Python משתמשים שניהם באותו סף. הפקודה של OBJECT 7 ע�
 אחרים לצורך ניסוי, אך שינוי תצוגת OBJECT 7 אינו משנה בשקט את קלט ה־NPU.
 שינוי ייצור עתידי חייב להתבצע יחד בקושחה וב־Python ולעבור שוב השוואה מלאה.
 
-חשוב: המשקולות שמוטמעות כרגע נלמדו לפני חוזה הצללית החדש. הן מוכיחות שה־NPU
-רץ, אך לא את איכות הזיהוי עם הקלט החדש. אחרי בדיקת התמונות יש להריץ מחדש את
-שלבים 04–09; רק HIL תואם־frame מחזיר את טענת ההתאמה בין Python לקושחה.
+המודל הנוכחי אומן מחדש על חוזה הצללית עם threshold קבוע 210. לאחר תיקון גבול
+ה־quantization הוא עבר Stage 11 HIL על חומרה: 100/100 תוצאות היו משויכות
+לפריים הנכון, class agreement בין TFLite ל־Neural‑ART היה 1.0 והפרש raw מרבי
+היה 4–5 יחידות בלבד מול סף 16. זה מוכיח נאמנות של המימוש; איכות סיווג בעולם
+האמיתי עדיין תלויה בגיוון האנשים, המרחקים, הזוויות וה־sessions שב־dataset.
 
 `DATASET STREAM ON` מכבה אוטומטית את מפת ה־ANSI של `MAP ON`, אבל איננו עוצר
 את החיישן ואיננו תלוי במסך SPI. task העיבוד ממיר כל pixel של מערך ה־float
@@ -277,6 +416,65 @@ training/
 `st_ai_output`. הוא משאיר את כלי העבודה ואת המודל האחרון שכבר נמצא
 ב־`AppliNonSecure/AI`, כדי שה־FW יישאר buildable ויוכל לצלם dataset חדש; שלב
 08 יחליף את המודל הזה בהמשך. נכתב גם `reset_log.json` עם פירוט האיפוס.
+
+## מילון מלא של קובצי ה־BAT
+
+כל BAT מתחיל ב־`cd /d "%~dp0"`, ולכן הנתיבים הם יחסיים לתיקיית `training`
+ולא ל־`C:\Users\netan` או למיקום קבוע אחר. אפשר להעביר את כל repository
+לתיקייה אחרת; הדרישה היא לשמור על מבנה התיקיות ולהתקין את כלי ST/Python
+במחשב החדש. רוב הקבצים קוראים ל־`_env.bat`, שבוחר תמיד את Python מתוך
+`training/.venv` ולא Python אקראי מה־PATH.
+
+| קובץ | מה הוא עושה | מה משתנה / האם נדרש לוח |
+|---|---|---|
+| `_env.bat` | helper פנימי: עובר לתיקייה הנכונה, מגדיר UTF‑8, מאתר `.venv` ודורש Python 3.11 | אינו מיועד להפעלה ישירה ואינו משנה נתונים |
+| `00_SETUP.bat` | יוצר `.venv`, מתקין את `requirements.txt`, בודק את הסביבה ומריץ self-tests | משנה רק סביבת Python מקומית; צריך Internet בהתקנה הראשונה, לא צריך לוח |
+| `01_CAPTURE.bat` | פותח צילום מודרך, מאתר CN8, מפעיל N6DF v3 ושומר bursts עם labels | דורש לוח ו־CN8; מוסיף session ו־raw samples, לעולם אינו מוחק session קיים |
+| `02_IMPORT_PNG.bat` | מסלול אופציונלי ליבוא dataset ישן מתיקיות לפי מחלקה | לא צריך לוח; מוסיף samples. ‏16-bit depth מדויק, 8-bit רק עם אישור מפורש, RGB נדחה |
+| `02_REVIEW_DATASET.bat` | ממשק אנושי ל־Accept/Reject/Relabel עם עדיפות לפריימים חשודים | לא משנה raw; כותב החלטות הפיכות ב־`review/dataset_review.json` |
+| `03_VALIDATE.bat` | בודק shape, dtype, hashes, PNG, כפילויות, איזון, sessions ו־bursts | לא צריך לוח; קורא raw וכותב דוח/state בלבד |
+| `04_PREPARE.bat` | מאמת MCU מול Python bit-for-bit, מסיר duplicates ומחלק לפי burst ל־train/validation/test | כותב `data/prepared` ו־manifest; אינו מאמן |
+| `05_TRAIN.bat` | מאמן/ממשיך מודל Keras float, שומר checkpoint בכל epoch ומחשב confusion matrix ודיוק test | לא צריך לוח; כותב `rps_float.keras` ודוחות. `--force` מתחיל weights חדשים אך אינו מוחק raw |
+| `06_QUANTIZE.bat` | ממיר ל־full-integer TFLite בעזרת representative dataset ובודק מחדש את test | כותב `rps_int8.tflite` ו־`model_contract.json`; דורש input uint8 scale=1 ללא CAST ו־output int8 |
+| `07_GENERATE_N6.bat` | מריץ STEdgeAI עם `--target stm32n6 --st-neural-art` | לא צריך לוח; כותב C/headers/blob תחת `generated/st_ai_output`; אין fallback שקט ל־CPU |
+| `08_INTEGRATE_MODEL.bat` | מתקין את הרשת, runtime וה־weights בתוך עץ ה־Firmware ומתקן כתובות/מאפייני NPU | משנה את `AppliNonSecure/AI`; עדיין אינו צורב לוח |
+| `09_BOOTSTRAP_NPU_SWD.bat` | מתקין פעם אחת FSBL+Secure שמפעילים clocks, TrustZone והרשאות NPU | דורש ST‑LINK ומצב boot מתאים; כותב Flash רק אחרי `BOOTCHAIN`, ומשמר את שני app slots. ‏`--build-only` אינו כותב חומרה |
+| `10_LOAD_RAM.bat` | בונה incremental וטוען Secure+Non‑Secure+model ל־SRAM דרך SWD | דורש DEV boot ו־ST‑LINK; זמני בלבד, ללא חתימה/version/Flash ונעלם ב־RESET |
+| `11_HIL.bat` | קורא 100 פריימים חיים ומשווה חיישן, CRC, tensor, TFLite ו־Neural‑ART לאותו frame ID | דורש להריץ 10 מיד לפניו ולהזיז יד בין המחוות; אינו כותב Flash, כן כותב דוח HIL |
+| `12_FLASH_RELEASE.bat` | בונה, מעלה version בדיוק באחד, חותם, יוצר `.n6fw`, שולח XMODEM, מאתחל ומוודא trial confirmation | משנה Flash רק אחרי `FLASH`; דורש Stage 09 ו־HIL תואם. `--package-only` בונה חבילה בלי לגעת בלוח |
+| `99_STATUS_RESUME.bat` | מציג counts, state, stale/current והפקודה הבאה המומלצת | read-only; לא צריך לוח ולא משנה תוצרים |
+| `BUILD_MODEL_FOR_N6.bat` | orchestrator resumable של 03→04→05→06→07→08 | לא מצלם ולא צורב; ממחזר תוצר תואם ועוצר ב־quality gate אמיתי |
+| `VIEW_LIVE.bat` | viewer חי של raw depth ושל ה־tensor המדויק, עם החלפת frame אטומית | דורש CN8 פנוי; אינו שומר training samples ואינו משנה מודל |
+| `ANALYZE_TRAINING.bat` | יוצר ופותח דוח HTML לימודי בעברית מהנתונים והדוחות הקיימים | לא צריך לוח; read-only ביחס למודל/data, מוסיף snapshot תחת `reports/html` |
+| `RESET_TRAINING_DATA.bat` | מוחק ניסוי למידה מקומי: raw/prepared/models/generated/reports/review/state | פעולה הרסנית מקומית הדורשת `DELETE`; משמרת scripts, config, `.venv` ואת המודל שכבר מוטמע ב־Firmware |
+
+כלל עבודה פשוט: `99_STATUS_RESUME.bat` אומר מה חסר, ו־BAT ממוספר אפשר להריץ
+שוב בבטחה. כל שלב שומר fingerprint של הקלט; שינוי ב־dataset, config, model או
+Firmware מסמן רק את השלבים התלויים בו כ־stale. החריגים המכוונים הם פעולות
+חומרה: 09 ו־12 דורשות מילת אישור, ו־RESET דורש `DELETE`.
+
+## הכלים והספריות שבהם השתמשנו
+
+| שכבה | כלי/ספרייה | תפקיד בפרויקט |
+|---|---|---|
+| תצורת MCU | STM32CubeMX וקובץ `N6.ioc` | פינים, clocks, DMA, I3C, USB, TrustZone ויצירת skeleton; לאחר Generate Code בודקים ידנית שינויים שמחוץ ל־USER CODE |
+| קומפילציה | STM32CubeIDE + GNU Arm Embedded GCC | קומפילציית Cortex‑M55, linker maps, `-O3`, debug symbols ו־`-fstack-usage` |
+| צריבה ודיבוג | STM32CubeProgrammer, ST‑LINK ו־ExtMemLoader | SWD, טעינה זמנית ל־SRAM, צריבת NOR חיצוני ואימות כתובות |
+| חתימה ועדכון | STM32 Signing Tool, PowerShell, SHA‑256, ECDSA‑P256 ו־XMODEM‑CRC | יצירת images בפורמט ST וחבילת `.n6fw`, אימות, A/B trial/rollback והעברה דרך CN8 |
+| קומפילציית AI | STEdgeAI Core 4.0 / Neural‑ART compiler | תרגום TFLite ל־C, descriptors, epochs ו־weight blob עבור STM32N6 |
+| Runtime AI | STAI, LL_ATON ו־Neural‑ART | אתחול הרשת, cache maintenance, DMA/NPU epochs והחזרת output quantized |
+| מערכת הפעלה | Azure RTOS ThreadX | tasks, priorities, event flags, semaphores, queues ו־byte pools |
+| USB | USBX + USB‑PD/TCPP0203 | CDC ACM ב־CN8, attach/detach, CLI, N6DF ו־XMODEM |
+| חיישן | X‑CUBE‑53L9A1, VL53L9CX transform ו־I3C/GPDMA | רכישת raw frame והפקת depth, amplitude, ambient, reflectance ו־confidence |
+| עיבוד MCU | C, CMSIS ו־Helium/MVE | preprocessing ללא allocation, resize, העתקת tensor ו־dilation וקטורי |
+| סביבת ML | Python 3.11, TensorFlow 2.20, Keras ו־TFLite | אימון float, quantization, inference reference ו־XNNPACK במחשב |
+| נתונים | NumPy 2.1, Pillow 11.3, PyYAML ו־pyserial | NPZ/PNG, config, CRC/framing ותקשורת COM |
+| ניתוח ותצוגה | Matplotlib, Tk ו־HTML מקומי | Capture/Review/Live Viewer, עקומות, confusion matrix וגלריית תחזיות |
+
+CRC ו־hash ממלאים תפקידים שונים: CRC32 מגלה corruption בתוך stream חי;
+SHA‑256 מזהה בדיוק dataset/model/artifact לאורך זמן; ECDSA מוכיח שחבילת
+update נחתמה במפתח המורשה. בפרויקט החינוכי מפתח הפיתוח משותף בכוונה ולכן הוא
+אינו root of trust מתאים למוצר מסחרי.
 
 ## דוח HTML אינטראקטיבי — ANALYZE_TRAINING
 
@@ -557,10 +755,11 @@ tensor. הוא דורש conversion מלא ל־integer: input `uint8`, output `in
 
 זהו ה־ABI בין Python, הקוד המיוצר על ידי ST וה־FW.
 
-שני quality gates מוגדרים ב־`config/training.json`: ברירת המחדל דורשת לפחות
-80% accuracy של מודל ה־float על test, ואינה מתירה ל־quantization להוריד יותר
-מ־5 נקודות אחוז. הכשל שומר את הדוחות לצורך למידה, אבל עוצר את ה־orchestrator
-לפני יצירת גרסת NPU חלשה.
+ה־quality gates מוגדרים ב־`config/training.json`. בפרופיל הלימודי הנוכחי
+נדרשים לפחות 50% macro accuracy, לפחות 35% בכל מחלקה, וירידה שאינה גדולה
+מ־5 נקודות אחוז אחרי quantization. אלה ספי לימוד שמונעים מודל שבור, לא יעד
+איכות למוצר; לפני release רציני נכון להעלות אותם. הכשל שומר את הדוחות לצורך
+ניתוח, אבל עוצר את ה־orchestrator לפני יצירת גרסת NPU שאינה עומדת בחוזה.
 
 ### 07 — STEdgeAI / Neural‑ART
 
@@ -618,7 +817,7 @@ Non-Secure application image: network code + descriptors
 separate raw blob(s):          constants/weights at memory-pool addresses
 ```
 
-במודל הנוכחי blob המשקולות הוא 49,809 bytes. במקום להוסיף partition ופורמט
+במודל הנוכחי blob המשקולות הוא 55,425 bytes. במקום להוסיף partition ופורמט
 `.n6fw` חדשים, `08_INTEGRATE_MODEL.bat` ממיר אותו למערך `const uint8_t` בתוך
 ה־Non‑Secure image החתום. בזמן `RPS_AI_Init()` ה־FW מעתיק את המערך ל־SRAM6
 בכתובת `0x24350000`. שלב 08 מעדכן גם את הכתובות וגם את תכונת ה־DMA
@@ -635,7 +834,8 @@ external Flash Slot A/B
 לכן `.n6fw` v1 הקיים כבר מספיק: hash/signature, inactive slot, trial ו־rollback
 חלים על קוד הרשת ועל המשקולות יחד. אי אפשר לקבל קוד חדש עם weights ישנים.
 
-ה־generated activations של המודל הנוכחי נמצאים ב־SRAM5 ב־`0x242E0000`.
+ה־generated input וה־activations של המודל הנוכחי נמצאים ב־SRAM5 החל
+מ־`0x242E0000` ותופסים 17,408 bytes.
 ה־FW שומר את החלק העליון של SRAM3 (`0x24244000..0x2426FFFF`) ל־CDC ול־scratch
 של preprocessing, כדי להשאיר לפחות 360KiB heap ל־VL53L9. שלב 08 מסרב לשלב
 מודל עתידי שבחר SRAM3, ומסרב ל־weight blob גדול מ־SRAM6; אין overlap שקט.
@@ -682,8 +882,9 @@ version; reset מוחק את ההרצה.
   raw `int8`, כלומר 0.0625 לפי output scale של 1/256.
 
 ה־preflight והתוצאה נשמרים גם ב־`reports/hil_validation.log`; הדוח המובנה
-נשמר ב־`reports/hil_validation.json`. הודעות INFO של TensorFlow מוסתרות כדי
-שהפלט ב־BAT יציג את מצב הלוח וה־NPU בלבד.
+נשמר ב־`reports/hil_validation.json`. רוב הודעות TensorFlow מוסתרות כדי
+להשאיר את הפלט קריא; הודעת `Created TensorFlow Lite XNNPACK delegate` יכולה
+עדיין להופיע והיא רק מציינת שההשוואה במחשב משתמשת ב־delegate של TFLite.
 
 זה בודק את החיישן, processing task, framing, CDC וה־decoder בלי להסתמך על מסך
 SPI. ההשוואה היא על אותו frame ID ועל raw output quantized, לא רק על label
