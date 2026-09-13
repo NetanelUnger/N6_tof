@@ -317,6 +317,9 @@ Code operation, audit the generated GPIO, SPI4, GPDMA1 channel 5, NVIC, and
 Non-Secure RIF ownership, and verify that the display application still uses
 `hspi4` and the `LCD_*` control pins.
 
+User hardware validation on 2026-09-13 confirmed that the display operates
+correctly on this SPI4 mapping.
+
 ### 4.6 USB CDC and USB-PD
 
 - PH0/PH1 are assigned to the FSBL as the 48 MHz HSE digital-bypass input.

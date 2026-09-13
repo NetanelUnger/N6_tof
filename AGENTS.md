@@ -125,8 +125,9 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 - The GC9A01 display is enabled. `N6.ioc` now reserves a dedicated SPI4 path:
   PE12 SCK, PE14 MOSI, PE13 CS, PE1 DC, and PE2 RST. SPI4 TX uses
   GPDMA1 channel 5 at an initial 12.5 Mbit/s. The generated initialization and
-  hand-written display port use this mapping; hardware validation is still
-  required. VCC is 3.3 V and no MISO connection is required.
+  hand-written display port use this mapping. User hardware validation on
+  2026-09-13 confirmed that the display still operates after the SPI4
+  migration. VCC is 3.3 V and no MISO connection is required.
 - The priority-8 GC9A01 task uses SPI TX DMA and waits on callback-posted
   ThreadX event flags. It clears the panel, renders `SYSTEM IS LOADING`, and
   then consumes numbered ToF frames through one shared 404-byte DMA row
