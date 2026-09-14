@@ -22,6 +22,7 @@
 #include "app_azure_rtos.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "app_features.h"
 #include "debug_uart.h"
 
 /* USER CODE END Includes */
@@ -56,6 +57,15 @@
 __ALIGN_BEGIN static UCHAR tx_byte_pool_buffer[TX_APP_MEM_POOL_SIZE] __ALIGN_END;
 static TX_BYTE_POOL tx_app_byte_pool;
 
+#if (APP_ST67W6X_ENABLED == 1U)
+/* Kept outside SRAM2 so linking the T01 driver cannot consume the ToF
+ * transform's guarded C-heap margin.  The linker reserves the top 64 KiB of
+ * otherwise-unused NPU SRAM4 and Stage 08 rejects model use of that bank. */
+static UCHAR tx_radio_byte_pool_buffer[TX_RADIO_MEM_POOL_SIZE]
+    __attribute__((section(".radio_shared_bss"), aligned(64), used));
+static TX_BYTE_POOL tx_radio_byte_pool;
+#endif
+
 /* USER CODE BEGIN UX_Pool_Buffer */
 /* USER CODE END UX_Pool_Buffer */
 #if defined ( __ICCARM__ )
@@ -72,6 +82,17 @@ __ALIGN_BEGIN static UCHAR  usbpd_byte_pool_buffer[USBPD_DEVICE_APP_MEM_POOL_SIZ
 static TX_BYTE_POOL usbpd_app_byte_pool;
 
 #endif
+
+/* USER CODE BEGIN 0 */
+TX_BYTE_POOL *MX_RadioBytePool_Get(void)
+{
+#if (APP_ST67W6X_ENABLED == 1U)
+  return &tx_radio_byte_pool;
+#else
+  return TX_NULL;
+#endif
+}
+/* USER CODE END 0 */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
@@ -92,6 +113,19 @@ VOID tx_application_define(VOID *first_unused_memory)
 #if (USE_STATIC_ALLOCATION == 1)
   UINT status = TX_SUCCESS;
   VOID *memory_ptr;
+
+#if (APP_ST67W6X_ENABLED == 1U)
+  if (tx_byte_pool_create(&tx_radio_byte_pool, "ST67 radio memory pool",
+                          tx_radio_byte_pool_buffer,
+                          TX_RADIO_MEM_POOL_SIZE) != TX_SUCCESS)
+  {
+    Debug_UART_Log("RTOS", "ERROR: ST67 radio byte-pool creation failed");
+    while (1)
+    {
+    }
+  }
+  Debug_UART_Log("RTOS", "ST67 64 KiB SRAM4 byte pool created");
+#endif
 
   if (tx_byte_pool_create(&tx_app_byte_pool, "Tx App memory pool", tx_byte_pool_buffer, TX_APP_MEM_POOL_SIZE) != TX_SUCCESS)
   {

@@ -48,6 +48,9 @@ MEMORY
   /* Reserve the upper 176 KiB of SRAM3 for CPU-side transient workspaces.
      Stage 08 rejects a generated network that also selects SRAM3. */
   NPU_RAM3     (xrw) : ORIGIN = 0x24244000, LENGTH = 176K
+  /* Reserve the top 64 KiB of SRAM4 for the optional ST67 ThreadX pool.
+     Current Neural-ART activations use SRAM5; Stage 08 rejects SRAM4 use. */
+  RADIO_RAM4   (xrw) : ORIGIN = 0x242D0000, LENGTH = 64K
 }
 
 /* Sections */
@@ -187,6 +190,19 @@ SECTIONS
 
   ASSERT(SIZEOF(.npu_shared_bss) <= LENGTH(NPU_RAM3),
          "NPU SRAM3 shared workspace overflow")
+
+  .radio_shared_bss (NOLOAD) :
+  {
+    . = ALIGN(64);
+    __sradio_shared_bss = .;
+    *(.radio_shared_bss)
+    *(.radio_shared_bss*)
+    . = ALIGN(64);
+    __eradio_shared_bss = .;
+  } >RADIO_RAM4
+
+  ASSERT(SIZEOF(.radio_shared_bss) <= LENGTH(RADIO_RAM4),
+         "ST67 SRAM4 radio pool overflow")
 
   /* User_heap_stack section, used to check that there is enough "RAM" Ram  type memory left */
   ._user_heap_stack :

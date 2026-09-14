@@ -78,6 +78,8 @@ static TX_THREAD tx_usb_cli_thread;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
+extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
+
 static void ToFAcquisitionThread_Entry(ULONG thread_input);
 static void UpdateConfirmThread_Entry(ULONG thread_input);
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
@@ -133,6 +135,14 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
 
   Debug_UART_Log("RTOS", "Console API ready; USB manager owns RX/TX workers");
 
+  /* Resolve the shared EXTI9 line before either ToF or radio workers can run.
+     This also enforces safe NCP boot levels (active-high CS, BOOT, and
+     CHIP_EN all low). */
+  WIFI_BLE_App_ConfigureHardware();
+#if (APP_ST67W6X_ENABLED == 1U)
+  Debug_UART_Log("RADIO", "EXTI9 routed to PE9 SPI_RDY; ToF uses bounded GPIO polling");
+#endif
+
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
   if (Display_App_Init() != TX_SUCCESS)
   {
@@ -187,20 +197,24 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   }
 
 #if (APP_ST67W6X_ENABLED == 1U)
+  TX_BYTE_POOL *radio_pool = MX_RadioBytePool_Get();
+
   /* The ST67 vendor driver uses the small FreeRTOS-to-ThreadX compatibility
-     layer.  Do not initialize or allocate it while the radio is disabled. */
-  if (FreeRTOS_Compat_Init(byte_pool) != TX_SUCCESS)
+     layer.  Keep its dynamic objects, internal task stacks, and the project
+     Radio Manager stack in the isolated SRAM4 pool. */
+  if ((radio_pool == TX_NULL) ||
+      (FreeRTOS_Compat_Init(radio_pool) != TX_SUCCESS))
   {
     return TX_POOL_ERROR;
   }
 
-  if (tx_byte_allocate(byte_pool, (VOID **)&pointer,
+  if (tx_byte_allocate(radio_pool, (VOID **)&pointer,
                        TX_WIFI_BLE_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
   {
     return TX_POOL_ERROR;
   }
 
-  if (tx_thread_create(&tx_wifi_ble_thread, "ST67 WiFi BLE", WiFiBleThread_Entry,
+  if (tx_thread_create(&tx_wifi_ble_thread, "ST67 Radio Manager", WiFiBleThread_Entry,
                        0U, pointer, TX_WIFI_BLE_STACK_SIZE,
                        TX_WIFI_BLE_THREAD_PRIO, TX_WIFI_BLE_THREAD_PRIO,
                        TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
@@ -210,17 +224,6 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
 #endif
 
 #if (APP_ST67W6X_ENABLED == 0U)
-  /* EXTI line 9 can select PD9 or PE9, never both.  While the radio shield is
-     absent, route the line to the ToF active-low interrupt so acquisition is
-     event driven instead of polling once per RTOS tick. */
-  GPIO_InitTypeDef tof_int_gpio = { 0 };
-  HAL_GPIO_DeInit(SPI_RDY_GPIO_Port, SPI_RDY_Pin);
-  tof_int_gpio.Pin = TOF_INT_Pin;
-  tof_int_gpio.Mode = GPIO_MODE_IT_FALLING;
-  tof_int_gpio.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(TOF_INT_GPIO_Port, &tof_int_gpio);
-  HAL_NVIC_SetPriority(EXTI9_IRQn, 5U, 0U);
-  HAL_NVIC_EnableIRQ(EXTI9_IRQn);
   Debug_UART_Log("RADIO", "ST67 Wi-Fi/BLE thread and hardware init are disabled");
 #endif
 

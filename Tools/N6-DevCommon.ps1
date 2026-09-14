@@ -205,6 +205,31 @@ function Assert-N6NonSecureImage {
         Write-Host ('Neural-ART image contract: embedded weights + runtime present; ' +
                     ('SRAM3 workspace {0} bytes at 0x{1:X8}.' -f $npuWorkspaceSize, $npuWorkspaceStart))
     }
+    $radioPoolMatch = [regex]::Match(
+        $mapText,
+        '(?m)^\.radio_shared_bss\s*\r?\n\s*(0x[0-9a-fA-F]+)\s+(0x[0-9a-fA-F]+)')
+    if ($radioPoolMatch.Success) {
+        $radioPoolStart = [Convert]::ToUInt64(
+            $radioPoolMatch.Groups[1].Value.Substring(2), 16)
+        $radioPoolSize = [Convert]::ToUInt64(
+            $radioPoolMatch.Groups[2].Value.Substring(2), 16)
+        if ($radioPoolSize -ne 0) {
+            if (($radioPoolStart -ne 0x242D0000) -or
+                ($radioPoolSize -gt 64KB) -or
+                (($radioPoolStart + $radioPoolSize) -gt 0x242E0000)) {
+                throw ('ST67 radio pool escaped its reserved SRAM4 window: ' +
+                       ('start=0x{0:X8}, size={1}' -f $radioPoolStart, $radioPoolSize))
+            }
+            foreach ($requiredSymbol in @('__sradio_shared_bss',
+                                           '__eradio_shared_bss')) {
+                if ($mapText -notmatch ('\b' + [regex]::Escape($requiredSymbol) + '\b')) {
+                    throw "ST67 radio-pool symbol is missing: $requiredSymbol"
+                }
+            }
+            Write-Host ('ST67 memory contract: SRAM4 radio pool {0} bytes at 0x{1:X8}.' -f
+                        $radioPoolSize, $radioPoolStart)
+        }
+    }
     $heapStartMatch = [regex]::Match(
         $mapText,
         '(?m)^\s*(0x[0-9a-fA-F]+)\s+PROVIDE \(_end = \.\)')

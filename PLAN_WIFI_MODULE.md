@@ -2,9 +2,10 @@
 
 ## 1. Purpose and fixed design decisions
 
-This document defines the planned integration of the X-NUCLEO-67W61M1 board
-with the existing STM32N657 application. It is a design baseline, not an
-instruction to enable or flash the radio immediately.
+This document defines the staged integration of the X-NUCLEO-67W61M1 board
+with the existing STM32N657 application. The hardware/SPI baseline and the
+BLE GATT discovery layer are now implemented; payload transports remain
+staged behind the interfaces described below.
 
 The following decisions are fixed for the first implementation:
 
@@ -23,10 +24,57 @@ The following decisions are fixed for the first implementation:
   the selected radio CLI mode.
 - Wi-Fi CLI can be configured as TCP, UDP, or disabled. BLE CLI can be enabled
   or disabled independently. Wi-Fi and BLE may operate at the same time.
-- The radio remains compile-time disabled until the X-NUCLEO board is fitted
-  and the hardware checks in this document pass.
+- The radio may be compile-time enabled for the current supervised hardware
+  validation. Network services remain behind a separate compile-time guard.
 - Initial ST67W61M1 development must remain unlocked. No eFuse, OTP, secure
   boot, anti-rollback, production key, or permanent lock operation is allowed.
+
+### 1.1 Implemented baseline and BLE discovery status
+
+The safe software baseline is implemented and build-verified:
+
+- `APP_ST67W6X_ENABLED=1` now enables the phase-1 hardware validation requested
+  by the user;
+- `APP_ST67W6X_BLE_GATT_ENABLED=1` enables only the BLE maintenance GATT
+  discovery/connect layer;
+- `APP_ST67W6X_WIFI_SERVICES_ENABLED=0` keeps Wi-Fi initialization disabled;
+- CHIP_EN and BOOT remain low until deliberate initialization;
+- the ST transport's unusual active-high SPI chip select remains low while
+  idle;
+- the radio build routes EXTI9 to PE9/SPI_RDY on both edges and changes the
+  ToF wait to bounded one-tick polling of PD9;
+- a 64 KiB ST67 ThreadX pool is isolated at `0x242D0000` in SRAM4;
+- `radio hardware`, `radio status`, and `ble status` report the transport,
+  GATT, advertising, link, MTU, subscription, and pre-routing RX-drop state.
+
+The module now advertises as `N6-MAINT-xxxx` with two independent logical UART
+services. Both services are discoverable over one BLE connection and use
+separate notification subscriptions:
+
+| Endpoint | 128-bit UUID | Properties | Current stage |
+|---|---|---|---|
+| CLI service | `7a1e0001-b5a3-f393-e0a9-e50e24dcca9e` | Primary service | Registered |
+| CLI RX | `7a1e0002-b5a3-f393-e0a9-e50e24dcca9e` | Write / Write Without Response | Accepted, counted, deliberately discarded |
+| CLI TX | `7a1e0003-b5a3-f393-e0a9-e50e24dcca9e` | Notify | CCCD tracked; no producer attached |
+| DEBUG service | `7a1e0101-b5a3-f393-e0a9-e50e24dcca9e` | Primary service | Registered |
+| DEBUG RX | `7a1e0102-b5a3-f393-e0a9-e50e24dcca9e` | Write / Write Without Response | Reserved; counted and discarded |
+| DEBUG TX | `7a1e0103-b5a3-f393-e0a9-e50e24dcca9e` | Notify | CCCD tracked; no producer attached |
+
+Advertising uses the module's validated connectable defaults and includes the
+CLI service UUID without a host-supplied Flags AD structure. Device name is set
+through GAP; explicit advertising-parameter and scan-response overrides remain
+deferred until they can be added individually after baseline HIL. On
+connection the Radio Manager requests MTU exchange and a 15--30 ms connection
+interval with zero slave latency and a 4 s supervision timeout. Advertising
+is restarted by the Radio Manager after disconnect.
+
+This lab-stage GATT server uses the module's No-Input/No-Output (Just Works)
+capability and is not an authenticated maintenance channel. Firmware update,
+XMODEM, reset, credential, and privileged CLI operations must not be routed to
+it until application authentication and authorization are added.
+
+The GATT implementation performs no NCP firmware write and no eFuse, OTP,
+anti-rollback, key, or permanent security operation.
 
 ## 2. Scope and non-goals
 
@@ -268,16 +316,19 @@ TCP is the recommended default because it supplies ordered, reliable delivery.
 - Application sequence numbers and optional acknowledgement are recommended
   for commands that must not be repeated.
 
-## 7. BLE GATT CLI
+## 7. BLE maintenance GATT
 
-Create a project-specific UART-like GATT service with:
+The discovery layer now implements two project-specific UART-like services:
+CLI RX/TX and DEBUG RX/TX. The independent services and CCCDs prevent a slow
+debug subscriber from becoming the CLI's flow-control state. RX supports both
+Write With Response and Write Without Response; TX uses Notify. The current
+stage tracks connection, disconnection, MTU, CCCD, and discarded RX writes,
+but intentionally attaches no application producer or consumer.
 
-- an RX characteristic supporting Write With Response and optionally Write
-  Without Response;
-- a TX characteristic supporting Notify and preferably Indicate for reliable
-  command results;
-- connection, disconnection, MTU-change, CCCD, indication ACK/NACK, and pairing
-  events forwarded to the Radio Manager/CLI broker.
+The next transport stage will copy callback-owned RX data into bounded,
+generation-tagged queues and will let only the Radio Manager call W6X send
+APIs. DEBUG RX remains reserved for future maintenance control and must not be
+treated as a second unauthenticated command parser by default.
 
 BLE transport framing is mandatory. A notification is not a complete CLI line
 and a CLI line is not guaranteed to fit in one notification.
@@ -303,16 +354,17 @@ slow or disconnected peers from consuming unbounded RAM.
 
 ### 8.1 Current measured constraint
 
-The current debug map has a general RAM region beginning at `0x24100400` with
-1,023 KiB available. The linked `_end` and `_sstack` values leave approximately
-391,784 bytes (382.6 KiB) for the C heap. The first VL53L9 transform has a
-measured peak near 356,688 bytes, and the build enforces a minimum C heap of
-360 KiB.
+With BLE GATT linked, the general SRAM2 region still begins at `0x24100400`
+and provides 1,023 KiB. The 2026-09-13 build leaves 379,584 bytes for the C
+heap. The build enforces 360 KiB because the first VL53L9 transform has a
+measured peak near 356,688 bytes, leaving 10,944 bytes above that guard.
 
-Therefore only about 23,144 bytes (22.6 KiB) currently exist above the enforced
-transform guard. The MCU has substantial total SRAM, but the present general
-RAM partition does not have unlimited room for a larger ThreadX application
-pool.
+The device has substantial total SRAM, but contiguous SRAM2 heap headroom is
+tight. To preserve the transform contract, the two 9,072-byte transient ToF
+float frames were moved into the already-cleared upper-SRAM3 CPU workspace.
+That workspace now uses its complete 180,224-byte reservation. Future BLE
+fragmentation/session queues must therefore use the guarded SRAM4 radio pool,
+not ad-hoc SRAM2 or SRAM3 statics.
 
 The current ThreadX application byte pool is 159 KiB. Existing pool-backed
 thread stacks account for roughly 124 KiB, leaving about 35 KiB before allocator
@@ -335,33 +387,27 @@ dynamically require approximately five times that value, about 7.6 KiB. Add:
 - BLE GATT, connection, and fragmentation queues;
 - recovery and diagnostic headroom.
 
-A 64 KiB dedicated radio byte pool is the planning budget for simultaneous
-Wi-Fi, BLE, and remote CLI operation. It is a budget ceiling, not permission for
-unbounded dynamic allocation.
+A 64 KiB dedicated radio byte pool is now reserved for the radio workers,
+transport, and future simultaneous Wi-Fi, BLE, and remote CLI operation. It is
+a budget ceiling, not permission for unbounded dynamic allocation.
 
 ### 8.3 Allocation strategy
 
-1. Enable SPI/AT identity bring-up with the existing 159 KiB application pool
-   and collect real pool/stack high-water data.
-2. Do not immediately enlarge the main application pool into the ToF C-heap
-   safety margin.
-3. Before Wi-Fi + BLE + three-session operation, reserve a separate 64 KiB
-   radio pool in a verified-unused SRAM bank. The current model map leaves NPU
-   SRAM4 unused, making it the preferred candidate.
-4. The SRAM4 reservation requires a dedicated linker region/section, 64-byte
-   alignment, NOLOAD initialization, correct security/cache attributes, DMA
-   accessibility validation, and a linker `ASSERT`.
-5. Update the Stage 08/model-placement collision checker so future NPU models
-   cannot silently allocate over the radio pool. If SRAM4 becomes required by
-   a later model, relocate the pool deliberately; do not remove the guard.
-6. Keep the Radio Manager stack in the main application pool initially. Route
-   ST compatibility allocations and transport buffers to the dedicated radio
-   pool.
-
-If a dedicated pool is deferred, 172 KiB is the maximum candidate main-pool
-target under the current map, not a guaranteed safe value. A clean
-radio-enabled map and the 360 KiB C-heap preflight remain authoritative because
-enabling previously discarded radio code/data can also move `_end`.
+1. The radio-disabled build retains the existing 159 KiB application pool.
+2. A radio-enabled build reduces the general application pool to 151 KiB and
+   puts the Radio Manager stack, ST compatibility allocations, internal radio
+   worker stacks, and transport buffers in a dedicated 64 KiB SRAM4 pool.
+3. The pool occupies `0x242D0000..0x242DFFFF`, is 64-byte aligned and NOLOAD,
+   and has a linker `ASSERT` plus map-file validation.
+4. Stage 08 rejects any Neural-ART model that selects SRAM4, preventing a
+   generated model from silently colliding with the pool. If SRAM4 becomes
+   necessary for a later model, relocate the radio pool deliberately and
+   update both guards.
+5. The BLE-GATT build leaves 379,584 bytes for the C heap, 10,944 bytes above
+   the enforced 360 KiB floor. This passes the current contract but leaves no
+   room for casual SRAM2 growth; strict map checking remains mandatory.
+6. Hardware validation must confirm CPU and SPI DMA access to the SRAM4 pool,
+   followed by pool/stack high-water measurement.
 
 Do not increase `W61_MAX_SPI_XFER` during functional bring-up. Each increase can
 have an approximately five-times effect on worst-case transport allocation.
@@ -498,7 +544,8 @@ trusted physical boundary.
 Item 1 - migration of the GC9A01 display to SPI4 and hardware validation - is
 complete. Implementation continues at item 2:
 
-2. **Freeze the stacked-hardware baseline.** Record the successful display
+2. **Freeze the stacked-hardware baseline (software complete, physical checks
+   pending).** Record the successful display
    test; isolate X-NUCLEO UART bridges SB31/SB34; verify 3.3 V VDDIO, JP1/JP2,
    mission SPI/control pins, and the EXTI9 ownership policy.
 3. **Inventory the NCP without writing it.** Read module identity, current
@@ -513,31 +560,36 @@ complete. Implementation continues at item 2:
 6. **Validate the three ThreadX radio threads.** Confirm actual priority
    mapping, stacks, queues, blocking times, and pool high-water values under
    forced resets and SPI errors.
-7. **Add the guarded 64 KiB radio pool if measurements require it.** Reserve
-   verified-unused SRAM4, add linker and Stage 08 collision checks, and repeat
-   ToF/NPU memory and DMA tests.
-8. **Implement Wi-Fi control.** Scan, join, DHCP, RSSI/status, disconnect,
-   credential handling, reconnect policy, and error recovery.
-9. **Implement the T01 TCP CLI.** Start with one client, finite socket
-   timeouts, independent session state, backpressure, and CDC recovery.
-10. **Add UDP as an alternative Wi-Fi mode.** Use a single peer lease,
-    endpoint binding, size limits, and duplicate-sensitive command policy.
-11. **Implement the BLE GATT CLI.** Include MTU-aware fragmentation,
-    reassembly, indication/notification flow control, bounded queues, and
-    disconnect-generation invalidation from the first version.
-12. **Complete the three-session CLI broker.** Verify CDC, BLE, and Wi-Fi have
+7. **Validate the guarded 64 KiB radio pool.** The linker reservation and Stage
+   08 collision checks are implemented; repeat ToF/NPU memory and SPI DMA tests
+   on hardware and record high-water values.
+8. **Create the two-channel BLE GATT discovery layer (complete; RAM HIL
+   passed).** Advertise CLI and DEBUG services, track
+   independent CCCDs and MTU, and restart advertising after disconnect. No
+   application bytes are routed in this stage.
+9. **Attach BLE streams to the Radio Manager.** Add generation-tagged bounded
+   RX/TX queues, MTU-aware fragmentation, backpressure, and independent CLI
+   and DEBUG policies. Keep XMODEM and privileged commands disabled.
+10. **Integrate the BLE CLI session.** Give BLE its own parser/output state and
+    verify CDC and BLE concurrently, including reconnect and slow-subscriber
+    cases.
+11. **Implement Wi-Fi control.** Scan, join, DHCP, RSSI/status, disconnect,
+    credential handling, reconnect policy, and error recovery.
+12. **Implement T01 TCP and optional UDP CLI transports.** Start with one TCP
+    client; use finite timeouts, backpressure, and a single-peer UDP lease.
+13. **Complete the three-session CLI broker.** Verify CDC, BLE, and Wi-Fi have
     independent parser, privilege, error, and output state while sharing the
     same command definitions and backend services.
-13. **Run simultaneous Wi-Fi + BLE coexistence tests.** Measure ToF timing,
+14. **Run simultaneous Wi-Fi + BLE coexistence tests.** Measure ToF timing,
     display updates, radio throughput/latency, queue pressure, and recovery
     during concurrent traffic.
-14. **Add the NCP firmware-update service.** Use the W6X FWU streaming API only
+15. **Add the NCP firmware-update service.** Use the W6X FWU streaming API only
     with a pinned, verified, unlocked-development-compatible image and retain
     UART recovery.
-15. **Add STM32 OTA transports.** Feed received data into the existing signed
+16. **Add STM32 OTA transports.** Feed received data into the existing signed
     Secure A/B installer and run power-loss/rollback tests over both Wi-Fi and
     BLE.
-16. **Perform production hardening.** Add remote authentication, authorization,
+17. **Perform production hardening.** Add remote authentication, authorization,
     credential protection, rate limiting, logging, and long-duration soak.
     Consider permanent NCP provisioning only as a separately reviewed
     manufacturing step on sacrificial hardware.
@@ -628,8 +680,9 @@ unreviewed image URLs from a remote CLI in the first implementation.
 - `N6.ioc`: SPI5, GPDMA, GPIO, EXTI9, NVIC, and clock source of truth.
 - `AppliNonSecure/Core/Src/app_threadx.c`: project-owned Radio Manager creation
   and pool selection.
-- `AppliNonSecure/Core/Src/wifi_ble_app.c`: radio initialization and state
-  machine, to be refactored around the Radio Manager ownership rule.
+- `AppliNonSecure/Core/Src/wifi_ble_app.c`: Radio Manager initialization,
+  GATT registration, callback snapshots, connection tuning, and advertising
+  recovery. Future payload queues and all W6X sends remain owned here.
 - `AppliNonSecure/Core/Src/debug_cli.c`: transport-neutral commands and
   asynchronous service requests.
 - `AppliNonSecure/USBX/App/ux_device_cdc_acm.c`: CDC transport adapter only;
@@ -639,8 +692,10 @@ unreviewed image URLs from a remote CLI in the first implementation.
 - Secure update client/service: sole route for STM32 executable image install.
 - Stage 08 memory/collision checks: must include any reserved radio SRAM region.
 
-`APP_ST67W6X_ENABLED` remains `0` until the user confirms that the shield is
-installed and the hardware baseline has passed.
+The user has confirmed the shield and SPI/AT identity path. The current split
+flags enable BLE GATT discovery while leaving Wi-Fi services disabled. Do not
+enable Wi-Fi or attach application byte streams merely to bypass the staged
+queue, framing, authentication, and coexistence work.
 
 ## 15. Source basis
 

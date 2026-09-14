@@ -16,6 +16,7 @@
  */
 
 #include "main.h"
+#include "app_features.h"
 #include "stm32n6xx_hal.h"
 #include "stm32n6xx_hal_i3c.h"
 #include "tx_api.h"
@@ -319,12 +320,39 @@ int platform_wait_for_event(platform_event_t event, uint32_t timeout_ms) {
      * sleeping closes the race where the falling edge arrived immediately
      * before the task acknowledged an older event bit. */
     if (event == PLATFORM_GPIO_IT_EVT) {
+#if (APP_ST67W6X_ENABLED == 1U)
+        uint32_t start_tick = HAL_GetTick();
+        ULONG poll_ticks =
+            (TX_TIMER_TICKS_PER_SECOND + 999U) / 1000U;
+        if (poll_ticks == 0U) {
+            poll_ticks = 1U;
+        }
+
+        /* PE9/SPI_RDY owns EXTI9 while the radio is enabled.  Poll PD9 at a
+         * bounded one-tick cadence instead of waiting for an interrupt that
+         * cannot be routed from a second GPIO port on the same EXTI line. */
+        for (;;) {
+            for (uint8_t i = 0; i < NB_DEVICES; ++i) {
+                if (HAL_GPIO_ReadPin((GPIO_TypeDef *)device[i].intr.port,
+                                     device[i].intr.pin) == GPIO_PIN_RESET) {
+                    return 0;
+                }
+            }
+            if ((HAL_GetTick() - start_tick) >= timeout_ms) {
+                ++g_platform_diagnostics.event_wait_failures;
+                g_platform_diagnostics.last_event_status = TX_NO_EVENTS;
+                return -1;
+            }
+            tx_thread_sleep(poll_ticks);
+        }
+#else
         for (uint8_t i = 0; i < NB_DEVICES; ++i) {
             if (HAL_GPIO_ReadPin((GPIO_TypeDef *)device[i].intr.port,
                                  device[i].intr.pin) == GPIO_PIN_RESET) {
                 return 0;
             }
         }
+#endif
     }
 
     /* g_platform_evt is a sticky fallback for the rare case where the ISR ran

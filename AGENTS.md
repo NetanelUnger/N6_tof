@@ -121,7 +121,17 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 - The CDC steady-state path performs no allocation. Storage is fixed: eight
   768-byte control TX slots, two 48 KiB map TX slots, and sixteen 512-byte RX
   slots. All slots are session-tagged and passed through bounded pointer queues.
-- The ST67 shield is not currently installed. APP_ST67W6X_ENABLED must remain 0U unless the user explicitly confirms that the module is attached.
+- The user has confirmed the ST67 shield and SPI/AT identity path on hardware.
+  `APP_ST67W6X_ENABLED=1U` and `APP_ST67W6X_BLE_GATT_ENABLED=1U` now register
+  and advertise separate CLI and DEBUG UART-like GATT services.
+  `APP_ST67W6X_WIFI_SERVICES_ENABLED=0U` keeps Wi-Fi initialization off. BLE
+  RX writes are deliberately counted/discarded until the next transport stage;
+  no CLI, debug, XMODEM, or privileged application traffic is routed yet.
+- The ST67 transport uses an unusual active-high PA3 chip select; its safe idle
+  level is LOW. CHIP_EN and BOOT also remain LOW until deliberate bring-up.
+  When the radio build is enabled, PE9/SPI_RDY owns both edges of EXTI9 and the
+  ToF acquisition task uses bounded one-tick polling of PD9. When disabled,
+  PD9 remains the event-driven falling-edge EXTI source.
 - The GC9A01 display is enabled. `N6.ioc` now reserves a dedicated SPI4 path:
   PE12 SCK, PE14 MOSI, PE13 CS, PE1 DC, and PE2 RST. SPI4 TX uses
   GPDMA1 channel 5 at an initial 12.5 Mbit/s. The generated initialization and
@@ -184,6 +194,16 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   linker for CDC/RPS transient storage. Current Neural-ART activations are in
   SRAM5 and weights are in SRAM6. Stage 08 must reject generated networks that
   use SRAM3; never remove this collision check to make a model fit.
+- A radio-enabled build reserves a separate 64 KiB ThreadX byte pool at
+  `0x242D0000..0x242DFFFF` in SRAM4 and reduces the general application pool
+  from 159 KiB to 151 KiB. The Radio Manager and ST compatibility allocations
+  use this pool. Stage 08 rejects all SRAM4 model placement, the linker asserts
+  the pool bounds, and the build-map preflight validates the address and size.
+  The BLE-GATT build leaves 379,584 bytes of C heap, 10,944 bytes above the
+  360 KiB ToF guard. Both transient 9,072-byte ToF float frames are now in the
+  explicitly cleared SRAM3 workspace, which uses its complete 180,224 bytes.
+  Future BLE queues belong in the SRAM4 radio pool; runtime high-water
+  validation remains mandatory.
 - Secure update `Begin` must not erase the complete inactive slot synchronously:
   XMODEM cannot ACK the manifest block while that long operation is in progress.
   The writer erases authenticated image storage lazily in 64 KiB sectors before
@@ -249,6 +269,8 @@ Files imported from X-CUBE packages are not necessarily CubeMX-owned. The VL53L9
 
 | File or directory | Responsibility |
 |---|---|
+| PLAN_WIFI_MODULE.md | Approved T01 radio architecture, implementation order, memory/security gates, and validation plan |
+| hil_tests | Non-destructive host-side HIL automation, BLE discovery reports, and hardware-free utility self-tests |
 | N6.ioc | Pins, clocks, contexts, interrupts, and middleware configuration |
 | FSBL/Core/Src/main.c | External-NOR mapping and boot flow |
 | FSBL/Core/Src/extmem.c | Exact signed-image size calculation and STM32 image-header inspection |
@@ -383,10 +405,11 @@ After CubeMX Generate Code, explicitly audit these known multi-context losses:
 - `N6.ioc` must retain CDC ACM transmission mode enabled
   (`USBX.UX_DEVICE_CLASS_CDC_ACM_TRANSMISSION_DISABLE=0`). Generated
   `ux_user.h` must not define `UX_DEVICE_CLASS_CDC_ACM_TRANSMISSION_DISABLE`.
-- While the radio feature remains disabled, generated GPIO configuration must
-  route PD9 as falling-edge EXTI9 and leave PE9 as a plain input. Verify the
-  EXTI9 handler still reaches `HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_9)` and the
-  callback routes it to `platform_notify_gpio_interrupt()`.
+- With the current enabled radio build, PE9/SPI_RDY owns both edges of EXTI9
+  and ToF polls PD9 with a bounded wait. If the radio feature is disabled,
+  generated GPIO configuration must instead route PD9 as falling-edge EXTI9
+  and leave PE9 as a plain input. Verify the shared handler and callbacks keep
+  matching the selected owner.
 - The Secure RIF USER block must keep both
   `HAL_EXTI_ConfigLineAttributes(EXTI_LINE_9, EXTI_LINE_NSEC | EXTI_LINE_NPRIV)`
   and `NVIC_SetTargetState(EXTI9_IRQn)`. The line attribute does not change the
@@ -463,7 +486,7 @@ Current task sizing:
 | USBX Device App Main Thread | 8 | 16 KiB |
 | USB CDC RX worker | 9 | 12 KiB, statically allocated |
 | USB CDC TX worker | 9 | 12 KiB, statically allocated |
-| ST67 WiFi BLE | 11 | 8 KiB, currently disabled |
+| ST67 Radio Manager | 9 | 8 KiB, active in dedicated SRAM4 pool |
 | USB debug CLI | 9 | 6 KiB |
 
 ## 9. Known ST defects and non-defects
@@ -636,7 +659,21 @@ stack-local version or split the address phase back into a blocking transfer.
 
 ## 12. ST67W6X rules
 
-- APP_ST67W6X_ENABLED remains 0U while the shield is absent.
+- APP_ST67W6X_ENABLED is 1U for the current attached-shield phase-1 test.
+- APP_ST67W6X_BLE_GATT_ENABLED is 1U; the discovery/connect layer exposes two
+  logical UART services, but application payload routing is not implemented.
+  RAM HIL on 2026-09-14 found `N6-MAINT-B8FB`, connected at MTU 247, validated
+  both services/four characteristics and CCCDs, and confirmed advertising
+  restart after disconnect. Keep the vendor-baseline advertising sequence;
+  explicit advertising-parameter plus scan-response overrides made
+  `W6X_Ble_AdvStart()` return `W6X_STATUS_ERROR` and remain deferred.
+- APP_ST67W6X_WIFI_SERVICES_ENABLED remains 0U; do not call Wi-Fi APIs until
+  its staged control path is implemented.
+- BLE callbacks may only snapshot event metadata and enqueue/signal bounded
+  work. W6X control/send operations and advertising recovery belong to the
+  Radio Manager thread.
+- The current No-Input/No-Output BLE setting is development-only and does not
+  authorize remote update, reset, credentials, or destructive/debug commands.
 - In disabled mode, do not create its task, initialize the compatibility layer, or call W6X initialization.
 - Enabling the radio requires verification of SPI5, CS, CHIP_EN, BOOT, SPI_RDY, DMA, and NCP firmware.
 - Never implement OTA by overwriting the active image in place.

@@ -30,6 +30,8 @@ WEIGHTS_NPU_RAM_BASE = 0x24350000
 WEIGHTS_NPU_RAM_CAPACITY = 448 * 1024
 NPU_SRAM3_BASE = 0x24200000
 NPU_SRAM3_END = 0x24270000
+NPU_SRAM4_BASE = 0x24270000
+NPU_SRAM4_END = 0x242E0000
 
 
 def copy_file(source: Path, target: Path, installed: list[Path]) -> None:
@@ -194,7 +196,15 @@ def main() -> int:
         raise RuntimeError(
             "The generated network uses NPU SRAM3, which this firmware reserves "
             "for USB CDC and preprocessing workspaces. Regenerate with activations "
-            "in SRAM4/5 or revise the linker reservation deliberately."
+            "in SRAM5 or revise the linker reservation deliberately."
+        )
+    if any(NPU_SRAM4_BASE <= address < NPU_SRAM4_END
+           for address in generated_addresses):
+        raise RuntimeError(
+            "The generated network uses NPU SRAM4, whose top 64 KiB this "
+            "firmware reserves for the isolated ST67 radio pool. Regenerate "
+            "with activations in SRAM5 or revise the linker and radio-memory "
+            "contract deliberately."
         )
     network_target = model_dir / generated_model_files[0].name
     network_target.write_text(patched_network, encoding="utf-8")

@@ -48,7 +48,7 @@ static char cli_history_draft[CLI_LINE_SIZE];
 static size_t cli_history_count;
 static size_t cli_history_index;
 static uint32_t cli_escape_state;
-#if (APP_ST67W6X_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static uint8_t cli_pending_ssid[W6X_WIFI_MAX_SSID_SIZE + 1U];
 static volatile uint32_t cli_wifi_scan_active;
 #endif
@@ -100,15 +100,23 @@ static const TOF_ImageFilterDescriptor_t *cli_find_map_filter(
 static const char *cli_tof_state_name(TOF_App_State_t state);
 static const char *cli_radio_state_name(WifiBle_State_t state);
 static const char *cli_log_level_name(uint32_t level);
-#if (APP_ST67W6X_ENABLED == 1U)
 static void cli_command_radio(Menu_t *menu, const char *command);
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static void cli_command_wifi(Menu_t *menu, const char *command);
+#endif
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static void cli_command_ble(Menu_t *menu, const char *command);
+#endif
+#if (APP_ST67W6X_ENABLED == 1U)
 static uint32_t cli_radio_is_ready(void);
+#endif
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static void cli_wifi_status(void);
 static void cli_wifi_scan(void);
 static void cli_wifi_connect_password(const char *password);
 static void cli_wifi_scan_callback(int32_t status, W6X_WiFi_Scan_Result_t *results);
+#endif
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static void cli_ble_status(void);
 #endif
 
@@ -135,9 +143,11 @@ static const Menu_Object_t cli_menu_objects[] =
   MENU_OBJECT("debug", cli_command_debug),
   MENU_OBJECT("Start UART Firmware Update", cli_command_firmware_update),
   MENU_OBJECT("update", cli_command_firmware_update),
-#if (APP_ST67W6X_ENABLED == 1U)
   MENU_OBJECT("radio", cli_command_radio),
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
   MENU_OBJECT("wifi", cli_command_wifi),
+#endif
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   MENU_OBJECT("ble", cli_command_ble),
 #endif
   MENU_OBJECT("reboot", cli_command_reboot)
@@ -177,13 +187,19 @@ static const char *const cli_completion_base[] =
   "debug debug",
   "Start UART Firmware Update",
   "update",
+  "radio hardware",
+  "radio status",
 #if (APP_ST67W6X_ENABLED == 1U)
   "radio info",
+#endif
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
   "wifi status",
   "wifi scan",
   "wifi connect ",
   "wifi disconnect",
   "wifi disconnect forget",
+#endif
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   "ble status",
   "ble adv on",
   "ble adv off",
@@ -339,14 +355,14 @@ static void cli_process_byte(uint8_t byte)
     cli_escape_state = 0U;
     if (byte == 'A')
     {
-#if (APP_ST67W6X_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
       if (cli_secret_mode == 0U)
 #endif
       cli_history_move(-1);
     }
     else if (byte == 'B')
     {
-#if (APP_ST67W6X_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
       if (cli_secret_mode == 0U)
 #endif
       cli_history_move(1);
@@ -362,7 +378,7 @@ static void cli_process_byte(uint8_t byte)
 
   if (byte == '\t')
   {
-#if (APP_ST67W6X_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
     if (cli_secret_mode == 0U)
 #endif
     {
@@ -375,7 +391,7 @@ static void cli_process_byte(uint8_t byte)
   {
     cli_print("\r\n");
 
-#if (APP_ST67W6X_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
     if (cli_secret_mode != 0U)
     {
       cli_line[cli_line_length] = '\0';
@@ -409,7 +425,7 @@ static void cli_process_byte(uint8_t byte)
 
   if ((byte == 0x08U) || (byte == 0x7FU))
   {
-#if (APP_ST67W6X_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
     if (cli_secret_mode != 0U)
     {
       if (cli_line_length != 0U)
@@ -439,7 +455,7 @@ static void cli_process_byte(uint8_t byte)
     cli_history_index = cli_history_count;
     cli_history_draft[0] = '\0';
     Menu_Reset(&cli_menu);
-#if (APP_ST67W6X_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
     (void)memset(cli_pending_ssid, 0, sizeof(cli_pending_ssid));
 #endif
     cli_print("^C\r\n");
@@ -449,7 +465,7 @@ static void cli_process_byte(uint8_t byte)
 
   if ((byte >= 0x20U) && (byte <= 0x7EU))
   {
-#if (APP_ST67W6X_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
     if (cli_secret_mode != 0U)
     {
       if (cli_line_length < (sizeof(cli_line) - 1U))
@@ -869,7 +885,6 @@ static void cli_command_debug(Menu_t *menu, const char *command)
   }
 }
 
-#if (APP_ST67W6X_ENABLED == 1U)
 static void cli_command_radio(Menu_t *menu, const char *command)
 {
   char copy[CLI_LINE_SIZE];
@@ -877,6 +892,74 @@ static void cli_command_radio(Menu_t *menu, const char *command)
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
 
+  if ((argc == 2) && (strcmp(argv[1], "hardware") == 0))
+  {
+    WifiBle_HardwareStatus_t hardware;
+
+    WIFI_BLE_App_GetHardwareStatus(&hardware);
+    cli_print("ST67 hardware baseline:\r\n"
+              "  build: radio %s, BLE GATT %s, Wi-Fi services %s\r\n"
+              "  SPI5: %s, RX DMA %s, TX DMA %s, configured 30 Mbit/s\r\n"
+              "  pins: CHIP_EN=%s BOOT=%s CS=%s (active HIGH) SPI_RDY=%s\r\n"
+              "  EXTI9 owner: %s\r\n"
+              "  manual checks still required: VDDIO=3.3V, JP1/JP2 closed, "
+              "SB31/SB34 open\r\n",
+              (hardware.radio_enabled != 0U) ? "enabled" : "disabled",
+              (hardware.ble_gatt_enabled != 0U) ? "enabled" : "disabled",
+              (hardware.wifi_services_enabled != 0U) ? "enabled" : "disabled",
+              (hardware.spi_initialized != 0U) ? "initialized" : "not initialized",
+              (hardware.spi_rx_dma_ready != 0U) ? "ready" : "missing",
+              (hardware.spi_tx_dma_ready != 0U) ? "ready" : "missing",
+              (hardware.chip_enable_level != 0U) ? "HIGH" : "LOW",
+              (hardware.boot_level != 0U) ? "HIGH" : "LOW",
+              (hardware.chip_select_level != 0U) ? "HIGH" : "LOW",
+              (hardware.spi_ready_level != 0U) ? "HIGH" : "LOW",
+              (hardware.exti9_owner == WIFI_BLE_EXTI9_OWNER_RADIO) ?
+                  "PE9/SPI_RDY (ToF polls PD9)" : "PD9/ToF");
+    return;
+  }
+
+  if ((argc == 2) && (strcmp(argv[1], "status") == 0))
+  {
+    WifiBle_RuntimeStatus_t runtime;
+    WifiBle_HardwareStatus_t hardware;
+    const char *init_result;
+
+    WIFI_BLE_App_GetRuntimeStatus(&runtime);
+    WIFI_BLE_App_GetHardwareStatus(&hardware);
+    if (runtime.state == WIFI_BLE_STATE_READY)
+    {
+      init_result = "passed";
+    }
+    else if (runtime.state == WIFI_BLE_STATE_ERROR)
+    {
+      init_result = "failed; inspect CDC boot log";
+    }
+    else if (runtime.state == WIFI_BLE_STATE_STARTING)
+    {
+      init_result = "in progress";
+    }
+    else
+    {
+      init_result = "not run";
+    }
+
+    cli_print("ST67 radio status:\r\n"
+              "  manager: %s\r\n"
+              "  W6X_Init: %s\r\n"
+              "  BLE maintenance GATT: %s, advertising: %s, link: %s\r\n"
+              "  Wi-Fi services: %s\r\n",
+              cli_radio_state_name(runtime.state),
+              init_result,
+              (runtime.ble_gatt_ready != 0U) ? "ready" :
+                  ((hardware.ble_gatt_enabled != 0U) ? "initializing" : "disabled"),
+              (runtime.ble_advertising != 0U) ? "on" : "off",
+              (runtime.ble_connected != 0U) ? "connected" : "disconnected",
+              (hardware.wifi_services_enabled != 0U) ? "enabled" : "disabled");
+    return;
+  }
+
+#if (APP_ST67W6X_ENABLED == 1U)
   if ((argc == 2) && (strcmp(argv[1], "info") == 0))
   {
     W6X_ModuleInfo_t *info;
@@ -887,21 +970,56 @@ static void cli_command_radio(Menu_t *menu, const char *command)
     {
       cli_print("Module: %s (%s)\r\n"
                 "NCP MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n"
-                "Build: %.31s\r\n",
+                "Build: %.31s\r\n"
+                "SDK: %u.%u.%u.%u, AT: %u.%u.%u.%u\r\n"
+                "Wi-Fi MAC FW: %u.%u.%u.%u\r\n"
+                "BLE controller: %u.%u.%u.%u, stack: %u.%u.%u.%u\r\n"
+                "Anti-rollback (read-only): bootloader=%u, app=%u\r\n"
+                "Manufacturing: BOM=%u, year=%u, week=%u\r\n",
                 info->ModuleID.ModuleName,
                 W6X_ModelToStr(info->ModuleID.ModuleID),
                 info->Mac_Address[0], info->Mac_Address[1],
                 info->Mac_Address[2], info->Mac_Address[3],
                 info->Mac_Address[4], info->Mac_Address[5],
-                info->Build_Date);
+                (const char *)info->Build_Date,
+                (unsigned int)info->SDK_Version.Major,
+                (unsigned int)info->SDK_Version.Sub1,
+                (unsigned int)info->SDK_Version.Sub2,
+                (unsigned int)info->SDK_Version.Patch,
+                (unsigned int)info->AT_Version.Major,
+                (unsigned int)info->AT_Version.Sub1,
+                (unsigned int)info->AT_Version.Sub2,
+                (unsigned int)info->AT_Version.Patch,
+                (unsigned int)info->WiFi_MAC_Version.Major,
+                (unsigned int)info->WiFi_MAC_Version.Sub1,
+                (unsigned int)info->WiFi_MAC_Version.Sub2,
+                (unsigned int)info->WiFi_MAC_Version.Patch,
+                (unsigned int)info->BT_Controller_Version.Major,
+                (unsigned int)info->BT_Controller_Version.Sub1,
+                (unsigned int)info->BT_Controller_Version.Sub2,
+                (unsigned int)info->BT_Controller_Version.Patch,
+                (unsigned int)info->BT_Stack_Version.Major,
+                (unsigned int)info->BT_Stack_Version.Sub1,
+                (unsigned int)info->BT_Stack_Version.Sub2,
+                (unsigned int)info->BT_Stack_Version.Patch,
+                (unsigned int)info->AntiRollbackBootloader,
+                (unsigned int)info->AntiRollbackApp,
+                (unsigned int)info->BomID,
+                (unsigned int)info->Manufacturing_Year,
+                (unsigned int)info->Manufacturing_Week);
     }
+    return;
   }
-  else
-  {
-    (void)Menu_Reply(menu, "Usage: radio info");
-  }
+#endif
+
+#if (APP_ST67W6X_ENABLED == 1U)
+  (void)Menu_Reply(menu, "Usage: radio hardware|status|info");
+#else
+  (void)Menu_Reply(menu, "Usage: radio hardware|status");
+#endif
 }
 
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static void cli_command_wifi(Menu_t *menu, const char *command)
 {
   char copy[CLI_LINE_SIZE];
@@ -959,7 +1077,9 @@ static void cli_command_wifi(Menu_t *menu, const char *command)
                      "Usage: wifi status|scan|connect \"SSID\"|disconnect [forget]");
   }
 }
+#endif
 
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static void cli_command_ble(Menu_t *menu, const char *command)
 {
   char copy[CLI_LINE_SIZE];
@@ -974,25 +1094,24 @@ static void cli_command_ble(Menu_t *menu, const char *command)
   }
   else if ((argc == 3) && (strcmp(argv[1], "adv") == 0))
   {
-    W6X_Status_t status;
+    UINT status;
 
     if (cli_radio_is_ready() == 0U) return;
     if (strcmp(argv[2], "on") == 0)
     {
-      status = W6X_Ble_AdvStart();
-      if (status == W6X_STATUS_OK) WIFI_BLE_App_SetAdvertisingState(1U);
+      status = WIFI_BLE_App_RequestAdvertising(1U);
     }
     else if (strcmp(argv[2], "off") == 0)
     {
-      status = W6X_Ble_AdvStop();
-      if (status == W6X_STATUS_OK) WIFI_BLE_App_SetAdvertisingState(0U);
+      status = WIFI_BLE_App_RequestAdvertising(0U);
     }
     else
     {
       (void)Menu_Reply(menu, "Usage: ble adv on|off");
       return;
     }
-    cli_print("BLE advertising: %s\r\n", W6X_StatusToStr(status));
+    cli_print("BLE advertising request: %s\r\n",
+              (status == TX_SUCCESS) ? "queued" : "not available");
   }
   else if ((argc == 2) && (strcmp(argv[1], "disconnect") == 0))
   {
@@ -1006,9 +1125,9 @@ static void cli_command_ble(Menu_t *menu, const char *command)
     }
     else
     {
-      W6X_Status_t status =
-          W6X_Ble_Disconnect(runtime.ble_connection_handle);
-      cli_print("BLE disconnect: %s\r\n", W6X_StatusToStr(status));
+      UINT status = WIFI_BLE_App_RequestDisconnect();
+      cli_print("BLE disconnect request: %s\r\n",
+                (status == TX_SUCCESS) ? "queued" : "not available");
     }
   }
   else
@@ -1514,11 +1633,17 @@ static void cli_show_help(void)
             "  debug off|error|warn|info|debug ST67 runtime log level\r\n"
             "  Start UART Firmware Update      receive signed .n6fw via XMODEM-CRC\r\n"
             "  update                          short alias for firmware update\r\n"
+            "  radio hardware                 safe ST67 pin/SPI/EXTI baseline\r\n"
+            "  radio status                   ST67 manager and W6X_Init result\r\n"
 #if (APP_ST67W6X_ENABLED == 1U)
             "  radio info                     ST67 module identity\r\n"
+#endif
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
             "  wifi status|scan               Wi-Fi state and nearby networks\r\n"
             "  wifi connect \"SSID\"          connect; password is requested hidden\r\n"
             "  wifi disconnect [forget]       disconnect, optionally erase credentials\r\n"
+#endif
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
             "  ble status|adv on|adv off       BLE state and advertising\r\n"
             "  ble disconnect                 disconnect current BLE peer\r\n"
 #endif
@@ -1837,7 +1962,9 @@ static uint32_t cli_radio_is_ready(void)
   }
   return 1U;
 }
+#endif
 
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static void cli_wifi_status(void)
 {
   W6X_WiFi_StaStateType_e state = W6X_WIFI_STATE_STA_DISCONNECTED;
@@ -1921,24 +2048,36 @@ static void cli_wifi_scan_callback(int32_t status, W6X_WiFi_Scan_Result_t *resul
   }
   cli_print("n6> ");
 }
+#endif
 
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static void cli_ble_status(void)
 {
   WifiBle_RuntimeStatus_t runtime;
-  char name[W6X_BLE_DEVICE_NAME_SIZE] = {0};
-  uint8_t address[6] = {0};
   WIFI_BLE_App_GetRuntimeStatus(&runtime);
 
-  W6X_Status_t name_status = W6X_Ble_GetDeviceName(name);
-  W6X_Status_t address_status = W6X_Ble_GetBDAddress(address);
-  cli_print("BLE: %s, advertising: %s\r\n",
+  cli_print("BLE GATT: %s, link: %s, advertising: %s, MTU: %lu\r\n",
+            (runtime.ble_gatt_ready != 0U) ? "ready" : "not ready",
             (runtime.ble_connected != 0U) ? "connected" : "disconnected",
-            (runtime.ble_advertising != 0U) ? "on" : "off");
-  if (name_status == W6X_STATUS_OK) cli_print("Name: %s\r\n", name);
-  if (address_status == W6X_STATUS_OK)
+            (runtime.ble_advertising != 0U) ? "on" : "off",
+            (unsigned long)runtime.ble_mtu);
+  cli_print("BLE init stage: %lu, last W6X status: %ld\r\n",
+            (unsigned long)runtime.ble_init_stage,
+            (long)runtime.ble_last_status);
+  if (runtime.ble_device_name[0] != '\0')
   {
-    cli_print("Address: %02X:%02X:%02X:%02X:%02X:%02X\r\n",
-              address[0], address[1], address[2], address[3], address[4], address[5]);
+    cli_print("Name: %s\r\n"
+              "Address: %02X:%02X:%02X:%02X:%02X:%02X\r\n",
+              runtime.ble_device_name,
+              runtime.ble_address[0], runtime.ble_address[1],
+              runtime.ble_address[2], runtime.ble_address[3],
+              runtime.ble_address[4], runtime.ble_address[5]);
   }
+  cli_print("CLI TX notifications: %s; DEBUG TX notifications: %s\r\n"
+            "RX writes awaiting transport stage: %lu events, %lu bytes discarded\r\n",
+            (runtime.ble_cli_tx_subscribed != 0U) ? "subscribed" : "off",
+            (runtime.ble_debug_tx_subscribed != 0U) ? "subscribed" : "off",
+            (unsigned long)runtime.ble_rx_write_events,
+            (unsigned long)runtime.ble_rx_discarded_bytes);
 }
 #endif

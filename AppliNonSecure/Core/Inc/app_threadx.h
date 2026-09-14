@@ -56,7 +56,9 @@
  * without starving the transform's substantial dynamic-memory requirement. */
 #define TX_APP_STACK_SIZE                       (96U * 1024U)
 #define TX_WIFI_BLE_STACK_SIZE                  (8U * 1024U)
-#define TX_WIFI_BLE_THREAD_PRIO                 (11U)
+/* Must outrank the continuously-ready priority-10 ToF processor so module
+ * initialization and the short event loop cannot be starved. */
+#define TX_WIFI_BLE_THREAD_PRIO                 (9U)
 #define TX_USB_CLI_STACK_SIZE                   (6U * 1024U)
 /* The ToF processor can remain continuously ready when transform throughput
  * is lower than the 10 fps acquisition rate.  Keep the interactive CLI above

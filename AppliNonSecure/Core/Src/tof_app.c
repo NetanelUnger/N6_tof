@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include "main.h"
+#include "npu_shared_memory.h"
 #include "rps_ai.h"
 #include "app_console.h"
 #include "app_features.h"
@@ -76,13 +77,15 @@ static char *terminal_buffer;
 static size_t terminal_capacity;
 static TOF_RawFrame_t tof_raw_frame_pool[TOF_RAW_SLOT_COUNT]
                                          __attribute__((aligned(32)));
-static float tof_depth_data[TOF_DEPTH_PIXEL_COUNT]
-                           __attribute__((aligned(32)));
+/* This full-frame transient is consumed by CPU processing just like the RPS
+ * snapshots.  Keep it in the explicitly cleared SRAM3 workspace so enabling
+ * BLE middleware cannot erode the VL53L9 transform heap contract in SRAM2. */
+static float tof_depth_data[TOF_DEPTH_PIXEL_COUNT] NPU_SHARED_BSS;
 /* The selected auxiliary channel and displayed depth filters use this buffer
  * at different points in a frame.  Reusing it preserves transform heap margin
  * instead of reserving four full auxiliary images. */
 static float tof_processing_workspace[TOF_DEPTH_PIXEL_COUNT]
-                                     __attribute__((aligned(32)));
+                                     NPU_SHARED_BSS;
 static uint8_t tof_calibration[VL53L9_CALIB_DATA_SIZE];
 static TX_QUEUE tof_free_queue;
 static TX_QUEUE tof_ready_queue;

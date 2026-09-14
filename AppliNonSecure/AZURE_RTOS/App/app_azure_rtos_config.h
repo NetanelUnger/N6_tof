@@ -30,6 +30,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "app_features.h"
 
 /* USER CODE END Includes */
 
@@ -51,11 +52,18 @@ extern "C" {
 
 /* USER CODE BEGIN EC */
 
-/* The enabled application threads reserve 124 KiB of pool-backed stacks.
- * Keep more than 34 KiB for ThreadX byte-pool headers and future allocations,
- * while returning 1 KiB to the C heap for the display-frame control path. */
+/* The normal application threads reserve about 124 KiB of pool-backed stacks.
+ * When the radio build is selected, its ST driver code also consumes the same
+ * SRAM2 image/heap region.  Return another 8 KiB to the VL53L9 C heap; radio
+ * tasks and transport allocations use the isolated SRAM4 pool below. */
 #undef TX_APP_MEM_POOL_SIZE
+#if (APP_ST67W6X_ENABLED == 1U)
+#define TX_APP_MEM_POOL_SIZE                     (151U * 1024U)
+#else
 #define TX_APP_MEM_POOL_SIZE                     (159U * 1024U)
+#endif
+
+#define TX_RADIO_MEM_POOL_SIZE                   (64U * 1024U)
 
 /* Allow for the 32 KiB USBX system arena plus the 16 KiB USB control-thread
  * stack, byte-pool bookkeeping, and about 8 KiB of parent-pool headroom. */

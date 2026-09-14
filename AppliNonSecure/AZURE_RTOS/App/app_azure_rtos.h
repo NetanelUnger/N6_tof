@@ -57,6 +57,7 @@
 /* Exported functions prototypes ---------------------------------------------*/
 
 /* USER CODE BEGIN EFP */
+TX_BYTE_POOL *MX_RadioBytePool_Get(void);
 
 /* USER CODE END EFP */
 
