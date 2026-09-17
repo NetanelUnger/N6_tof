@@ -6,7 +6,8 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from ble_inspector import (BleInspector, ScanRecord, evaluate_n6_gatt, parse_command,
+from ble_inspector import (BleInspector, N6_STREAM_UUIDS, ScanRecord,
+                           evaluate_n6_gatt, parse_command,
                            resolve_device, serialize_advertisement,
                            serialize_services)
 
@@ -24,6 +25,7 @@ def main() -> int:
     record = ScanRecord(device, advertisement)
     assert resolve_device([record], "1") is record
     assert resolve_device([record], "40:82:7b:03:b8:fa") is record
+    assert resolve_device([record], "n6") is record
     try:
         resolve_device([record], "2")
     except ValueError:
@@ -39,6 +41,9 @@ def main() -> int:
     assert parse_command('connect "40:82:7B:03:B8:FA"') == [
         "connect", "40:82:7B:03:B8:FA"
     ]
+    assert BleInspector.resolve_stream("CLI") == "cli"
+    assert N6_STREAM_UUIDS["debug"]["tx"].startswith("7a1e0103-")
+    assert bytes.fromhex("0102AB") == b"\x01\x02\xAB"
 
     descriptor = SimpleNamespace(uuid="2902", description="CCCD", handle=13)
     characteristic = SimpleNamespace(

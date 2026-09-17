@@ -26,28 +26,69 @@
 #endif
 
 #define CLI_RX_CHUNK_SIZE       (64U)
+#define CLI_BLE_RX_CHUNK_SIZE   (512U)
 #define CLI_LINE_SIZE           (192U)
 #define CLI_PRINT_SIZE          (768U)
 #define CLI_MAX_ARGUMENTS       (8)
 #define CLI_HISTORY_DEPTH       (16U)
 #define CLI_WIFI_SCAN_MAX_APS   (15U)
+#define CLI_BLE_RX_BURST        (4U)
+#define CLI_BLE_TX_WAIT_TICKS   (TX_TIMER_TICKS_PER_SECOND / 20U)
 
-static char cli_line[CLI_LINE_SIZE];
-static size_t cli_line_length;
-static char cli_print_buffer[CLI_PRINT_SIZE];
-static char cli_menu_input[CLI_LINE_SIZE];
-static char cli_menu_reply[CLI_PRINT_SIZE];
-static Menu_t cli_menu;
-static uint32_t cli_console_mode;
-static uint32_t cli_secret_mode;
-static uint32_t cli_previous_was_cr;
-static uint32_t cli_first_input_logged;
-static uint32_t cli_cdc_session_ready;
-static char cli_history[CLI_HISTORY_DEPTH][CLI_LINE_SIZE];
-static char cli_history_draft[CLI_LINE_SIZE];
-static size_t cli_history_count;
-static size_t cli_history_index;
-static uint32_t cli_escape_state;
+typedef enum
+{
+  CLI_TRANSPORT_USB = 0,
+  CLI_TRANSPORT_BLE
+} CliTransport_t;
+
+typedef struct
+{
+  char line[CLI_LINE_SIZE];
+  size_t line_length;
+  char print_buffer[CLI_PRINT_SIZE];
+  char menu_input[CLI_LINE_SIZE];
+  char menu_reply[CLI_PRINT_SIZE];
+  Menu_t menu;
+  uint32_t console_mode;
+  uint32_t secret_mode;
+  uint32_t previous_was_cr;
+  uint32_t first_input_logged;
+  uint32_t session_ready;
+  char history[CLI_HISTORY_DEPTH][CLI_LINE_SIZE];
+  char history_draft[CLI_LINE_SIZE];
+  size_t history_count;
+  size_t history_index;
+  uint32_t escape_state;
+  CliTransport_t transport;
+  uint32_t ble_generation;
+} CliSession_t;
+
+static CliSession_t cli_usb_session;
+static CliSession_t *cli_active_session = &cli_usb_session;
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+static CliSession_t *cli_ble_session;
+extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
+#endif
+
+/* The command implementation below remains intentionally transport-agnostic.
+ * These aliases bind all editor/parser state to the session currently being
+ * serviced by the single CLI broker thread. */
+#define cli_line               (cli_active_session->line)
+#define cli_line_length        (cli_active_session->line_length)
+#define cli_print_buffer       (cli_active_session->print_buffer)
+#define cli_menu_input         (cli_active_session->menu_input)
+#define cli_menu_reply         (cli_active_session->menu_reply)
+#define cli_menu               (cli_active_session->menu)
+#define cli_console_mode       (cli_active_session->console_mode)
+#define cli_secret_mode        (cli_active_session->secret_mode)
+#define cli_previous_was_cr    (cli_active_session->previous_was_cr)
+#define cli_first_input_logged (cli_active_session->first_input_logged)
+#define cli_cdc_session_ready  (cli_active_session->session_ready)
+#define cli_history            (cli_active_session->history)
+#define cli_history_draft      (cli_active_session->history_draft)
+#define cli_history_count      (cli_active_session->history_count)
+#define cli_history_index      (cli_active_session->history_index)
+#define cli_escape_state       (cli_active_session->escape_state)
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static uint8_t cli_pending_ssid[W6X_WIFI_MAX_SSID_SIZE + 1U];
 static volatile uint32_t cli_wifi_scan_active;
@@ -55,6 +96,15 @@ static volatile uint32_t cli_wifi_scan_active;
 
 static void cli_process_byte(uint8_t byte);
 static void cli_enter_console(void);
+static Menu_Status_t cli_session_init(CliSession_t *session,
+                                      CliTransport_t transport);
+static UINT cli_session_write(CliSession_t *session, const void *buffer,
+                              ULONG length);
+static void cli_session_reset(CliSession_t *session, uint32_t stop_usb_streams);
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+static void cli_poll_ble(void);
+static uint32_t cli_ble_session_allocate(void);
+#endif
 static int cli_split_arguments(char *line, char *argv[], int max_arguments);
 static int cli_get_arguments(const char *command, char *copy,
                              size_t copy_size, char *argv[],
@@ -213,19 +263,11 @@ void Debug_CLI_Run(void)
   uint8_t rx_buffer[CLI_RX_CHUNK_SIZE];
   Menu_Status_t menu_status;
 
-  menu_status = Menu_Init(&cli_menu,
-                          cli_menu_objects,
-                          MENU_OBJECT_COUNT(cli_menu_objects),
-                          cli_menu_input,
-                          sizeof(cli_menu_input),
-                          cli_menu_reply,
-                          sizeof(cli_menu_reply),
-                          cli_menu_send,
-                          NULL,
-                          cli_command_unknown);
+  (void)memset(&cli_usb_session, 0, sizeof(cli_usb_session));
+  menu_status = cli_session_init(&cli_usb_session, CLI_TRANSPORT_USB);
   if (menu_status != MENU_STATUS_OK)
   {
-    Debug_UART_Log("CLI", "menu initialization failed: %d",
+    Debug_UART_Log("CLI", "USB menu initialization failed: %d",
                    (int)menu_status);
     for (;;)
     {
@@ -238,21 +280,18 @@ void Debug_CLI_Run(void)
     ULONG actual_length = 0U;
 
     Firmware_Update_Poll(HAL_GetTick());
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+    cli_poll_ble();
+#endif
+    cli_active_session = &cli_usb_session;
 
     if (App_Console_IsReady() == 0U)
     {
       Firmware_Update_Cancel();
-      cli_console_mode = 0U;
-      cli_secret_mode = 0U;
-      cli_line_length = 0U;
-      cli_previous_was_cr = 0U;
-      cli_escape_state = 0U;
-      cli_history_index = cli_history_count;
-      cli_first_input_logged = 0U;
-      cli_cdc_session_ready = 0U;
-      Menu_Reset(&cli_menu);
-      TOF_App_SetMapEnabled(0U);
-      TOF_App_SetDatasetStreamEnabled(0U);
+      if (cli_cdc_session_ready != 0U)
+      {
+        cli_session_reset(&cli_usb_session, 1U);
+      }
       tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 10U);
       continue;
     }
@@ -266,7 +305,9 @@ void Debug_CLI_Run(void)
     UINT status = App_Console_Read(rx_buffer, sizeof(rx_buffer), &actual_length);
     if (status != TX_SUCCESS)
     {
-      tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 20U);
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+      cli_poll_ble();
+#endif
       continue;
     }
 
@@ -311,8 +352,183 @@ void Debug_CLI_Run(void)
         break;
       }
     }
+
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+    cli_poll_ble();
+#endif
   }
 }
+
+static Menu_Status_t cli_session_init(CliSession_t *session,
+                                      CliTransport_t transport)
+{
+  session->transport = transport;
+  session->history_index = 0U;
+  return Menu_Init(&session->menu,
+                   cli_menu_objects,
+                   MENU_OBJECT_COUNT(cli_menu_objects),
+                   session->menu_input,
+                   sizeof(session->menu_input),
+                   session->menu_reply,
+                   sizeof(session->menu_reply),
+                   cli_menu_send,
+                   session,
+                   cli_command_unknown);
+}
+
+static void cli_session_reset(CliSession_t *session, uint32_t stop_usb_streams)
+{
+  CliSession_t *previous = cli_active_session;
+
+  cli_active_session = session;
+  cli_console_mode = 0U;
+  cli_secret_mode = 0U;
+  cli_line_length = 0U;
+  cli_previous_was_cr = 0U;
+  cli_escape_state = 0U;
+  cli_history_index = cli_history_count;
+  cli_first_input_logged = 0U;
+  cli_cdc_session_ready = 0U;
+  Menu_Reset(&cli_menu);
+  if (session->transport == CLI_TRANSPORT_BLE)
+  {
+    /* A reconnect may be a different peer. Do not expose the previous peer's
+     * command history through terminal cursor keys. */
+    (void)memset(cli_history, 0, sizeof(cli_history));
+    (void)memset(cli_history_draft, 0, sizeof(cli_history_draft));
+    cli_history_count = 0U;
+    cli_history_index = 0U;
+  }
+  if (stop_usb_streams != 0U)
+  {
+    TOF_App_SetMapEnabled(0U);
+    TOF_App_SetDatasetStreamEnabled(0U);
+  }
+  cli_active_session = previous;
+}
+
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+static uint32_t cli_ble_session_allocate(void)
+{
+  static uint32_t last_attempt_tick;
+  TX_BYTE_POOL *radio_pool = MX_RadioBytePool_Get();
+  void *memory = NULL;
+  Menu_Status_t menu_status;
+  uint32_t now = HAL_GetTick();
+
+  if ((last_attempt_tick != 0U) &&
+      ((uint32_t)(now - last_attempt_tick) < 1000U))
+  {
+    return 0U;
+  }
+  last_attempt_tick = now;
+
+  if ((radio_pool == NULL) ||
+      (tx_byte_allocate(radio_pool, &memory, sizeof(CliSession_t),
+                        TX_NO_WAIT) != TX_SUCCESS))
+  {
+    Debug_UART_Log("CLI", "BLE CLI session allocation failed; CDC remains available");
+    return 0U;
+  }
+
+  cli_ble_session = (CliSession_t *)memory;
+  (void)memset(cli_ble_session, 0, sizeof(*cli_ble_session));
+  menu_status = cli_session_init(cli_ble_session, CLI_TRANSPORT_BLE);
+  if (menu_status != MENU_STATUS_OK)
+  {
+    Debug_UART_Log("CLI", "BLE menu initialization failed: %d",
+                   (int)menu_status);
+    (void)tx_byte_release(cli_ble_session);
+    cli_ble_session = NULL;
+    return 0U;
+  }
+
+  Debug_UART_Log("CLI", "BLE CLI session allocated in SRAM4 after radio ready (%lu bytes)",
+                 (unsigned long)sizeof(CliSession_t));
+  return 1U;
+}
+
+static void cli_poll_ble(void)
+{
+  WifiBle_RuntimeStatus_t runtime;
+  uint8_t rx_buffer[CLI_BLE_RX_CHUNK_SIZE];
+
+  WIFI_BLE_App_GetRuntimeStatus(&runtime);
+  if ((cli_ble_session == NULL) &&
+      (runtime.state == WIFI_BLE_STATE_READY) &&
+      (cli_ble_session_allocate() == 0U))
+  {
+    return;
+  }
+  if (cli_ble_session == NULL)
+  {
+    return;
+  }
+  if ((runtime.ble_transport_ready == 0U) ||
+      (runtime.ble_connected == 0U))
+  {
+    if (cli_ble_session->session_ready != 0U)
+    {
+      Debug_UART_Log("CLI", "BLE CLI session closed (generation %lu)",
+                     (unsigned long)cli_ble_session->ble_generation);
+      cli_session_reset(cli_ble_session, 0U);
+    }
+    cli_ble_session->ble_generation = runtime.ble_session_generation;
+    return;
+  }
+
+  if (cli_ble_session->ble_generation != runtime.ble_session_generation)
+  {
+    cli_session_reset(cli_ble_session, 0U);
+    cli_ble_session->ble_generation = runtime.ble_session_generation;
+  }
+
+  /* Notifications are the response path.  Keep writes queued until the peer
+   * subscribes, then establish one clean terminal session for this link. */
+  if (runtime.ble_cli_tx_subscribed == 0U)
+  {
+    return;
+  }
+
+  cli_active_session = cli_ble_session;
+  if (cli_cdc_session_ready == 0U)
+  {
+    cli_cdc_session_ready = 1U;
+    cli_enter_console();
+    Debug_UART_Log("CLI", "BLE CLI session ready (generation %lu)",
+                   (unsigned long)runtime.ble_session_generation);
+  }
+
+  for (uint32_t burst = 0U; burst < CLI_BLE_RX_BURST; ++burst)
+  {
+    ULONG actual_length = 0U;
+    UINT status = WIFI_BLE_App_StreamRead(WIFI_BLE_STREAM_CLI,
+                                          rx_buffer,
+                                          sizeof(rx_buffer),
+                                          &actual_length,
+                                          TX_NO_WAIT);
+    if ((status != TX_SUCCESS) || (actual_length == 0U))
+    {
+      break;
+    }
+
+    if (cli_first_input_logged == 0U)
+    {
+      cli_first_input_logged = 1U;
+      Debug_UART_Log("CLI", "first BLE input reached CLI: %lu byte(s), first=0x%02X",
+                     (unsigned long)actual_length,
+                     (unsigned int)rx_buffer[0]);
+    }
+
+    for (ULONG i = 0U; i < actual_length; ++i)
+    {
+      cli_process_byte(rx_buffer[i]);
+    }
+  }
+
+  cli_active_session = &cli_usb_session;
+}
+#endif
 
 static void cli_process_byte(uint8_t byte)
 {
@@ -487,7 +703,13 @@ static void cli_process_byte(uint8_t byte)
       return;
     }
 
-    (void)App_Console_Write(&byte, 1U);
+    /* CDC is an interactive terminal and expects local echo. BLE commands are
+     * message-oriented writes; echoing each byte would consume one bounded TX
+     * slot and could starve the actual reply on a slow notification link. */
+    if (cli_active_session->transport == CLI_TRANSPORT_USB)
+    {
+      (void)cli_session_write(cli_active_session, &byte, 1U);
+    }
   }
 }
 
@@ -500,16 +722,27 @@ static void cli_enter_console(void)
   cli_history_index = cli_history_count;
   cli_history_draft[0] = '\0';
   Menu_Reset(&cli_menu);
-  TOF_App_SetMapEnabled(0U);
-  Debug_UART_Log("CLI", "USB CDC menu entered; depth map disabled");
+  if (cli_active_session->transport == CLI_TRANSPORT_USB)
+  {
+    TOF_App_SetMapEnabled(0U);
+    Debug_UART_Log("CLI", "USB CDC menu entered; depth map disabled");
+  }
   cli_print("\033[?25h\033[2J\033[H"
             "+------------------------------------------------+\r\n"
             "|            NATI LAB N6 CONTROL MENU            |\r\n"
             "+------------------------------------------------+\r\n"
             "  Application firmware version: "
-            NATI_LAB_FIRMWARE_VERSION_TEXT "\r\n"
-            "  USB CDC carries menu/map/update traffic only.\r\n"
-            "  All debug diagnostics are on the ST-LINK VCP.\r\n\r\n");
+            NATI_LAB_FIRMWARE_VERSION_TEXT "\r\n");
+  if (cli_active_session->transport == CLI_TRANSPORT_BLE)
+  {
+    cli_print("  BLE CLI session; update/reboot and binary streams are locked.\r\n"
+              "  Debug diagnostics remain on the independent ST-LINK/BLE-debug path.\r\n\r\n");
+  }
+  else
+  {
+    cli_print("  USB CDC carries menu/map/update traffic only.\r\n"
+              "  All debug diagnostics are on the ST-LINK VCP.\r\n\r\n");
+  }
   cli_show_help();
   cli_print("\r\n");
   cli_prompt();
@@ -568,18 +801,24 @@ static void cli_command_map(Menu_t *menu, const char *command)
 
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
   if ((argc == 3) &&
-      (cli_token_equals(argv[1], "on") != 0U) &&
-      ((cli_token_equals(argv[2], "screen") != 0U) ||
-       (cli_token_equals(argv[2], "display") != 0U)))
+      (((cli_token_equals(argv[1], "on") != 0U) &&
+        ((cli_token_equals(argv[2], "screen") != 0U) ||
+         (cli_token_equals(argv[2], "display") != 0U))) ||
+       (((cli_token_equals(argv[1], "screen") != 0U) ||
+         (cli_token_equals(argv[1], "display") != 0U)) &&
+        (cli_token_equals(argv[2], "on") != 0U))))
   {
     Display_App_SetMapEnabled(1U);
     (void)Menu_Reply(menu,
                      "Screen depth map enabled; processing will publish numbered frames to the display task.");
   }
   else if ((argc == 3) &&
-           (cli_token_equals(argv[1], "off") != 0U) &&
-           ((cli_token_equals(argv[2], "screen") != 0U) ||
-            (cli_token_equals(argv[2], "display") != 0U)))
+           (((cli_token_equals(argv[1], "off") != 0U) &&
+             ((cli_token_equals(argv[2], "screen") != 0U) ||
+              (cli_token_equals(argv[2], "display") != 0U))) ||
+            (((cli_token_equals(argv[1], "screen") != 0U) ||
+              (cli_token_equals(argv[1], "display") != 0U)) &&
+             (cli_token_equals(argv[2], "off") != 0U))))
   {
     Display_App_SetMapEnabled(0U);
     (void)Menu_Reply(menu,
@@ -589,6 +828,12 @@ static void cli_command_map(Menu_t *menu, const char *command)
 #endif
   if ((argc == 2) && (cli_token_equals(argv[1], "on") != 0U))
   {
+    if (cli_active_session->transport == CLI_TRANSPORT_BLE)
+    {
+      (void)Menu_Reply(menu,
+                       "The binary sensor map is USB-only; use MAP ON DISPLAY to control the local screen.");
+      return;
+    }
     (void)Menu_Reply(menu,
                      "Sensor map enabled. Keys 1..5 toggle channels; Enter returns to the console.");
     TOF_App_SetMapEnabled(1U);
@@ -596,6 +841,12 @@ static void cli_command_map(Menu_t *menu, const char *command)
   }
   else if ((argc == 2) && (cli_token_equals(argv[1], "off") != 0U))
   {
+    if (cli_active_session->transport == CLI_TRANSPORT_BLE)
+    {
+      (void)Menu_Reply(menu,
+                       "The binary sensor map is USB-only; use MAP OFF DISPLAY to control the local screen.");
+      return;
+    }
     TOF_App_SetMapEnabled(0U);
     (void)Menu_Reply(menu,
                      "Depth map disabled; ranging remains active.");
@@ -774,6 +1025,13 @@ cli_command_dataset(Menu_t *menu, const char *command)
   char *argv[CLI_MAX_ARGUMENTS];
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
+
+  if (cli_active_session->transport == CLI_TRANSPORT_BLE)
+  {
+    (void)Menu_Reply(menu,
+                     "Dataset binary streaming is USB-only in this release.");
+    return;
+  }
 
   if ((argc == 3) &&
       (cli_token_equals(argv[1], "stream") != 0U) &&
@@ -1144,6 +1402,13 @@ static void cli_command_reboot(Menu_t *menu, const char *command)
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
 
+  if (cli_active_session->transport == CLI_TRANSPORT_BLE)
+  {
+    (void)Menu_Reply(menu,
+                     "Remote reboot is locked until BLE authentication is implemented.");
+    return;
+  }
+
   if ((argc == 2) && (strcmp(argv[1], "yes") == 0))
   {
     (void)Menu_Reply(menu, "Rebooting...");
@@ -1159,6 +1424,12 @@ static void cli_command_reboot(Menu_t *menu, const char *command)
 static void cli_command_firmware_update(Menu_t *menu, const char *command)
 {
   (void)command;
+  if (cli_active_session->transport == CLI_TRANSPORT_BLE)
+  {
+    (void)Menu_Reply(menu,
+                     "BLE firmware update is locked until authentication and resumable framing are implemented.");
+    return;
+  }
   Menu_Reset(menu);
   TOF_App_SetDatasetStreamEnabled(0U);
   if (Firmware_Update_Start() != 0)
@@ -1224,14 +1495,32 @@ static int cli_get_arguments(const char *command, char *copy,
 
 static int32_t cli_menu_send(const char *text, size_t length, void *context)
 {
-  (void)context;
+  CliSession_t *session = (CliSession_t *)context;
 
-  if ((text == NULL) || (length == 0U))
+  if ((session == NULL) || (text == NULL) || (length == 0U))
   {
     return 0;
   }
 
-  return (int32_t)App_Console_Write(text, (ULONG)length);
+  return (int32_t)cli_session_write(session, text, (ULONG)length);
+}
+
+static UINT cli_session_write(CliSession_t *session, const void *buffer,
+                              ULONG length)
+{
+  if ((session == NULL) || (buffer == NULL) || (length == 0U))
+  {
+    return TX_PTR_ERROR;
+  }
+
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  if (session->transport == CLI_TRANSPORT_BLE)
+  {
+    return WIFI_BLE_App_StreamWrite(WIFI_BLE_STREAM_CLI, buffer, length,
+                                    CLI_BLE_TX_WAIT_TICKS);
+  }
+#endif
+  return App_Console_Write(buffer, length);
 }
 
 static uint32_t cli_token_equals(const char *left, const char *right)
@@ -1604,7 +1893,7 @@ static void cli_print(const char *format, ...)
   {
     ULONG send_length = (ULONG)length;
     if (send_length >= sizeof(cli_print_buffer)) send_length = sizeof(cli_print_buffer) - 1U;
-    (void)App_Console_Write(cli_print_buffer, send_length);
+    (void)cli_session_write(cli_active_session, cli_print_buffer, send_length);
   }
 }
 
@@ -1625,6 +1914,7 @@ static void cli_show_help(void)
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
             "  MAP ON SCREEN|DISPLAY          show map + NPU result on the SPI display\r\n"
             "  MAP OFF SCREEN|DISPLAY         stop and clear the SPI display map\r\n"
+            "  MAP DISPLAY ON|OFF             equivalent BLE-friendly display syntax\r\n"
 #endif
             "  MAP PROCESSING                 select/configure depth filtering\r\n"
             "  tof status|pause|resume        inspect/control ranging\r\n"
@@ -1690,7 +1980,7 @@ static void cli_show_usb_status(void)
   USB_CDC_TransportStatus_t status;
 
   USB_CDC_Transport_GetStatus(&status);
-  cli_print("USB CDC transport: %s, session %lu\r\n"
+  cli_print("USB CDC transport: %s, host %s, session %lu\r\n"
             "Static slots free: control %lu/8, maps %lu/2, RX %lu/16\r\n"
             "Queues: TX %lu/10, RX %lu/32, in-flight %lu\r\n"
             "TX: queued %lu, completed %lu, callbacks %lu, bytes %lu\r\n"
@@ -1700,6 +1990,7 @@ static void cli_show_usb_status(void)
             "RX flow/errors: dropped %lu, slot exhaustion %lu, queue failures %lu, errors %lu, last %lu\r\n"
             "Worker synchronization failures: %lu\r\n",
             (status.active != 0U) ? "active" : "inactive",
+            (status.host_ready != 0U) ? "open (DTR)" : "closed",
             (unsigned long)status.session,
             (unsigned long)status.tx_control_slots_free,
             (unsigned long)status.tx_map_slots_free,
@@ -2074,9 +2365,48 @@ static void cli_ble_status(void)
               runtime.ble_address[4], runtime.ble_address[5]);
   }
   cli_print("CLI TX notifications: %s; DEBUG TX notifications: %s\r\n"
-            "RX writes awaiting transport stage: %lu events, %lu bytes discarded\r\n",
+            "Stream transport: %s, generation %lu, ATT payload %lu bytes\r\n"
+            "Radio SRAM4 pool: %lu bytes available, %lu fragments\r\n",
             (runtime.ble_cli_tx_subscribed != 0U) ? "subscribed" : "off",
             (runtime.ble_debug_tx_subscribed != 0U) ? "subscribed" : "off",
+            (runtime.ble_transport_ready != 0U) ? "ready" : "not ready",
+            (unsigned long)runtime.ble_session_generation,
+            (unsigned long)runtime.ble_att_payload_limit,
+            (unsigned long)runtime.ble_radio_pool_available,
+            (unsigned long)runtime.ble_radio_pool_fragments);
+  cli_print("CLI RX: queued %lu/%lu high-water, accepted %lu events/%lu bytes, dropped %lu/%lu\r\n"
+            "CLI TX: queued %lu/%lu high-water, accepted %lu messages/%lu bytes, sent %lu, dropped %lu/%lu, retries %lu, errors %lu\r\n",
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].rx_queued,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].rx_high_water,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].rx_events,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].rx_bytes,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].rx_dropped_events,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].rx_dropped_bytes,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].tx_queued,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].tx_high_water,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].tx_messages,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].tx_bytes,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].tx_sent_bytes,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].tx_dropped_messages,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].tx_dropped_bytes,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].tx_retries,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].tx_errors);
+  cli_print("DEBUG RX: disabled by policy, dropped %lu events/%lu bytes\r\n"
+            "DEBUG TX: queued %lu/%lu high-water, accepted %lu messages/%lu bytes, sent %lu, dropped %lu/%lu, retries %lu, errors %lu\r\n",
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].rx_dropped_events,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].rx_dropped_bytes,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].tx_queued,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].tx_high_water,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].tx_messages,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].tx_bytes,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].tx_sent_bytes,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].tx_dropped_messages,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].tx_dropped_bytes,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].tx_retries,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].tx_errors);
+  cli_print("Stale generation drops: CLI %lu, DEBUG %lu; total GATT writes %lu, discarded bytes %lu\r\n",
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_CLI].stale_drops,
+            (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].stale_drops,
             (unsigned long)runtime.ble_rx_write_events,
             (unsigned long)runtime.ble_rx_discarded_bytes);
 }

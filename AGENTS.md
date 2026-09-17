@@ -124,9 +124,12 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 - The user has confirmed the ST67 shield and SPI/AT identity path on hardware.
   `APP_ST67W6X_ENABLED=1U` and `APP_ST67W6X_BLE_GATT_ENABLED=1U` now register
   and advertise separate CLI and DEBUG UART-like GATT services.
-  `APP_ST67W6X_WIFI_SERVICES_ENABLED=0U` keeps Wi-Fi initialization off. BLE
-  RX writes are deliberately counted/discarded until the next transport stage;
-  no CLI, debug, XMODEM, or privileged application traffic is routed yet.
+  `APP_ST67W6X_WIFI_SERVICES_ENABLED=0U` keeps Wi-Fi initialization off. The
+  bounded stream layer now queues CLI RX, provides CLI/DEBUG TX queues and
+  fragments notifications to `MTU-3`; DEBUG RX is still rejected by policy.
+  BLE CLI RX/TX is attached to its own SRAM4 parser/editor/history/output
+  session, allocated only after the vendor radio reaches READY. The DEBUG producer, BLE XMODEM, binary streams and unauthenticated
+  privileged application traffic remain detached.
 - The ST67 transport uses an unusual active-high PA3 chip select; its safe idle
   level is LOW. CHIP_EN and BOOT also remain LOW until deliberate bring-up.
   When the radio build is enabled, PE9/SPI_RDY owns both edges of EXTI9 and the
@@ -190,6 +193,19 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   NPU release. It programs only FSBL + Secure and preserves both app slots and
   boot metadata. The guided Stage 12 release refuses to proceed until that
   bootstrap and a matching frame-exact Stage 11 HIL are recorded.
+- Use `training/13_FACTORY_PROVISION.bat` only for a blank board or an explicit
+  factory reset. It requires `ERASE ALL`, destroys both A/B slots and metadata,
+  programs/verifies the complete boot chain, and verifies the running version
+  over CN8. Ordinary releases must keep using the inactive-slot Stage 12 lane.
+- Factory builds must produce `FlashImages/factory-manifest.json`. Preserve the
+  `-SkipBuild` pre-erase checks that require the source version and SHA-256 of
+  all four factory images to match that manifest. Never bypass this stale-image
+  guard. CN8 discovery intentionally falls back to the Windows USB registry
+  when WMI/CIM device enumeration is denied.
+- A blank board that also needs ST67 NCP provisioning must run
+  `radio_firmware/01_UPDATE_MODULE.bat` before factory provisioning. The ST67
+  updater temporarily replaces the external-NOR FSBL and must complete its
+  restore path before any other programming action.
 - The upper SRAM3 window `0x24244000..0x2426FFFF` is reserved by the Non-Secure
   linker for CDC/RPS transient storage. Current Neural-ART activations are in
   SRAM5 and weights are in SRAM6. Stage 08 must reject generated networks that
@@ -199,8 +215,8 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   from 159 KiB to 151 KiB. The Radio Manager and ST compatibility allocations
   use this pool. Stage 08 rejects all SRAM4 model placement, the linker asserts
   the pool bounds, and the build-map preflight validates the address and size.
-  The BLE-GATT build leaves 379,584 bytes of C heap, 10,944 bytes above the
-  360 KiB ToF guard. Both transient 9,072-byte ToF float frames are now in the
+  The current BLE-CLI build leaves 371,520 bytes of C heap, 2,880 bytes
+  above the 360 KiB ToF guard. Both transient 9,072-byte ToF float frames are now in the
   explicitly cleared SRAM3 workspace, which uses its complete 180,224 bytes.
   Future BLE queues belong in the SRAM4 radio pool; runtime high-water
   validation remains mandatory.
@@ -250,6 +266,7 @@ These require explicit review after every Generate Code:
 | FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c/.h | Dynamic A/B source and pre-jump XSPI handover hook; functional vendor edits outside USER blocks |
 | AppliSecure/Core/Src/main.c | Diagnostic trace plus Neural-ART clocks, RIF/RISAF, CACHEAXI, and NPU interrupt ownership |
 | AppliSecure/Core/Inc/partition_stm32n657xx.h | SAU region 1 extends through `0x243FFFFF` so Non-Secure can access SRAM2, NPU SRAM3-6, and CACHEAXI RAM |
+| ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c | The high-priority SPI worker sleeps one tick after each eight-packet continuous burst so a stuck-high SPI_RDY cannot starve ThreadX; re-importing X-CUBE can overwrite it |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pcd.c | Temporary Non-Secure-only USB initialization stage logs |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_ll_usb.c | Temporary Non-Secure-only core-reset register and timeout logs |
 
@@ -315,8 +332,10 @@ Files imported from X-CUBE packages are not necessarily CubeMX-owned. The VL53L9
 | training/scripts | One Python entry point per capture, validation, training, quantization, N6 generation, HIL, and upload stage |
 | training/*.bat | Guided Windows entry points plus resumable model-build orchestration |
 | Tools/program_flash.ps1 | External-NOR programming including both default metadata sectors |
+| Tools/Factory-Provision.ps1 | Explicit full-NOR erase, complete image programming/verification, and CN8 boot-version verification |
 | FlashImages | Signed programming artifacts |
 | ThirdParty/ST67W6X_Network_Driver | Git-tracked ST67 source subset used by CubeIDE, with license files |
+| radio_firmware | Self-contained ST67 mission-T01 2.0.106 updater, QConn dependencies, binary licenses, hashes, and Hebrew guide |
 | .local-dependencies | Local SDK archives, PDFs, examples, backups, and diagnostics remain ignored; only the explicitly designated educational update-signing key is tracked |
 
 The Git repository root is `project`. Do not restore build references to the
@@ -598,9 +617,11 @@ stack-local version or split the address phase back into a blocking transfer.
 - Always clean-build NonSecure after changing `ux_user.h`. CubeIDE can retain
   stale USBX middleware objects during an incremental build; the local
   `Tools/build_and_sign.ps1` script deliberately enforces the clean build.
-- All TX allocation is gated by both an active CDC session and
-  `UX_DEVICE_CONFIGURED`. No producer may enqueue while CDC is absent, and a
-  disconnect must flush and release every queued or reserved static slot.
+- All TX allocation is gated by an active CDC session, `UX_DEVICE_CONFIGURED`,
+  and host DTR. Windows may leave a CDC class configured after closing the COM
+  handle; no application producer may enqueue until DTR establishes the host
+  session. A close must stop high-rate producers, and a physical detach must
+  flush and release every queued or reserved static slot.
 - The USBX read callback must remain short: acquire a static RX slot, copy the
   completed payload, post one pointer, and return. Parsing belongs to the RX
   dispatcher/CLI, never the callback.
@@ -660,8 +681,10 @@ stack-local version or split the address phase back into a blocking transfer.
 ## 12. ST67W6X rules
 
 - APP_ST67W6X_ENABLED is 1U for the current attached-shield phase-1 test.
-- APP_ST67W6X_BLE_GATT_ENABLED is 1U; the discovery/connect layer exposes two
-  logical UART services, but application payload routing is not implemented.
+- APP_ST67W6X_BLE_GATT_ENABLED is 1U; two logical UART services and their
+  bounded transport queues are implemented. The CLI service owns an independent
+  5,272-byte session in SRAM4 and is attached to the shared command definitions;
+  the DEBUG output producer remains detached.
   RAM HIL on 2026-09-14 found `N6-MAINT-B8FB`, connected at MTU 247, validated
   both services/four characteristics and CCCDs, and confirmed advertising
   restart after disconnect. Keep the vendor-baseline advertising sequence;
@@ -669,9 +692,29 @@ stack-local version or split the address phase back into a blocking transfer.
   `W6X_Ble_AdvStart()` return `W6X_STATUS_ERROR` and remain deferred.
 - APP_ST67W6X_WIFI_SERVICES_ENABLED remains 0U; do not call Wi-Fi APIs until
   its staged control path is implemented.
+- `radio_firmware/contract.json` is the host/target NCP version contract. Stage
+  11 must compare the running `radio info` SDK with it and scan the BLE
+  CLI-service advertisement when BLE is enabled. If Wi-Fi is enabled later,
+  the same stage must also require station status plus a successful scan.
+- Preserve mission profile T01 and SDK 2.0.106 until the driver and contract
+  are deliberately upgraded together. Any vendor-binary replacement requires
+  updated SHA-256 entries, retained ST binary/QConn notices, and an end-to-end
+  Stage 10/11 hardware run.
 - BLE callbacks may only snapshot event metadata and enqueue/signal bounded
   work. W6X control/send operations and advertising recovery belong to the
   Radio Manager thread.
+- Preserve the item-9 stream contract: CLI RX 8x512 bytes, CLI TX 8x768 bytes,
+  DEBUG RX 2x512 bytes but disabled by policy, and DEBUG TX 8x256 bytes. All
+  storage is allocated from the SRAM4 radio byte pool. Every connect and
+  disconnect advances the generation; stale slots are purged. CLI producer
+  waits are capped at 50 ms, DEBUG TX is non-blocking, notification calls use
+  a 100 ms timeout with at most three attempts, and the manager services one
+  `MTU-3` fragment per stream per cycle.
+- Preserve the item-10 broker contract: CDC and BLE never share line, history,
+  prompt, CR/LF, or output state. Shared command handlers execute serially in
+  the priority-9 CLI thread. BLE RX is drained in bounded bursts. Binary map
+  and dataset streams, XMODEM, and reboot remain USB-only until an authenticated
+  remote-maintenance protocol is implemented.
 - The current No-Input/No-Output BLE setting is development-only and does not
   authorize remote update, reset, credentials, or destructive/debug commands.
 - In disabled mode, do not create its task, initialize the compatibility layer, or call W6X initialization.

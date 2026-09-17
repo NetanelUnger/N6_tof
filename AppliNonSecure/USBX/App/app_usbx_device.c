@@ -399,6 +399,7 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
     else if ((event.type == APP_USB_CDC_ACTIVATED) &&
              (usb_device_started != 0U) && (usb_cdc_active == 0U))
     {
+      USB_CDC_Transport_SetHostReady(usb_cdc_dtr_asserted);
       status = USB_CDC_Transport_Start(
           (UX_SLAVE_CLASS_CDC_ACM *)(uintptr_t)event.value);
       if (status == TX_SUCCESS)
@@ -423,6 +424,7 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
       app_usb_device_stop_data_plane();
       usb_cdc_current_instance = UX_NULL;
       usb_cdc_dtr_asserted = UX_FALSE;
+      USB_CDC_Transport_SetHostReady(UX_FALSE);
       TOF_App_SetMapEnabled(0U);
       TOF_App_SetDatasetStreamEnabled(0U);
       Debug_UART_Log("CDC", "CDC ACM deactivated; RX/TX data plane idle");
@@ -582,6 +584,7 @@ UINT App_USBX_Device_NotifyCdcParameterChange(VOID *cdc_acm_instance)
   }
 
   usb_cdc_dtr_asserted = dtr_asserted;
+  USB_CDC_Transport_SetHostReady(dtr_asserted);
   if (dtr_asserted == UX_FALSE)
   {
     /* Windows keeps an enumerated CDC device configured after the COM handle
@@ -726,6 +729,7 @@ static void app_usb_device_restart_data_plane(UINT cause)
     return;
   }
 
+  USB_CDC_Transport_SetHostReady(usb_cdc_dtr_asserted);
   status = USB_CDC_Transport_Start(instance);
   if (status == TX_SUCCESS)
   {

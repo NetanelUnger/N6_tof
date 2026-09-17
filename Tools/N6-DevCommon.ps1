@@ -386,20 +386,148 @@ function Set-N6FirmwareVersion {
 }
 
 function Find-N6UsbCdcPort {
-    $devices = @(Get-CimInstance Win32_PnPEntity -ErrorAction Stop |
-        Where-Object {
-            ($_.PNPDeviceID -match 'VID_0483&PID_5740') -and
-            ($_.Name -match '\((COM[0-9]+)\)')
-        })
+    $ports = @()
+    try {
+        $devices = @(Get-CimInstance Win32_PnPEntity -ErrorAction Stop |
+            Where-Object {
+                ($_.PNPDeviceID -match 'VID_0483&PID_5740') -and
+                ($_.Name -match '\((COM[0-9]+)\)')
+            })
+        $ports = @($devices | ForEach-Object {
+                [regex]::Match($_.Name, '\((COM[0-9]+)\)').Groups[1].Value
+            })
+    }
+    catch {
+        # CIM/WMI access is sometimes denied on locked-down Windows hosts.
+        # Fall through to the read-only USB enumeration registry instead.
+        $ports = @()
+    }
 
-    if ($devices.Count -eq 0) {
+    if ($ports.Count -eq 0) {
+        $registryRoot =
+            'Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\USB\VID_0483&PID_5740'
+        if (Test-Path -LiteralPath $registryRoot) {
+            $ports = @(Get-ChildItem -LiteralPath $registryRoot -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.PSChildName -eq 'Device Parameters' } |
+                ForEach-Object {
+                    (Get-ItemProperty -LiteralPath $_.PSPath -Name PortName -ErrorAction SilentlyContinue).PortName
+                } |
+                Where-Object { $_ -match '^COM[0-9]+$' } |
+                Sort-Object -Unique)
+        }
+    }
+
+    if ($ports.Count -eq 0) {
         throw 'The N6 USB CDC port (VID 0483, PID 5740) was not found. Connect CN8 and wait for Windows to enumerate it.'
     }
-    if ($devices.Count -gt 1) {
-        $names = ($devices | ForEach-Object Name) -join '; '
-        throw "More than one N6-compatible USB CDC port was found. Pass -Port explicitly. Devices: $names"
+    if ($ports.Count -gt 1) {
+        throw "More than one N6-compatible USB CDC port was found. Pass -Port explicitly. Ports: $($ports -join ', ')"
     }
 
-    $portMatch = [regex]::Match($devices[0].Name, '\((COM[0-9]+)\)')
-    return $portMatch.Groups[1].Value
+    return $ports[0]
+}
+
+function Get-N6FileSha256 {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $stream = [IO.File]::OpenRead($Path)
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        return [BitConverter]::ToString(
+            $sha256.ComputeHash($stream)).Replace('-', '')
+    }
+    finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
+
+function Wait-N6RunningVersion {
+    param(
+        [string]$RequestedPort,
+
+        [Parameter(Mandatory = $true)]
+        [uint32]$ExpectedVersion,
+
+        [ValidateRange(1, 300)]
+        [int]$TimeoutSeconds = 45,
+
+        [switch]$WaitForTrialConfirmation
+    )
+
+    if ($WaitForTrialConfirmation) {
+        # An A/B trial image intentionally waits five seconds before Secure
+        # closes the rollback window. Factory slot-A boots do not need this.
+        Start-Sleep -Seconds 6
+    }
+
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    $lastError = $null
+    while ([DateTime]::UtcNow -lt $deadline) {
+        $candidatePort = $RequestedPort
+        $serial = $null
+        try {
+            if ([string]::IsNullOrWhiteSpace($candidatePort)) {
+                $candidatePort = Find-N6UsbCdcPort
+            }
+            $serial = [IO.Ports.SerialPort]::new(
+                $candidatePort,
+                115200,
+                [IO.Ports.Parity]::None,
+                8,
+                [IO.Ports.StopBits]::One)
+            $serial.Handshake = [IO.Ports.Handshake]::None
+            $serial.ReadTimeout = 200
+            $serial.WriteTimeout = 3000
+            $serial.DtrEnable = $true
+            $serial.Open()
+            Start-Sleep -Milliseconds 500
+            $serial.DiscardInBuffer()
+            $serial.Write("version`r")
+
+            $text = [Text.StringBuilder]::new()
+            $responseDeadline = [DateTime]::UtcNow.AddSeconds(5)
+            while ([DateTime]::UtcNow -lt $responseDeadline) {
+                try {
+                    $value = $serial.ReadByte()
+                    if ($value -ge 0) {
+                        [void]$text.Append([char]$value)
+                    }
+                }
+                catch [TimeoutException] {
+                    # Keep reading until the complete response deadline.
+                }
+
+                $match = [regex]::Match(
+                    $text.ToString(),
+                    'Firmware version:\s*([0-9]+)')
+                if ($match.Success) {
+                    $observedVersion = [uint32]$match.Groups[1].Value
+                    if ($observedVersion -ne $ExpectedVersion) {
+                        throw "The board booted firmware version $observedVersion instead of expected version $ExpectedVersion."
+                    }
+                    Write-Host "Verified running firmware version $observedVersion on CN8."
+                    return
+                }
+            }
+            $lastError = "No version response was received from $candidatePort."
+        }
+        catch {
+            $lastError = $_.Exception.Message
+        }
+        finally {
+            if (($null -ne $serial) -and $serial.IsOpen) {
+                $serial.Close()
+            }
+            if ($null -ne $serial) {
+                $serial.Dispose()
+            }
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
+    throw "The running application could not be verified. Last error: $lastError"
 }

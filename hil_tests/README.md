@@ -7,13 +7,15 @@ commands. Generated reports are written under `results/` and are not committed.
 
 ## Files
 
-- `ble_inspector.py` is an interactive, non-destructive BLE scanner and GATT
-  inspector. It scans all nearby advertisers, keeps the discovered `BLEDevice`
+- `ble_inspector.py` is an interactive BLE scanner, GATT inspector, and bounded
+  stream probe. It scans all nearby advertisers, keeps the discovered `BLEDevice`
   objects, connects to a selected scan result, and reports every service,
   characteristic, property, descriptor, handle, and negotiated MTU. It labels
   the six known N6 maintenance UUIDs and produces a PASS/NOT MATCHED verdict
-  for the expected UUID/property contract. It does not read, write, subscribe,
-  expose the CLI, or start XMODEM.
+  for the expected UUID/property contract. Explicit commands can subscribe to
+  either TX characteristic and write UTF-8 or hex bytes to either RX
+  characteristic. It never starts XMODEM or programs firmware; DEBUG RX is
+  expected to be accepted by ATT and discarded by the current firmware policy.
 - `self_test.py` tests command parsing, scan-result selection, advertisement and
   GATT serialization, N6 UUID labelling, and atomic JSON report creation. It
   uses synthetic objects and therefore does not require Bluetooth hardware or
@@ -53,6 +55,13 @@ scan 8
 connect 1
 status
 services
+subscribe cli
+subscribe debug
+write-text cli "transport probe"
+write-hex debug 01020304
+notifications
+unsubscribe debug
+unsubscribe cli
 disconnect
 quit
 ```
@@ -76,6 +85,15 @@ The latest machine-readable observation is saved to
 `hil_tests/results/ble_last.json`. Run `services` last when the complete GATT
 tree is the evidence you want to preserve. Atomic report replacement retries
 transient Dropbox sharing locks with bounded backoff.
+
+The stream commands intentionally expose ATT fragments rather than pretending
+that one notification equals one line. `notifications` preserves each received
+fragment separately as hexadecimal data. The item-10 firmware consumes CLI RX
+through an independent BLE parser session and returns echo, replies and prompts
+on CLI TX notifications. Subscribe to `cli`, then write a command terminated by
+CR (for example `version\r` or `MAP DISPLAY ON\r`). DEBUG RX remains disabled
+by policy and the DEBUG TX producer is not attached yet. Binary map/dataset
+streams, XMODEM and remote reboot remain USB-only.
 
 ## Hardware-free verification
 

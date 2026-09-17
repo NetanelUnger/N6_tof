@@ -97,6 +97,7 @@ static USB_CDC_RxSlot_t usb_cdc_rx_slots[USB_CDC_RX_SLOT_COUNT]
 
 static UINT usb_cdc_initialized;
 static UINT usb_cdc_active;
+static volatile UINT usb_cdc_host_ready;
 static ULONG usb_cdc_session;
 static UX_SLAVE_CLASS_CDC_ACM *usb_cdc_instance;
 static USB_CDC_RxSlot_t *usb_cdc_rx_consumer_slot;
@@ -251,6 +252,7 @@ UINT USB_CDC_Transport_Init(void)
   }
 
   usb_cdc_session = 1U;
+  usb_cdc_host_ready = UX_FALSE;
   usb_cdc_diagnostic_flags = 0U;
   usb_cdc_initialized = 1U;
   Debug_UART_Log("CDC", "static transport ready: 8x768 control, 2x48KiB map, 16x512 RX");
@@ -310,6 +312,14 @@ UINT USB_CDC_Transport_Start(UX_SLAVE_CLASS_CDC_ACM *instance)
   return TX_SUCCESS;
 }
 
+void USB_CDC_Transport_SetHostReady(UINT ready)
+{
+  /* The USBX parameter-change callback may run outside the application
+   * manager thread. A naturally aligned UINT store is sufficient here; the
+   * state mutex in usb_cdc_snapshot() provides the task-context barrier. */
+  usb_cdc_host_ready = (ready != 0U) ? UX_TRUE : UX_FALSE;
+}
+
 void USB_CDC_Transport_BeginStop(void)
 {
   UX_SLAVE_CLASS_CDC_ACM *instance = UX_NULL;
@@ -320,6 +330,8 @@ void USB_CDC_Transport_BeginStop(void)
   {
     return;
   }
+
+  usb_cdc_host_ready = UX_FALSE;
 
   if (tx_mutex_get(&usb_cdc_state_mutex, TX_WAIT_FOREVER) == TX_SUCCESS)
   {
@@ -627,6 +639,7 @@ void USB_CDC_Transport_GetStatus(USB_CDC_TransportStatus_t *status)
   if (tx_mutex_get(&usb_cdc_state_mutex, TX_WAIT_FOREVER) == TX_SUCCESS)
   {
     status->active = usb_cdc_active;
+    status->host_ready = usb_cdc_host_ready;
     status->session = usb_cdc_session;
     (void)tx_mutex_put(&usb_cdc_state_mutex);
   }
@@ -1045,7 +1058,8 @@ static UINT usb_cdc_snapshot(UX_SLAVE_CLASS_CDC_ACM **instance,
 
   if (tx_mutex_get(&usb_cdc_state_mutex, TX_WAIT_FOREVER) == TX_SUCCESS)
   {
-    if ((usb_cdc_active != 0U) && (usb_cdc_instance != UX_NULL) &&
+    if ((usb_cdc_active != 0U) && (usb_cdc_host_ready != UX_FALSE) &&
+        (usb_cdc_instance != UX_NULL) &&
         (USB_CDC_LL_IsConfigured(usb_cdc_instance) == UX_TRUE))
     {
       *instance = usb_cdc_instance;

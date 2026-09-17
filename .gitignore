@@ -48,7 +48,7 @@ Desktop.ini
 /training/review/*
 !/training/review/.gitkeep
 /training/reset_log.json
-/hil_tests/.venv/
+/hil_tests/.venv*/
 /hil_tests/results/*
 !/hil_tests/results/.gitkeep
 __pycache__/

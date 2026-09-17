@@ -4,7 +4,8 @@
 
 This document defines the staged integration of the X-NUCLEO-67W61M1 board
 with the existing STM32N657 application. The hardware/SPI baseline and the
-BLE GATT discovery layer are now implemented; payload transports remain
+BLE GATT discovery and bounded payload layers are implemented. The BLE CLI
+producer/consumer is now attached; DEBUG mirroring and Wi-Fi payloads remain
 staged behind the interfaces described below.
 
 The following decisions are fixed for the first implementation:
@@ -54,11 +55,11 @@ separate notification subscriptions:
 | Endpoint | 128-bit UUID | Properties | Current stage |
 |---|---|---|---|
 | CLI service | `7a1e0001-b5a3-f393-e0a9-e50e24dcca9e` | Primary service | Registered |
-| CLI RX | `7a1e0002-b5a3-f393-e0a9-e50e24dcca9e` | Write / Write Without Response | Accepted, counted, deliberately discarded |
-| CLI TX | `7a1e0003-b5a3-f393-e0a9-e50e24dcca9e` | Notify | CCCD tracked; no producer attached |
+| CLI RX | `7a1e0002-b5a3-f393-e0a9-e50e24dcca9e` | Write / Write Without Response | 8×512-byte generation queue feeding an independent BLE parser session |
+| CLI TX | `7a1e0003-b5a3-f393-e0a9-e50e24dcca9e` | Notify | BLE-session replies through an 8×768-byte queue and MTU fragmenter |
 | DEBUG service | `7a1e0101-b5a3-f393-e0a9-e50e24dcca9e` | Primary service | Registered |
-| DEBUG RX | `7a1e0102-b5a3-f393-e0a9-e50e24dcca9e` | Write / Write Without Response | Reserved; counted and discarded |
-| DEBUG TX | `7a1e0103-b5a3-f393-e0a9-e50e24dcca9e` | Notify | CCCD tracked; no producer attached |
+| DEBUG RX | `7a1e0102-b5a3-f393-e0a9-e50e24dcca9e` | Write / Write Without Response | Reserved and explicitly discarded by policy |
+| DEBUG TX | `7a1e0103-b5a3-f393-e0a9-e50e24dcca9e` | Notify | 8×256-byte best-effort queue and MTU fragmenter; producer detached |
 
 Advertising uses the module's validated connectable defaults and includes the
 CLI service UUID without a host-supplied Flags AD structure. Device name is set
@@ -318,17 +319,16 @@ TCP is the recommended default because it supplies ordered, reliable delivery.
 
 ## 7. BLE maintenance GATT
 
-The discovery layer now implements two project-specific UART-like services:
+The maintenance layer implements two project-specific UART-like services:
 CLI RX/TX and DEBUG RX/TX. The independent services and CCCDs prevent a slow
 debug subscriber from becoming the CLI's flow-control state. RX supports both
-Write With Response and Write Without Response; TX uses Notify. The current
-stage tracks connection, disconnection, MTU, CCCD, and discarded RX writes,
-but intentionally attaches no application producer or consumer.
-
-The next transport stage will copy callback-owned RX data into bounded,
-generation-tagged queues and will let only the Radio Manager call W6X send
-APIs. DEBUG RX remains reserved for future maintenance control and must not be
-treated as a second unauthenticated command parser by default.
+Write With Response and Write Without Response; TX uses Notify. The transport
+stage copies callback-owned CLI RX data before the vendor callback returns,
+uses bounded generation-tagged queues in SRAM4, and lets only the Radio Manager
+call `W6X_Ble_ServerNotify`. DEBUG RX remains reserved and is explicitly
+discarded rather than becoming a second unauthenticated parser. The CLI
+producer is attached through a dedicated parser/editor/history/output session;
+the DEBUG output producer is not attached yet.
 
 BLE transport framing is mandatory. A notification is not a complete CLI line
 and a CLI line is not guaranteed to fit in one notification.
@@ -354,10 +354,11 @@ slow or disconnected peers from consuming unbounded RAM.
 
 ### 8.1 Current measured constraint
 
-With BLE GATT linked, the general SRAM2 region still begins at `0x24100400`
-and provides 1,023 KiB. The 2026-09-13 build leaves 379,584 bytes for the C
-heap. The build enforces 360 KiB because the first VL53L9 transform has a
-measured peak near 356,688 bytes, leaving 10,944 bytes above that guard.
+With the BLE CLI session and SPI starvation hardening linked, the general SRAM2
+region still begins at `0x24100400` and provides 1,023 KiB. The 2026-09-16 build
+leaves 371,520 bytes for the C heap. The build enforces 360 KiB because the
+first VL53L9 transform has a measured peak near 356,688 bytes, leaving 2,880
+bytes above that guard.
 
 The device has substantial total SRAM, but contiguous SRAM2 heap headroom is
 tight. To preserve the transform contract, the two 9,072-byte transient ToF
@@ -366,8 +367,8 @@ That workspace now uses its complete 180,224-byte reservation. Future BLE
 fragmentation/session queues must therefore use the guarded SRAM4 radio pool,
 not ad-hoc SRAM2 or SRAM3 statics.
 
-The current ThreadX application byte pool is 159 KiB. Existing pool-backed
-thread stacks account for roughly 124 KiB, leaving about 35 KiB before allocator
+The radio build's ThreadX application byte pool is 151 KiB. Existing pool-backed
+thread stacks account for roughly 124 KiB, leaving about 27 KiB before allocator
 bookkeeping and other runtime allocations.
 
 Blindly increasing the main pool to 192 KiB would reduce the calculated C heap
@@ -403,8 +404,11 @@ a budget ceiling, not permission for unbounded dynamic allocation.
    generated model from silently colliding with the pool. If SRAM4 becomes
    necessary for a later model, relocate the radio pool deliberately and
    update both guards.
-5. The BLE-GATT build leaves 379,584 bytes for the C heap, 10,944 bytes above
-   the enforced 360 KiB floor. This passes the current contract but leaves no
+5. The BLE-CLI build leaves 371,520 bytes for the C heap, 2,880 bytes above
+   the enforced 360 KiB floor. Its 5,272-byte BLE session object is allocated
+   from SRAM4 only after radio initialization instead of becoming another
+   SRAM2 static or perturbing vendor startup allocation order. This passes
+   the current contract but leaves no
    room for casual SRAM2 growth; strict map checking remains mandatory.
 6. Hardware validation must confirm CPU and SPI DMA access to the SRAM4 pool,
    followed by pool/stack high-water measurement.
@@ -567,12 +571,22 @@ complete. Implementation continues at item 2:
    passed).** Advertise CLI and DEBUG services, track
    independent CCCDs and MTU, and restart advertising after disconnect. No
    application bytes are routed in this stage.
-9. **Attach BLE streams to the Radio Manager.** Add generation-tagged bounded
-   RX/TX queues, MTU-aware fragmentation, backpressure, and independent CLI
-   and DEBUG policies. Keep XMODEM and privileged commands disabled.
-10. **Integrate the BLE CLI session.** Give BLE its own parser/output state and
-    verify CDC and BLE concurrently, including reconnect and slow-subscriber
-    cases.
+9. **Attach BLE streams to the Radio Manager (software complete; final stream
+   HIL pending).** Generation-tagged bounded RX/TX queues, MTU-aware
+   fragmentation, finite backpressure, per-stream counters, stale-session
+   purging and independent CLI/DEBUG policies are implemented in SRAM4. The
+   RAM image advertised successfully after integration; Windows then returned
+   a generic connection error, so write/subscribe/fragment HIL must be repeated
+   after the board and host adapter are reset. XMODEM and privileged commands
+   remain disabled.
+10. **Integrate the BLE CLI session (software complete; final phone HIL
+    pending).** BLE owns a separate 5,272-byte parser/editor/history/output
+    session in SRAM4 after the radio reaches READY. A single priority-9 broker serializes shared command
+    backends while polling CDC and BLE independently. BLE RX is drained in
+    bounded bursts and replies use the item-9 backpressure/fragmenter path.
+    Binary map/dataset traffic, XMODEM and unauthenticated remote reboot remain
+    USB-only. Verify CDC and BLE concurrently, then reconnect and exercise a
+    deliberately slow notification subscriber.
 11. **Implement Wi-Fi control.** Scan, join, DHCP, RSSI/status, disconnect,
     credential handling, reconnect policy, and error recovery.
 12. **Implement T01 TCP and optional UDP CLI transports.** Start with one TCP

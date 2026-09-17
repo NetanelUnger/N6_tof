@@ -23,6 +23,7 @@ typedef struct
 {
   UINT initialized;
   UINT active;
+  UINT host_ready;
   ULONG session;
   ULONG tx_control_slots_free;
   ULONG tx_map_slots_free;
@@ -61,6 +62,9 @@ typedef struct
 
 UINT USB_CDC_Transport_Init(void);
 UINT USB_CDC_Transport_Start(UX_SLAVE_CLASS_CDC_ACM *instance);
+/* The USB device may remain configured after Windows closes the COM handle.
+ * DTR therefore defines whether application RX/TX is allowed to use CDC. */
+void USB_CDC_Transport_SetHostReady(UINT ready);
 void USB_CDC_Transport_BeginStop(void);
 UINT USB_CDC_Transport_WaitStopped(ULONG wait_option);
 UINT USB_CDC_Transport_IsReady(void);

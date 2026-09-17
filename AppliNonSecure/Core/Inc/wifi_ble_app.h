@@ -18,6 +18,33 @@ typedef enum
 
 typedef enum
 {
+  WIFI_BLE_STREAM_CLI = 0,
+  WIFI_BLE_STREAM_DEBUG,
+  WIFI_BLE_STREAM_COUNT
+} WifiBle_Stream_t;
+
+typedef struct
+{
+  uint32_t rx_queued;
+  uint32_t rx_high_water;
+  uint32_t rx_events;
+  uint32_t rx_bytes;
+  uint32_t rx_dropped_events;
+  uint32_t rx_dropped_bytes;
+  uint32_t tx_queued;
+  uint32_t tx_high_water;
+  uint32_t tx_messages;
+  uint32_t tx_bytes;
+  uint32_t tx_sent_bytes;
+  uint32_t tx_dropped_messages;
+  uint32_t tx_dropped_bytes;
+  uint32_t tx_retries;
+  uint32_t tx_errors;
+  uint32_t stale_drops;
+} WifiBle_StreamStatus_t;
+
+typedef enum
+{
   WIFI_BLE_INIT_STAGE_IDLE = 0,
   WIFI_BLE_INIT_STAGE_STACK,
   WIFI_BLE_INIT_STAGE_ADDRESS,
@@ -49,8 +76,14 @@ typedef struct
   uint32_t ble_debug_tx_subscribed;
   uint32_t ble_rx_write_events;
   uint32_t ble_rx_discarded_bytes;
+  uint32_t ble_session_generation;
+  uint32_t ble_att_payload_limit;
+  uint32_t ble_transport_ready;
+  uint32_t ble_radio_pool_available;
+  uint32_t ble_radio_pool_fragments;
   uint32_t ble_init_stage;
   int32_t ble_last_status;
+  WifiBle_StreamStatus_t ble_stream[WIFI_BLE_STREAM_COUNT];
   char ble_device_name[WIFI_BLE_DEVICE_NAME_SIZE];
   uint8_t ble_address[WIFI_BLE_ADDRESS_SIZE];
 } WifiBle_RuntimeStatus_t;
@@ -83,5 +116,10 @@ void WIFI_BLE_App_GetRuntimeStatus(WifiBle_RuntimeStatus_t *status);
 void WIFI_BLE_App_GetHardwareStatus(WifiBle_HardwareStatus_t *status);
 UINT WIFI_BLE_App_RequestAdvertising(uint32_t advertising);
 UINT WIFI_BLE_App_RequestDisconnect(void);
+UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
+                              ULONG length, ULONG wait_option);
+UINT WIFI_BLE_App_StreamRead(WifiBle_Stream_t stream, void *buffer,
+                             ULONG capacity, ULONG *actual_length,
+                             ULONG wait_option);
 
 #endif /* WIFI_BLE_APP_H */

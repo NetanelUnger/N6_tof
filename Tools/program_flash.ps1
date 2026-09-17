@@ -1,16 +1,17 @@
 param(
     [switch]$FullErase,
     [switch]$FsblOnly,
-    [switch]$BootChainOnly
+    [switch]$BootChainOnly,
+    [string]$IdeRoot = 'C:\ST\STM32CubeIDE_2.2.0\STM32CubeIDE'
 )
 
 $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
-$IdeRoot = 'C:\ST\STM32CubeIDE_2.2.0\STM32CubeIDE'
-$CubeProgrammerBin = Join-Path $IdeRoot 'plugins\com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer.win32_2.2.500.202603051304\tools\bin'
-$Programmer = Join-Path $CubeProgrammerBin 'STM32_Programmer_CLI.exe'
-$ExternalLoader = Join-Path $CubeProgrammerBin 'ExternalLoader\MX25UM51245G_STM32N6570-NUCLEO.stldr'
+. (Join-Path $PSScriptRoot 'N6-DevCommon.ps1')
+$DevelopmentTools = Get-N6DevelopmentTools -IdeRoot $IdeRoot
+$Programmer = Join-Path $DevelopmentTools.ProgrammerBin 'STM32_Programmer_CLI.exe'
+$ExternalLoader = Join-Path $DevelopmentTools.ProgrammerBin 'ExternalLoader\MX25UM51245G_STM32N6570-NUCLEO.stldr'
 $ImageDir = Join-Path $ProjectRoot 'FlashImages'
 
 $Fsbl = Join-Path $ImageDir 'N6_FSBL-trusted.bin'

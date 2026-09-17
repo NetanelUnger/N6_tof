@@ -26,6 +26,7 @@ function Wait-GdbServer {
     param(
         [Parameter(Mandatory = $true)][Diagnostics.Process]$Process,
         [Parameter(Mandatory = $true)][int]$Port,
+        [string]$StartupLog,
         [int]$TimeoutSeconds = 15
     )
 
@@ -41,9 +42,17 @@ function Wait-GdbServer {
             -LocalPort $Port `
             -State Listen `
             -ErrorAction SilentlyContinue |
-            Where-Object { $_.OwningProcess -eq $Process.Id } |
             Select-Object -First 1
         if ($null -ne $listener) {
+            return
+        }
+        # Some Windows builds hide the owning listener from
+        # Get-NetTCPConnection even though ST-LINK has completed startup.
+        # The server emits this line only after its GDB socket is ready.
+        if (($null -ne $StartupLog) -and
+            (Test-Path -LiteralPath $StartupLog) -and
+            (Select-String -Quiet -LiteralPath $StartupLog `
+                -Pattern 'Waiting for debugger connection')) {
             return
         }
         Start-Sleep -Milliseconds 100
@@ -173,6 +182,21 @@ Write-Host ('Starting DEV-boot RAM debug through the known-good FSBL handoff at 
 Write-Host 'Both the locally built Secure runtime and Non-Secure application will be replaced in SRAM; external NOR is unchanged.'
 Write-Host 'Required jumpers: BOOT0=1-2 and BOOT1=2-3. A reset returns to the DEV-boot ROM; rerun this script to restore the RAM build.'
 
+# Windows treats environment-variable names case-insensitively, but a parent
+# process can still hand PowerShell both Path and PATH entries.  The build
+# helper prepends the compiler tools to Path; Windows PowerShell 5.1 then
+# throws from Start-Process while copying that duplicate environment into the
+# GDB-server process.  Recreate exactly one process-scoped Path entry after the
+# builds and before launching the server.  This changes only this script's
+# process and preserves the complete effective search path.
+$normalizedProcessPath = $env:Path
+[Environment]::SetEnvironmentVariable(
+    'PATH', $null, [EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable(
+    'Path', $null, [EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable(
+    'Path', $normalizedProcessPath, [EnvironmentVariableTarget]::Process)
+
 $server = Start-Process `
     -FilePath $tools.GdbServer `
     -ArgumentList $serverArguments `
@@ -183,7 +207,7 @@ $server = Start-Process `
 
 try {
     try {
-        Wait-GdbServer -Process $server -Port $GdbPort
+        Wait-GdbServer -Process $server -Port $GdbPort -StartupLog $serverStdout
     }
     catch {
         Start-Sleep -Milliseconds 100

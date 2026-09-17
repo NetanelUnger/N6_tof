@@ -440,8 +440,9 @@ training/
 | `08_INTEGRATE_MODEL.bat` | מתקין את הרשת, runtime וה־weights בתוך עץ ה־Firmware ומתקן כתובות/מאפייני NPU | משנה את `AppliNonSecure/AI`; עדיין אינו צורב לוח |
 | `09_BOOTSTRAP_NPU_SWD.bat` | מתקין פעם אחת FSBL+Secure שמפעילים clocks, TrustZone והרשאות NPU | דורש ST‑LINK ומצב boot מתאים; כותב Flash רק אחרי `BOOTCHAIN`, ומשמר את שני app slots. ‏`--build-only` אינו כותב חומרה |
 | `10_LOAD_RAM.bat` | בונה incremental וטוען Secure+Non‑Secure+model ל־SRAM דרך SWD | דורש DEV boot ו־ST‑LINK; זמני בלבד, ללא חתימה/version/Flash ונעלם ב־RESET |
-| `11_HIL.bat` | קורא 100 פריימים חיים ומשווה חיישן, CRC, tensor, TFLite ו־Neural‑ART לאותו frame ID | דורש להריץ 10 מיד לפניו ולהזיז יד בין המחוות; אינו כותב Flash, כן כותב דוח HIL |
+| `11_HIL.bat` | קורא את דגלי radio, מאמת גרסת NCP ו־BLE/Wi‑Fi פעילים, ואז קורא 100 פריימים ומשווה חיישן, CRC, tensor, TFLite ו־Neural‑ART לאותו frame ID | דורש להריץ 10 מיד לפניו, Bluetooth פעיל במחשב אם BLE מאופשר, ולהזיז יד בין המחוות; אינו כותב Flash, כן כותב דוח HIL |
 | `12_FLASH_RELEASE.bat` | בונה, מעלה version בדיוק באחד, חותם, יוצר `.n6fw`, שולח XMODEM, מאתחל ומוודא trial confirmation | משנה Flash רק אחרי `FLASH`; דורש Stage 09 ו־HIL תואם. `--package-only` בונה חבילה בלי לגעת בלוח |
+| `13_FACTORY_PROVISION.bat` | בונה וחותם את כל השרשרת, מוחק את כל ה־NOR החיצוני, כותב ומאמת FSBL+Secure+Slot A+metadata, ואז בודק version דרך CN8 | הרסני ודורש `ERASE ALL`; מיועד למעגל חדש או שחזור מפעל. `-BuildOnly` אינו נוגע בחומרה |
 | `99_STATUS_RESUME.bat` | מציג counts, state, stale/current והפקודה הבאה המומלצת | read-only; לא צריך לוח ולא משנה תוצרים |
 | `BUILD_MODEL_FOR_N6.bat` | orchestrator resumable של 03→04→05→06→07→08 | לא מצלם ולא צורב; ממחזר תוצר תואם ועוצר ב־quality gate אמיתי |
 | `VIEW_LIVE.bat` | viewer חי של raw depth ושל ה־tensor המדויק, עם החלפת frame אטומית | דורש CN8 פנוי; אינו שומר training samples ואינו משנה מודל |
@@ -451,7 +452,7 @@ training/
 כלל עבודה פשוט: `99_STATUS_RESUME.bat` אומר מה חסר, ו־BAT ממוספר אפשר להריץ
 שוב בבטחה. כל שלב שומר fingerprint של הקלט; שינוי ב־dataset, config, model או
 Firmware מסמן רק את השלבים התלויים בו כ־stale. החריגים המכוונים הם פעולות
-חומרה: 09 ו־12 דורשות מילת אישור, ו־RESET דורש `DELETE`.
+חומרה: 09 ו־12 דורשות מילת אישור, 13 דורש `ERASE ALL`, ו־RESET דורש `DELETE`.
 
 ## הכלים והספריות שבהם השתמשנו
 
@@ -868,6 +869,12 @@ version; reset מוחק את ההרצה.
   או מודל מחייב להריץ שוב `10_LOAD_RAM.bat` לפני שה־HIL ניגש ללוח;
 - לפני טעינת TensorFlow או איסוף frames הוא שולח `RPS ON` ו־`RPS STATUS`.
   image ישן, פקודה חסרה או `ready=0` נעצרים מיד עם הסבר ולא אחרי 100 frames;
+- הוא קורא את דגלי `APP_ST67W6X_*` מהקוד ומשווה אותם ל־`radio hardware` של
+  התמונה שרצה. כאשר radio פעיל הוא דורש manager=`ready`, ‏`W6X_Init=passed`
+  וגרסת SDK מדויקת לפי `radio_firmware/contract.json`;
+- כאשר BLE פעיל הוא דורש GATT ו־advertising, וסורק מהמחשב פרסום יחיד בשם
+  `N6-MAINT-xxxx` שמכיל את UUID שירות ה־CLI. כאשר Wi‑Fi פעיל הוא דורש גם
+  `wifi status` ו־scan מוצלח;
 - שני CRC לכל frame;
 - frame IDs מתקדמים ללא חזרה/קפיצה בלתי סבירה;
 - timeout אם התהליך נתקע;
@@ -875,7 +882,9 @@ version; reset מוחק את ההרצה.
 - אם TFLite קיים: prediction live על המחשב עם אותו preprocessing.
 - לפחות 80% מה־frames מכילים תוצאת NPU של אותו frame;
 - מונה ה־NPU עולה בכל תוצאה ואינו נתקע;
-- לפחות 95% התאמה בין class של TFLite ושל Neural‑ART;
+- לפחות 95% decision consistency בין TFLite ל־Neural‑ART. התאמת class ישירה
+  עוברת; גם החלפת argmax בגבול כמעט שווה עוברת רק אם margin שתי המחלקות מוסבר
+  במלואו על־ידי טולרנס ציוני ה־int8. סטייה מעבר לטולרנס עדיין נכשלת;
 - לפחות 20% טנזורי מודל שאינם שחורים ולפחות ארבעה טנזורים שונים, כדי שסצנה
   ריקה או קבועה לא תוכל לאשר בטעות נתיב NPU שאינו מקבל את הקלט החי;
 - הפרש מרבי שמוגדר ב־`config/training.json`. בפרופיל הלימודי הוא 16 יחידות
@@ -906,6 +915,26 @@ incremental, חתימת Non‑Secure, `.n6fw`, שליחת XMODEM דרך CN8, res
 תמונת ה־RAM המאומתת ממשיכה לרוץ, ו־Stage 12 משתמש בה להעברת XMODEM. ה־reset
 שהסקריפט מבצע בסוף יעלה אז את הגרסה החדשה מה־Flash החיצוני.
 
+### 13 — שחזור/התקנת מפעל למעגל ריק
+
+`13_FACTORY_PROVISION.bat` הוא מסלול נפרד והרסני. לאחר הקלדת `ERASE ALL` הוא
+מבצע full build/sign, מוחק את כל ה־NOR החיצוני, וכותב עם verify את FSBL ב־
+`0x70000000`, ‏Secure ב־`0x70100000`, ‏Slot A ב־`0x70180000` ושני עותקי
+metadata ב־`0x703E0000` וב־`0x703F0000`. לאחר החלפת jumpers ו־RESET הוא פותח
+את CN8 ודורש שהפקודה `version` תחזיר את גרסת המקור שנבנתה.
+אפשר להריץ `13_FACTORY_PROVISION.bat -BuildOnly` כדי לבדוק את כל תוצרי
+הבנייה והחתימה בלי למחוק או לכתוב חומרה. הבנייה יוצרת גם
+`FlashImages/factory-manifest.json` עם מספר הגרסה ו־SHA-256 לכל image.
+הרצה עם `-SkipBuild` תיעצר לפני מחיקה אם ה־manifest חסר, אם גרסת המקור השתנתה,
+או אם hash כלשהו אינו תואם. זיהוי CN8 משתמש גם ב־registry של Windows כאשר
+מדיניות המחשב חוסמת WMI/CIM.
+
+Full erase מוחק גם Slot B וכל trial/pending state. זה אינו תחליף ל־Stage 12:
+עדכון רגיל נשאר A/B אטומי דרך XMODEM ואינו מוחק את התמונה המאושרת. במעגל חדש
+שזקוק גם לעדכון NCP יש להריץ קודם את
+`..\radio_firmware\01_UPDATE_MODULE.bat`; המדריך המלא נמצא ב־
+[`../radio_firmware/README_HE.md`](../radio_firmware/README_HE.md).
+
 ## Resume וכללי אמינות
 
 - Raw samples הם append-only.
@@ -921,11 +950,13 @@ incremental, חתימת Non‑Secure, `.n6fw`, שליחת XMODEM דרך CN8, res
 ## סדר עבודה מומלץ ראשון
 
 1. `00_SETUP.bat`.
-2. `10_LOAD_RAM.bat` כדי להריץ FW עם `DATASET STREAM` בלי flash.
-3. לפחות 2 sessions של `01_CAPTURE.bat`, ובסך הכול 8 bursts לכל מחלקה.
-4. `03_VALIDATE.bat`; לצלם עוד אם class/session diversity חלשים.
-5. `BUILD_MODEL_FOR_N6.bat`.
-6. `09_BOOTSTRAP_NPU_SWD.bat` פעם אחת ללוח; להחזיר BOOT0/BOOT1 ל־1-2.
-7. `10_LOAD_RAM.bat` שוב כדי להריץ את המודל המשולב ב־SRAM.
-8. מיד לאחר מכן, בלי RESET, להריץ `11_HIL.bat` ולהמשיך רק אם PC ו־NPU עברו את השער.
-9. רק בסוף, `12_FLASH_RELEASE.bat` לגרסת flash שעולה אחרי RESET.
+2. במעגל חדש: `..\radio_firmware\01_UPDATE_MODULE.bat`, ואז
+   `13_FACTORY_PROVISION.bat`. בלוח שכבר מריץ את הפרויקט מדלגים עליהם.
+3. `10_LOAD_RAM.bat` כדי להריץ FW עם `DATASET STREAM` בלי flash.
+4. לפחות 2 sessions של `01_CAPTURE.bat`, ובסך הכול 8 bursts לכל מחלקה.
+5. `03_VALIDATE.bat`; לצלם עוד אם class/session diversity חלשים.
+6. `BUILD_MODEL_FOR_N6.bat`.
+7. `09_BOOTSTRAP_NPU_SWD.bat` פעם אחת ללוח; להחזיר BOOT0/BOOT1 ל־1-2.
+8. `10_LOAD_RAM.bat` שוב כדי להריץ את המודל המשולב ב־SRAM.
+9. מיד לאחר מכן, בלי RESET, להריץ `11_HIL.bat` ולהמשיך רק אם PC ו־NPU עברו את השער.
+10. רק בסוף, `12_FLASH_RELEASE.bat` לגרסת flash שעולה אחרי RESET.

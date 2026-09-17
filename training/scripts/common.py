@@ -257,7 +257,8 @@ def find_executable(name: str, env_var: str | None = None) -> Path | None:
 
 def environment_report() -> dict[str, Any]:
     modules = {}
-    for module_name in ("numpy", "PIL", "serial", "yaml", "tensorflow"):
+    for module_name in ("numpy", "PIL", "serial", "yaml", "tensorflow",
+                        "bleak"):
         try:
             module = __import__(module_name)
             modules[module_name] = getattr(module, "__version__", "installed")

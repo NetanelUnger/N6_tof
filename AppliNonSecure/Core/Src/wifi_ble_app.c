@@ -13,7 +13,25 @@
 #include "spi_iface.h"
 #include "w6x_api.h"
 
+/* Avoid including app_azure_rtos.h here: its generated USB-PD include graph
+ * collides with the Nucleo BSP types already pulled in through main.h. */
+extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
+
 #define WIFI_BLE_RX_BUFFER_SIZE (512U)
+
+#define BLE_CLI_RX_SLOT_COUNT       (8U)
+#define BLE_DEBUG_RX_SLOT_COUNT     (2U)
+#define BLE_CLI_TX_SLOT_COUNT       (8U)
+#define BLE_DEBUG_TX_SLOT_COUNT     (8U)
+#define BLE_RX_SLOT_PAYLOAD_SIZE    (WIFI_BLE_RX_BUFFER_SIZE)
+#define BLE_CLI_TX_SLOT_SIZE        (768U)
+#define BLE_DEBUG_TX_SLOT_SIZE      (256U)
+#define BLE_NOTIFY_TIMEOUT_MS       (100U)
+#define BLE_NOTIFY_MAX_ATTEMPTS     (3U)
+#define BLE_DEBUG_RX_POLICY_ENABLED (0U)
+#define BLE_STREAM_CONTEXT_BUDGET   (16U * 1024U)
+#define BLE_CLI_TX_MAX_WAIT_TICKS   ((TX_TIMER_TICKS_PER_SECOND >= 20U) ? \
+                                     (TX_TIMER_TICKS_PER_SECOND / 20U) : 1U)
 
 #define BLE_CLI_SERVICE_INDEX   (0U)
 #define BLE_DEBUG_SERVICE_INDEX (1U)
@@ -52,7 +70,65 @@ typedef struct
   const char *description;
 } WifiBle_GattCharacteristic_t;
 
+typedef struct
+{
+  uint32_t generation;
+  uint16_t length;
+  uint8_t data[BLE_RX_SLOT_PAYLOAD_SIZE];
+} WifiBle_RxSlot_t;
+
+typedef struct
+{
+  uint32_t generation;
+  uint16_t length;
+  uint16_t offset;
+  uint8_t retries;
+  uint8_t data[BLE_CLI_TX_SLOT_SIZE];
+} WifiBle_CliTxSlot_t;
+
+typedef struct
+{
+  uint32_t generation;
+  uint16_t length;
+  uint16_t offset;
+  uint8_t retries;
+  uint8_t data[BLE_DEBUG_TX_SLOT_SIZE];
+} WifiBle_DebugTxSlot_t;
+
+typedef struct
+{
+  TX_QUEUE cli_rx_free;
+  TX_QUEUE cli_rx_ready;
+  TX_QUEUE debug_rx_free;
+  TX_QUEUE debug_rx_ready;
+  TX_QUEUE cli_tx_free;
+  TX_QUEUE cli_tx_ready;
+  TX_QUEUE debug_tx_free;
+  TX_QUEUE debug_tx_ready;
+  ULONG cli_rx_free_storage[BLE_CLI_RX_SLOT_COUNT];
+  ULONG cli_rx_ready_storage[BLE_CLI_RX_SLOT_COUNT];
+  ULONG debug_rx_free_storage[BLE_DEBUG_RX_SLOT_COUNT];
+  ULONG debug_rx_ready_storage[BLE_DEBUG_RX_SLOT_COUNT];
+  ULONG cli_tx_free_storage[BLE_CLI_TX_SLOT_COUNT];
+  ULONG cli_tx_ready_storage[BLE_CLI_TX_SLOT_COUNT];
+  ULONG debug_tx_free_storage[BLE_DEBUG_TX_SLOT_COUNT];
+  ULONG debug_tx_ready_storage[BLE_DEBUG_TX_SLOT_COUNT];
+  WifiBle_RxSlot_t cli_rx_slots[BLE_CLI_RX_SLOT_COUNT];
+  WifiBle_RxSlot_t debug_rx_slots[BLE_DEBUG_RX_SLOT_COUNT];
+  WifiBle_CliTxSlot_t cli_tx_slots[BLE_CLI_TX_SLOT_COUNT];
+  WifiBle_DebugTxSlot_t debug_tx_slots[BLE_DEBUG_TX_SLOT_COUNT];
+  void *active_tx[WIFI_BLE_STREAM_COUNT];
+  WifiBle_StreamStatus_t stats[WIFI_BLE_STREAM_COUNT];
+} WifiBle_StreamContext_t;
+
+_Static_assert(sizeof(void *) <= sizeof(ULONG),
+               "ThreadX pointer queues require one ULONG per pointer");
+_Static_assert(sizeof(WifiBle_StreamContext_t) <= BLE_STREAM_CONTEXT_BUDGET,
+               "BLE stream queues exceeded their SRAM4 design budget");
+
 static uint8_t ble_receive_buffer[WIFI_BLE_RX_BUFFER_SIZE];
+static WifiBle_StreamContext_t *ble_stream_context;
+static TX_BYTE_POOL *ble_radio_pool;
 static const WifiBle_GattCharacteristic_t ble_characteristics[] =
 {
   {
@@ -87,6 +163,9 @@ static volatile uint32_t ble_cli_tx_subscribed;
 static volatile uint32_t ble_debug_tx_subscribed;
 static volatile uint32_t ble_rx_write_events;
 static volatile uint32_t ble_rx_discarded_bytes;
+static volatile uint32_t ble_session_generation;
+static volatile uint32_t ble_transport_ready;
+static volatile uint32_t ble_stream_flush_pending;
 static volatile uint32_t ble_init_stage = WIFI_BLE_INIT_STAGE_IDLE;
 static volatile int32_t ble_last_status;
 static volatile uint32_t ble_connect_pending;
@@ -103,6 +182,17 @@ static void wifi_event_callback(W6X_event_id_t event_id, void *event_args);
 static void ble_event_callback(W6X_event_id_t event_id, void *event_args);
 static W6X_Status_t ble_configure_gatt_server(void);
 static void ble_process_pending_events(void);
+static UINT ble_stream_initialize(void);
+static void ble_stream_enqueue_rx(WifiBle_Stream_t stream,
+                                  const uint8_t *data, uint32_t length);
+static void ble_stream_process_tx(WifiBle_Stream_t stream);
+static void ble_stream_purge_stale(void);
+static void ble_stream_drop_tx(WifiBle_Stream_t stream);
+static uint32_t ble_att_payload_size(void);
+static UINT ble_create_pointer_queue(TX_QUEUE *queue, CHAR *name,
+                                     ULONG *storage, ULONG slot_count);
+static void ble_purge_queue(TX_QUEUE *ready_queue, TX_QUEUE *free_queue,
+                            WifiBle_Stream_t stream, uint32_t is_tx);
 #endif
 static void error_callback(W6X_Status_t status, const char *function_name);
 static void log_output(const char *message);
@@ -181,12 +271,27 @@ void WIFI_BLE_App_Run(void)
   (void)vLoggingInit(log_output);
   LogInfo("\r\nST67W6X: starting dedicated Wi-Fi/BLE thread...\r\n");
 
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  if (ble_stream_initialize() != TX_SUCCESS)
+  {
+    LogError("ST67W6X BLE bounded-stream initialization failed.\r\n");
+    status = W6X_STATUS_ERROR;
+    goto error;
+  }
+#endif
+
   status = W6X_RegisterAppCb(&callbacks);
   if (status != W6X_STATUS_OK)
   {
     LogError("ST67W6X callback registration failed: %" PRIi32 "\r\n", status);
     goto error;
   }
+
+  LogInfo("ST67W6X pre-init pins: CHIP_EN=%lu BOOT=%lu CS=%lu SPI_RDY=%lu\r\n",
+          (unsigned long)HAL_GPIO_ReadPin(CHIP_EN_GPIO_Port, CHIP_EN_Pin),
+          (unsigned long)HAL_GPIO_ReadPin(BOOT_GPIO_Port, BOOT_Pin),
+          (unsigned long)HAL_GPIO_ReadPin(SPI_CS_GPIO_Port, SPI_CS_Pin),
+          (unsigned long)HAL_GPIO_ReadPin(SPI_RDY_GPIO_Port, SPI_RDY_Pin));
 
   status = W6X_Init();
   if (status != W6X_STATUS_OK)
@@ -226,7 +331,7 @@ void WIFI_BLE_App_Run(void)
   wifi_ble_state = WIFI_BLE_STATE_READY;
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   LogInfo("ST67W6X: BLE maintenance GATT server is advertising.\r\n");
-  LogInfo("ST67W6X: CLI/DEBUG payload routing and wireless update are not enabled yet.\r\n");
+  LogInfo("ST67W6X: bounded CLI/DEBUG streams ready; CLI parser, debug mirror and wireless update remain detached.\r\n");
 #elif (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
   LogInfo("ST67W6X: Wi-Fi station service is ready; no credentials are configured.\r\n");
 #else
@@ -238,7 +343,8 @@ void WIFI_BLE_App_Run(void)
   {
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
     ble_process_pending_events();
-    tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 20U);
+    tx_thread_sleep((TX_TIMER_TICKS_PER_SECOND >= 50U) ?
+                    (TX_TIMER_TICKS_PER_SECOND / 50U) : 1U);
 #else
     tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND);
 #endif
@@ -260,6 +366,8 @@ WifiBle_State_t WIFI_BLE_App_GetState(void)
 
 void WIFI_BLE_App_GetRuntimeStatus(WifiBle_RuntimeStatus_t *status)
 {
+  UINT posture;
+
   if (status == NULL)
   {
     return;
@@ -277,8 +385,40 @@ void WIFI_BLE_App_GetRuntimeStatus(WifiBle_RuntimeStatus_t *status)
   status->ble_debug_tx_subscribed = ble_debug_tx_subscribed;
   status->ble_rx_write_events = ble_rx_write_events;
   status->ble_rx_discarded_bytes = ble_rx_discarded_bytes;
+  status->ble_session_generation = ble_session_generation;
+  status->ble_att_payload_limit =
+      (ble_mtu > 3U) ? ((ble_mtu - 3U) < W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH ?
+                       (ble_mtu - 3U) : W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH) : 20U;
+  status->ble_transport_ready = ble_transport_ready;
+  status->ble_radio_pool_available = 0U;
+  status->ble_radio_pool_fragments = 0U;
   status->ble_init_stage = ble_init_stage;
   status->ble_last_status = ble_last_status;
+  (void)memset(status->ble_stream, 0, sizeof(status->ble_stream));
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  if (ble_stream_context != NULL)
+  {
+    status->ble_stream[WIFI_BLE_STREAM_CLI] =
+        ble_stream_context->stats[WIFI_BLE_STREAM_CLI];
+    status->ble_stream[WIFI_BLE_STREAM_DEBUG] =
+        ble_stream_context->stats[WIFI_BLE_STREAM_DEBUG];
+  }
+  (void)tx_interrupt_control(posture);
+  if (ble_radio_pool != NULL)
+  {
+    ULONG available = 0U;
+    ULONG fragments = 0U;
+    if (tx_byte_pool_info_get(ble_radio_pool, TX_NULL, &available, &fragments,
+                              TX_NULL, TX_NULL, TX_NULL) == TX_SUCCESS)
+    {
+      status->ble_radio_pool_available = available;
+      status->ble_radio_pool_fragments = fragments;
+    }
+  }
+#else
+  (void)posture;
+#endif
   (void)memcpy(status->ble_device_name, ble_device_name,
                sizeof(status->ble_device_name));
   (void)memcpy(status->ble_address, ble_address,
@@ -332,6 +472,213 @@ UINT WIFI_BLE_App_RequestDisconnect(void)
   }
   ble_disconnect_request = 1U;
   return TX_SUCCESS;
+}
+
+UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
+                              ULONG length, ULONG wait_option)
+{
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  TX_QUEUE *free_queue;
+  TX_QUEUE *ready_queue;
+  void *slot = NULL;
+  uint32_t subscribed;
+  ULONG capacity;
+  UINT posture;
+  UINT result;
+
+  if ((stream >= WIFI_BLE_STREAM_COUNT) || (buffer == NULL) || (length == 0U))
+  {
+    return TX_PTR_ERROR;
+  }
+  if ((ble_transport_ready == 0U) || (ble_connected == 0U) ||
+      (ble_stream_context == NULL))
+  {
+    return TX_NOT_AVAILABLE;
+  }
+
+  subscribed = (stream == WIFI_BLE_STREAM_CLI) ?
+               ble_cli_tx_subscribed : ble_debug_tx_subscribed;
+  if (subscribed == 0U)
+  {
+    return TX_NOT_AVAILABLE;
+  }
+
+  if (stream == WIFI_BLE_STREAM_CLI)
+  {
+    free_queue = &ble_stream_context->cli_tx_free;
+    ready_queue = &ble_stream_context->cli_tx_ready;
+    capacity = BLE_CLI_TX_SLOT_SIZE;
+    if ((wait_option == TX_WAIT_FOREVER) ||
+        (wait_option > BLE_CLI_TX_MAX_WAIT_TICKS))
+    {
+      wait_option = BLE_CLI_TX_MAX_WAIT_TICKS;
+    }
+  }
+  else
+  {
+    free_queue = &ble_stream_context->debug_tx_free;
+    ready_queue = &ble_stream_context->debug_tx_ready;
+    capacity = BLE_DEBUG_TX_SLOT_SIZE;
+    /* Debug mirroring is best-effort and must never stall its producer. */
+    wait_option = TX_NO_WAIT;
+  }
+
+  if (length > capacity)
+  {
+    posture = tx_interrupt_control(TX_INT_DISABLE);
+    ble_stream_context->stats[stream].tx_dropped_messages++;
+    ble_stream_context->stats[stream].tx_dropped_bytes += length;
+    (void)tx_interrupt_control(posture);
+    return TX_SIZE_ERROR;
+  }
+
+  result = tx_queue_receive(free_queue, &slot, wait_option);
+  if (result != TX_SUCCESS)
+  {
+    posture = tx_interrupt_control(TX_INT_DISABLE);
+    ble_stream_context->stats[stream].tx_dropped_messages++;
+    ble_stream_context->stats[stream].tx_dropped_bytes += length;
+    (void)tx_interrupt_control(posture);
+    return result;
+  }
+
+  if ((ble_connected == 0U) ||
+      (((stream == WIFI_BLE_STREAM_CLI) ? ble_cli_tx_subscribed :
+                                           ble_debug_tx_subscribed) == 0U))
+  {
+    (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+    return TX_NOT_AVAILABLE;
+  }
+
+  if (stream == WIFI_BLE_STREAM_CLI)
+  {
+    WifiBle_CliTxSlot_t *tx_slot = (WifiBle_CliTxSlot_t *)slot;
+    tx_slot->generation = ble_session_generation;
+    tx_slot->length = (uint16_t)length;
+    tx_slot->offset = 0U;
+    tx_slot->retries = 0U;
+    (void)memcpy(tx_slot->data, buffer, length);
+  }
+  else
+  {
+    WifiBle_DebugTxSlot_t *tx_slot = (WifiBle_DebugTxSlot_t *)slot;
+    tx_slot->generation = ble_session_generation;
+    tx_slot->length = (uint16_t)length;
+    tx_slot->offset = 0U;
+    tx_slot->retries = 0U;
+    (void)memcpy(tx_slot->data, buffer, length);
+  }
+
+  result = tx_queue_send(ready_queue, &slot, TX_NO_WAIT);
+  if (result != TX_SUCCESS)
+  {
+    (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+    posture = tx_interrupt_control(TX_INT_DISABLE);
+    ble_stream_context->stats[stream].tx_dropped_messages++;
+    ble_stream_context->stats[stream].tx_dropped_bytes += length;
+    (void)tx_interrupt_control(posture);
+    return result;
+  }
+
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  ble_stream_context->stats[stream].tx_messages++;
+  ble_stream_context->stats[stream].tx_bytes += length;
+  ble_stream_context->stats[stream].tx_queued++;
+  if (ble_stream_context->stats[stream].tx_queued >
+      ble_stream_context->stats[stream].tx_high_water)
+  {
+    ble_stream_context->stats[stream].tx_high_water =
+        ble_stream_context->stats[stream].tx_queued;
+  }
+  (void)tx_interrupt_control(posture);
+  return TX_SUCCESS;
+#else
+  (void)stream;
+  (void)buffer;
+  (void)length;
+  (void)wait_option;
+  return TX_NOT_AVAILABLE;
+#endif
+}
+
+UINT WIFI_BLE_App_StreamRead(WifiBle_Stream_t stream, void *buffer,
+                             ULONG capacity, ULONG *actual_length,
+                             ULONG wait_option)
+{
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  TX_QUEUE *free_queue;
+  TX_QUEUE *ready_queue;
+  WifiBle_RxSlot_t *slot = NULL;
+  UINT result;
+  UINT posture;
+
+  if (actual_length != NULL)
+  {
+    *actual_length = 0U;
+  }
+  if ((stream >= WIFI_BLE_STREAM_COUNT) || (buffer == NULL) ||
+      (actual_length == NULL))
+  {
+    return TX_PTR_ERROR;
+  }
+  if ((ble_transport_ready == 0U) || (ble_stream_context == NULL))
+  {
+    return TX_NOT_AVAILABLE;
+  }
+
+  free_queue = (stream == WIFI_BLE_STREAM_CLI) ?
+               &ble_stream_context->cli_rx_free :
+               &ble_stream_context->debug_rx_free;
+  ready_queue = (stream == WIFI_BLE_STREAM_CLI) ?
+                &ble_stream_context->cli_rx_ready :
+                &ble_stream_context->debug_rx_ready;
+
+  do
+  {
+    result = tx_queue_receive(ready_queue, &slot, wait_option);
+    if (result != TX_SUCCESS)
+    {
+      return result;
+    }
+    posture = tx_interrupt_control(TX_INT_DISABLE);
+    if (ble_stream_context->stats[stream].rx_queued != 0U)
+    {
+      ble_stream_context->stats[stream].rx_queued--;
+    }
+    (void)tx_interrupt_control(posture);
+
+    if (slot->generation != ble_session_generation)
+    {
+      (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+      posture = tx_interrupt_control(TX_INT_DISABLE);
+      ble_stream_context->stats[stream].stale_drops++;
+      (void)tx_interrupt_control(posture);
+      slot = NULL;
+      wait_option = TX_NO_WAIT;
+    }
+  } while (slot == NULL);
+
+  *actual_length = slot->length;
+  if (capacity < slot->length)
+  {
+    (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+    return TX_SIZE_ERROR;
+  }
+
+  (void)memcpy(buffer, slot->data, slot->length);
+  (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+  return TX_SUCCESS;
+#else
+  (void)stream;
+  (void)buffer;
+  (void)capacity;
+  (void)wait_option;
+  if (actual_length != NULL)
+  {
+    *actual_length = 0U;
+  }
+  return TX_NOT_AVAILABLE;
+#endif
 }
 
 void HAL_GPIO_EXTI_Rising_Callback(uint16_t gpio_pin)
@@ -396,14 +743,17 @@ static void ble_event_callback(W6X_event_id_t event_id, void *event_args)
   {
     if (event != NULL)
     {
+      ble_session_generation++;
       ble_connected = 1U;
       ble_advertising = 0U;
       ble_connection_handle = event->remote_ble_device.conn_handle;
       ble_connect_pending = 1U;
+      ble_stream_flush_pending = 1U;
     }
   }
   else if (event_id == W6X_BLE_EVT_DISCONNECTED_ID)
   {
+    ble_session_generation++;
     ble_connected = 0U;
     ble_connect_pending = 0U;
     ble_connection_handle = 0xFFU;
@@ -411,6 +761,7 @@ static void ble_event_callback(W6X_event_id_t event_id, void *event_args)
     ble_debug_tx_subscribed = 0U;
     ble_mtu = 23U;
     ble_restart_advertising_pending = 1U;
+    ble_stream_flush_pending = 1U;
   }
   else if ((event_id == W6X_BLE_EVT_NOTIFICATION_STATUS_ENABLED_ID) ||
            (event_id == W6X_BLE_EVT_NOTIFICATION_STATUS_DISABLED_ID))
@@ -435,11 +786,505 @@ static void ble_event_callback(W6X_event_id_t event_id, void *event_args)
   }
   else if ((event_id == W6X_BLE_EVT_WRITE_ID) && (event != NULL))
   {
-    /* The GATT endpoints exist in this stage, but no byte stream is attached
-     * yet.  Account for every dropped write so validation cannot mistake an
-     * accepted ATT write for an operational CLI/debug transport. */
     ble_rx_write_events++;
-    ble_rx_discarded_bytes += event->available_data_length;
+    if ((ble_connected == 0U) ||
+        (event->remote_ble_device.conn_handle != ble_connection_handle) ||
+        (event->charac_idx != BLE_RX_CHAR_INDEX) ||
+        (event->available_data_length == 0U) ||
+        (event->available_data_length > sizeof(ble_receive_buffer)))
+    {
+      ble_rx_discarded_bytes += event->available_data_length;
+    }
+    else if (event->service_idx == BLE_CLI_SERVICE_INDEX)
+    {
+      ble_stream_enqueue_rx(WIFI_BLE_STREAM_CLI, ble_receive_buffer,
+                            event->available_data_length);
+    }
+    else if (event->service_idx == BLE_DEBUG_SERVICE_INDEX)
+    {
+#if (BLE_DEBUG_RX_POLICY_ENABLED == 1U)
+      ble_stream_enqueue_rx(WIFI_BLE_STREAM_DEBUG, ble_receive_buffer,
+                            event->available_data_length);
+#else
+      UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+      ble_rx_discarded_bytes += event->available_data_length;
+      if (ble_stream_context != NULL)
+      {
+        ble_stream_context->stats[WIFI_BLE_STREAM_DEBUG].rx_dropped_events++;
+        ble_stream_context->stats[WIFI_BLE_STREAM_DEBUG].rx_dropped_bytes +=
+            event->available_data_length;
+      }
+      (void)tx_interrupt_control(posture);
+#endif
+    }
+    else
+    {
+      ble_rx_discarded_bytes += event->available_data_length;
+    }
+  }
+}
+
+static UINT ble_create_pointer_queue(TX_QUEUE *queue, CHAR *name,
+                                     ULONG *storage, ULONG slot_count)
+{
+  return tx_queue_create(queue, name, TX_1_ULONG, storage,
+                         slot_count * (ULONG)sizeof(ULONG));
+}
+
+static UINT ble_stream_initialize(void)
+{
+  VOID *memory = TX_NULL;
+  ULONG available = 0U;
+  ULONG fragments = 0U;
+  void *slot;
+
+  ble_radio_pool = MX_RadioBytePool_Get();
+  if ((ble_radio_pool == NULL) ||
+      (tx_byte_allocate(ble_radio_pool, &memory,
+                        (ULONG)sizeof(WifiBle_StreamContext_t),
+                        TX_NO_WAIT) != TX_SUCCESS))
+  {
+    return TX_POOL_ERROR;
+  }
+
+  ble_stream_context = (WifiBle_StreamContext_t *)memory;
+  (void)memset(ble_stream_context, 0, sizeof(*ble_stream_context));
+
+  if ((ble_create_pointer_queue(&ble_stream_context->cli_rx_free,
+                                "BLE CLI RX free",
+                                ble_stream_context->cli_rx_free_storage,
+                                BLE_CLI_RX_SLOT_COUNT) != TX_SUCCESS) ||
+      (ble_create_pointer_queue(&ble_stream_context->cli_rx_ready,
+                                "BLE CLI RX ready",
+                                ble_stream_context->cli_rx_ready_storage,
+                                BLE_CLI_RX_SLOT_COUNT) != TX_SUCCESS) ||
+      (ble_create_pointer_queue(&ble_stream_context->debug_rx_free,
+                                "BLE debug RX free",
+                                ble_stream_context->debug_rx_free_storage,
+                                BLE_DEBUG_RX_SLOT_COUNT) != TX_SUCCESS) ||
+      (ble_create_pointer_queue(&ble_stream_context->debug_rx_ready,
+                                "BLE debug RX ready",
+                                ble_stream_context->debug_rx_ready_storage,
+                                BLE_DEBUG_RX_SLOT_COUNT) != TX_SUCCESS) ||
+      (ble_create_pointer_queue(&ble_stream_context->cli_tx_free,
+                                "BLE CLI TX free",
+                                ble_stream_context->cli_tx_free_storage,
+                                BLE_CLI_TX_SLOT_COUNT) != TX_SUCCESS) ||
+      (ble_create_pointer_queue(&ble_stream_context->cli_tx_ready,
+                                "BLE CLI TX ready",
+                                ble_stream_context->cli_tx_ready_storage,
+                                BLE_CLI_TX_SLOT_COUNT) != TX_SUCCESS) ||
+      (ble_create_pointer_queue(&ble_stream_context->debug_tx_free,
+                                "BLE debug TX free",
+                                ble_stream_context->debug_tx_free_storage,
+                                BLE_DEBUG_TX_SLOT_COUNT) != TX_SUCCESS) ||
+      (ble_create_pointer_queue(&ble_stream_context->debug_tx_ready,
+                                "BLE debug TX ready",
+                                ble_stream_context->debug_tx_ready_storage,
+                                BLE_DEBUG_TX_SLOT_COUNT) != TX_SUCCESS))
+  {
+    return TX_QUEUE_ERROR;
+  }
+
+  for (uint32_t i = 0U; i < BLE_CLI_RX_SLOT_COUNT; ++i)
+  {
+    slot = &ble_stream_context->cli_rx_slots[i];
+    if (tx_queue_send(&ble_stream_context->cli_rx_free, &slot,
+                      TX_NO_WAIT) != TX_SUCCESS)
+    {
+      return TX_QUEUE_ERROR;
+    }
+  }
+  for (uint32_t i = 0U; i < BLE_DEBUG_RX_SLOT_COUNT; ++i)
+  {
+    slot = &ble_stream_context->debug_rx_slots[i];
+    if (tx_queue_send(&ble_stream_context->debug_rx_free, &slot,
+                      TX_NO_WAIT) != TX_SUCCESS)
+    {
+      return TX_QUEUE_ERROR;
+    }
+  }
+  for (uint32_t i = 0U; i < BLE_CLI_TX_SLOT_COUNT; ++i)
+  {
+    slot = &ble_stream_context->cli_tx_slots[i];
+    if (tx_queue_send(&ble_stream_context->cli_tx_free, &slot,
+                      TX_NO_WAIT) != TX_SUCCESS)
+    {
+      return TX_QUEUE_ERROR;
+    }
+  }
+  for (uint32_t i = 0U; i < BLE_DEBUG_TX_SLOT_COUNT; ++i)
+  {
+    slot = &ble_stream_context->debug_tx_slots[i];
+    if (tx_queue_send(&ble_stream_context->debug_tx_free, &slot,
+                      TX_NO_WAIT) != TX_SUCCESS)
+    {
+      return TX_QUEUE_ERROR;
+    }
+  }
+
+  ble_transport_ready = 1U;
+  if (tx_byte_pool_info_get(ble_radio_pool, TX_NULL, &available, &fragments,
+                            TX_NULL, TX_NULL, TX_NULL) == TX_SUCCESS)
+  {
+    LogInfo("ST67W6X BLE streams: %lu-byte context, radio pool %lu bytes free in %lu fragments.\r\n",
+            (unsigned long)sizeof(*ble_stream_context),
+            (unsigned long)available, (unsigned long)fragments);
+  }
+  return TX_SUCCESS;
+}
+
+static void ble_stream_enqueue_rx(WifiBle_Stream_t stream,
+                                  const uint8_t *data, uint32_t length)
+{
+  TX_QUEUE *free_queue;
+  TX_QUEUE *ready_queue;
+  WifiBle_RxSlot_t *slot = NULL;
+  UINT posture;
+
+  if ((ble_stream_context == NULL) || (data == NULL) ||
+      (stream >= WIFI_BLE_STREAM_COUNT) ||
+      (length > BLE_RX_SLOT_PAYLOAD_SIZE))
+  {
+    ble_rx_discarded_bytes += length;
+    return;
+  }
+
+  free_queue = (stream == WIFI_BLE_STREAM_CLI) ?
+               &ble_stream_context->cli_rx_free :
+               &ble_stream_context->debug_rx_free;
+  ready_queue = (stream == WIFI_BLE_STREAM_CLI) ?
+                &ble_stream_context->cli_rx_ready :
+                &ble_stream_context->debug_rx_ready;
+
+  if (tx_queue_receive(free_queue, &slot, TX_NO_WAIT) != TX_SUCCESS)
+  {
+    posture = tx_interrupt_control(TX_INT_DISABLE);
+    ble_rx_discarded_bytes += length;
+    ble_stream_context->stats[stream].rx_dropped_events++;
+    ble_stream_context->stats[stream].rx_dropped_bytes += length;
+    (void)tx_interrupt_control(posture);
+    return;
+  }
+
+  slot->generation = ble_session_generation;
+  slot->length = (uint16_t)length;
+  (void)memcpy(slot->data, data, length);
+  if (tx_queue_send(ready_queue, &slot, TX_NO_WAIT) != TX_SUCCESS)
+  {
+    (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+    posture = tx_interrupt_control(TX_INT_DISABLE);
+    ble_rx_discarded_bytes += length;
+    ble_stream_context->stats[stream].rx_dropped_events++;
+    ble_stream_context->stats[stream].rx_dropped_bytes += length;
+    (void)tx_interrupt_control(posture);
+    return;
+  }
+
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  ble_stream_context->stats[stream].rx_events++;
+  ble_stream_context->stats[stream].rx_bytes += length;
+  ble_stream_context->stats[stream].rx_queued++;
+  if (ble_stream_context->stats[stream].rx_queued >
+      ble_stream_context->stats[stream].rx_high_water)
+  {
+    ble_stream_context->stats[stream].rx_high_water =
+        ble_stream_context->stats[stream].rx_queued;
+  }
+  (void)tx_interrupt_control(posture);
+}
+
+static uint32_t ble_att_payload_size(void)
+{
+  uint32_t payload = (ble_mtu > 3U) ? (ble_mtu - 3U) : 20U;
+  if (payload > W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH)
+  {
+    payload = W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH;
+  }
+  return payload;
+}
+
+static void ble_stream_process_tx(WifiBle_Stream_t stream)
+{
+  TX_QUEUE *free_queue;
+  TX_QUEUE *ready_queue;
+  void *slot;
+  uint8_t *data;
+  uint16_t *length;
+  uint16_t *offset;
+  uint8_t *retries;
+  uint32_t generation;
+  uint32_t fragment;
+  uint32_t sent = 0U;
+  uint32_t subscribed;
+  W6X_Status_t result;
+  UINT posture;
+
+  if ((ble_stream_context == NULL) || (stream >= WIFI_BLE_STREAM_COUNT))
+  {
+    return;
+  }
+
+  subscribed = (stream == WIFI_BLE_STREAM_CLI) ?
+               ble_cli_tx_subscribed : ble_debug_tx_subscribed;
+  if ((ble_connected == 0U) || (subscribed == 0U))
+  {
+    ble_stream_drop_tx(stream);
+    return;
+  }
+
+  free_queue = (stream == WIFI_BLE_STREAM_CLI) ?
+               &ble_stream_context->cli_tx_free :
+               &ble_stream_context->debug_tx_free;
+  ready_queue = (stream == WIFI_BLE_STREAM_CLI) ?
+                &ble_stream_context->cli_tx_ready :
+                &ble_stream_context->debug_tx_ready;
+  slot = ble_stream_context->active_tx[stream];
+  if (slot == NULL)
+  {
+    if (tx_queue_receive(ready_queue, &slot, TX_NO_WAIT) != TX_SUCCESS)
+    {
+      return;
+    }
+    ble_stream_context->active_tx[stream] = slot;
+  }
+
+  if (stream == WIFI_BLE_STREAM_CLI)
+  {
+    WifiBle_CliTxSlot_t *tx_slot = (WifiBle_CliTxSlot_t *)slot;
+    generation = tx_slot->generation;
+    length = &tx_slot->length;
+    offset = &tx_slot->offset;
+    retries = &tx_slot->retries;
+    data = tx_slot->data;
+  }
+  else
+  {
+    WifiBle_DebugTxSlot_t *tx_slot = (WifiBle_DebugTxSlot_t *)slot;
+    generation = tx_slot->generation;
+    length = &tx_slot->length;
+    offset = &tx_slot->offset;
+    retries = &tx_slot->retries;
+    data = tx_slot->data;
+  }
+
+  if (generation != ble_session_generation)
+  {
+    ble_stream_context->active_tx[stream] = NULL;
+    (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+    posture = tx_interrupt_control(TX_INT_DISABLE);
+    if (ble_stream_context->stats[stream].tx_queued != 0U)
+    {
+      ble_stream_context->stats[stream].tx_queued--;
+    }
+    ble_stream_context->stats[stream].stale_drops++;
+    (void)tx_interrupt_control(posture);
+    return;
+  }
+
+  fragment = (uint32_t)(*length - *offset);
+  if (fragment > ble_att_payload_size())
+  {
+    fragment = ble_att_payload_size();
+  }
+  result = W6X_Ble_ServerNotify((uint8_t)ble_connection_handle,
+                                (stream == WIFI_BLE_STREAM_CLI) ?
+                                BLE_CLI_SERVICE_INDEX : BLE_DEBUG_SERVICE_INDEX,
+                                BLE_TX_CHAR_INDEX, &data[*offset], fragment,
+                                &sent, BLE_NOTIFY_TIMEOUT_MS);
+  if ((result == W6X_STATUS_OK) && (sent != 0U))
+  {
+    if (sent > fragment)
+    {
+      sent = fragment;
+    }
+    *offset = (uint16_t)(*offset + sent);
+    *retries = 0U;
+    posture = tx_interrupt_control(TX_INT_DISABLE);
+    ble_stream_context->stats[stream].tx_sent_bytes += sent;
+    (void)tx_interrupt_control(posture);
+    if (*offset >= *length)
+    {
+      ble_stream_context->active_tx[stream] = NULL;
+      (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+      posture = tx_interrupt_control(TX_INT_DISABLE);
+      if (ble_stream_context->stats[stream].tx_queued != 0U)
+      {
+        ble_stream_context->stats[stream].tx_queued--;
+      }
+      (void)tx_interrupt_control(posture);
+    }
+    return;
+  }
+
+  (*retries)++;
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  ble_stream_context->stats[stream].tx_retries++;
+  ble_stream_context->stats[stream].tx_errors++;
+  (void)tx_interrupt_control(posture);
+  if (*retries >= BLE_NOTIFY_MAX_ATTEMPTS)
+  {
+    uint32_t dropped = (uint32_t)(*length - *offset);
+    ble_stream_context->active_tx[stream] = NULL;
+    (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+    posture = tx_interrupt_control(TX_INT_DISABLE);
+    if (ble_stream_context->stats[stream].tx_queued != 0U)
+    {
+      ble_stream_context->stats[stream].tx_queued--;
+    }
+    ble_stream_context->stats[stream].tx_dropped_messages++;
+    ble_stream_context->stats[stream].tx_dropped_bytes += dropped;
+    (void)tx_interrupt_control(posture);
+  }
+}
+
+static void ble_purge_queue(TX_QUEUE *ready_queue, TX_QUEUE *free_queue,
+                            WifiBle_Stream_t stream, uint32_t is_tx)
+{
+  ULONG count = 0U;
+  void *slot;
+
+  (void)tx_queue_info_get(ready_queue, TX_NULL, &count, TX_NULL, TX_NULL,
+                          TX_NULL, TX_NULL);
+  for (ULONG i = 0U; i < count; ++i)
+  {
+    uint32_t generation = 0U;
+    if (tx_queue_receive(ready_queue, &slot, TX_NO_WAIT) != TX_SUCCESS)
+    {
+      break;
+    }
+    (void)memcpy(&generation, slot, sizeof(generation));
+    if (generation == ble_session_generation)
+    {
+      (void)tx_queue_send(ready_queue, &slot, TX_NO_WAIT);
+    }
+    else
+    {
+      UINT posture;
+      (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+      posture = tx_interrupt_control(TX_INT_DISABLE);
+      if (is_tx != 0U)
+      {
+        if (ble_stream_context->stats[stream].tx_queued != 0U)
+        {
+          ble_stream_context->stats[stream].tx_queued--;
+        }
+      }
+      else if (ble_stream_context->stats[stream].rx_queued != 0U)
+      {
+        ble_stream_context->stats[stream].rx_queued--;
+      }
+      ble_stream_context->stats[stream].stale_drops++;
+      (void)tx_interrupt_control(posture);
+    }
+  }
+}
+
+static void ble_stream_purge_stale(void)
+{
+  if (ble_stream_context == NULL)
+  {
+    return;
+  }
+
+  ble_purge_queue(&ble_stream_context->cli_rx_ready,
+                  &ble_stream_context->cli_rx_free,
+                  WIFI_BLE_STREAM_CLI, 0U);
+  ble_purge_queue(&ble_stream_context->debug_rx_ready,
+                  &ble_stream_context->debug_rx_free,
+                  WIFI_BLE_STREAM_DEBUG, 0U);
+  ble_purge_queue(&ble_stream_context->cli_tx_ready,
+                  &ble_stream_context->cli_tx_free,
+                  WIFI_BLE_STREAM_CLI, 1U);
+  ble_purge_queue(&ble_stream_context->debug_tx_ready,
+                  &ble_stream_context->debug_tx_free,
+                  WIFI_BLE_STREAM_DEBUG, 1U);
+
+  for (uint32_t i = 0U; i < WIFI_BLE_STREAM_COUNT; ++i)
+  {
+    void *slot = ble_stream_context->active_tx[i];
+    uint32_t generation = 0U;
+    if (slot == NULL)
+    {
+      continue;
+    }
+    (void)memcpy(&generation, slot, sizeof(generation));
+    if (generation != ble_session_generation)
+    {
+      TX_QUEUE *free_queue = (i == WIFI_BLE_STREAM_CLI) ?
+                             &ble_stream_context->cli_tx_free :
+                             &ble_stream_context->debug_tx_free;
+      UINT posture;
+      ble_stream_context->active_tx[i] = NULL;
+      (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+      posture = tx_interrupt_control(TX_INT_DISABLE);
+      if (ble_stream_context->stats[i].tx_queued != 0U)
+      {
+        ble_stream_context->stats[i].tx_queued--;
+      }
+      ble_stream_context->stats[i].stale_drops++;
+      (void)tx_interrupt_control(posture);
+    }
+  }
+}
+
+static void ble_stream_drop_tx(WifiBle_Stream_t stream)
+{
+  TX_QUEUE *free_queue;
+  TX_QUEUE *ready_queue;
+  void *slot;
+  UINT posture;
+
+  if ((ble_stream_context == NULL) || (stream >= WIFI_BLE_STREAM_COUNT))
+  {
+    return;
+  }
+  free_queue = (stream == WIFI_BLE_STREAM_CLI) ?
+               &ble_stream_context->cli_tx_free :
+               &ble_stream_context->debug_tx_free;
+  ready_queue = (stream == WIFI_BLE_STREAM_CLI) ?
+                &ble_stream_context->cli_tx_ready :
+                &ble_stream_context->debug_tx_ready;
+
+  slot = ble_stream_context->active_tx[stream];
+  if (slot != NULL)
+  {
+    uint32_t dropped;
+    if (stream == WIFI_BLE_STREAM_CLI)
+    {
+      WifiBle_CliTxSlot_t *tx_slot = (WifiBle_CliTxSlot_t *)slot;
+      dropped = (uint32_t)(tx_slot->length - tx_slot->offset);
+    }
+    else
+    {
+      WifiBle_DebugTxSlot_t *tx_slot = (WifiBle_DebugTxSlot_t *)slot;
+      dropped = (uint32_t)(tx_slot->length - tx_slot->offset);
+    }
+    ble_stream_context->active_tx[stream] = NULL;
+    (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+    posture = tx_interrupt_control(TX_INT_DISABLE);
+    if (ble_stream_context->stats[stream].tx_queued != 0U)
+    {
+      ble_stream_context->stats[stream].tx_queued--;
+    }
+    ble_stream_context->stats[stream].tx_dropped_messages++;
+    ble_stream_context->stats[stream].tx_dropped_bytes += dropped;
+    (void)tx_interrupt_control(posture);
+  }
+  while (tx_queue_receive(ready_queue, &slot, TX_NO_WAIT) == TX_SUCCESS)
+  {
+    uint32_t dropped = (stream == WIFI_BLE_STREAM_CLI) ?
+        ((WifiBle_CliTxSlot_t *)slot)->length :
+        ((WifiBle_DebugTxSlot_t *)slot)->length;
+    (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
+    posture = tx_interrupt_control(TX_INT_DISABLE);
+    if (ble_stream_context->stats[stream].tx_queued != 0U)
+    {
+      ble_stream_context->stats[stream].tx_queued--;
+    }
+    ble_stream_context->stats[stream].tx_dropped_messages++;
+    ble_stream_context->stats[stream].tx_dropped_bytes += dropped;
+    (void)tx_interrupt_control(posture);
   }
 }
 
@@ -566,6 +1411,12 @@ static W6X_Status_t ble_configure_gatt_server(void)
 
 static void ble_process_pending_events(void)
 {
+  if (ble_stream_flush_pending != 0U)
+  {
+    ble_stream_flush_pending = 0U;
+    ble_stream_purge_stale();
+  }
+
   if (ble_disconnect_request != 0U)
   {
     W6X_Status_t status;
@@ -645,6 +1496,12 @@ static void ble_process_pending_events(void)
                status);
     }
   }
+
+  /* One ATT fragment per stream and manager cycle is the notification-credit
+   * window.  It bounds module call time and prevents DEBUG from monopolizing
+   * the CLI stream while keeping every W6X send in this owner thread. */
+  ble_stream_process_tx(WIFI_BLE_STREAM_CLI);
+  ble_stream_process_tx(WIFI_BLE_STREAM_DEBUG);
 }
 #endif
 

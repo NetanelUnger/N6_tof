@@ -16,6 +16,11 @@ General host-driven hardware validation tools live in
 interactive BLE scan, selected-device connection, and complete GATT discovery
 report without writing characteristics or changing firmware.
 
+The self-contained ST67W611M1 NCP update lane is documented in
+[radio_firmware/README_HE.md](radio_firmware/README_HE.md). It bundles the
+licensed ST mission-T01 SDK 2.0.106 image, QConn Windows tool, integrity
+contract, and a guided BAT that always attempts to restore the STM32 FSBL.
+
 This document explains the architecture, STM32CubeMX configuration, post-generation changes, RTOS tasks, build and programming flow, debugging strategy, and current engineering status of the project.
 
 The goal is not only to describe how to run the firmware, but also to explain why it is structured this way and how to reason about failures.
@@ -49,8 +54,8 @@ Current status:
 | USB CDC | Working; Windows creates a separate COM port backed by a manager task, independent RX/TX workers, callback-driven TX, and fixed static slots |
 | USB CDC XMODEM firmware update | Working for a signed physical CN8 transfer and confirmed trial boot; interruption and deliberate rollback fault-injection tests remain pending |
 | GC9A01 round display | Working from SRAM: the DMA-backed task renders the numbered ToF map and its frame-matched NPU summary; 38/38 submitted frames rendered with zero errors in the latest non-visual HIL check |
-| Rock/paper/scissors Neural-ART | Working on hardware; the current model passed frame-exact Stage 11 HIL with 100% host/NPU class agreement |
-| ST67 Wi-Fi/BLE | SPI/AT identity and BLE maintenance GATT are enabled; two logical UART services advertise/connect, while application payload routing and Wi-Fi remain disabled |
+| Rock/paper/scissors Neural-ART | Working on hardware; Stage 11 validates frame-exact results, bit-exact preprocessing, bounded raw-score error, and tolerance-aware decision consistency |
+| ST67 Wi-Fi/BLE | SPI/AT identity and BLE maintenance GATT are enabled; Stage 11 verifies the source/runtime flags, NCP SDK version, GATT state, and a real host BLE advertisement scan; Wi-Fi services remain disabled |
 | Wi-Fi/BLE OTA transport | Not implemented; it can reuse the authenticated byte-stream installer when the radio is enabled |
 
 ### 1.1 Latest hardware validation
@@ -100,6 +105,16 @@ installation and confirmed trial boot. Deliberate interruption during transfer,
 invalid-signature/version injection, and reset-before-confirm rollback remain
 separate tests; one successful installation does not prove all recovery paths.
 
+On 2026-09-16, the RAM workflow was repeated after hardening CDC against the
+Windows configured-but-closed state. Application TX/RX is now gated by DTR, so
+leaving CN8 unopened no longer consumes all three data-plane recovery attempts
+before Stage 12. Stage 10 reached ThreadX, and the extended Stage 11 passed 100
+CRC-valid frames, 100/100 frame-matched Neural-ART results, bit-exact device/
+Python preprocessing, NCP SDK 2.0.106 validation, and an external scan of the
+`N6-MAINT-B8FB` CLI-service advertisement. A separate guided factory lane now
+full-erases and verifies the entire external NOR before checking the booted
+version through CN8.
+
 ### 1.2 Repository layout and local reference material
 
 The `project` directory is the intended Git repository root. Generated Debug
@@ -116,9 +131,10 @@ under `.local-dependencies`:
 - `diagnostics` — temporary investigation files and build logs.
 
 That directory is not required after cloning. The exact ST67 network-driver
-source used by the build is vendored under `ThirdParty/ST67W6X_Network_Driver`
-together with its license, so the repository remains self-contained even
-while the radio feature is disabled.
+source used by the build is vendored under `ThirdParty/ST67W6X_Network_Driver`.
+The separate `radio_firmware` directory contains the licensed NCP/QConn binary
+update set and SHA-256 contract. Together they keep both compilation and NCP
+provisioning reproducible without the ignored local X-CUBE download.
 
 ## 2. Four execution contexts and TrustZone
 
@@ -758,18 +774,27 @@ AppliNonSecure/Core/Inc/app_features.h:
 
 BLE advertises as `N6-MAINT-xxxx` with separate CLI and DEBUG services. Each
 has a writable RX characteristic and an independently subscribable Notify TX
-characteristic. In this discovery-only stage RX writes are counted and
-discarded, and no CLI/debug bytes or XMODEM data are routed. Wi-Fi does not call
-`W6X_WiFi_Init()`.
+characteristic. CLI RX is copied into an 8x512-byte bounded queue; CLI TX uses
+8x768-byte slots. DEBUG TX is an independent best-effort 8x256-byte queue,
+while DEBUG RX remains explicitly disabled by policy. Every slot carries the
+connection generation, and the Radio Manager fragments TX to `MTU-3`, caps
+retries, and drops stale work after reconnect. BLE now has an independent
+5,272-byte parser/editor/history/output session allocated from SRAM4 only after
+the vendor radio initialization reaches READY. The
+single priority-9 CLI broker services CDC and BLE without sharing partial-line
+or history state; command backends remain serialized. BLE XMODEM, binary
+map/dataset streams and unauthenticated reboot remain blocked. The DEBUG
+mirror is not attached yet. Wi-Fi does not call `W6X_WiFi_Init()`.
 
 The radio build uses a dedicated 64 KiB ThreadX byte pool at
 `0x242D0000..0x242DFFFF` in currently unused SRAM4. Its general SRAM2 pool is
-151 KiB rather than 159 KiB. The BLE-GATT build preserves 379,584 bytes of C
-heap, 10,944 bytes above the enforced 360 KiB transform floor. The linker and
-build preflight enforce the pool bounds, while
+151 KiB rather than 159 KiB. The bounded-stream build preserves 375,072 bytes
+of C heap, 6,432 bytes above the enforced 360 KiB transform floor. The linker and
+build preflight enforce the pool bounds. The current BLE-CLI build preserves
+371,808 bytes of C heap, 3,168 bytes above the enforced floor, while
 Stage 08 rejects generated NPU networks that select SRAM4.
 
-Wi-Fi and BLE application data transport remain disabled. The
+Wi-Fi application data transport and BLE application producers remain disabled. The
 transport-independent installer is present: inactive A/B slots,
 chunk bounds checks, SHA-256 plus ECDSA-P256, increasing-version policy, atomic
 activation, trial confirmation, and rollback. A future ST67 task should only
@@ -813,7 +838,9 @@ CFSR_NS = 0x00100000 means STKOF on Cortex-M55. The value 0xEFEFEFEF is the Thre
 
 - `Tools/build_and_sign.ps1 -FirmwareVersion <n>` clean-builds the required
   contexts, creates STM32 version-2.3 trusted images, creates factory metadata,
-  and signs `N6-Firmware-v<n>.n6fw` with the shared educational update key.
+  signs `N6-Firmware-v<n>.n6fw` with the shared educational update key, and
+  records the version plus SHA-256 of every factory image in
+  `FlashImages/factory-manifest.json`.
 - `Tools/New-FirmwareSigningKey.ps1` creates a development P-256 key once. The
   designated private blob and generated public-key header are both tracked for
   this reproducible educational project; neither is suitable for production.
@@ -821,6 +848,18 @@ CFSR_NS = 0x00100000 means STKOF on Cortex-M55. The value 0xEFEFEFEF is the Thre
   Non-Secure image with an explicit increasing firmware version.
 - `Tools/program_flash.ps1` programs and verifies FSBL, Secure, factory Slot A,
   and both default metadata copies in external NOR.
+- `training/13_FACTORY_PROVISION.bat` wraps a complete build/sign plus
+  `program_flash.ps1 -FullErase`, requires `ERASE ALL`, and verifies the
+  running version through CN8. Use it for a blank board or an intentional
+  factory reset, never as the ordinary release lane. `-BuildOnly` validates
+  every generated factory artifact without touching hardware. `-SkipBuild`
+  is accepted only when the manifest version still equals the source version
+  and every recorded image hash matches, so stale artifacts are rejected
+  before the erase begins.
+- `radio_firmware/01_UPDATE_MODULE.bat` programs the bundled ST67 mission-T01
+  SDK 2.0.106 NCP image through the ST-LINK VCP. It verifies all inputs by
+  SHA-256, retries QConn once, and restores the project or ST reference FSBL in
+  a `finally` path.
 
 ## 6. Changes outside CubeMX USER CODE
 
@@ -850,6 +889,13 @@ Not every edit outside USER CODE is automatically dangerous. There are three cat
 Most functional Secure changes, RIF releases, cached-vector logic, USBX task changes, stack overrides, and additional ThreadX tasks are inside USER CODE blocks.
 
 ### 6.2 Imported/demo files intentionally changed outside USER CODE
+
+The vendored ST67 driver is intentionally patched in
+`ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c`. Its transfer
+worker yields for one ThreadX tick after every eight continuously serviceable
+packets. This bounds CPU monopolization if `SPI_RDY` is stuck HIGH without
+discarding pending work. Re-importing the X-CUBE driver can overwrite this
+hardening and must be followed by a diff review and HIL rebuild.
 
 The X-CUBE-53L9A1 platform files are not CubeMX-generated project files. They were ported from the H563 demo to N657:
 
@@ -1028,7 +1074,7 @@ Separate pools help diagnose failures. A PSP address can be matched to a pool to
 The upper 176 KiB of NPU SRAM3 (`0x24244000..0x2426FFFF`) holds the CDC worker
 stacks/slots, RPS preprocessing scratch, and the transient ToF depth frame. The
 current `.npu_shared_bss` uses all 180,224 bytes of that reservation. Moving
-these deterministic large objects out of SRAM2 leaves 379,584 bytes between the
+these deterministic large objects out of SRAM2 leaves 375,072 bytes between the
 current `_end` symbol and the reserved MSP stack, above the 360 KiB VL53L9
 guard. The generated network uses 17,408
 bytes in SRAM5 for its input/activations and 55,425 bytes in SRAM6 for its
@@ -1166,6 +1212,19 @@ powershell.exe -ExecutionPolicy Bypass -File .\project\Tools\program_flash.ps1 -
 ~~~
 
 FullErase erases the entire external NOR and must not be the default action.
+The guided and verified factory-new equivalent is:
+
+~~~text
+training\13_FACTORY_PROVISION.bat
+~~~
+
+It requires the exact phrase `ERASE ALL`, builds/signs before erasing, writes
+FSBL, Secure, Slot A, and both metadata copies with programmer verification,
+then asks for external-Flash boot jumpers and verifies the running firmware
+version over CN8. CN8 discovery falls back to the Windows USB-enumeration
+registry when WMI/CIM access is restricted. A new board whose ST67 NCP must also be provisioned should
+first run `radio_firmware\01_UPDATE_MODULE.bat`; see its Hebrew README for the
+temporary-host/FSBL restore sequence.
 
 To recover the FSBL while preserving both application slots and the current
 pending/trial metadata:
@@ -1307,8 +1366,93 @@ arm-none-eabi-addr2line.exe -a -f -C -e .\project\AppliNonSecure\Debug\N6_AppliN
 
 ## 12. Change log
 
+### 2026-09-17
+
+- Completed a physical factory-new test on the NUCLEO-N657X0-Q: full external
+  NOR mass erase, verified programming of FSBL, Secure, Slot A, and both boot
+  metadata copies, external-Flash boot, and CN8 confirmation of firmware
+  version 3 all passed.
+- Added a versioned SHA-256 factory manifest. `Factory-Provision.ps1
+  -SkipBuild` now refuses stale, missing, or modified artifacts before any
+  destructive erase. CN8 auto-detection now has a registry fallback for hosts
+  where WMI/CIM enumeration is denied.
+- Re-ran Stage 11 on the final factory image: the ST67 manager and SDK 2.0.106,
+  live `N6-MAINT-B8FB` BLE advertisement, 100 CRC-valid sensor frames, bit-exact
+  preprocessing, and 100/100 frame-matched Neural-ART decisions all passed.
+
+### 2026-09-16
+
+- Fixed the Stage 12 pre-transfer CDC failure. USBX may remain configured when
+  no Windows COM handle is open, but application RX/TX now also requires DTR.
+  An unopened CN8 therefore remains idle instead of timing out three menu
+  writes, exhausting data-plane recovery, and causing the later XMODEM sender
+  to fail with a host write timeout.
+- Extended Stage 11 to derive the radio/BLE/Wi-Fi expectations from
+  `app_features.h`, compare those flags with the running image, validate the
+  ST67 manager and SDK against `radio_firmware/contract.json`, scan the live
+  BLE advertisement and CLI service UUID, and conditionally execute a Wi-Fi
+  station/scan check. The same run passed 100 CRC-valid frame-exact Neural-ART
+  comparisons. Near-equal argmax results now use a mathematically bounded
+  decision-consistency gate while the raw int8 delta limit remains strict.
+- Added `radio_firmware`, including the licensed ST mission-T01 SDK 2.0.106
+  binaries, QConn Windows dependencies, hash verification, guided jumper flow,
+  bounded retry, and fail-safe FSBL restoration. Added the destructive
+  `training/13_FACTORY_PROVISION.bat` lane for build/sign, full NOR erase,
+  verified complete image programming, and CN8 boot-version verification.
+- Removed version-specific CubeProgrammer plugin paths from the signing and
+  flash scripts; both now discover the installed CubeIDE plugin dynamically.
+- Diagnosed the apparent ST67 initialization hang as a target-power collapse:
+  the ST-LINK reported only 0.12 V after the combined Nucleo, ToF, display and
+  radio load was powered through a busy USB hub. Moving CN10 to a capable USB
+  port restored 3.28 V. The RAM image then completed `W6X_Init`, read the NCP
+  identity and 3.324 V module supply, registered both UART-like GATT services,
+  advertised `N6-MAINT-B8FB`, allocated the independent BLE CLI session from
+  SRAM4, and kept the ToF pipeline alive. Host scanning found the advertisement
+  at approximately -61 dBm. Windows still returned WinRT `0x80004005` before a
+  link reached the module, so characteristic write/notification HIL remains
+  pending on a working central; this is not evidence of a GATT-side rejection.
+- Hardened the vendored ST67 SPI worker against a permanently asserted
+  `SPI_RDY`: after each eight-packet burst it sleeps for one ThreadX tick. This
+  preserves pending multi-packet work while preventing the vendor priority-3
+  compatibility task from starving diagnostics, modem-init timeouts and the
+  rest of the application during a wiring, boot-mode or protocol fault. Added
+  one pre-`W6X_Init` pin snapshot. The incremental build passes with a
+  375,908-byte binary and 371,520-byte C heap, 2,880 bytes above the enforced
+  360 KiB floor.
+- Implemented plan item 10 in software: the CLI broker now owns independent
+  CDC and BLE parser, line editor, CR/LF, history, prompt, and output state.
+  BLE writes are consumed in bounded bursts and replies are queued for
+  MTU-aware notification fragmentation. Session generation changes reset only
+  BLE parser state and do not tear down the CDC session. `MAP DISPLAY ON|OFF`
+  is accepted as an alias for `MAP ON|OFF DISPLAY`. BLE explicitly rejects
+  binary map/dataset streaming, firmware update, and reboot until the required
+  authenticated control/update protocol exists. Concurrent CDC/BLE command
+  exchange, reconnect, and slow-subscriber phone HIL remain to be recorded.
+
 ### 2026-09-14
 
+- Implemented plan item 9: the Radio Manager now owns bounded CLI/DEBUG BLE
+  stream queues allocated from its SRAM4 byte pool. Slots carry a connection
+  generation, reconnect purges stale work, TX is fragmented to negotiated
+  `MTU-3`, CLI backpressure is capped at 50 ms, DEBUG TX is best-effort, and
+  notification calls use a 100 ms timeout with three attempts. `ble status`
+  reports queue depth/high-water, accepted/sent/dropped bytes, retry/error
+  counts, generation, ATT payload and live radio-pool availability. DEBUG RX,
+  the CLI parser, debug mirroring, XMODEM and privileged commands remain
+  detached.
+- Extended `hil_tests/ble_inspector.py` with unique-N6 selection, explicit
+  UTF-8/hex writes, independent CLI/DEBUG subscriptions and fragment capture.
+  The RAM image reached Non-Secure/ThreadX and advertised `N6-MAINT-B8FB` after
+  integration. Two Windows connection attempts returned an unspecified WinRT
+  error before GATT access, so the new stream path is build-verified but its
+  final write/notify HIL remains pending a board/adapter reset. The current
+  binary is 372,380 bytes and leaves 375,072 bytes of C heap, 6,432 bytes above
+  the enforced floor.
+- Hardened `Debug-NonSecureRam.ps1` startup detection for Windows systems where
+  `Get-NetTCPConnection` does not attribute the listener to the launcher PID;
+  it now also accepts the GDB server's explicit ready message. RAM loading then
+  completed through FSBL, local Secure, Non-Secure `main`, SRAM3 clear and
+  ThreadX without modifying external NOR.
 - Raised the ST67 Radio Manager from priority 11 to priority 9 so initialization
   and its short event loop cannot be starved by the continuously-ready
   priority-10 ToF processor. An attempted post-run SWD state probe was rejected
@@ -1922,9 +2066,9 @@ arm-none-eabi-addr2line.exe -a -f -C -e .\project\AppliNonSecure\Debug\N6_AppliN
 5. Move CubeMX-managed outside-USER changes into custom files or a reproducible patch process.
 6. Validate BLE advertising, both GATT services, CCCD state, MTU exchange, and
    reconnect behavior on hardware while ToF/display/CDC continue running.
-7. Add generation-tagged bounded BLE RX/TX queues and MTU-aware
-   fragmentation/backpressure in the Radio Manager before attaching CLI or
-   debug output.
+7. Complete BLE stream HIL after resetting the board and Windows adapter, then
+   attach a distinct CLI parser/output session while keeping DEBUG best-effort
+   and privileged commands disabled.
 8. Repeat CN8 XMODEM installation across both A/B directions and validate
    interruption during transfer, invalid signature/version rejection, and
    reset-before-confirm rollback on hardware. One signed installation and

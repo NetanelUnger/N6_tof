@@ -1,9 +1,4 @@
-"""Interactive BLE scan, connection, and GATT-discovery HIL utility.
-
-The tool deliberately performs no characteristic reads, writes, or
-subscriptions.  It is the non-destructive discovery layer used before the N6
-BLE UART data paths are attached.
-"""
+"""Interactive BLE scan, GATT-discovery, and bounded-stream HIL utility."""
 
 from __future__ import annotations
 
@@ -35,6 +30,16 @@ N6_REQUIRED_PROPERTIES = {
     "7a1e0003-b5a3-f393-e0a9-e50e24dcca9e": {"notify"},
     "7a1e0102-b5a3-f393-e0a9-e50e24dcca9e": {"write", "write-without-response"},
     "7a1e0103-b5a3-f393-e0a9-e50e24dcca9e": {"notify"},
+}
+N6_STREAM_UUIDS = {
+    "cli": {
+        "rx": "7a1e0002-b5a3-f393-e0a9-e50e24dcca9e",
+        "tx": "7a1e0003-b5a3-f393-e0a9-e50e24dcca9e",
+    },
+    "debug": {
+        "rx": "7a1e0102-b5a3-f393-e0a9-e50e24dcca9e",
+        "tx": "7a1e0103-b5a3-f393-e0a9-e50e24dcca9e",
+    },
 }
 
 
@@ -146,7 +151,20 @@ def evaluate_n6_gatt(services: Sequence[dict[str, Any]]) -> dict[str, Any]:
 
 
 def resolve_device(records: Sequence["ScanRecord"], selector: str) -> "ScanRecord":
-    """Resolve a one-based scan index or an exact BLE address."""
+    """Resolve a one-based scan index, exact BLE address, or unique N6."""
+
+    if selector.casefold() == "n6":
+        matches = [
+            record for record in records
+            if str(record.advertisement.local_name or record.device.name or "")
+            .startswith("N6-MAINT-")
+            or "7a1e0001-b5a3-f393-e0a9-e50e24dcca9e" in {
+                str(uuid).lower() for uuid in record.advertisement.service_uuids
+            }
+        ]
+        if len(matches) != 1:
+            raise ValueError(f"expected one N6 advertiser, found {len(matches)}")
+        return matches[0]
 
     try:
         index = int(selector, 10)
@@ -179,6 +197,8 @@ class BleInspector:
         self.records: list[ScanRecord] = []
         self.client: Any | None = None
         self.connected_record: ScanRecord | None = None
+        self.subscriptions: set[str] = set()
+        self.notifications: dict[str, list[str]] = {"cli": [], "debug": []}
 
     def write_report(self, command: str, ok: bool, **payload: Any) -> None:
         report = {
@@ -213,6 +233,7 @@ class BleInspector:
                    if self.connected_record is not None else None)
         self.client = None
         self.connected_record = None
+        self.subscriptions.clear()
         print(f"\n[BLE] disconnected from {address or 'unknown peer'}")
 
     async def scan(self, timeout: float) -> None:
@@ -266,23 +287,42 @@ class BleInspector:
         name = (record.advertisement.local_name or record.device.name
                 or "<unnamed>")
         print(f"Connecting to {name} ({record.device.address})...")
-        client = BleakClient(record.device,
-                            disconnected_callback=self.on_disconnect,
-                            timeout=self.connect_timeout)
-        self.client = client
-        self.connected_record = record
-        try:
-            await client.connect()
-            if not client.is_connected:
-                raise RuntimeError(
-                    "BLE backend returned without an active connection")
-        except Exception:
-            if client.is_connected:
-                await client.disconnect()
-            if self.client is client:
-                self.client = None
-                self.connected_record = None
-            raise
+        # The address-type-neutral WinRT overload can fail with E_FAIL for an
+        # otherwise connectable peripheral. Try it first, then the two explicit
+        # address types. This remains bounded and is harmless on a failed link:
+        # no GATT write is issued until one attempt is fully connected.
+        attempts = (
+            ("automatic", {}),
+            ("public", {"winrt": {"address_type": "public"}}),
+            ("random", {"winrt": {"address_type": "random"}}),
+        )
+        last_error: Exception | None = None
+        for address_type, backend_options in attempts:
+            client = BleakClient(
+                record.device,
+                disconnected_callback=self.on_disconnect,
+                timeout=self.connect_timeout,
+                **backend_options,
+            )
+            self.client = client
+            self.connected_record = record
+            try:
+                await client.connect()
+                if not client.is_connected:
+                    raise RuntimeError(
+                        "BLE backend returned without an active connection")
+                break
+            except Exception as error:
+                last_error = error
+                if client.is_connected:
+                    await client.disconnect()
+                if self.client is client:
+                    self.client = None
+                    self.connected_record = None
+                print(f"  {address_type} address attempt failed: {error}")
+        else:
+            assert last_error is not None
+            raise last_error
         result = self.connection_status()
         self.write_report("connect", True, connection=result)
         print(f"Connected: {result['address']} (MTU {result['mtu']})")
@@ -330,6 +370,72 @@ class BleInspector:
                           n6_gatt_contract=n6_contract)
         print(f"Saved {len(services)} service(s) to {self.report_path}")
 
+    def require_connection(self) -> Any:
+        if self.client is None or not self.client.is_connected:
+            raise RuntimeError("connect before accessing a characteristic")
+        return self.client
+
+    @staticmethod
+    def resolve_stream(name: str) -> str:
+        stream = name.casefold()
+        if stream not in N6_STREAM_UUIDS:
+            raise ValueError("stream must be 'cli' or 'debug'")
+        return stream
+
+    async def write_stream(self, stream_name: str, payload: bytes) -> None:
+        client = self.require_connection()
+        stream = self.resolve_stream(stream_name)
+        if not payload:
+            raise ValueError("payload must not be empty")
+        await client.write_gatt_char(N6_STREAM_UUIDS[stream]["rx"], payload,
+                                     response=True)
+        result = {
+            "stream": stream,
+            "length": len(payload),
+            "hex": bytes_to_hex(payload),
+            "connection": self.connection_status(),
+        }
+        self.write_report("write", True, write=result)
+        print(f"Wrote {len(payload)} byte(s) to {stream.upper()} RX.")
+
+    async def subscribe(self, stream_name: str) -> None:
+        client = self.require_connection()
+        stream = self.resolve_stream(stream_name)
+        if stream in self.subscriptions:
+            print(f"Already subscribed to {stream.upper()} TX.")
+            return
+
+        def notification_handler(_characteristic: Any, data: bytearray) -> None:
+            encoded = bytes_to_hex(data)
+            self.notifications[stream].append(encoded)
+            print(f"\n[{stream.upper()} TX] {len(data)} byte(s): {encoded}")
+
+        await client.start_notify(N6_STREAM_UUIDS[stream]["tx"],
+                                  notification_handler)
+        self.subscriptions.add(stream)
+        self.write_report("subscribe", True, stream=stream,
+                          connection=self.connection_status())
+        print(f"Subscribed to {stream.upper()} TX notifications.")
+
+    async def unsubscribe(self, stream_name: str) -> None:
+        client = self.require_connection()
+        stream = self.resolve_stream(stream_name)
+        if stream not in self.subscriptions:
+            print(f"Not subscribed to {stream.upper()} TX.")
+            return
+        await client.stop_notify(N6_STREAM_UUIDS[stream]["tx"])
+        self.subscriptions.remove(stream)
+        self.write_report("unsubscribe", True, stream=stream,
+                          connection=self.connection_status())
+        print(f"Unsubscribed from {stream.upper()} TX notifications.")
+
+    def show_notifications(self) -> None:
+        result = {stream: list(values)
+                  for stream, values in self.notifications.items()}
+        print(json.dumps(result, indent=2))
+        self.write_report("notifications", True, notifications=result,
+                          connection=self.connection_status())
+
     async def disconnect(self) -> None:
         client = self.client
         address = (str(self.connected_record.device.address)
@@ -369,6 +475,21 @@ class BleInspector:
             self.show_status()
         elif command == "services" and len(arguments) == 1:
             self.show_services()
+        elif command == "write-text" and len(arguments) >= 3:
+            await self.write_stream(arguments[1],
+                                    " ".join(arguments[2:]).encode("utf-8"))
+        elif command == "write-hex" and len(arguments) == 3:
+            try:
+                payload = bytes.fromhex(arguments[2])
+            except ValueError as exc:
+                raise ValueError("hex payload is invalid") from exc
+            await self.write_stream(arguments[1], payload)
+        elif command == "subscribe" and len(arguments) == 2:
+            await self.subscribe(arguments[1])
+        elif command == "unsubscribe" and len(arguments) == 2:
+            await self.unsubscribe(arguments[1])
+        elif command == "notifications" and len(arguments) == 1:
+            self.show_notifications()
         elif command == "disconnect" and len(arguments) == 1:
             await self.disconnect()
         else:
@@ -406,9 +527,17 @@ def print_help() -> None:
     print("""Commands:
   scan [seconds]           scan all nearby BLE advertisers
   devices                 print the most recent scan again
-  connect <index|address> connect using a result from the latest scan
+  connect <index|address|n6>
+                          connect using a result or the unique N6 advertiser
   status                  report the current connection and negotiated MTU
   services                list every service, characteristic, property, and descriptor
+  write-text <stream> <text...>
+                          write UTF-8 to CLI or DEBUG RX with ATT response
+  write-hex <stream> <hex>
+                          write exact bytes to CLI or DEBUG RX with ATT response
+  subscribe <stream>      enable CLI or DEBUG TX notifications
+  unsubscribe <stream>    disable CLI or DEBUG TX notifications
+  notifications           show received notification fragments as hex
   disconnect              close the active BLE connection
   quit                     disconnect and exit
 """)

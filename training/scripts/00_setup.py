@@ -21,7 +21,7 @@ def main() -> int:
     report["checked_utc"] = utc_now()
     report_path = REPORTS_ROOT / "environment.json"
     atomic_json(report_path, report)
-    required = ("numpy", "PIL", "serial", "yaml")
+    required = ("numpy", "PIL", "serial", "yaml", "bleak")
     missing = [name for name in required
                if str(report["modules"][name]).startswith("missing")]
     if missing:

@@ -15,9 +15,31 @@ from dataset import (flatten_binary_silhouette, load_device_model_input_record,
                      resize_nearest_centered, save_depth_sample)
 from common import TRAINING_ROOT, atomic_json, load_json
 from protocol import (VERSION_V2, VERSION_V3, FrameReader, build_test_record)
+from radio_hil import load_feature_flags, validate_radio_cli
 
 
 def main() -> int:
+    feature_flags = load_feature_flags(TRAINING_ROOT.parent)
+    assert feature_flags == {"radio": True, "ble": True, "wifi": False}
+    radio_text = """
+ST67 hardware baseline:
+  build: radio enabled, BLE GATT enabled, Wi-Fi services disabled
+ST67 radio status:
+  manager: ready
+  W6X_Init: passed
+  BLE maintenance GATT: ready, advertising: on, link: disconnected
+  Wi-Fi services: disabled
+SDK: 2.0.106.0, AT: 1.0.0.0
+BLE GATT: ready, link: disconnected, advertising: on, MTU: 23
+BLE init stage: 13, last W6X status: 0
+Name: N6-MAINT-1234
+Address: 00:11:22:33:44:55
+"""
+    radio_report = validate_radio_cli(radio_text, feature_flags, "2.0.106")
+    assert radio_report["result"] == "pass"
+    assert radio_report["observed_sdk_version"] == "2.0.106"
+    assert radio_report["ble"]["device_name"] == "N6-MAINT-1234"
+
     with tempfile.TemporaryDirectory() as temporary_root:
         state_path = Path(temporary_root) / "state.json"
         real_replace = __import__("os").replace

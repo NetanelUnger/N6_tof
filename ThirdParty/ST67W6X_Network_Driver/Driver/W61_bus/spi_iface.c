@@ -65,6 +65,9 @@
 #define SPI_RXQ_LEN                     8U
 #endif /* SPI_RXQ_LEN */
 
+/** Maximum packets serviced before letting lower-priority ThreadX work run. */
+#define SPI_XFER_MAX_CONTIGUOUS_BURST   8U
+
 /** Maximum digits for 64-bit integer string representation */
 #define STR64BIT_DIGIT                  (20 + 1)
 
@@ -811,7 +814,15 @@ static int32_t spi_do_xfer(struct spi_xfer_engine *engine, uint32_t flags)
   struct spi_buffer *txbuf;
   int32_t rx_pending;
   int32_t wait_txn_rdy;
+  uint32_t burst_count = 0U;
 
+  /*
+   * The NCP owns SPI_RDY. If a boot-mode, wiring or protocol fault holds it
+   * high, the original unbounded loop keeps this high-priority worker ready
+   * forever and can starve the ThreadX application. A one-tick pause after a
+   * bounded burst preserves pending work and normal multi-packet transfers,
+   * while allowing modem-init timeouts and diagnostics to run.
+   */
   while (true)
   {
     /* Get txbuf */
@@ -845,6 +856,13 @@ static int32_t spi_do_xfer(struct spi_xfer_engine *engine, uint32_t flags)
       spi_trace(SPI_TP_DEASSERT_CS, "Deassert CS\n");
       (void)spi_port_set_cs(0);
       engine->state = SPI_XFER_STATE_TXN_DONE;
+
+      burst_count++;
+      if (burst_count >= SPI_XFER_MAX_CONTIGUOUS_BURST)
+      {
+        burst_count = 0U;
+        vTaskDelay(pdMS_TO_TICKS(1U));
+      }
     }
     else
     {
