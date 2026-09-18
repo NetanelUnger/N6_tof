@@ -23,6 +23,31 @@ typedef enum
   WIFI_BLE_STREAM_COUNT
 } WifiBle_Stream_t;
 
+/* The ToF image characteristic carries exact little-endian float32 samples.
+ * A logical frame is split across self-describing BLE notifications; the
+ * receiver must validate the complete payload CRC before displaying it. */
+#define WIFI_BLE_TOF_IMAGE_UUID             "7a1e0004-b5a3-f393-e0a9-e50e24dcca9e"
+#define WIFI_BLE_TOF_FRAGMENT_MAGIC         (0x364EU) /* bytes "N6" */
+#define WIFI_BLE_TOF_FRAGMENT_VERSION       (1U)
+#define WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE   (20U)
+#define WIFI_BLE_TOF_FRAGMENT_FLAG_START    (1U << 0)
+#define WIFI_BLE_TOF_FRAGMENT_FLAG_END      (1U << 1)
+#define WIFI_BLE_TOF_PIXEL_FORMAT_FLOAT32_LE (1U)
+
+typedef struct
+{
+  uint32_t frames_submitted;
+  uint32_t frames_sent;
+  uint32_t frames_dropped_busy;
+  uint32_t frames_aborted;
+  uint32_t fragments_sent;
+  uint32_t bytes_sent;
+  uint32_t retries;
+  uint32_t errors;
+  uint32_t last_submitted_frame;
+  uint32_t last_sent_frame;
+} WifiBle_TofImageStatus_t;
+
 typedef struct
 {
   uint32_t rx_queued;
@@ -74,6 +99,7 @@ typedef struct
   uint32_t ble_mtu;
   uint32_t ble_cli_tx_subscribed;
   uint32_t ble_debug_tx_subscribed;
+  uint32_t ble_tof_image_subscribed;
   uint32_t ble_rx_write_events;
   uint32_t ble_rx_discarded_bytes;
   uint32_t ble_session_generation;
@@ -84,6 +110,7 @@ typedef struct
   uint32_t ble_init_stage;
   int32_t ble_last_status;
   WifiBle_StreamStatus_t ble_stream[WIFI_BLE_STREAM_COUNT];
+  WifiBle_TofImageStatus_t ble_tof_image;
   char ble_device_name[WIFI_BLE_DEVICE_NAME_SIZE];
   uint8_t ble_address[WIFI_BLE_ADDRESS_SIZE];
 } WifiBle_RuntimeStatus_t;
@@ -121,5 +148,9 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
 UINT WIFI_BLE_App_StreamRead(WifiBle_Stream_t stream, void *buffer,
                              ULONG capacity, ULONG *actual_length,
                              ULONG wait_option);
+uint32_t WIFI_BLE_App_IsTofImageSubscribed(void);
+UINT WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
+                                  const float *pixels, uint8_t width,
+                                  uint8_t height);
 
 #endif /* WIFI_BLE_APP_H */

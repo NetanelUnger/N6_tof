@@ -32,7 +32,7 @@
 #define CLI_MAX_ARGUMENTS       (8)
 #define CLI_HISTORY_DEPTH       (16U)
 #define CLI_WIFI_SCAN_MAX_APS   (15U)
-#define CLI_BLE_RX_BURST        (4U)
+#define CLI_BLE_RX_BURST        (8U)
 #define CLI_BLE_TX_WAIT_TICKS   (TX_TIMER_TICKS_PER_SECOND / 20U)
 
 typedef enum
@@ -65,6 +65,7 @@ typedef struct
 
 static CliSession_t cli_usb_session;
 static CliSession_t *cli_active_session = &cli_usb_session;
+static CliSession_t *cli_update_session;
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static CliSession_t *cli_ble_session;
 extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
@@ -100,9 +101,11 @@ static Menu_Status_t cli_session_init(CliSession_t *session,
                                       CliTransport_t transport);
 static UINT cli_session_write(CliSession_t *session, const void *buffer,
                               ULONG length);
+static int32_t cli_update_write(const void *buffer, size_t length,
+                                void *context);
 static void cli_session_reset(CliSession_t *session, uint32_t stop_usb_streams);
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
-static void cli_poll_ble(void);
+static void __attribute__((optimize("Os"))) cli_poll_ble(void);
 static uint32_t cli_ble_session_allocate(void);
 #endif
 static int cli_split_arguments(char *line, char *argv[], int max_arguments);
@@ -167,7 +170,7 @@ static void cli_wifi_connect_password(const char *password);
 static void cli_wifi_scan_callback(int32_t status, W6X_WiFi_Scan_Result_t *results);
 #endif
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
-static void cli_ble_status(void);
+static void __attribute__((optimize("Os"))) cli_ble_status(void);
 #endif
 
 /*
@@ -287,12 +290,22 @@ void Debug_CLI_Run(void)
 
     if (App_Console_IsReady() == 0U)
     {
-      Firmware_Update_Cancel();
+      if ((Firmware_Update_IsActive() != 0U) &&
+          (cli_update_session == &cli_usb_session))
+      {
+        Firmware_Update_Cancel();
+      }
       if (cli_cdc_session_ready != 0U)
       {
         cli_session_reset(&cli_usb_session, 1U);
       }
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+      tx_thread_sleep(((Firmware_Update_IsActive() != 0U) &&
+                       (cli_update_session == cli_ble_session)) ?
+                      1U : (TX_TIMER_TICKS_PER_SECOND / 10U));
+#else
       tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 10U);
+#endif
       continue;
     }
 
@@ -301,6 +314,18 @@ void Debug_CLI_Run(void)
       cli_cdc_session_ready = 1U;
       cli_enter_console();
     }
+
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+    /* Do not block for a CDC packet while BLE owns XMODEM.  Its RX queue is
+     * deliberately shallow and must be drained fast enough that ATT writes
+     * receive protocol-level ACK/NAK rather than being silently discarded. */
+    if ((Firmware_Update_IsActive() != 0U) &&
+        (cli_update_session == cli_ble_session))
+    {
+      tx_thread_sleep(1U);
+      continue;
+    }
+#endif
 
     UINT status = App_Console_Read(rx_buffer, sizeof(rx_buffer), &actual_length);
     if (status != TX_SUCCESS)
@@ -311,7 +336,8 @@ void Debug_CLI_Run(void)
       continue;
     }
 
-    if (Firmware_Update_IsActive() != 0U)
+    if ((Firmware_Update_IsActive() != 0U) &&
+        (cli_update_session == &cli_usb_session))
     {
       Firmware_Update_Feed(rx_buffer, (size_t)actual_length, HAL_GetTick());
       Firmware_Update_Poll(HAL_GetTick());
@@ -329,7 +355,8 @@ void Debug_CLI_Run(void)
     for (ULONG i = 0U; i < actual_length; ++i)
     {
       cli_process_byte(rx_buffer[i]);
-      if (Firmware_Update_IsActive() != 0U)
+      if ((Firmware_Update_IsActive() != 0U) &&
+          (cli_update_session == &cli_usb_session))
       {
         ULONG next = i + 1U;
         ULONG remaining;
@@ -448,7 +475,7 @@ static uint32_t cli_ble_session_allocate(void)
   return 1U;
 }
 
-static void cli_poll_ble(void)
+static void __attribute__((optimize("Os"))) cli_poll_ble(void)
 {
   WifiBle_RuntimeStatus_t runtime;
   uint8_t rx_buffer[CLI_BLE_RX_CHUNK_SIZE];
@@ -467,6 +494,11 @@ static void cli_poll_ble(void)
   if ((runtime.ble_transport_ready == 0U) ||
       (runtime.ble_connected == 0U))
   {
+    if ((Firmware_Update_IsActive() != 0U) &&
+        (cli_update_session == cli_ble_session))
+    {
+      Firmware_Update_Cancel();
+    }
     if (cli_ble_session->session_ready != 0U)
     {
       Debug_UART_Log("CLI", "BLE CLI session closed (generation %lu)",
@@ -520,9 +552,35 @@ static void cli_poll_ble(void)
                      (unsigned int)rx_buffer[0]);
     }
 
+    if ((Firmware_Update_IsActive() != 0U) &&
+        (cli_update_session == cli_ble_session))
+    {
+      Firmware_Update_Feed(rx_buffer, (size_t)actual_length, HAL_GetTick());
+      Firmware_Update_Poll(HAL_GetTick());
+      continue;
+    }
+
     for (ULONG i = 0U; i < actual_length; ++i)
     {
       cli_process_byte(rx_buffer[i]);
+      if ((Firmware_Update_IsActive() != 0U) &&
+          (cli_update_session == cli_ble_session))
+      {
+        ULONG next = i + 1U;
+        if ((rx_buffer[i] == '\r') && (next < actual_length) &&
+            (rx_buffer[next] == '\n'))
+        {
+          next++;
+        }
+        if (next < actual_length)
+        {
+          Firmware_Update_Feed(&rx_buffer[next],
+                               (size_t)(actual_length - next),
+                               HAL_GetTick());
+          Firmware_Update_Poll(HAL_GetTick());
+        }
+        break;
+      }
     }
   }
 
@@ -735,7 +793,7 @@ static void cli_enter_console(void)
             NATI_LAB_FIRMWARE_VERSION_TEXT "\r\n");
   if (cli_active_session->transport == CLI_TRANSPORT_BLE)
   {
-    cli_print("  BLE CLI session; update/reboot and binary streams are locked.\r\n"
+    cli_print("  BLE CLI supports the signed XMODEM updater and dedicated ToF image notifications.\r\n"
               "  Debug diagnostics remain on the independent ST-LINK/BLE-debug path.\r\n\r\n");
   }
   else
@@ -831,7 +889,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
     if (cli_active_session->transport == CLI_TRANSPORT_BLE)
     {
       (void)Menu_Reply(menu,
-                       "The binary sensor map is USB-only; use MAP ON DISPLAY to control the local screen.");
+                       "BLE ToF images use the dedicated Notify characteristic; subscribe to it to receive complete CRC-checked frames.");
       return;
     }
     (void)Menu_Reply(menu,
@@ -844,7 +902,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
     if (cli_active_session->transport == CLI_TRANSPORT_BLE)
     {
       (void)Menu_Reply(menu,
-                       "The binary sensor map is USB-only; use MAP OFF DISPLAY to control the local screen.");
+                       "Disable the BLE ToF image CCCD to stop the wireless map stream.");
       return;
     }
     TOF_App_SetMapEnabled(0U);
@@ -1424,16 +1482,20 @@ static void cli_command_reboot(Menu_t *menu, const char *command)
 static void cli_command_firmware_update(Menu_t *menu, const char *command)
 {
   (void)command;
-  if (cli_active_session->transport == CLI_TRANSPORT_BLE)
+  if (Firmware_Update_IsActive() != 0U)
   {
-    (void)Menu_Reply(menu,
-                     "BLE firmware update is locked until authentication and resumable framing are implemented.");
+    (void)Menu_Reply(menu, "A firmware update is already active.");
     return;
   }
   Menu_Reset(menu);
   TOF_App_SetDatasetStreamEnabled(0U);
-  if (Firmware_Update_Start() != 0)
+  cli_update_session = cli_active_session;
+  if (Firmware_Update_Start(
+          cli_update_write, cli_update_session,
+          (cli_update_session->transport == CLI_TRANSPORT_BLE) ?
+          "BLE CLI" : "USB CDC") != 0)
   {
+    cli_update_session = NULL;
     (void)Menu_Reply(menu, "Unable to start firmware update mode.");
   }
 }
@@ -1521,6 +1583,19 @@ static UINT cli_session_write(CliSession_t *session, const void *buffer,
   }
 #endif
   return App_Console_Write(buffer, length);
+}
+
+static int32_t cli_update_write(const void *buffer, size_t length,
+                                void *context)
+{
+  CliSession_t *session = (CliSession_t *)context;
+
+  if ((session == NULL) || (length > UINT32_MAX))
+  {
+    return -1;
+  }
+  return (cli_session_write(session, buffer, (ULONG)length) == TX_SUCCESS) ?
+         0 : -1;
 }
 
 static uint32_t cli_token_equals(const char *left, const char *right)
@@ -2342,7 +2417,7 @@ static void cli_wifi_scan_callback(int32_t status, W6X_WiFi_Scan_Result_t *resul
 #endif
 
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
-static void cli_ble_status(void)
+static void __attribute__((optimize("Os"))) cli_ble_status(void)
 {
   WifiBle_RuntimeStatus_t runtime;
   WIFI_BLE_App_GetRuntimeStatus(&runtime);
@@ -2364,11 +2439,12 @@ static void cli_ble_status(void)
               runtime.ble_address[2], runtime.ble_address[3],
               runtime.ble_address[4], runtime.ble_address[5]);
   }
-  cli_print("CLI TX notifications: %s; DEBUG TX notifications: %s\r\n"
+  cli_print("CLI TX notifications: %s; DEBUG TX notifications: %s; ToF image notifications: %s\r\n"
             "Stream transport: %s, generation %lu, ATT payload %lu bytes\r\n"
             "Radio SRAM4 pool: %lu bytes available, %lu fragments\r\n",
             (runtime.ble_cli_tx_subscribed != 0U) ? "subscribed" : "off",
             (runtime.ble_debug_tx_subscribed != 0U) ? "subscribed" : "off",
+            (runtime.ble_tof_image_subscribed != 0U) ? "subscribed" : "off",
             (runtime.ble_transport_ready != 0U) ? "ready" : "not ready",
             (unsigned long)runtime.ble_session_generation,
             (unsigned long)runtime.ble_att_payload_limit,
@@ -2409,5 +2485,16 @@ static void cli_ble_status(void)
             (unsigned long)runtime.ble_stream[WIFI_BLE_STREAM_DEBUG].stale_drops,
             (unsigned long)runtime.ble_rx_write_events,
             (unsigned long)runtime.ble_rx_discarded_bytes);
+  cli_print("ToF image: submitted %lu, complete %lu, busy drops %lu, aborted %lu; fragments %lu, payload bytes %lu, retries %lu, errors %lu; last %lu/%lu\r\n",
+            (unsigned long)runtime.ble_tof_image.frames_submitted,
+            (unsigned long)runtime.ble_tof_image.frames_sent,
+            (unsigned long)runtime.ble_tof_image.frames_dropped_busy,
+            (unsigned long)runtime.ble_tof_image.frames_aborted,
+            (unsigned long)runtime.ble_tof_image.fragments_sent,
+            (unsigned long)runtime.ble_tof_image.bytes_sent,
+            (unsigned long)runtime.ble_tof_image.retries,
+            (unsigned long)runtime.ble_tof_image.errors,
+            (unsigned long)runtime.ble_tof_image.last_submitted_frame,
+            (unsigned long)runtime.ble_tof_image.last_sent_frame);
 }
 #endif

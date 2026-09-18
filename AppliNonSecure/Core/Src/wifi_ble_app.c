@@ -30,6 +30,12 @@ extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
 #define BLE_NOTIFY_MAX_ATTEMPTS     (3U)
 #define BLE_DEBUG_RX_POLICY_ENABLED (0U)
 #define BLE_STREAM_CONTEXT_BUDGET   (16U * 1024U)
+#define BLE_TOF_IMAGE_MAX_WIDTH     (54U)
+#define BLE_TOF_IMAGE_MAX_HEIGHT    (42U)
+#define BLE_TOF_IMAGE_MAX_PIXELS    (BLE_TOF_IMAGE_MAX_WIDTH * \
+                                     BLE_TOF_IMAGE_MAX_HEIGHT)
+#define BLE_TOF_IMAGE_MAX_BYTES     (BLE_TOF_IMAGE_MAX_PIXELS * sizeof(float))
+#define BLE_TOF_IMAGE_CONTEXT_BUDGET (10U * 1024U)
 #define BLE_CLI_TX_MAX_WAIT_TICKS   ((TX_TIMER_TICKS_PER_SECOND >= 20U) ? \
                                      (TX_TIMER_TICKS_PER_SECOND / 20U) : 1U)
 
@@ -37,11 +43,13 @@ extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
 #define BLE_DEBUG_SERVICE_INDEX (1U)
 #define BLE_RX_CHAR_INDEX       (0U)
 #define BLE_TX_CHAR_INDEX       (1U)
+#define BLE_TOF_IMAGE_CHAR_INDEX (2U)
 #define BLE_ADV_REQUEST_NONE    (2U)
 
 #define BLE_CLI_SERVICE_UUID    "7a1e0001b5a3f393e0a9e50e24dcca9e"
 #define BLE_CLI_RX_UUID         "7a1e0002b5a3f393e0a9e50e24dcca9e"
 #define BLE_CLI_TX_UUID         "7a1e0003b5a3f393e0a9e50e24dcca9e"
+#define BLE_TOF_IMAGE_UUID      "7a1e0004b5a3f393e0a9e50e24dcca9e"
 #define BLE_DEBUG_SERVICE_UUID  "7a1e0101b5a3f393e0a9e50e24dcca9e"
 #define BLE_DEBUG_RX_UUID       "7a1e0102b5a3f393e0a9e50e24dcca9e"
 #define BLE_DEBUG_TX_UUID       "7a1e0103b5a3f393e0a9e50e24dcca9e"
@@ -55,8 +63,8 @@ extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 _Static_assert(W6X_BLE_MAX_CREATED_SERVICE_NBR >= 2U,
                "BLE maintenance requires two custom services");
-_Static_assert(W6X_BLE_MAX_CHAR_NBR >= 2U,
-               "Each BLE maintenance service requires RX and TX");
+_Static_assert(W6X_BLE_MAX_CHAR_NBR >= 3U,
+               "The CLI service requires RX, TX and ToF image characteristics");
 _Static_assert(WIFI_BLE_RX_BUFFER_SIZE > W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH,
                "BLE callback buffer must hold one maximum ATT value");
 
@@ -121,13 +129,41 @@ typedef struct
   WifiBle_StreamStatus_t stats[WIFI_BLE_STREAM_COUNT];
 } WifiBle_StreamContext_t;
 
+typedef enum
+{
+  BLE_TOF_IMAGE_FREE = 0,
+  BLE_TOF_IMAGE_FILLING,
+  BLE_TOF_IMAGE_READY,
+  BLE_TOF_IMAGE_ACTIVE
+} WifiBle_TofImageState_t;
+
+typedef struct
+{
+  volatile WifiBle_TofImageState_t state;
+  uint32_t generation;
+  uint32_t frame_id;
+  uint32_t payload_crc32;
+  uint16_t payload_length;
+  uint16_t offset;
+  uint8_t width;
+  uint8_t height;
+  uint8_t channel_id;
+  uint8_t retries;
+  WifiBle_TofImageStatus_t stats;
+  uint8_t payload[BLE_TOF_IMAGE_MAX_BYTES] __attribute__((aligned(4)));
+} WifiBle_TofImageContext_t;
+
 _Static_assert(sizeof(void *) <= sizeof(ULONG),
                "ThreadX pointer queues require one ULONG per pointer");
 _Static_assert(sizeof(WifiBle_StreamContext_t) <= BLE_STREAM_CONTEXT_BUDGET,
                "BLE stream queues exceeded their SRAM4 design budget");
+_Static_assert(sizeof(WifiBle_TofImageContext_t) <=
+               BLE_TOF_IMAGE_CONTEXT_BUDGET,
+               "BLE ToF image context exceeded its SRAM4 design budget");
 
 static uint8_t ble_receive_buffer[WIFI_BLE_RX_BUFFER_SIZE];
 static WifiBle_StreamContext_t *ble_stream_context;
+static WifiBle_TofImageContext_t *ble_tof_image_context;
 static TX_BYTE_POOL *ble_radio_pool;
 static const WifiBle_GattCharacteristic_t ble_characteristics[] =
 {
@@ -139,6 +175,10 @@ static const WifiBle_GattCharacteristic_t ble_characteristics[] =
   {
     BLE_CLI_SERVICE_INDEX, BLE_TX_CHAR_INDEX, BLE_CLI_TX_UUID,
     W6X_BLE_CHAR_PROP_NOTIFY, W6X_BLE_CHAR_PERM_READ, "CLI TX"
+  },
+  {
+    BLE_CLI_SERVICE_INDEX, BLE_TOF_IMAGE_CHAR_INDEX, BLE_TOF_IMAGE_UUID,
+    W6X_BLE_CHAR_PROP_NOTIFY, W6X_BLE_CHAR_PERM_READ, "ToF image TX"
   },
   {
     BLE_DEBUG_SERVICE_INDEX, BLE_RX_CHAR_INDEX, BLE_DEBUG_RX_UUID,
@@ -161,6 +201,7 @@ static volatile uint32_t ble_connection_handle = 0xFFU;
 static volatile uint32_t ble_mtu = 23U;
 static volatile uint32_t ble_cli_tx_subscribed;
 static volatile uint32_t ble_debug_tx_subscribed;
+static volatile uint32_t ble_tof_image_subscribed;
 static volatile uint32_t ble_rx_write_events;
 static volatile uint32_t ble_rx_discarded_bytes;
 static volatile uint32_t ble_session_generation;
@@ -186,6 +227,14 @@ static UINT ble_stream_initialize(void);
 static void ble_stream_enqueue_rx(WifiBle_Stream_t stream,
                                   const uint8_t *data, uint32_t length);
 static void ble_stream_process_tx(WifiBle_Stream_t stream);
+static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void);
+static void __attribute__((optimize("Os"))) ble_tof_image_drop_active(void);
+static uint32_t __attribute__((optimize("Os")))
+ble_crc32(const void *data, size_t length);
+static void __attribute__((optimize("Os")))
+ble_write_u16(uint8_t *destination, uint16_t value);
+static void __attribute__((optimize("Os")))
+ble_write_u32(uint8_t *destination, uint32_t value);
 static void ble_stream_purge_stale(void);
 static void ble_stream_drop_tx(WifiBle_Stream_t stream);
 static uint32_t ble_att_payload_size(void);
@@ -331,7 +380,7 @@ void WIFI_BLE_App_Run(void)
   wifi_ble_state = WIFI_BLE_STATE_READY;
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   LogInfo("ST67W6X: BLE maintenance GATT server is advertising.\r\n");
-  LogInfo("ST67W6X: bounded CLI/DEBUG streams ready; CLI parser, debug mirror and wireless update remain detached.\r\n");
+  LogInfo("ST67W6X: bounded CLI/DEBUG streams, signed BLE XMODEM and ToF image notifications ready.\r\n");
 #elif (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
   LogInfo("ST67W6X: Wi-Fi station service is ready; no credentials are configured.\r\n");
 #else
@@ -383,6 +432,7 @@ void WIFI_BLE_App_GetRuntimeStatus(WifiBle_RuntimeStatus_t *status)
   status->ble_mtu = ble_mtu;
   status->ble_cli_tx_subscribed = ble_cli_tx_subscribed;
   status->ble_debug_tx_subscribed = ble_debug_tx_subscribed;
+  status->ble_tof_image_subscribed = ble_tof_image_subscribed;
   status->ble_rx_write_events = ble_rx_write_events;
   status->ble_rx_discarded_bytes = ble_rx_discarded_bytes;
   status->ble_session_generation = ble_session_generation;
@@ -395,6 +445,7 @@ void WIFI_BLE_App_GetRuntimeStatus(WifiBle_RuntimeStatus_t *status)
   status->ble_init_stage = ble_init_stage;
   status->ble_last_status = ble_last_status;
   (void)memset(status->ble_stream, 0, sizeof(status->ble_stream));
+  (void)memset(&status->ble_tof_image, 0, sizeof(status->ble_tof_image));
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   posture = tx_interrupt_control(TX_INT_DISABLE);
   if (ble_stream_context != NULL)
@@ -403,6 +454,10 @@ void WIFI_BLE_App_GetRuntimeStatus(WifiBle_RuntimeStatus_t *status)
         ble_stream_context->stats[WIFI_BLE_STREAM_CLI];
     status->ble_stream[WIFI_BLE_STREAM_DEBUG] =
         ble_stream_context->stats[WIFI_BLE_STREAM_DEBUG];
+  }
+  if (ble_tof_image_context != NULL)
+  {
+    status->ble_tof_image = ble_tof_image_context->stats;
   }
   (void)tx_interrupt_control(posture);
   if (ble_radio_pool != NULL)
@@ -681,6 +736,84 @@ UINT WIFI_BLE_App_StreamRead(WifiBle_Stream_t stream, void *buffer,
 #endif
 }
 
+uint32_t WIFI_BLE_App_IsTofImageSubscribed(void)
+{
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  return ((ble_transport_ready != 0U) && (ble_connected != 0U) &&
+          (ble_tof_image_subscribed != 0U) &&
+          (ble_tof_image_context != NULL)) ? 1U : 0U;
+#else
+  return 0U;
+#endif
+}
+
+UINT __attribute__((optimize("Os")))
+WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
+                             const float *pixels, uint8_t width,
+                             uint8_t height)
+{
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  size_t pixel_count;
+  size_t payload_length;
+  UINT posture;
+
+  if ((pixels == NULL) || (width == 0U) || (height == 0U) ||
+      (width > BLE_TOF_IMAGE_MAX_WIDTH) ||
+      (height > BLE_TOF_IMAGE_MAX_HEIGHT))
+  {
+    return TX_PTR_ERROR;
+  }
+  if (WIFI_BLE_App_IsTofImageSubscribed() == 0U)
+  {
+    return TX_NOT_AVAILABLE;
+  }
+
+  pixel_count = (size_t)width * height;
+  payload_length = pixel_count * sizeof(float);
+  if ((pixel_count > BLE_TOF_IMAGE_MAX_PIXELS) ||
+      (payload_length > UINT16_MAX))
+  {
+    return TX_SIZE_ERROR;
+  }
+
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  if (ble_tof_image_context->state != BLE_TOF_IMAGE_FREE)
+  {
+    ble_tof_image_context->stats.frames_dropped_busy++;
+    (void)tx_interrupt_control(posture);
+    return TX_QUEUE_FULL;
+  }
+  ble_tof_image_context->state = BLE_TOF_IMAGE_FILLING;
+  ble_tof_image_context->generation = ble_session_generation;
+  (void)tx_interrupt_control(posture);
+
+  (void)memcpy(ble_tof_image_context->payload, pixels, payload_length);
+  ble_tof_image_context->frame_id = frame_id;
+  ble_tof_image_context->payload_crc32 =
+      ble_crc32(ble_tof_image_context->payload, payload_length);
+  ble_tof_image_context->payload_length = (uint16_t)payload_length;
+  ble_tof_image_context->offset = 0U;
+  ble_tof_image_context->width = width;
+  ble_tof_image_context->height = height;
+  ble_tof_image_context->channel_id = channel_id;
+  ble_tof_image_context->retries = 0U;
+
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  ble_tof_image_context->stats.frames_submitted++;
+  ble_tof_image_context->stats.last_submitted_frame = frame_id;
+  ble_tof_image_context->state = BLE_TOF_IMAGE_READY;
+  (void)tx_interrupt_control(posture);
+  return TX_SUCCESS;
+#else
+  (void)frame_id;
+  (void)channel_id;
+  (void)pixels;
+  (void)width;
+  (void)height;
+  return TX_NOT_AVAILABLE;
+#endif
+}
+
 void HAL_GPIO_EXTI_Rising_Callback(uint16_t gpio_pin)
 {
 #if (APP_ST67W6X_ENABLED == 1U)
@@ -759,6 +892,7 @@ static void ble_event_callback(W6X_event_id_t event_id, void *event_args)
     ble_connection_handle = 0xFFU;
     ble_cli_tx_subscribed = 0U;
     ble_debug_tx_subscribed = 0U;
+    ble_tof_image_subscribed = 0U;
     ble_mtu = 23U;
     ble_restart_advertising_pending = 1U;
     ble_stream_flush_pending = 1U;
@@ -768,15 +902,22 @@ static void ble_event_callback(W6X_event_id_t event_id, void *event_args)
   {
     uint32_t enabled =
         (event_id == W6X_BLE_EVT_NOTIFICATION_STATUS_ENABLED_ID) ? 1U : 0U;
-    if ((event != NULL) && (event->charac_idx == BLE_TX_CHAR_INDEX))
+    if (event != NULL)
     {
-      if (event->service_idx == BLE_CLI_SERVICE_INDEX)
+      if ((event->service_idx == BLE_CLI_SERVICE_INDEX) &&
+          (event->charac_idx == BLE_TX_CHAR_INDEX))
       {
         ble_cli_tx_subscribed = enabled;
       }
-      else if (event->service_idx == BLE_DEBUG_SERVICE_INDEX)
+      else if ((event->service_idx == BLE_DEBUG_SERVICE_INDEX) &&
+               (event->charac_idx == BLE_TX_CHAR_INDEX))
       {
         ble_debug_tx_subscribed = enabled;
+      }
+      else if ((event->service_idx == BLE_CLI_SERVICE_INDEX) &&
+               (event->charac_idx == BLE_TOF_IMAGE_CHAR_INDEX))
+      {
+        ble_tof_image_subscribed = enabled;
       }
     }
   }
@@ -834,6 +975,7 @@ static UINT ble_create_pointer_queue(TX_QUEUE *queue, CHAR *name,
 static UINT ble_stream_initialize(void)
 {
   VOID *memory = TX_NULL;
+  VOID *image_memory = TX_NULL;
   ULONG available = 0U;
   ULONG fragments = 0U;
   void *slot;
@@ -849,6 +991,17 @@ static UINT ble_stream_initialize(void)
 
   ble_stream_context = (WifiBle_StreamContext_t *)memory;
   (void)memset(ble_stream_context, 0, sizeof(*ble_stream_context));
+
+  if (tx_byte_allocate(ble_radio_pool, &image_memory,
+                       (ULONG)sizeof(WifiBle_TofImageContext_t),
+                       TX_NO_WAIT) != TX_SUCCESS)
+  {
+    (void)tx_byte_release(ble_stream_context);
+    ble_stream_context = NULL;
+    return TX_POOL_ERROR;
+  }
+  ble_tof_image_context = (WifiBle_TofImageContext_t *)image_memory;
+  (void)memset(ble_tof_image_context, 0, sizeof(*ble_tof_image_context));
 
   if ((ble_create_pointer_queue(&ble_stream_context->cli_rx_free,
                                 "BLE CLI RX free",
@@ -927,8 +1080,9 @@ static UINT ble_stream_initialize(void)
   if (tx_byte_pool_info_get(ble_radio_pool, TX_NULL, &available, &fragments,
                             TX_NULL, TX_NULL, TX_NULL) == TX_SUCCESS)
   {
-    LogInfo("ST67W6X BLE streams: %lu-byte context, radio pool %lu bytes free in %lu fragments.\r\n",
+    LogInfo("ST67W6X BLE streams: %lu-byte queues + %lu-byte ToF frame, radio pool %lu bytes free in %lu fragments.\r\n",
             (unsigned long)sizeof(*ble_stream_context),
+            (unsigned long)sizeof(*ble_tof_image_context),
             (unsigned long)available, (unsigned long)fragments);
   }
   return TX_SUCCESS;
@@ -1136,6 +1290,168 @@ static void ble_stream_process_tx(WifiBle_Stream_t stream)
     ble_stream_context->stats[stream].tx_dropped_bytes += dropped;
     (void)tx_interrupt_control(posture);
   }
+}
+
+static void __attribute__((optimize("Os"))) ble_tof_image_drop_active(void)
+{
+  UINT posture;
+
+  if (ble_tof_image_context == NULL)
+  {
+    return;
+  }
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  if ((ble_tof_image_context->state == BLE_TOF_IMAGE_READY) ||
+      (ble_tof_image_context->state == BLE_TOF_IMAGE_ACTIVE))
+  {
+    ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
+    ble_tof_image_context->stats.frames_aborted++;
+  }
+  (void)tx_interrupt_control(posture);
+}
+
+static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void)
+{
+  uint8_t packet[W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH];
+  uint32_t att_payload;
+  uint32_t chunk_length;
+  uint32_t packet_length;
+  uint32_t sent = 0U;
+  uint8_t flags = 0U;
+  W6X_Status_t result;
+  UINT posture;
+
+  if (ble_tof_image_context == NULL)
+  {
+    return;
+  }
+  if ((ble_connected == 0U) || (ble_tof_image_subscribed == 0U))
+  {
+    ble_tof_image_drop_active();
+    return;
+  }
+  if (ble_tof_image_context->state == BLE_TOF_IMAGE_READY)
+  {
+    ble_tof_image_context->state = BLE_TOF_IMAGE_ACTIVE;
+  }
+  if (ble_tof_image_context->state != BLE_TOF_IMAGE_ACTIVE)
+  {
+    return;
+  }
+  if (ble_tof_image_context->generation != ble_session_generation)
+  {
+    ble_tof_image_drop_active();
+    return;
+  }
+
+  att_payload = ble_att_payload_size();
+  if (att_payload <= WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE)
+  {
+    /* Wait for the negotiated MTU.  A 23-byte ATT MTU has no room for the
+     * self-describing header plus image data. */
+    return;
+  }
+  chunk_length = (uint32_t)(ble_tof_image_context->payload_length -
+                            ble_tof_image_context->offset);
+  if (chunk_length > (att_payload - WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE))
+  {
+    chunk_length = att_payload - WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE;
+  }
+  if (ble_tof_image_context->offset == 0U)
+  {
+    flags |= WIFI_BLE_TOF_FRAGMENT_FLAG_START;
+  }
+  if (((uint32_t)ble_tof_image_context->offset + chunk_length) >=
+      ble_tof_image_context->payload_length)
+  {
+    flags |= WIFI_BLE_TOF_FRAGMENT_FLAG_END;
+  }
+
+  ble_write_u16(&packet[0], WIFI_BLE_TOF_FRAGMENT_MAGIC);
+  packet[2] = WIFI_BLE_TOF_FRAGMENT_VERSION;
+  packet[3] = flags;
+  ble_write_u32(&packet[4], ble_tof_image_context->frame_id);
+  ble_write_u16(&packet[8], ble_tof_image_context->offset);
+  ble_write_u16(&packet[10], ble_tof_image_context->payload_length);
+  packet[12] = ble_tof_image_context->width;
+  packet[13] = ble_tof_image_context->height;
+  packet[14] = ble_tof_image_context->channel_id;
+  packet[15] = WIFI_BLE_TOF_PIXEL_FORMAT_FLOAT32_LE;
+  ble_write_u32(&packet[16], ble_tof_image_context->payload_crc32);
+  (void)memcpy(&packet[WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE],
+               &ble_tof_image_context->payload[ble_tof_image_context->offset],
+               chunk_length);
+  packet_length = WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE + chunk_length;
+
+  result = W6X_Ble_ServerNotify((uint8_t)ble_connection_handle,
+                                BLE_CLI_SERVICE_INDEX,
+                                BLE_TOF_IMAGE_CHAR_INDEX,
+                                packet, packet_length, &sent,
+                                BLE_NOTIFY_TIMEOUT_MS);
+  if ((result == W6X_STATUS_OK) && (sent == packet_length))
+  {
+    ble_tof_image_context->offset =
+        (uint16_t)(ble_tof_image_context->offset + chunk_length);
+    ble_tof_image_context->retries = 0U;
+    posture = tx_interrupt_control(TX_INT_DISABLE);
+    ble_tof_image_context->stats.fragments_sent++;
+    ble_tof_image_context->stats.bytes_sent += chunk_length;
+    if (ble_tof_image_context->offset >=
+        ble_tof_image_context->payload_length)
+    {
+      ble_tof_image_context->stats.frames_sent++;
+      ble_tof_image_context->stats.last_sent_frame =
+          ble_tof_image_context->frame_id;
+      ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
+    }
+    (void)tx_interrupt_control(posture);
+    return;
+  }
+
+  ble_tof_image_context->retries++;
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  ble_tof_image_context->stats.retries++;
+  ble_tof_image_context->stats.errors++;
+  if (ble_tof_image_context->retries >= BLE_NOTIFY_MAX_ATTEMPTS)
+  {
+    ble_tof_image_context->stats.frames_aborted++;
+    ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
+  }
+  (void)tx_interrupt_control(posture);
+}
+
+static uint32_t __attribute__((optimize("Os")))
+ble_crc32(const void *data, size_t length)
+{
+  const uint8_t *bytes = (const uint8_t *)data;
+  uint32_t crc = 0xFFFFFFFFUL;
+
+  while (length-- != 0U)
+  {
+    crc ^= *bytes++;
+    for (uint32_t bit = 0U; bit < 8U; ++bit)
+    {
+      uint32_t mask = (uint32_t)(-(int32_t)(crc & 1UL));
+      crc = (crc >> 1U) ^ (0xEDB88320UL & mask);
+    }
+  }
+  return ~crc;
+}
+
+static void __attribute__((optimize("Os")))
+ble_write_u16(uint8_t *destination, uint16_t value)
+{
+  destination[0] = (uint8_t)value;
+  destination[1] = (uint8_t)(value >> 8U);
+}
+
+static void __attribute__((optimize("Os")))
+ble_write_u32(uint8_t *destination, uint32_t value)
+{
+  destination[0] = (uint8_t)value;
+  destination[1] = (uint8_t)(value >> 8U);
+  destination[2] = (uint8_t)(value >> 16U);
+  destination[3] = (uint8_t)(value >> 24U);
 }
 
 static void ble_purge_queue(TX_QUEUE *ready_queue, TX_QUEUE *free_queue,
@@ -1404,7 +1720,7 @@ static W6X_Status_t ble_configure_gatt_server(void)
   ble_gatt_ready = 1U;
   ble_advertising = 1U;
   ble_init_stage = WIFI_BLE_INIT_STAGE_READY;
-  LogInfo("ST67W6X BLE: %s, CLI and DEBUG UART GATT services registered.\r\n",
+  LogInfo("ST67W6X BLE: %s, CLI/DEBUG UART and ToF image notifications registered.\r\n",
           device_name);
   return W6X_STATUS_OK;
 }
@@ -1498,10 +1814,11 @@ static void ble_process_pending_events(void)
   }
 
   /* One ATT fragment per stream and manager cycle is the notification-credit
-   * window.  It bounds module call time and prevents DEBUG from monopolizing
-   * the CLI stream while keeping every W6X send in this owner thread. */
+   * window.  It bounds module call time and prevents the image stream from
+   * monopolizing CLI/XMODEM while keeping every W6X send in this owner thread. */
   ble_stream_process_tx(WIFI_BLE_STREAM_CLI);
   ble_stream_process_tx(WIFI_BLE_STREAM_DEBUG);
+  ble_tof_image_process_tx();
 }
 #endif
 

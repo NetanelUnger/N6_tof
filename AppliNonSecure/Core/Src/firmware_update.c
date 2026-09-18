@@ -2,7 +2,6 @@
 
 #include <string.h>
 
-#include "app_console.h"
 #include "debug_uart.h"
 #include "firmware_update_format.h"
 #include "main.h"
@@ -26,6 +25,9 @@ static uint32_t update_rx_chunks;
 static uint32_t update_crc_requests;
 static uint32_t update_wait_reported;
 static uint32_t update_progress_reported;
+static Firmware_Update_Write_t update_write;
+static void *update_write_context;
+static const char *update_transport_name;
 
 static int32_t update_send_byte(uint8_t byte, void *context);
 static int32_t update_consume(const uint8_t *data, size_t length,
@@ -33,6 +35,16 @@ static int32_t update_consume(const uint8_t *data, size_t length,
 static int32_t update_finish(void *context);
 static void update_abort(int32_t reason, void *context);
 static void update_fail(const char *message);
+static int32_t update_transport_write(const void *data, size_t length);
+
+static int32_t update_transport_write(const void *data, size_t length)
+{
+  if ((update_write == NULL) || (data == NULL) || (length == 0U))
+  {
+    return -1;
+  }
+  return update_write(data, length, update_write_context);
+}
 
 static int32_t update_send_byte(uint8_t byte, void *context)
 {
@@ -41,7 +53,7 @@ static int32_t update_send_byte(uint8_t byte, void *context)
   {
     update_crc_requests++;
   }
-  return (App_Console_Write(&byte, 1U) == TX_SUCCESS) ? 0 : -1;
+  return update_transport_write(&byte, 1U);
 }
 
 static int32_t update_consume(const uint8_t *data, size_t length,
@@ -207,15 +219,17 @@ static void update_fail(const char *message)
 {
   static const char prefix[] = "\r\nFirmware update failed: ";
   static const char suffix[] = "\r\nn6> ";
-  (void)App_Console_Write(prefix, sizeof(prefix) - 1U);
+  (void)update_transport_write(prefix, sizeof(prefix) - 1U);
   if (message != NULL)
   {
-    (void)App_Console_Write(message, (ULONG)strlen(message));
+    (void)update_transport_write(message, strlen(message));
   }
-  (void)App_Console_Write(suffix, sizeof(suffix) - 1U);
+  (void)update_transport_write(suffix, sizeof(suffix) - 1U);
 }
 
-int32_t Firmware_Update_Start(void)
+int32_t Firmware_Update_Start(Firmware_Update_Write_t write,
+                              void *write_context,
+                              const char *transport_name)
 {
   static const char instructions[] =
       "\r\nSigned firmware update mode.\r\n"
@@ -223,10 +237,14 @@ int32_t Firmware_Update_Start(void)
       "Press Ctrl-X twice in the sender to cancel. Waiting: ";
   XMODEM_Callbacks_t callbacks = {0};
 
-  if (update_active != 0U)
+  if ((update_active != 0U) || (write == NULL))
   {
     return -1;
   }
+
+  update_write = write;
+  update_write_context = write_context;
+  update_transport_name = (transport_name != NULL) ? transport_name : "unknown";
 
   (void)memset(&update_manifest, 0, sizeof(update_manifest));
   update_manifest_bytes = 0U;
@@ -244,8 +262,7 @@ int32_t Firmware_Update_Start(void)
   TOF_App_SetMapEnabled(0U);
   TOF_App_SetPaused(1U);
 
-  if (App_Console_Write(instructions, sizeof(instructions) - 1U) !=
-      TX_SUCCESS)
+  if (update_transport_write(instructions, sizeof(instructions) - 1U) != 0)
   {
     update_active = 0U;
     TOF_App_SetPaused(0U);
@@ -262,7 +279,8 @@ int32_t Firmware_Update_Start(void)
     TOF_App_SetPaused(0U);
     return -3;
   }
-  Debug_UART_Log("UPDATE", "XMODEM-CRC receiver started on USB CDC");
+  Debug_UART_Log("UPDATE", "XMODEM-CRC receiver started on %s",
+                 update_transport_name);
   return 0;
 }
 
@@ -283,7 +301,8 @@ void Firmware_Update_Feed(const uint8_t *data, size_t length,
       {
         Debug_UART_Log(
             "UPDATE",
-            "USB RX chunk #%lu: %lu bytes, stream offsets %lu..%lu",
+            "%s RX chunk #%lu: %lu bytes, stream offsets %lu..%lu",
+            update_transport_name,
             (unsigned long)update_rx_chunks, (unsigned long)length,
             (unsigned long)update_rx_bytes,
             (unsigned long)(update_rx_bytes + (uint32_t)length - 1U));
@@ -316,7 +335,7 @@ void Firmware_Update_Poll(uint32_t now_ms)
         "Rebooting into trial firmware...\r\n";
     update_result_reported = 1U;
     update_reboot_at = now_ms + UPDATE_REBOOT_DELAY_MS;
-    (void)App_Console_Write(success, sizeof(success) - 1U);
+    (void)update_transport_write(success, sizeof(success) - 1U);
     Debug_UART_Log("UPDATE", "candidate committed; reset scheduled");
   }
 

@@ -1,6 +1,10 @@
 # Instructions for Codex and future agents
 
-Read this file and [README.md](README.md) before modifying the project.
+Read this file and [README.md](README.md) before modifying the project. Do not
+read [CHANGELOG.md](CHANGELOG.md) during normal discovery or implementation.
+Open it only when the user explicitly requests history or when the task itself
+requires historical investigation. When merely adding a new dated entry,
+inspect only the small insertion area at the top rather than loading the file.
 
 This file is the engineering contract for future work. It records the current state, safety rules, CubeMX boundaries, known deviations from vendor code, verification requirements, and how to communicate changes to the user.
 
@@ -15,7 +19,8 @@ Continue developing the STM32N657 firmware that combines:
 - ST67W611M1 through SPI5, Wi-Fi, and BLE.
 - A GC9A01 240x240 round TFT through a dedicated SPI4 TX-DMA path, leaving
   SPI5 reserved for ST67.
-- A future authenticated BLE OTA mechanism.
+- Signed BLE XMODEM firmware delivery through the existing authenticated Secure
+  A/B installer.
 
 Work must be technically correct and educational. Explain in Hebrew what changed, why it changed, how it was verified, and what risk remains.
 
@@ -128,8 +133,12 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   bounded stream layer now queues CLI RX, provides CLI/DEBUG TX queues and
   fragments notifications to `MTU-3`; DEBUG RX is still rejected by policy.
   BLE CLI RX/TX is attached to its own SRAM4 parser/editor/history/output
-  session, allocated only after the vendor radio reaches READY. The DEBUG producer, BLE XMODEM, binary streams and unauthenticated
-  privileged application traffic remain detached.
+  session, allocated only after the vendor radio reaches READY. Signed XMODEM
+  may enter raw mode on that session and must reuse the Secure A/B installer.
+  The CLI service also owns one Notify-only ToF image characteristic with a
+  20-byte frame/offset/dimensions/channel/format/CRC header and a single 9,072-
+  byte snapshot. DEBUG RX, dataset streaming and unauthenticated reboot remain
+  detached.
 - The ST67 transport uses an unusual active-high PA3 chip select; its safe idle
   level is LOW. CHIP_EN and BOOT also remain LOW until deliberate bring-up.
   When the radio build is enabled, PE9/SPI_RDY owns both edges of EXTI9 and the
@@ -156,9 +165,10 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   result area. Preserve the single status snapshot shared by both consumers so
   neither UI can accidentally label a newer or older frame.
 - Authenticated Non-Secure firmware installation is implemented and build-
-  verified: CN8 USB CDC XMODEM feeds a transport-independent Secure byte-array
-  service, which writes the inactive A/B slot and uses pending/trial/confirmed
-  metadata with rollback. Physical transfer and rollback testing are pending.
+  verified: CN8 USB CDC and BLE CLI XMODEM feed the same transport-independent
+  Secure byte-array service, which writes the inactive A/B slot and uses
+  pending/trial/confirmed metadata with rollback. CDC has completed one physical
+  signed installation; physical BLE transfer and fault testing remain pending.
 - Use `Tools/Debug-NonSecureRam.ps1 -Run` as the default agent loop for RAM
   development. With BOOT0=1-2 and BOOT1=2-3 (DEV boot), it incrementally builds
   Secure and Non-Secure (unchanged targets remain no-ops), loads the existing
@@ -215,11 +225,12 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   from 159 KiB to 151 KiB. The Radio Manager and ST compatibility allocations
   use this pool. Stage 08 rejects all SRAM4 model placement, the linker asserts
   the pool bounds, and the build-map preflight validates the address and size.
-  The current BLE-CLI build leaves 371,520 bytes of C heap, 2,880 bytes
+  The current BLE image/XMODEM build leaves 369,776 bytes of C heap, 1,136 bytes
   above the 360 KiB ToF guard. Both transient 9,072-byte ToF float frames are now in the
   explicitly cleared SRAM3 workspace, which uses its complete 180,224 bytes.
-  Future BLE queues belong in the SRAM4 radio pool; runtime high-water
-  validation remains mandatory.
+  BLE queues, its CLI session and its additional single 9,072-byte ToF snapshot
+  belong in the SRAM4 radio pool; runtime high-water validation remains
+  mandatory.
 - Secure update `Begin` must not erase the complete inactive slot synchronously:
   XMODEM cannot ACK the manifest block while that long operation is in progress.
   The writer erases authenticated image storage lazily in 64 KiB sectors before
@@ -236,8 +247,8 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   the controller afterward and reinitializes it for indirect update writes.
   If updater initialization fails, update APIs stay unavailable but normal boot
   continues with a stage code on COM6.
-- Wi-Fi/BLE download transport is not implemented. When added, it must reuse the
-  Secure installer and must not access XSPI2 or boot metadata directly.
+- BLE XMODEM must continue to reuse the Secure installer and must not access
+  XSPI2 or boot metadata directly. Wi-Fi delivery is not implemented.
 
 ## 3. CubeMX rules
 
@@ -712,16 +723,22 @@ stack-local version or split the address phase back into a blocking transfer.
   `MTU-3` fragment per stream per cycle.
 - Preserve the item-10 broker contract: CDC and BLE never share line, history,
   prompt, CR/LF, or output state. Shared command handlers execute serially in
-  the priority-9 CLI thread. BLE RX is drained in bounded bursts. Binary map
-  and dataset streams, XMODEM, and reboot remain USB-only until an authenticated
-  remote-maintenance protocol is implemented.
+  the priority-9 CLI thread. BLE RX is drained in bounded bursts. Signed XMODEM
+  raw mode belongs only to the requesting session and feeds the existing Secure
+  installer. Dataset streaming and reboot remain USB-only.
+- Preserve the BLE ToF image contract: Notify UUID `7a1e0004-b5a3-f393-e0a9-
+  e50e24dcca9e`, version-1 20-byte little-endian header, float32 payload, complete
+  frame CRC32, and one SRAM4 snapshot. Snapshot the selected transformed channel
+  before `tof_processing_workspace` is reused. While a frame is in flight, drop
+  new frames; never queue partial sensor-frame state. Service at most one image
+  fragment per Radio Manager cycle so CLI/XMODEM cannot be starved.
 - The current No-Input/No-Output BLE setting is development-only and does not
   authorize remote update, reset, credentials, or destructive/debug commands.
 - In disabled mode, do not create its task, initialize the compatibility layer, or call W6X initialization.
 - Enabling the radio requires verification of SPI5, CS, CHIP_EN, BOOT, SPI_RDY, DMA, and NCP firmware.
 - Never implement OTA by overwriting the active image in place.
-- Future Wi-Fi/BLE OTA must feed the existing Secure Begin/Write/Finalize byte
-  interface. Preserve inactive-slot writes, CMSE range checks and Secure copies,
+- BLE XMODEM and any future Wi-Fi delivery must feed the existing Secure
+  Begin/Write/Finalize byte interface. Preserve inactive-slot writes, CMSE range checks and Secure copies,
   SHA-256 plus ECDSA-P256, strictly increasing versions, atomic alternating
   metadata, trial confirmation, and rollback.
 - XSPI2, PKA, boot metadata, and key-policy decisions remain Secure. A transport
@@ -754,7 +771,9 @@ stack-local version or split the address phase back into a blocking transfer.
 - Do not request programming before build and signing succeed.
 - State what the next log is expected to contain.
 - Be explicit about confidence: confirmed bug, strong candidate, suspected issue, adaptation, or workaround.
-- Update README and its change log after architectural changes, boot/fault fixes, interface changes, or programming-flow changes.
+- Update the operational README and append a concise entry to `CHANGELOG.md`
+  after architectural changes, boot/fault fixes, interface changes, or
+  programming-flow changes. Do not read the historical body just to append.
 
 ## 15. Definition of done
 
@@ -767,4 +786,5 @@ A firmware change is complete only when:
 - Work on USB does not intentionally break ToF, and vice versa.
 - Features without attached hardware remain disabled.
 - Outside-USER changes are recorded.
-- README and the change log are updated when the change is significant.
+- README and `CHANGELOG.md` are updated when the change is significant, without
+  loading the historical body unless that history is required.

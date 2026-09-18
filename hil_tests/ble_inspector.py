@@ -7,8 +7,10 @@ import asyncio
 import json
 import os
 import shlex
+import struct
 import sys
 import time
+import zlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +23,7 @@ N6_UUID_LABELS = {
     "7a1e0001-b5a3-f393-e0a9-e50e24dcca9e": "N6 CLI service",
     "7a1e0002-b5a3-f393-e0a9-e50e24dcca9e": "N6 CLI RX",
     "7a1e0003-b5a3-f393-e0a9-e50e24dcca9e": "N6 CLI TX",
+    "7a1e0004-b5a3-f393-e0a9-e50e24dcca9e": "N6 ToF image TX",
     "7a1e0101-b5a3-f393-e0a9-e50e24dcca9e": "N6 DEBUG service",
     "7a1e0102-b5a3-f393-e0a9-e50e24dcca9e": "N6 DEBUG RX",
     "7a1e0103-b5a3-f393-e0a9-e50e24dcca9e": "N6 DEBUG TX",
@@ -28,6 +31,7 @@ N6_UUID_LABELS = {
 N6_REQUIRED_PROPERTIES = {
     "7a1e0002-b5a3-f393-e0a9-e50e24dcca9e": {"write", "write-without-response"},
     "7a1e0003-b5a3-f393-e0a9-e50e24dcca9e": {"notify"},
+    "7a1e0004-b5a3-f393-e0a9-e50e24dcca9e": {"notify"},
     "7a1e0102-b5a3-f393-e0a9-e50e24dcca9e": {"write", "write-without-response"},
     "7a1e0103-b5a3-f393-e0a9-e50e24dcca9e": {"notify"},
 }
@@ -40,7 +44,18 @@ N6_STREAM_UUIDS = {
         "rx": "7a1e0102-b5a3-f393-e0a9-e50e24dcca9e",
         "tx": "7a1e0103-b5a3-f393-e0a9-e50e24dcca9e",
     },
+    "tof": {
+        "tx": "7a1e0004-b5a3-f393-e0a9-e50e24dcca9e",
+    },
 }
+
+TOF_IMAGE_MAGIC = 0x364E
+TOF_IMAGE_VERSION = 1
+TOF_IMAGE_HEADER_SIZE = 20
+TOF_IMAGE_FLAG_START = 0x01
+TOF_IMAGE_FLAG_END = 0x02
+TOF_IMAGE_FLOAT32_LE = 1
+TOF_IMAGE_MAX_PAYLOAD = 54 * 42 * 4
 
 
 def utc_timestamp() -> str:
@@ -188,17 +203,107 @@ class ScanRecord:
     advertisement: Any
 
 
+class TofFrameAssembler:
+    """Reassemble one atomic N6 ToF frame from ordered BLE notifications."""
+
+    def __init__(self) -> None:
+        self.pending: dict[str, Any] | None = None
+        self.completed = 0
+        self.dropped = 0
+        self.crc_errors = 0
+
+    def reset(self, count_drop: bool = False) -> None:
+        if count_drop and self.pending is not None:
+            self.dropped += 1
+        self.pending = None
+
+    def push(self, notification: bytes | bytearray) -> dict[str, Any] | None:
+        if len(notification) <= TOF_IMAGE_HEADER_SIZE:
+            self.reset(count_drop=True)
+            return None
+
+        (magic, version, flags, frame_id, offset, total, width, height,
+         channel, pixel_format, expected_crc) = struct.unpack_from(
+             "<HBBIHHBBBBI", notification)
+        fragment = bytes(notification[TOF_IMAGE_HEADER_SIZE:])
+        valid_header = (
+            magic == TOF_IMAGE_MAGIC
+            and version == TOF_IMAGE_VERSION
+            and pixel_format == TOF_IMAGE_FLOAT32_LE
+            and width > 0 and height > 0
+            and total == width * height * 4
+            and total <= TOF_IMAGE_MAX_PAYLOAD
+            and offset + len(fragment) <= total
+        )
+        if not valid_header:
+            self.reset(count_drop=True)
+            return None
+
+        if flags & TOF_IMAGE_FLAG_START:
+            self.reset(count_drop=True)
+            if offset != 0:
+                return None
+            self.pending = {
+                "frame_id": frame_id,
+                "total": total,
+                "width": width,
+                "height": height,
+                "channel": channel,
+                "pixel_format": pixel_format,
+                "crc32": expected_crc,
+                "payload": bytearray(),
+            }
+
+        pending = self.pending
+        if pending is None or any((
+            pending["frame_id"] != frame_id,
+            pending["total"] != total,
+            pending["width"] != width,
+            pending["height"] != height,
+            pending["channel"] != channel,
+            pending["pixel_format"] != pixel_format,
+            pending["crc32"] != expected_crc,
+            len(pending["payload"]) != offset,
+        )):
+            self.reset(count_drop=True)
+            return None
+
+        pending["payload"].extend(fragment)
+        if not (flags & TOF_IMAGE_FLAG_END):
+            return None
+        if len(pending["payload"]) != total:
+            self.reset(count_drop=True)
+            return None
+        actual_crc = zlib.crc32(pending["payload"]) & 0xFFFFFFFF
+        if actual_crc != expected_crc:
+            self.crc_errors += 1
+            self.reset()
+            return None
+
+        result = {key: value for key, value in pending.items()
+                  if key != "payload"}
+        self.completed += 1
+        self.reset()
+        return result
+
+
 class BleInspector:
     def __init__(self, report_path: Path, scan_timeout: float,
-                 connect_timeout: float) -> None:
+                 connect_timeout: float, pair: bool = False,
+                 uncached_services: bool = False) -> None:
         self.report_path = report_path
         self.scan_timeout = scan_timeout
         self.connect_timeout = connect_timeout
+        self.pair = pair
+        self.uncached_services = uncached_services
         self.records: list[ScanRecord] = []
         self.client: Any | None = None
         self.connected_record: ScanRecord | None = None
         self.subscriptions: set[str] = set()
-        self.notifications: dict[str, list[str]] = {"cli": [], "debug": []}
+        self.notifications: dict[str, list[Any]] = {
+            "cli": [], "debug": [], "tof": []
+        }
+        self.tof_assembler = TofFrameAssembler()
 
     def write_report(self, command: str, ok: bool, **payload: Any) -> None:
         report = {
@@ -291,10 +396,14 @@ class BleInspector:
         # otherwise connectable peripheral. Try it first, then the two explicit
         # address types. This remains bounded and is harmless on a failed link:
         # no GATT write is issued until one attempt is fully connected.
+        cache_options = ({"use_cached_services": False}
+                         if self.uncached_services else {})
         attempts = (
-            ("automatic", {}),
-            ("public", {"winrt": {"address_type": "public"}}),
-            ("random", {"winrt": {"address_type": "random"}}),
+            ("automatic", {"winrt": dict(cache_options)}),
+            ("public", {"winrt": {
+                **cache_options, "address_type": "public"}}),
+            ("random", {"winrt": {
+                **cache_options, "address_type": "random"}}),
         )
         last_error: Exception | None = None
         for address_type, backend_options in attempts:
@@ -302,6 +411,7 @@ class BleInspector:
                 record.device,
                 disconnected_callback=self.on_disconnect,
                 timeout=self.connect_timeout,
+                pair=self.pair,
                 **backend_options,
             )
             self.client = client
@@ -379,7 +489,7 @@ class BleInspector:
     def resolve_stream(name: str) -> str:
         stream = name.casefold()
         if stream not in N6_STREAM_UUIDS:
-            raise ValueError("stream must be 'cli' or 'debug'")
+            raise ValueError("stream must be 'cli', 'debug', or 'tof'")
         return stream
 
     async def write_stream(self, stream_name: str, payload: bytes) -> None:
@@ -387,6 +497,8 @@ class BleInspector:
         stream = self.resolve_stream(stream_name)
         if not payload:
             raise ValueError("payload must not be empty")
+        if "rx" not in N6_STREAM_UUIDS[stream]:
+            raise ValueError(f"{stream.upper()} is a notification-only stream")
         await client.write_gatt_char(N6_STREAM_UUIDS[stream]["rx"], payload,
                                      response=True)
         result = {
@@ -406,6 +518,16 @@ class BleInspector:
             return
 
         def notification_handler(_characteristic: Any, data: bytearray) -> None:
+            if stream == "tof":
+                frame = self.tof_assembler.push(data)
+                if frame is not None:
+                    self.notifications[stream].append(frame)
+                    print("\n[TOF TX] complete CRC-valid frame: "
+                          f"id={frame['frame_id']} "
+                          f"{frame['width']}x{frame['height']} "
+                          f"channel={frame['channel']} "
+                          f"bytes={frame['total']}")
+                return
             encoded = bytes_to_hex(data)
             self.notifications[stream].append(encoded)
             print(f"\n[{stream.upper()} TX] {len(data)} byte(s): {encoded}")
@@ -432,6 +554,11 @@ class BleInspector:
     def show_notifications(self) -> None:
         result = {stream: list(values)
                   for stream, values in self.notifications.items()}
+        result["tof_stats"] = {
+            "completed": self.tof_assembler.completed,
+            "dropped": self.tof_assembler.dropped,
+            "crc_errors": self.tof_assembler.crc_errors,
+        }
         print(json.dumps(result, indent=2))
         self.write_report("notifications", True, notifications=result,
                           connection=self.connection_status())
@@ -452,6 +579,119 @@ class BleInspector:
         self.connected_record = None
         self.write_report("disconnect", True, address=address)
         print(f"Disconnected from {address}.")
+
+    async def soak_tof(self, selector: str, cycles: int,
+                       frame_timeout: float) -> None:
+        """Repeat connect/subscribe/frame/unsubscribe/disconnect validation."""
+
+        if cycles <= 0 or cycles > 100:
+            raise ValueError("cycles must be in the range 1..100")
+        if frame_timeout <= 0.0:
+            raise ValueError("frame timeout must be positive")
+        if self.client is not None and self.client.is_connected:
+            await self.disconnect()
+        if not self.records:
+            await self.scan(self.scan_timeout)
+
+        results: list[dict[str, Any]] = []
+        print(f"Starting ToF BLE soak: {cycles} cycle(s), "
+              f"{frame_timeout:.1f}s frame timeout")
+        for cycle in range(1, cycles + 1):
+            cycle_started = time.monotonic()
+            result: dict[str, Any] = {"cycle": cycle, "passed": False}
+            print(f"\n--- soak cycle {cycle}/{cycles} ---")
+            try:
+                connect_started = time.monotonic()
+                await self.connect(selector)
+                result["connect_seconds"] = round(
+                    time.monotonic() - connect_started, 3)
+                result["mtu"] = self.connection_status()["mtu"]
+
+                services = serialize_services(self.require_connection().services)
+                contract = evaluate_n6_gatt(services)
+                result["n6_gatt_contract"] = contract
+                if not contract["passed"]:
+                    raise RuntimeError("N6 GATT contract did not pass")
+
+                before_completed = self.tof_assembler.completed
+                before_dropped = self.tof_assembler.dropped
+                before_crc_errors = self.tof_assembler.crc_errors
+                await self.subscribe("tof")
+                frame_started = time.monotonic()
+                deadline = frame_started + frame_timeout
+                while self.tof_assembler.completed == before_completed:
+                    if (self.client is None
+                            or not self.client.is_connected):
+                        raise RuntimeError(
+                            "BLE disconnected while waiting for a ToF frame")
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError(
+                            "timed out waiting for a complete ToF frame")
+                    await asyncio.sleep(0.05)
+                result["first_frame_seconds"] = round(
+                    time.monotonic() - frame_started, 3)
+                result["frames_while_enabled"] = (
+                    self.tof_assembler.completed - before_completed)
+                result["drops_while_enabled"] = (
+                    self.tof_assembler.dropped - before_dropped)
+                result["crc_errors_while_enabled"] = (
+                    self.tof_assembler.crc_errors - before_crc_errors)
+                if result["crc_errors_while_enabled"] != 0:
+                    raise RuntimeError("ToF CRC error observed")
+
+                await self.unsubscribe("tof")
+                # An intentionally cancelled partial frame must not contaminate
+                # the next connection, and must not be counted as a radio drop.
+                self.tof_assembler.reset()
+                stopped_at = self.tof_assembler.completed
+                await asyncio.sleep(1.0)
+                result["frames_after_unsubscribe"] = (
+                    self.tof_assembler.completed - stopped_at)
+                if result["frames_after_unsubscribe"] != 0:
+                    raise RuntimeError(
+                        "ToF notifications continued after unsubscribe")
+
+                await self.disconnect()
+                await asyncio.sleep(0.4)
+                if self.connection_status()["connected"]:
+                    raise RuntimeError("BLE remained connected after disconnect")
+                result["passed"] = True
+            except Exception as exc:
+                result["error_type"] = type(exc).__name__
+                result["error"] = str(exc)
+                print(f"Cycle {cycle} FAILED: {type(exc).__name__}: {exc}")
+                try:
+                    if (self.client is not None
+                            and self.client.is_connected
+                            and "tof" in self.subscriptions):
+                        await self.unsubscribe("tof")
+                except Exception as cleanup_exc:
+                    result["unsubscribe_cleanup_error"] = str(cleanup_exc)
+                try:
+                    if self.client is not None:
+                        await self.disconnect()
+                except Exception as cleanup_exc:
+                    result["disconnect_cleanup_error"] = str(cleanup_exc)
+                await asyncio.sleep(0.4)
+            result["cycle_seconds"] = round(
+                time.monotonic() - cycle_started, 3)
+            results.append(result)
+            print(f"Cycle {cycle}: "
+                  + ("PASS" if result["passed"] else "FAIL"))
+
+        passed_cycles = sum(bool(item["passed"]) for item in results)
+        report = {
+            "passed": passed_cycles == cycles,
+            "cycles_requested": cycles,
+            "cycles_passed": passed_cycles,
+            "cycles_failed": cycles - passed_cycles,
+            "frame_timeout_seconds": frame_timeout,
+            "results": results,
+        }
+        self.write_report("soak-tof", report["passed"], soak=report)
+        print("\nToF BLE soak: "
+              f"{passed_cycles}/{cycles} cycles passed; "
+              f"report saved to {self.report_path}")
 
     async def run_command(self, line: str) -> bool:
         arguments = parse_command(line)
@@ -492,6 +732,9 @@ class BleInspector:
             self.show_notifications()
         elif command == "disconnect" and len(arguments) == 1:
             await self.disconnect()
+        elif command == "soak-tof" and 3 <= len(arguments) <= 4:
+            timeout = float(arguments[3]) if len(arguments) == 4 else 15.0
+            await self.soak_tof(arguments[1], int(arguments[2]), timeout)
         else:
             raise ValueError("unknown command or wrong arguments; enter 'help'")
         return True
@@ -535,10 +778,13 @@ def print_help() -> None:
                           write UTF-8 to CLI or DEBUG RX with ATT response
   write-hex <stream> <hex>
                           write exact bytes to CLI or DEBUG RX with ATT response
-  subscribe <stream>      enable CLI or DEBUG TX notifications
-  unsubscribe <stream>    disable CLI or DEBUG TX notifications
-  notifications           show received notification fragments as hex
+  subscribe <stream>      enable CLI, DEBUG, or ToF TX notifications
+  unsubscribe <stream>    disable CLI, DEBUG, or ToF TX notifications
+  notifications           show text fragments and completed CRC-valid ToF frames
   disconnect              close the active BLE connection
+  soak-tof <device> <cycles> [frame-timeout]
+                          repeatedly connect, validate GATT, enable/disable ToF,
+                          require a CRC-valid frame, and disconnect
   quit                     disconnect and exit
 """)
 
@@ -550,6 +796,12 @@ def build_argument_parser() -> argparse.ArgumentParser:
                         help="default scan duration in seconds (default: 6)")
     parser.add_argument("--connect-timeout", type=float, default=20.0,
                         help="connection timeout in seconds (default: 20)")
+    parser.add_argument("--pair", action="store_true",
+                        help="request Just Works pairing while connecting")
+    parser.add_argument(
+        "--uncached-services", action="store_true",
+        help="force Windows to read the current GATT database from the device",
+    )
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT,
                         help="JSON file overwritten after every command")
     return parser
@@ -561,7 +813,9 @@ def main() -> int:
         raise SystemExit("timeouts must be positive")
     inspector = BleInspector(arguments.report.resolve(),
                              arguments.scan_timeout,
-                             arguments.connect_timeout)
+                             arguments.connect_timeout,
+                             arguments.pair,
+                             arguments.uncached_services)
     try:
         return asyncio.run(inspector.run())
     except KeyboardInterrupt:

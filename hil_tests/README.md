@@ -11,10 +11,11 @@ commands. Generated reports are written under `results/` and are not committed.
   stream probe. It scans all nearby advertisers, keeps the discovered `BLEDevice`
   objects, connects to a selected scan result, and reports every service,
   characteristic, property, descriptor, handle, and negotiated MTU. It labels
-  the six known N6 maintenance UUIDs and produces a PASS/NOT MATCHED verdict
+  the seven known N6 maintenance UUIDs and produces a PASS/NOT MATCHED verdict
   for the expected UUID/property contract. Explicit commands can subscribe to
-  either TX characteristic and write UTF-8 or hex bytes to either RX
-  characteristic. It never starts XMODEM or programs firmware; DEBUG RX is
+  CLI, DEBUG, or ToF TX and write UTF-8 or hex bytes to either RX
+  characteristic. ToF fragments are reassembled and reported only as complete
+  CRC-valid frames. It never starts XMODEM or programs firmware; DEBUG RX is
   expected to be accepted by ATT and discarded by the current firmware policy.
 - `self_test.py` tests command parsing, scan-result selection, advertisement and
   GATT serialization, N6 UUID labelling, and atomic JSON report creation. It
@@ -48,6 +49,11 @@ GATT server is advertising. Then run:
 hil_tests\.venv\Scripts\python.exe hil_tests\ble_inspector.py
 ```
 
+If Windows has a stale unpaired cache entry and the normal connect fails before
+GATT discovery, retry with `--pair` to request the firmware's Just Works mode.
+After changing the firmware GATT layout, add `--uncached-services` to force
+Windows to read the current services and characteristics from the board.
+
 At the `ble>` prompt:
 
 ```text
@@ -57,14 +63,29 @@ status
 services
 subscribe cli
 subscribe debug
+subscribe tof
 write-text cli "transport probe"
 write-hex debug 01020304
 notifications
 unsubscribe debug
+unsubscribe tof
 unsubscribe cli
 disconnect
 quit
 ```
+
+For a repeated connection and ToF-notification stability test, scan once and
+run the bounded soak command. Every cycle reconnects, validates the complete
+N6 GATT contract, enables ToF notifications, requires a complete CRC-valid
+frame, disables notifications, verifies one quiet second, and disconnects:
+
+```text
+scan 10
+soak-tof n6 10 15
+```
+
+The final per-cycle timings and failure reason, if any, are saved atomically in
+`results/ble_last.json`.
 
 Choose the number actually marked `[N6]`; do not assume that it is device 1.
 An exact address from the latest scan can be used instead. Connecting from the
@@ -77,6 +98,7 @@ Expected N6 device name: `N6-MAINT-xxxx`. Expected custom GATT layout:
 | CLI service | `7a1e0001-b5a3-f393-e0a9-e50e24dcca9e` | Primary service |
 | CLI RX | `7a1e0002-b5a3-f393-e0a9-e50e24dcca9e` | Write, Write Without Response |
 | CLI TX | `7a1e0003-b5a3-f393-e0a9-e50e24dcca9e` | Notify |
+| ToF image TX | `7a1e0004-b5a3-f393-e0a9-e50e24dcca9e` | Notify |
 | DEBUG service | `7a1e0101-b5a3-f393-e0a9-e50e24dcca9e` | Primary service |
 | DEBUG RX | `7a1e0102-b5a3-f393-e0a9-e50e24dcca9e` | Write, Write Without Response |
 | DEBUG TX | `7a1e0103-b5a3-f393-e0a9-e50e24dcca9e` | Notify |
@@ -86,14 +108,17 @@ The latest machine-readable observation is saved to
 tree is the evidence you want to preserve. Atomic report replacement retries
 transient Dropbox sharing locks with bounded backoff.
 
-The stream commands intentionally expose ATT fragments rather than pretending
-that one notification equals one line. `notifications` preserves each received
-fragment separately as hexadecimal data. The item-10 firmware consumes CLI RX
+The text stream commands intentionally expose ATT fragments rather than
+pretending that one notification equals one line. `notifications` preserves
+CLI/DEBUG fragments as hexadecimal data. ToF is different: its 20-byte headers
+are checked for frame identity, dimensions, channel, contiguous byte offset and
+payload CRC32, and only complete frames are retained in the report. The item-10 firmware consumes CLI RX
 through an independent BLE parser session and returns echo, replies and prompts
 on CLI TX notifications. Subscribe to `cli`, then write a command terminated by
 CR (for example `version\r` or `MAP DISPLAY ON\r`). DEBUG RX remains disabled
-by policy and the DEBUG TX producer is not attached yet. Binary map/dataset
-streams, XMODEM and remote reboot remain USB-only.
+by policy and the DEBUG TX producer is not attached yet. Signed XMODEM is
+available through BLE CLI in the web application; dataset streaming and remote
+reboot remain USB-only.
 
 ## Hardware-free verification
 

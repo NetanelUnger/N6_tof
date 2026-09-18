@@ -26,6 +26,9 @@
 #include "app_console.h"
 #include "app_features.h"
 #include "debug_uart.h"
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+#include "wifi_ble_app.h"
+#endif
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
 #include "display_app.h"
 #endif
@@ -556,9 +559,13 @@ void TOF_App_Process(void)
             tof_fatal("processing ready queue receive", (int)queue_status);
         }
         raw_frame = (TOF_RawFrame_t *)ready_message;
+        uint32_t ble_image_requested = 0U;
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+        ble_image_requested = WIFI_BLE_App_IsTofImageSubscribed();
+#endif
         TOF_App_Channel_t map_channel =
-            (tof_map_enabled != 0U) ? tof_select_next_map_channel() :
-                                      TOF_APP_CHANNEL_NONE;
+            ((tof_map_enabled != 0U) || (ble_image_requested != 0U)) ?
+            tof_select_next_map_channel() : TOF_APP_CHANNEL_NONE;
         const TOF_ChannelDescriptor_t *map_descriptor =
             tof_get_channel_descriptor(map_channel);
 
@@ -671,6 +678,19 @@ void TOF_App_Process(void)
                                  frame.p_metadata->frame_counter);
         RPS_AI_GetStatus(&rps_status);
         (void)RPS_AI_GetImageView(&processing_view);
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+        /* Publish the exact transformed channel before the shared auxiliary
+         * workspace can be reused by depth filtering.  The radio layer takes
+         * a non-blocking SRAM4 snapshot only when its previous frame is done;
+         * otherwise this sensor frame is deliberately dropped for BLE. */
+        if ((ble_image_requested != 0U) && (map_frame.pixels != NULL))
+        {
+            (void)WIFI_BLE_App_PublishTofImage(
+                map_frame.frame_id, (uint8_t)map_frame.channel_id,
+                map_frame.pixels, (uint8_t)map_frame.width,
+                (uint8_t)map_frame.height);
+        }
+#endif
         /* When an auxiliary map is selected, render it before this shared
          * workspace is reused for the SPI display's depth filter below. */
         if ((tof_map_enabled != 0U) &&

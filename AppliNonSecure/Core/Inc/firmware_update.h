@@ -8,7 +8,12 @@
 extern "C" {
 #endif
 
-int32_t Firmware_Update_Start(void);
+typedef int32_t (*Firmware_Update_Write_t)(const void *data, size_t length,
+                                           void *context);
+
+int32_t Firmware_Update_Start(Firmware_Update_Write_t write,
+                              void *write_context,
+                              const char *transport_name);
 void Firmware_Update_Feed(const uint8_t *data, size_t length,
                           uint32_t now_ms);
 void Firmware_Update_Poll(uint32_t now_ms);
