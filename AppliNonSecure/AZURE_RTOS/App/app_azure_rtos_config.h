@@ -53,11 +53,14 @@ extern "C" {
 /* USER CODE BEGIN EC */
 
 /* The normal application threads reserve about 124 KiB of pool-backed stacks.
- * When the radio build is selected, its ST driver code also consumes the same
- * SRAM2 image/heap region.  Return another 8 KiB to the VL53L9 C heap; radio
- * tasks and transport allocations use the isolated SRAM4 pool below. */
+ * Radio-only builds retain 27 KiB of headroom.  Enabling the Wi-Fi station
+ * links another ~17 KiB of driver code into SRAM2, so its fixed startup-only
+ * application pool is 134 KiB (about 10 KiB headroom); all ST67 dynamic
+ * objects and transport allocations remain in the isolated SRAM4 pool. */
 #undef TX_APP_MEM_POOL_SIZE
-#if (APP_ST67W6X_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+#define TX_APP_MEM_POOL_SIZE                     (134U * 1024U)
+#elif (APP_ST67W6X_ENABLED == 1U)
 #define TX_APP_MEM_POOL_SIZE                     (151U * 1024U)
 #else
 #define TX_APP_MEM_POOL_SIZE                     (159U * 1024U)

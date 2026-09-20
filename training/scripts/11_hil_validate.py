@@ -111,6 +111,20 @@ def radio_preflight(serial: Serial, ble_scan_seconds: float) -> tuple[dict, str]
     """Validate source flags, live NCP state/version, and enabled air interfaces."""
     flags = load_feature_flags(PROJECT_ROOT)
     contract = load_radio_contract(PROJECT_ROOT)
+    response = ""
+    if flags["ble"]:
+        # A phone/browser left connected makes advertising=off by design and
+        # used to produce a false Stage-11 failure.  Return BLE to a known
+        # disconnected/advertising state, then retain the command transcript
+        # so a real disconnect or restart failure remains diagnosable.
+        serial.reset_input_buffer()
+        serial.write(b"ble disconnect\r")
+        serial.flush()
+        response += read_text(serial, 2.0)
+        serial.write(b"ble adv on\r")
+        serial.flush()
+        response += read_text(serial, 1.5)
+
     commands = ["radio hardware", "radio status"]
     if flags["radio"]:
         commands.append("radio info")
@@ -119,10 +133,9 @@ def radio_preflight(serial: Serial, ble_scan_seconds: float) -> tuple[dict, str]
     if flags["wifi"]:
         commands.append("wifi status")
 
-    serial.reset_input_buffer()
     serial.write(("\r".join(commands) + "\r").encode("ascii"))
     serial.flush()
-    response = read_text(serial, 2.5)
+    response += read_text(serial, 2.5)
     if flags["wifi"]:
         serial.write(b"wifi scan\r")
         serial.flush()
@@ -335,6 +348,27 @@ def main() -> int:
                 npu_run_counters.append(int(frame.npu_runs or 0))
             if (index + 1) % 10 == 0:
                 print(f"{index + 1}/{args.frames}: frame {frame.frame_id}")
+    except Exception as exc:
+        log_lines.extend(["Dataset/model stream failed:", str(exc)])
+        write_log(log_lines)
+        report_path = REPORTS_ROOT / "hil_validation.json"
+        stream_report = {
+            "schema": 2,
+            "created_utc": utc_now(),
+            "port": port,
+            "result": "fail",
+            "failure_stage": "dataset_stream",
+            "frames_received": len(frame_ids),
+            "radio": radio_report,
+            "error": str(exc),
+        }
+        atomic_json(report_path, stream_report)
+        mark_stage("11_hil", status="failed",
+                   inputs=deployment_fingerprint,
+                   outputs=[relative(report_path)],
+                   details=stream_report)
+        print(f"HIL STREAM FAIL: {exc}")
+        return 9
     finally:
         try:
             serial.write(b"DATASET STREAM OFF\r")

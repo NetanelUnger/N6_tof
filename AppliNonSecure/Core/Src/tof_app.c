@@ -45,7 +45,11 @@
 #define TOF_USECASE                (VL53L9_USECASE_AR_PRECISION)
 #define TOF_TARGET_FPS             (10U)
 #define TOF_EVENT_TIMEOUT_MS       (1500U)
-#define TOF_COMMAND_TIMEOUT_MS     (30U)
+/* The first DSS map/unmap command after stream start can legitimately take
+ * longer than 30 ms while the sensor finalizes its first autonomous frame.
+ * Keep a bounded timeout, but allow the same 100 ms budget as one 10 fps
+ * frame so normal command completion is not misreported as a fatal I3C fault. */
+#define TOF_COMMAND_TIMEOUT_MS     (100U)
 #define TOF_MIN_DISPLAY_MM         (200U)
 #define TOF_MAX_DISPLAY_MM         (4000U)
 #define TOF_TERMINAL_BUFFER_SIZE   (48U * 1024U)
@@ -1008,17 +1012,10 @@ static int tof_wait_command_complete(vl53l9_device_t *sensor,
 
     do
     {
-        int ret;
-
-        (void)platform_acknowledge_event(PLATFORM_I3C_DMA_RX_EVT);
-        (void)platform_acknowledge_event(PLATFORM_I3C_ERROR_EVT);
-        ret = vl53l9_frame_command_status_start_async(sensor,
-                                                       &command_status);
-        if (ret != 0)
-        {
-            return ret;
-        }
-        ret = tof_wait_i3c_event(PLATFORM_I3C_DMA_RX_EVT);
+        /* The command payload uses DMA, but polling its one-byte status with
+         * the blocking helper prevents the shared async descriptor/context
+         * from being overwritten immediately after the TX completion event. */
+        int ret = vl53l9_frame_command_status_read(sensor, &command_status);
         if (ret != 0)
         {
             return ret;

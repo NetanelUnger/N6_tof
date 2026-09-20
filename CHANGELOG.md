@@ -4,6 +4,50 @@ This file contains the dated engineering record extracted from `README.md`.
 Do not load it during normal project work; consult it only when a task
 explicitly requires historical context.
 
+### 2026-09-19
+
+- Passed the final Cloud-integrated Stage 11 SRAM HIL: SDK 2.0.106, 11 Wi-Fi
+  networks, the expected BLE advertisement at -68 dBm, 100 CRC-valid distinct
+  ToF frames, 100/100 frame-matched Neural-ART results, bit-exact preprocessing,
+  30 distinct model tensors, 100% class and decision agreement, maximum raw
+  delta 6, and zero NPU errors. Stage 11 now disconnects stale BLE clients and
+  explicitly restarts advertising before its real external UUID scan.
+- Fixed intermittent VL53L9 DSS map/start timeouts by polling the one-byte
+  command register with the blocking I3C helper after asynchronous TX completes.
+  This avoids immediately reusing the single persistent async descriptor while
+  the HAL/DMA completion path may still reference the TX context. The bounded
+  completion budget is now 100 ms. External Flash was not changed by the HIL.
+- Added the HTTPS Cloud CLI relay for the Azure App Service: six-digit pairing
+  is callable through USB or BLE, the CRC-protected capability token persists
+  in the ST67 NCP filesystem, commands use leased typed text/binary records with
+  explicit ACKs, signed XMODEM OTA uses the same Secure A/B installer, and ToF
+  frames use an independent BLE-compatible media channel. Removed transport
+  command allowlists by explicit demo policy. Moved the 134 KiB application
+  ThreadX pool plus Cloud session into reserved SRAM4; the Non-Secure build is
+  420,432 bytes and retains 481,520 bytes of contiguous C heap.
+- Reworked `help`/`menu`/`?` into bounded sections so the 768-byte CLI print
+  buffer no longer truncates the Wi-Fi/BLE commands. The complete command set
+  now carries `[B]` (USB+BLE)/`[U]` (USB-only) labels and documents BLE CLI,
+  ToF-image and DEBUG characteristic modes plus the remote security boundary.
+  Physical SRAM HIL received the complete 1,840-byte response over USB and
+  repeated it over BLE at MTU 247; the BLE stream sent 16 messages/4,044 bytes
+  for the initial menu plus explicit help with zero drops, retries, stale
+  generations, or errors.
+- Enabled the ST67 Wi-Fi station and added bounded `wifi scan`, hidden-password
+  `wifi connect "SSID"`, `wifi status`/`wifi ip`, and disconnect commands. All
+  W6X operations are serialized by the Radio Manager, callbacks only snapshot
+  state/results, credentials are rejected over unauthenticated BLE, and a
+  successful connection returns the DHCP IPv4 address.
+- Kept the VL53L9 360 KiB heap guard by sizing the startup-only application
+  ThreadX pool to 134 KiB in Wi-Fi builds; the incremental Non-Secure build
+  passes with 369,472 bytes of C heap.
+- Passed physical SRAM Wi-Fi HIL: bounded scan, hidden-password WPA2
+  association, DHCP IPv4/gateway/netmask reporting, and a second scan without
+  losing the link. ToF continued at 6.4 fps, Neural-ART reached 1,294 runs with
+  zero errors, BLE remained ready/advertising, and the SRAM4 radio pool retained
+  21,056 bytes. External Flash and the persistent firmware version were not
+  changed.
+
 ### 2026-09-18
 
 - Added a bounded BLE ToF soak command and passed 10/10 physical cycles. Every

@@ -54,13 +54,15 @@
 #if defined ( __ICCARM__ )
 #pragma data_alignment=4
 #endif
-__ALIGN_BEGIN static UCHAR tx_byte_pool_buffer[TX_APP_MEM_POOL_SIZE] __ALIGN_END;
+/* The application pool lives in the lower 256 KiB of SRAM4.  This preserves
+ * SRAM2 for the large ToF buffers and their guarded C-heap margin. */
+__ALIGN_BEGIN static UCHAR tx_byte_pool_buffer[TX_APP_MEM_POOL_SIZE]
+    __attribute__((section(".app_shared_bss"), aligned(64), used)) __ALIGN_END;
 static TX_BYTE_POOL tx_app_byte_pool;
 
 #if (APP_ST67W6X_ENABLED == 1U)
-/* Kept outside SRAM2 so linking the T01 driver cannot consume the ToF
- * transform's guarded C-heap margin.  The linker reserves the top 64 KiB of
- * otherwise-unused NPU SRAM4 and Stage 08 rejects model use of that bank. */
+/* The linker reserves a separate 64 KiB radio region near the top of SRAM4;
+ * Stage 08 rejects model use of that bank. */
 static UCHAR tx_radio_byte_pool_buffer[TX_RADIO_MEM_POOL_SIZE]
     __attribute__((section(".radio_shared_bss"), aligned(64), used));
 static TX_BYTE_POOL tx_radio_byte_pool;

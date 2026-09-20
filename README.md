@@ -55,7 +55,7 @@ Current status:
 | USB CDC XMODEM firmware update | Working for a signed physical CN8 transfer and confirmed trial boot; interruption and deliberate rollback fault-injection tests remain pending |
 | GC9A01 round display | Working from SRAM: the DMA-backed task renders the numbered ToF map and its frame-matched NPU summary; 38/38 submitted frames rendered with zero errors in the latest non-visual HIL check |
 | Rock/paper/scissors Neural-ART | Working on hardware; Stage 11 validates frame-exact results, bit-exact preprocessing, bounded raw-score error, and tolerance-aware decision consistency |
-| ST67 Wi-Fi/BLE | SPI/AT identity and BLE maintenance GATT are enabled; CLI/DEBUG plus the dedicated atomic ToF-image Notify characteristic are build-verified; Stage 11 verifies the source/runtime flags, NCP SDK version, GATT state, and a real host BLE advertisement scan; Wi-Fi services remain disabled |
+| ST67 Wi-Fi/BLE/Cloud | SPI/AT identity, BLE maintenance GATT, Wi-Fi station and HTTPS Cloud Relay are enabled. USB, BLE and Cloud share the CLI command table; Wi-Fi connect returns DHCP IPv4, Cloud pairing uses the site's six-digit code, and ToF uses an independent media channel |
 | BLE XMODEM firmware update | Implemented over the CLI RX/TX characteristics and reuses the authenticated Secure A/B installer; physical CLI/GATT/ToF transport and repeated reconnect HIL pass, while a complete physical BLE firmware transfer is still pending |
 
 ### 1.1 Latest hardware validation
@@ -76,6 +76,28 @@ RX/TX architecture and rare-event diagnostics enabled.
 This is a successful functional hardware checkpoint. It is not yet evidence of
 a multi-hour soak test, repeated attach/detach endurance, or deliberate fault
 injection into every recovery branch. Those remain separate validation tasks.
+
+On 2026-09-19, the Wi-Fi CLI passed physical SRAM HIL. A bounded scan found
+the target WPA2 network, hidden password entry connected successfully, DHCP
+returned a non-zero IPv4 address plus gateway and netmask, and a second scan
+while connected preserved the link and address. During the repeat scan, ToF
+continued at 6.4 fps, the Neural-ART classifier reported 1,294 runs with zero
+errors, the display task remained ready, and BLE GATT remained ready and
+advertising. The dedicated SRAM4 radio pool retained 21,056 bytes after the
+test. External Flash and the persistent firmware version were not changed.
+
+Later on 2026-09-19, the final Cloud-integrated SRAM image passed the complete
+Stage 11 regression after a physical power cycle. The radio preflight found the
+ST67 SDK 2.0.106, scanned 11 Wi-Fi networks, and rediscovered the
+`N6-MAINT-B8FB` BLE service at -68 dBm. Stage 11 then captured 100 CRC-valid,
+distinct ToF frames, matched 100/100 Neural-ART results, reproduced all 100
+device input tensors bit-exactly in Python, and observed 30 distinct model
+tensors. Class agreement and decision consistency were 100%, the maximum raw
+score delta was 6, and the NPU reported zero errors. The VL53L9 command-status
+poll is now a blocking one-byte I3C read after asynchronous command TX, avoiding
+reuse of the shared async descriptor while its completion path may still refer
+to the TX context; the bounded completion budget is 100 ms. External Flash was
+not modified by this RAM HIL run.
 
 On 2026-08-23, the SRAM development image added the inference result to both
 live map consumers. `MAP ON` now appends a prominent `NPU RESULT` line plus
@@ -252,7 +274,8 @@ The CubeMX source of truth is [N6.ioc](N6.ioc).
 - Project type: SecureNSecure.
 - Contexts: FSBL, AppliSecure, AppliNonSecure, and ExtMemLoader.
 - KeepUserCode is enabled.
-- Main ThreadX application pool: 159 KiB.
+- Main ThreadX application pool: 134 KiB when Wi-Fi/Cloud is enabled, 151 KiB
+  for radio/BLE-only builds, and 159 KiB when radio support is disabled.
 
 ### 4.2 Clock configuration
 
@@ -456,7 +479,7 @@ The current linker/map-level RAM ownership is:
 | FSBL staging | `0x34180400..0x341FFFFF`, 511 KiB used transiently during boot/development loading |
 | Non-Secure SRAM2 | `0x24100400..0x241FFFFF`, 1023 KiB for the application image, BSS, ThreadX pools, sensor buffers, C heap, and MSP stack |
 | Upper NPU SRAM3 | `0x24244000..0x2426FFFF`, 176 KiB reserved for CPU-side CDC/RPS/ToF transient workspaces; all 180,224 bytes are currently linked |
-| NPU SRAM4 | Current model does not use it; radio builds reserve the top 64 KiB at `0x242D0000..0x242DFFFF` |
+| NPU SRAM4 | Current model does not use it; `0x24280000..0x242BFFFF` holds the application pool/Cloud CLI and `0x242D0000..0x242DFFFF` holds the radio pool |
 | NPU SRAM5 | input plus Neural-ART activations from `0x242E0000`, currently 17,408 bytes |
 | NPU SRAM6 | copied model weights from `0x24350000`, currently 55,425 bytes |
 
@@ -484,8 +507,9 @@ resolution. The largest visible active chain is the optimized sharpener at
 about 34 KiB, before its callers and exception/FPU context. A 96 KiB stack
 therefore retains generous margin.
 
-The ThreadX application pool is 159 KiB. Its active pool-backed stacks reserve
-about 124 KiB after adding the 4 KiB display task. The USBX parent byte pool is
+The ThreadX application pool is 134 KiB in the current Wi-Fi/Cloud build. Its
+active pool-backed stacks reserve about 124 KiB after adding the 4 KiB display
+task. The USBX parent byte pool is
 56 KiB: it contains the 32 KiB USBX system arena, the 16 KiB device-control
 stack, allocator bookkeeping, and about 8 KiB of unused parent-pool headroom.
 With the update and static CDC buffers linked, the first-frame transform needs
@@ -610,10 +634,33 @@ Available CLI commands:
 | tof status | Show ToF state, rate, and range |
 | tof pause / tof resume | Stop or restart the autonomous ranging stream |
 | dataset stream on / off / status | Stream N6DF v3 records containing raw 54x42 `uint16` depth and the exact frame-matched 64x50 `uint8` NPU tensor with separate CRCs |
+| RPS on / off / status | Enable, disable, or inspect Neural-ART inference and raw int8 scores |
 | debug off/error/warn/info/debug | Change ST67 log verbosity |
+| radio hardware / status / info | Inspect the ST67 hardware baseline, manager state, and module identity/versions |
+| wifi scan | Scan and list up to 15 nearby networks with channel, RSSI, security, protocol, and SSID |
+| wifi connect `"SSID"` | Request the password without echo/history, connect, and return the assigned IPv4 address |
+| wifi status / wifi ip | Show station/link information plus IPv4, gateway, and netmask |
+| wifi disconnect `[forget]` | Disconnect and optionally remove the NCP-stored credentials |
+| cloud status / endpoint | Inspect pairing, HTTPS, command/output and ToF relay counters |
+| cloud pair `<code>` | Claim the six-digit code shown by the web app; available through USB or BLE |
+| cloud enable / disable / reconnect / test | Control the HTTPS relay without changing Wi-Fi credentials |
+| cloud unpair yes | Remove the persisted device capability token from the NCP filesystem |
+| ble status | Show GATT readiness, connection, advertising, MTU, queues, counters, and SRAM4 pool |
+| ble adv on / ble adv off | Start or stop BLE advertising through the Radio Manager |
+| ble disconnect | Disconnect the current BLE peer |
 | clear | Clear the terminal |
-| Start UART Firmware Update | Enter raw XMODEM-CRC receive mode on the CN8 USB CDC terminal (`update` is an alias) |
+| Start UART Firmware Update / update | Enter signed raw XMODEM-CRC receive mode on either USB CDC or BLE CLI |
 | reboot yes | Reset the MCU |
+
+`help`, `menu`, and `?` now emit the complete list in bounded sections instead
+of one oversized print that could be truncated before the radio commands. The
+same command handlers are intentionally available on USB CDC, BLE and Cloud.
+The help text also describes BLE Write/Notify, typed Cloud text/binary records,
+the dedicated ToF media channels, the TX-only DEBUG service and advertising.
+Physical SRAM HIL on 2026-09-19 received the complete 1,840-byte explicit help
+response over USB CDC and then repeated `help` through BLE CLI Write/Notify at
+MTU 247. BLE transmitted the initial menu plus the explicit help as 16 bounded
+messages/4,044 bytes with zero drops, retries, stale generations, or errors.
 
 #### 5.3.1 Table-driven command menu
 
@@ -772,8 +819,8 @@ The x-cube-st67w61 driver was integrated together with:
 - spi_port.c and board-specific transport configuration.
 - A small FreeRTOS-to-ThreadX compatibility layer required by the vendor driver.
 - Wi-Fi, IP, BLE connection, and error callbacks.
-- A non-destructive `radio hardware` diagnostic and guarded future commands
-  for scan, connect, and BLE advertising.
+- A non-destructive `radio hardware` diagnostic plus Radio-Manager-owned
+  scan/connect/disconnect requests and BLE advertising control.
 
 The module and BLE discovery layer are enabled independently from Wi-Fi in
 AppliNonSecure/Core/Inc/app_features.h:
@@ -781,7 +828,8 @@ AppliNonSecure/Core/Inc/app_features.h:
 ~~~c
 #define APP_ST67W6X_ENABLED  (1U)
 #define APP_ST67W6X_BLE_GATT_ENABLED  (1U)
-#define APP_ST67W6X_WIFI_SERVICES_ENABLED (0U)
+#define APP_ST67W6X_WIFI_SERVICES_ENABLED (1U)
+#define APP_ST67W6X_CLOUD_RELAY_ENABLED (1U)
 ~~~
 
 BLE advertises as `N6-MAINT-xxxx` with separate CLI and DEBUG services. CLI and
@@ -802,11 +850,28 @@ carries the connection generation, and the Radio Manager fragments TX to
 `MTU-3`, caps retries, and drops stale work after reconnect. BLE has an
 independent 5,272-byte parser/editor/history/output session allocated from SRAM4
 only after the vendor radio initialization reaches READY. The single priority-9
-CLI broker services CDC and BLE without sharing partial-line or history state;
+CLI broker services CDC, BLE and Cloud without sharing partial-line or history state;
 command backends remain serialized. Signed XMODEM enters raw mode only for the
 session that requested it and feeds the same authenticated Secure A/B installer
-as CDC. Dataset streaming, DEBUG RX, and unauthenticated reboot remain blocked.
-The DEBUG mirror is not attached yet. Wi-Fi does not call `W6X_WiFi_Init()`.
+as CDC. DEBUG RX remains blocked; every actual CLI command is shared by design.
+The DEBUG mirror is not attached yet. Wi-Fi initializes the station service,
+enables station DHCP, and keeps every W6X control call in the Radio Manager.
+`wifi scan` returns a bounded 15-entry snapshot. `wifi connect "SSID"` accepts
+the password in a second hidden prompt so it is neither echoed nor stored in
+CLI history, waits for association and DHCP, and returns IPv4. The demo
+intentionally permits credentials, disconnect, reboot, pairing and signed
+update through BLE as well as USB and Cloud.
+
+The Cloud transport connects directly to
+`natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net` over TLS 1.2.
+Before TLS it synchronizes the NCP clock with SNTP, validates the Azure chain
+against DigiCert Global Root G2 and supplies SNI. `cloud pair <code>` exchanges
+the browser's six-digit code for a device capability token, stores a
+CRC-protected record in `n6cloud.cfg` on the NCP filesystem and reconnects
+automatically after reboot. Commands are leased and explicitly acknowledged;
+typed text and CRC32-protected binary records keep XMODEM OTA on the same CLI.
+Cloud ToF frames are posted separately with the BLE-compatible 20-byte header,
+so a live terminal and map can run concurrently.
 
 The ToF characteristic transports one logical frame across as many ATT
 notifications as required. Each notification begins with the same 20-byte
@@ -840,15 +905,20 @@ subscriber cannot starve XMODEM. The image producer waits for an ATT payload
 larger than its 20-byte header; with MTU 247 the expected ceiling is about one
 complete frame per second.
 
-The radio build uses a dedicated 64 KiB ThreadX byte pool at
+The 134 KiB application ThreadX pool and Cloud CLI session are NOLOAD data in
+the reserved SRAM4 window at `0x24280000..0x242BFFFF`. This recovers contiguous
+SRAM2 heap without changing task capacity. The radio build uses a dedicated 64 KiB ThreadX byte pool at
 `0x242D0000..0x242DFFFF` in currently unused SRAM4. Its general SRAM2 pool is
-151 KiB rather than 159 KiB. The BLE stream contexts, independent CLI session,
-and single 9,072-byte ToF image snapshot are allocated from that radio pool. The
+134 KiB when Wi-Fi services are enabled (151 KiB for a BLE/radio-only build,
+159 KiB with the radio disabled). The fixed startup stacks consume about
+124 KiB, leaving about 10 KiB of application-pool headroom. The BLE stream
+contexts, Wi-Fi request/result context, independent CLI session, vendor Wi-Fi
+objects, and single 9,072-byte ToF image snapshot are allocated from the radio pool. The
 linker and build preflight enforce the pool bounds; runtime `ble status` exposes
 remaining radio-pool bytes and image accepted/completed/dropped/error counters.
-The current incremental build preserves 369,776 bytes of C heap, only 1,136 bytes
-above the enforced 360 KiB transform floor, so physical transform startup and
-radio-pool high-water validation are mandatory. Stage 08 continues to reject
+The current incremental build preserves 481,520 bytes of C heap, above the
+enforced 360 KiB transform floor. Physical transform startup and radio-pool
+high-water validation remain mandatory. Stage 08 continues to reject
 generated NPU networks that select SRAM4.
 
 ### 5.5 Independent ST-LINK UART diagnostics
@@ -1106,7 +1176,7 @@ Additional internal ThreadX and USBX tasks may be created by the middleware, suc
 
 | Pool | Size | Main use |
 |---|---:|---|
-| tx_app_byte_pool | 151 KiB in radio builds | ToF, CLI, and application stacks/objects |
+| tx_app_byte_pool | 134 KiB with Wi-Fi enabled; linked in SRAM4 | ToF, CLI, and application stacks/objects |
 | ux_device_app_byte_pool | 56 KiB | 32 KiB USBX system arena, 16 KiB USB Device task stack, bookkeeping, and headroom |
 | usbpd_app_byte_pool | 16 KiB | CAD queue, CAD task, and USB-PD objects |
 | tx_radio_byte_pool | 64 KiB | Radio Manager plus ST SPI/AT compatibility tasks and objects |
@@ -1454,7 +1524,6 @@ when historical context is explicitly required.
     boot chain, Stage 10 loads the exact integrated model into SRAM, Stage 11
     runs HIL against that live SRAM image, and Stage 12 installs the persistent
     update only after the HIL fingerprint passes.
-
 ## 14. The project's golden rule
 
 The IOC describes hardware ownership and the generated skeleton. The hand-written code describes product behavior. After every Generate Code operation, verify that both still agree about pins, TrustZone, interrupts, memory regions, task stacks, middleware callbacks, and feature flags.

@@ -6,11 +6,13 @@
 
 #include "app_features.h"
 #include "bsp_conf.h"
+#include "cloud_relay.h"
 #include "debug_uart.h"
 #include "logging.h"
 #include "main.h"
 #include "vl53l9_interface.h"
 #include "spi_iface.h"
+#include "w61_at_api.h"
 #include "w6x_api.h"
 
 /* Avoid including app_azure_rtos.h here: its generated USB-PD include graph
@@ -45,6 +47,12 @@ extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
 #define BLE_TX_CHAR_INDEX       (1U)
 #define BLE_TOF_IMAGE_CHAR_INDEX (2U)
 #define BLE_ADV_REQUEST_NONE    (2U)
+
+#define WIFI_CONTROL_DONE_FLAG         (1UL << 0U)
+#define WIFI_EVENT_CONNECTED_FLAG      (1UL << 0U)
+#define WIFI_EVENT_GOT_IP_FLAG         (1UL << 1U)
+#define WIFI_EVENT_DISCONNECTED_FLAG   (1UL << 2U)
+#define WIFI_CONTROL_CONTEXT_BUDGET    (2U * 1024U)
 
 #define BLE_CLI_SERVICE_UUID    "7a1e0001b5a3f393e0a9e50e24dcca9e"
 #define BLE_CLI_RX_UUID         "7a1e0002b5a3f393e0a9e50e24dcca9e"
@@ -191,6 +199,40 @@ static const WifiBle_GattCharacteristic_t ble_characteristics[] =
   }
 };
 #endif
+
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+typedef enum
+{
+  WIFI_CONTROL_NONE = 0,
+  WIFI_CONTROL_SCAN,
+  WIFI_CONTROL_CONNECT,
+  WIFI_CONTROL_DISCONNECT
+} WifiBle_WifiControlOperation_t;
+
+typedef struct
+{
+  TX_EVENT_FLAGS_GROUP completion;
+  volatile WifiBle_WifiControlOperation_t pending_operation;
+  volatile WifiBle_WifiControlOperation_t active_operation;
+  char request_ssid[W6X_WIFI_MAX_SSID_SIZE + 1U];
+  char request_password[W6X_WIFI_MAX_PASSWORD_SIZE + 1U];
+  uint32_t request_forget;
+  WifiBle_WifiStatus_t status;
+  WifiBle_WifiScanResults_t scan_results;
+} WifiBle_WifiControlContext_t;
+
+_Static_assert(WIFI_BLE_WIFI_SSID_SIZE == (W6X_WIFI_MAX_SSID_SIZE + 1U),
+               "Public and vendor Wi-Fi SSID sizes must match");
+_Static_assert(WIFI_BLE_WIFI_SCAN_MAX_APS <= UINT8_MAX,
+               "Vendor scan count is uint8_t");
+_Static_assert(sizeof(WifiBle_WifiControlContext_t) <=
+               WIFI_CONTROL_CONTEXT_BUDGET,
+               "Wi-Fi control context exceeded its SRAM4 design budget");
+
+static WifiBle_WifiControlContext_t *wifi_control_context;
+static volatile uint32_t wifi_pending_event_bits;
+#endif
+
 static volatile WifiBle_State_t wifi_ble_state = WIFI_BLE_STATE_DISABLED;
 static volatile uint32_t wifi_connected;
 static volatile uint32_t wifi_has_ip;
@@ -218,6 +260,20 @@ static uint8_t ble_address[WIFI_BLE_ADDRESS_SIZE];
 
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static void wifi_event_callback(W6X_event_id_t event_id, void *event_args);
+static void wifi_scan_callback(int32_t status,
+                               W6X_WiFi_Scan_Result_t *results);
+static UINT wifi_control_initialize(void);
+static UINT wifi_submit_request(WifiBle_WifiControlOperation_t operation,
+                                const char *ssid, const char *password,
+                                uint32_t forget, ULONG wait_option);
+static void wifi_process_pending_request(void);
+static void wifi_process_pending_events(void);
+static void wifi_refresh_status(void);
+static void wifi_complete_request(W6X_Status_t status);
+static W6X_Status_t wifi_enable_station_dhcp(void);
+static W6X_Status_t wifi_get_station_ip(uint8_t ip_address[4],
+                                        uint8_t gateway_address[4],
+                                        uint8_t netmask_address[4]);
 #endif
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static void ble_event_callback(W6X_event_id_t event_id, void *event_args);
@@ -300,10 +356,11 @@ void WIFI_BLE_App_Run(void)
   static W6X_App_Cb_t callbacks = {
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
     .APP_wifi_cb = wifi_event_callback,
+    .APP_net_cb = NULL,
 #else
     .APP_wifi_cb = NULL,
-#endif
     .APP_net_cb = NULL,
+#endif
     .APP_mqtt_cb = NULL,
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
     .APP_ble_cb = ble_event_callback,
@@ -324,6 +381,15 @@ void WIFI_BLE_App_Run(void)
   if (ble_stream_initialize() != TX_SUCCESS)
   {
     LogError("ST67W6X BLE bounded-stream initialization failed.\r\n");
+    status = W6X_STATUS_ERROR;
+    goto error;
+  }
+#endif
+
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  if (wifi_control_initialize() != TX_SUCCESS)
+  {
+    LogError("ST67W6X Wi-Fi control initialization failed.\r\n");
     status = W6X_STATUS_ERROR;
     goto error;
   }
@@ -356,6 +422,14 @@ void WIFI_BLE_App_Run(void)
     LogError("ST67W6X Wi-Fi initialization failed: %" PRIi32 "\r\n", status);
     goto error;
   }
+
+  status = wifi_enable_station_dhcp();
+  if (status != W6X_STATUS_OK)
+  {
+    LogError("ST67W6X station DHCP setup failed: %" PRIi32 "\r\n", status);
+    goto error;
+  }
+  wifi_refresh_status();
 #endif
 
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
@@ -377,21 +451,47 @@ void WIFI_BLE_App_Run(void)
   }
 #endif
 
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  if (CloudRelay_Initialize(MX_RadioBytePool_Get(), ble_device_name) != TX_SUCCESS)
+  {
+    LogError("ST67W6X Cloud Relay initialization failed.\r\n");
+    status = W6X_STATUS_ERROR;
+    goto error;
+  }
+#endif
+
   wifi_ble_state = WIFI_BLE_STATE_READY;
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   LogInfo("ST67W6X: BLE maintenance GATT server is advertising.\r\n");
   LogInfo("ST67W6X: bounded CLI/DEBUG streams, signed BLE XMODEM and ToF image notifications ready.\r\n");
-#elif (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+#endif
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
   LogInfo("ST67W6X: Wi-Fi station service is ready; no credentials are configured.\r\n");
-#else
+#endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  LogInfo("ST67W6X: HTTPS Cloud CLI relay is ready; use 'cloud pair <code>'.\r\n");
+#endif
+#if ((APP_ST67W6X_BLE_GATT_ENABLED == 0U) && \
+     (APP_ST67W6X_WIFI_SERVICES_ENABLED == 0U))
   LogInfo("ST67W6X: SPI/AT transport and module identity are ready.\r\n");
   LogInfo("ST67W6X: Wi-Fi and BLE services are disabled.\r\n");
 #endif
 
   for (;;)
   {
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+    wifi_process_pending_events();
+    wifi_process_pending_request();
+#endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+    /* Run the Cloud uploader before BLE can release the shared ToF frame. */
+    CloudRelay_Process(wifi_has_ip);
+#endif
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
     ble_process_pending_events();
+#endif
+#if ((APP_ST67W6X_BLE_GATT_ENABLED == 1U) || \
+     (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U))
     tx_thread_sleep((TX_TIMER_TICKS_PER_SECOND >= 50U) ?
                     (TX_TIMER_TICKS_PER_SECOND / 50U) : 1U);
 #else
@@ -527,6 +627,93 @@ UINT WIFI_BLE_App_RequestDisconnect(void)
   }
   ble_disconnect_request = 1U;
   return TX_SUCCESS;
+}
+
+void WIFI_BLE_App_GetWifiStatus(WifiBle_WifiStatus_t *status)
+{
+  if (status == NULL)
+  {
+    return;
+  }
+
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  if (wifi_control_context != NULL)
+  {
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    *status = wifi_control_context->status;
+    status->connected = wifi_connected;
+    status->has_ip = wifi_has_ip;
+    (void)tx_interrupt_control(posture);
+    return;
+  }
+#endif
+
+  (void)memset(status, 0, sizeof(*status));
+  status->last_status = (int32_t)W6X_STATUS_ERROR;
+}
+
+UINT WIFI_BLE_App_WifiScan(WifiBle_WifiScanResults_t *results,
+                           ULONG wait_option)
+{
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  UINT result;
+
+  if (results == NULL)
+  {
+    return TX_PTR_ERROR;
+  }
+  result = wifi_submit_request(WIFI_CONTROL_SCAN, NULL, NULL, 0U,
+                               wait_option);
+  if (result == TX_SUCCESS)
+  {
+    *results = wifi_control_context->scan_results;
+  }
+  return result;
+#else
+  (void)results;
+  (void)wait_option;
+  return TX_NOT_AVAILABLE;
+#endif
+}
+
+UINT WIFI_BLE_App_WifiConnect(const char *ssid, const char *password,
+                              ULONG wait_option)
+{
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  size_t ssid_length;
+  size_t password_length;
+
+  if ((ssid == NULL) || (password == NULL))
+  {
+    return TX_PTR_ERROR;
+  }
+  ssid_length = strlen(ssid);
+  password_length = strlen(password);
+  if ((ssid_length == 0U) || (ssid_length > W6X_WIFI_MAX_SSID_SIZE) ||
+      (password_length > W6X_WIFI_MAX_PASSWORD_SIZE))
+  {
+    return TX_SIZE_ERROR;
+  }
+  return wifi_submit_request(WIFI_CONTROL_CONNECT, ssid, password, 0U,
+                             wait_option);
+#else
+  (void)ssid;
+  (void)password;
+  (void)wait_option;
+  return TX_NOT_AVAILABLE;
+#endif
+}
+
+UINT WIFI_BLE_App_WifiDisconnect(uint32_t forget, ULONG wait_option)
+{
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  return wifi_submit_request(WIFI_CONTROL_DISCONNECT, NULL, NULL,
+                             (forget != 0U) ? 1U : 0U, wait_option);
+#else
+  (void)forget;
+  (void)wait_option;
+  return TX_NOT_AVAILABLE;
+#endif
 }
 
 UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
@@ -739,9 +926,14 @@ UINT WIFI_BLE_App_StreamRead(WifiBle_Stream_t stream, void *buffer,
 uint32_t WIFI_BLE_App_IsTofImageSubscribed(void)
 {
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
-  return ((ble_transport_ready != 0U) && (ble_connected != 0U) &&
-          (ble_tof_image_subscribed != 0U) &&
-          (ble_tof_image_context != NULL)) ? 1U : 0U;
+  CloudRelay_Status_t cloud_status;
+  uint32_t ble_requested = ((ble_transport_ready != 0U) &&
+      (ble_connected != 0U) && (ble_tof_image_subscribed != 0U)) ? 1U : 0U;
+  CloudRelay_GetStatus(&cloud_status);
+  return ((ble_tof_image_context != NULL) &&
+          ((ble_requested != 0U) ||
+           ((cloud_status.enabled != 0U) &&
+            (cloud_status.paired != 0U)))) ? 1U : 0U;
 #else
   return 0U;
 #endif
@@ -803,6 +995,9 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   ble_tof_image_context->stats.last_submitted_frame = frame_id;
   ble_tof_image_context->state = BLE_TOF_IMAGE_READY;
   (void)tx_interrupt_control(posture);
+  (void)CloudRelay_SubmitTofFrame(
+      frame_id, channel_id, ble_tof_image_context->payload, width, height,
+      ble_tof_image_context->payload_crc32);
   return TX_SUCCESS;
 #else
   (void)frame_id;
@@ -845,25 +1040,369 @@ void HAL_GPIO_EXTI_Falling_Callback(uint16_t gpio_pin)
 }
 
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+static UINT wifi_control_initialize(void)
+{
+  TX_BYTE_POOL *radio_pool = MX_RadioBytePool_Get();
+  void *memory = NULL;
+  UINT result;
+
+  if ((radio_pool == NULL) ||
+      (tx_byte_allocate(radio_pool, &memory,
+                        sizeof(WifiBle_WifiControlContext_t),
+                        TX_NO_WAIT) != TX_SUCCESS))
+  {
+    return TX_NO_MEMORY;
+  }
+
+  wifi_control_context = (WifiBle_WifiControlContext_t *)memory;
+  (void)memset(wifi_control_context, 0, sizeof(*wifi_control_context));
+  wifi_control_context->status.last_status = (int32_t)W6X_STATUS_OK;
+  result = tx_event_flags_create(&wifi_control_context->completion,
+                                 "ST67 WiFi control");
+  if (result != TX_SUCCESS)
+  {
+    (void)tx_byte_release(wifi_control_context);
+    wifi_control_context = NULL;
+    return result;
+  }
+  return TX_SUCCESS;
+}
+
+static UINT wifi_submit_request(WifiBle_WifiControlOperation_t operation,
+                                const char *ssid, const char *password,
+                                uint32_t forget, ULONG wait_option)
+{
+  ULONG ignored_flags = 0U;
+  UINT posture;
+  UINT result;
+
+  if ((wifi_control_context == NULL) ||
+      (wifi_ble_state != WIFI_BLE_STATE_READY))
+  {
+    return TX_NOT_AVAILABLE;
+  }
+
+  (void)tx_event_flags_get(&wifi_control_context->completion,
+                           WIFI_CONTROL_DONE_FLAG, TX_OR_CLEAR,
+                           &ignored_flags, TX_NO_WAIT);
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  if ((wifi_control_context->pending_operation != WIFI_CONTROL_NONE) ||
+      (wifi_control_context->active_operation != WIFI_CONTROL_NONE))
+  {
+    (void)tx_interrupt_control(posture);
+    return TX_NOT_AVAILABLE;
+  }
+
+  (void)memset(wifi_control_context->request_ssid, 0,
+               sizeof(wifi_control_context->request_ssid));
+  (void)memset(wifi_control_context->request_password, 0,
+               sizeof(wifi_control_context->request_password));
+  if (ssid != NULL)
+  {
+    (void)memcpy(wifi_control_context->request_ssid, ssid, strlen(ssid));
+  }
+  if (password != NULL)
+  {
+    (void)memcpy(wifi_control_context->request_password, password,
+                 strlen(password));
+  }
+  wifi_control_context->request_forget = forget;
+  wifi_control_context->status.operation_active = (uint32_t)operation;
+  wifi_control_context->pending_operation = operation;
+  (void)tx_interrupt_control(posture);
+
+  if (wait_option == TX_NO_WAIT)
+  {
+    return TX_SUCCESS;
+  }
+  result = tx_event_flags_get(&wifi_control_context->completion,
+                              WIFI_CONTROL_DONE_FLAG, TX_OR_CLEAR,
+                              &ignored_flags, wait_option);
+  return result;
+}
+
+static void wifi_complete_request(W6X_Status_t status)
+{
+  UINT posture;
+
+  if (wifi_control_context == NULL)
+  {
+    return;
+  }
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  wifi_control_context->status.last_status = (int32_t)status;
+  wifi_control_context->status.operation_active = WIFI_CONTROL_NONE;
+  wifi_control_context->active_operation = WIFI_CONTROL_NONE;
+  (void)memset(wifi_control_context->request_password, 0,
+               sizeof(wifi_control_context->request_password));
+  (void)tx_interrupt_control(posture);
+  (void)tx_event_flags_set(&wifi_control_context->completion,
+                           WIFI_CONTROL_DONE_FLAG, TX_OR);
+}
+
+static W6X_Status_t wifi_enable_station_dhcp(void)
+{
+  W61_Object_t *driver = W61_ObjGet();
+  W61_Net_DhcpType_e dhcp = W61_NET_DHCP_STA_ENABLED;
+  uint32_t enable = 1U;
+  W61_Status_t status;
+
+  if (driver == NULL)
+  {
+    return W6X_STATUS_ERROR;
+  }
+  status = W61_Net_SetDhcpConfig(driver, &dhcp, &enable);
+  return (status == W61_STATUS_OK) ? W6X_STATUS_OK : W6X_STATUS_ERROR;
+}
+
+static W6X_Status_t wifi_get_station_ip(uint8_t ip_address[4],
+                                        uint8_t gateway_address[4],
+                                        uint8_t netmask_address[4])
+{
+  W61_Object_t *driver = W61_ObjGet();
+  W61_Status_t status;
+
+  if (driver == NULL)
+  {
+    return W6X_STATUS_ERROR;
+  }
+  status = W61_Net_Station_GetIPAddress(driver);
+  if (status != W61_STATUS_OK)
+  {
+    return W6X_STATUS_ERROR;
+  }
+  (void)memcpy(ip_address, driver->NetCtx.Net_sta_info.IP_Addr, 4U);
+  (void)memcpy(gateway_address, driver->NetCtx.Net_sta_info.Gateway_Addr, 4U);
+  (void)memcpy(netmask_address, driver->NetCtx.Net_sta_info.IP_Mask, 4U);
+  return W6X_STATUS_OK;
+}
+
+static void wifi_refresh_status(void)
+{
+  W6X_WiFi_StaStateType_e state = W6X_WIFI_STATE_STA_DISCONNECTED;
+  W6X_WiFi_Connect_t connection = {0};
+  W6X_Status_t status;
+
+  if (wifi_control_context == NULL)
+  {
+    return;
+  }
+  status = W6X_WiFi_Station_GetState(&state, &connection);
+  wifi_control_context->status.station_state = (uint32_t)state;
+  if (status != W6X_STATUS_OK)
+  {
+    wifi_control_context->status.last_status = (int32_t)status;
+    return;
+  }
+
+  if ((state == W6X_WIFI_STATE_STA_CONNECTED) ||
+      (state == W6X_WIFI_STATE_STA_GOT_IP))
+  {
+    wifi_connected = 1U;
+    (void)memset(wifi_control_context->status.ssid, 0,
+                 sizeof(wifi_control_context->status.ssid));
+    (void)memcpy(wifi_control_context->status.ssid, connection.SSID,
+                 sizeof(wifi_control_context->status.ssid) - 1U);
+    (void)memcpy(wifi_control_context->status.ap_mac, connection.MAC,
+                 sizeof(wifi_control_context->status.ap_mac));
+    wifi_control_context->status.channel = connection.Channel;
+    wifi_control_context->status.rssi = connection.Rssi;
+  }
+  else
+  {
+    wifi_connected = 0U;
+    wifi_has_ip = 0U;
+    wifi_control_context->status.ip_valid = 0U;
+    (void)memset(wifi_control_context->status.ssid, 0,
+                 sizeof(wifi_control_context->status.ssid));
+    (void)memset(wifi_control_context->status.ap_mac, 0,
+                 sizeof(wifi_control_context->status.ap_mac));
+    (void)memset(wifi_control_context->status.ip_address, 0,
+                 sizeof(wifi_control_context->status.ip_address));
+    (void)memset(wifi_control_context->status.gateway_address, 0,
+                 sizeof(wifi_control_context->status.gateway_address));
+    (void)memset(wifi_control_context->status.netmask_address, 0,
+                 sizeof(wifi_control_context->status.netmask_address));
+  }
+
+  if ((state == W6X_WIFI_STATE_STA_GOT_IP) || (wifi_has_ip != 0U))
+  {
+    status = wifi_get_station_ip(
+        wifi_control_context->status.ip_address,
+        wifi_control_context->status.gateway_address,
+        wifi_control_context->status.netmask_address);
+    wifi_control_context->status.ip_valid =
+        (status == W6X_STATUS_OK) ? 1U : 0U;
+    if (status == W6X_STATUS_OK)
+    {
+      wifi_has_ip = 1U;
+    }
+  }
+  wifi_control_context->status.connected = wifi_connected;
+  wifi_control_context->status.has_ip = wifi_has_ip;
+}
+
+static void wifi_process_pending_request(void)
+{
+  WifiBle_WifiControlOperation_t operation;
+  UINT posture;
+  W6X_Status_t status;
+
+  if (wifi_control_context == NULL)
+  {
+    return;
+  }
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  operation = wifi_control_context->pending_operation;
+  if (operation == WIFI_CONTROL_NONE)
+  {
+    (void)tx_interrupt_control(posture);
+    return;
+  }
+  wifi_control_context->pending_operation = WIFI_CONTROL_NONE;
+  wifi_control_context->active_operation = operation;
+  (void)tx_interrupt_control(posture);
+
+  if (operation == WIFI_CONTROL_SCAN)
+  {
+    W6X_WiFi_Scan_Opts_t options = {0};
+
+    wifi_control_context->scan_results.count = 0U;
+    wifi_control_context->scan_results.status = (int32_t)W6X_STATUS_ERROR;
+    options.Scan_type = W6X_WIFI_SCAN_ACTIVE;
+    options.MaxCnt = WIFI_BLE_WIFI_SCAN_MAX_APS;
+    status = W6X_WiFi_Scan(&options, wifi_scan_callback);
+    if (status != W6X_STATUS_OK)
+    {
+      wifi_control_context->scan_results.status = (int32_t)status;
+      wifi_complete_request(status);
+    }
+    return;
+  }
+
+  if (operation == WIFI_CONTROL_CONNECT)
+  {
+    W6X_WiFi_Connect_Opts_t options = {0};
+
+    (void)memcpy(options.SSID, wifi_control_context->request_ssid,
+                 sizeof(options.SSID));
+    (void)memcpy(options.Password, wifi_control_context->request_password,
+                 sizeof(options.Password));
+    (void)memset(wifi_control_context->request_password, 0,
+                 sizeof(wifi_control_context->request_password));
+    status = W6X_WiFi_Connect(&options);
+    (void)memset(&options, 0, sizeof(options));
+    wifi_refresh_status();
+    if ((status == W6X_STATUS_OK) &&
+        (wifi_control_context->status.ip_valid == 0U))
+    {
+      status = W6X_STATUS_ERROR;
+    }
+    wifi_complete_request(status);
+    return;
+  }
+
+  if (operation == WIFI_CONTROL_DISCONNECT)
+  {
+    status = W6X_WiFi_Disconnect(wifi_control_context->request_forget);
+    wifi_refresh_status();
+    wifi_complete_request(status);
+    return;
+  }
+
+  wifi_complete_request(W6X_STATUS_ERROR);
+}
+
+static void wifi_process_pending_events(void)
+{
+  uint32_t events;
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+
+  events = wifi_pending_event_bits;
+  wifi_pending_event_bits = 0U;
+  (void)tx_interrupt_control(posture);
+  if ((events & WIFI_EVENT_CONNECTED_FLAG) != 0U)
+  {
+    LogInfo("ST67W6X Wi-Fi connected.\r\n");
+  }
+  if ((events & WIFI_EVENT_GOT_IP_FLAG) != 0U)
+  {
+    LogInfo("ST67W6X Wi-Fi address acquired.\r\n");
+  }
+  if ((events & WIFI_EVENT_DISCONNECTED_FLAG) != 0U)
+  {
+    LogInfo("ST67W6X Wi-Fi disconnected.\r\n");
+  }
+  if ((events != 0U) &&
+      (wifi_control_context != NULL) &&
+      (wifi_control_context->active_operation == WIFI_CONTROL_NONE))
+  {
+    wifi_refresh_status();
+  }
+}
+
 static void wifi_event_callback(W6X_event_id_t event_id, void *event_args)
 {
+  UINT posture;
+
   (void)event_args;
+  posture = tx_interrupt_control(TX_INT_DISABLE);
   if (event_id == W6X_WIFI_EVT_CONNECTED_ID)
   {
     wifi_connected = 1U;
-    LogInfo("ST67W6X Wi-Fi connected.\r\n");
+    wifi_pending_event_bits |= WIFI_EVENT_CONNECTED_FLAG;
   }
   else if (event_id == W6X_WIFI_EVT_GOT_IP_ID)
   {
     wifi_has_ip = 1U;
-    LogInfo("ST67W6X Wi-Fi address acquired.\r\n");
+    wifi_pending_event_bits |= WIFI_EVENT_GOT_IP_FLAG;
   }
   else if (event_id == W6X_WIFI_EVT_DISCONNECTED_ID)
   {
     wifi_connected = 0U;
     wifi_has_ip = 0U;
-    LogInfo("ST67W6X Wi-Fi disconnected.\r\n");
+    wifi_pending_event_bits |= WIFI_EVENT_DISCONNECTED_FLAG;
   }
+  (void)tx_interrupt_control(posture);
+}
+
+static void wifi_scan_callback(int32_t status,
+                               W6X_WiFi_Scan_Result_t *results)
+{
+  uint32_t count = 0U;
+
+  if ((wifi_control_context == NULL) ||
+      (wifi_control_context->active_operation != WIFI_CONTROL_SCAN))
+  {
+    return;
+  }
+  (void)memset(&wifi_control_context->scan_results, 0,
+               sizeof(wifi_control_context->scan_results));
+  wifi_control_context->scan_results.status = status;
+  if ((status == (int32_t)W6X_STATUS_OK) &&
+      (results != NULL) && (results->AP != NULL))
+  {
+    count = results->Count;
+    if (count > WIFI_BLE_WIFI_SCAN_MAX_APS)
+    {
+      count = WIFI_BLE_WIFI_SCAN_MAX_APS;
+    }
+    for (uint32_t i = 0U; i < count; ++i)
+    {
+      WifiBle_WifiAccessPoint_t *destination =
+          &wifi_control_context->scan_results.access_points[i];
+      (void)memcpy(destination->ssid, results->AP[i].SSID,
+                   sizeof(destination->ssid) - 1U);
+      (void)memcpy(destination->mac, results->AP[i].MAC,
+                   sizeof(destination->mac));
+      destination->security = (uint32_t)results->AP[i].Security;
+      destination->protocol = (uint32_t)results->AP[i].Protocol;
+      destination->rssi = results->AP[i].RSSI;
+      destination->channel = results->AP[i].Channel;
+    }
+  }
+  wifi_control_context->scan_results.count = count;
+  wifi_complete_request((W6X_Status_t)status);
 }
 #endif
 

@@ -20,16 +20,28 @@
 #define APP_ST67W6X_BLE_GATT_ENABLED  (1U)
 #endif
 
-/* Keep the module-resident Wi-Fi stack off until the TCP/UDP integration
- * stage.  BLE does not require W6X_WiFi_Init(). */
+/* Enable the module-resident Wi-Fi station and network services.  All W6X
+ * control calls are serialized by the Radio Manager.  The development CLI
+ * intentionally exposes the same Wi-Fi commands through USB, BLE and Cloud. */
 #ifndef APP_ST67W6X_WIFI_SERVICES_ENABLED
-#define APP_ST67W6X_WIFI_SERVICES_ENABLED (0U)
+#define APP_ST67W6X_WIFI_SERVICES_ENABLED (1U)
+#endif
+
+/* Outbound HTTPS Cloud Relay CLI and independent ToF upload path. */
+#ifndef APP_ST67W6X_CLOUD_RELAY_ENABLED
+#define APP_ST67W6X_CLOUD_RELAY_ENABLED (1U)
 #endif
 
 #if (((APP_ST67W6X_BLE_GATT_ENABLED == 1U) || \
-      (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)) && \
+      (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || \
+      (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)) && \
      (APP_ST67W6X_ENABLED != 1U))
 #error "ST67 Wi-Fi/BLE services require APP_ST67W6X_ENABLED"
+#endif
+
+#if ((APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U) && \
+     (APP_ST67W6X_WIFI_SERVICES_ENABLED != 1U))
+#error "Cloud Relay requires ST67 Wi-Fi services"
 #endif
 
 /* The round GC9A01 display uses its dedicated SPI4 bus and LCD control pins.

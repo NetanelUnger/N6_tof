@@ -7,6 +7,8 @@
 
 #define WIFI_BLE_DEVICE_NAME_SIZE (26U)
 #define WIFI_BLE_ADDRESS_SIZE     (6U)
+#define WIFI_BLE_WIFI_SSID_SIZE   (33U)
+#define WIFI_BLE_WIFI_SCAN_MAX_APS (15U)
 
 typedef enum
 {
@@ -136,6 +138,40 @@ typedef struct
   WifiBle_Exti9Owner_t exti9_owner;
 } WifiBle_HardwareStatus_t;
 
+typedef struct
+{
+  char ssid[WIFI_BLE_WIFI_SSID_SIZE];
+  uint8_t mac[6];
+  uint32_t security;
+  uint32_t protocol;
+  int32_t rssi;
+  uint8_t channel;
+} WifiBle_WifiAccessPoint_t;
+
+typedef struct
+{
+  int32_t status;
+  uint32_t count;
+  WifiBle_WifiAccessPoint_t access_points[WIFI_BLE_WIFI_SCAN_MAX_APS];
+} WifiBle_WifiScanResults_t;
+
+typedef struct
+{
+  uint32_t connected;
+  uint32_t has_ip;
+  uint32_t ip_valid;
+  uint32_t operation_active;
+  uint32_t station_state;
+  int32_t last_status;
+  char ssid[WIFI_BLE_WIFI_SSID_SIZE];
+  uint8_t ap_mac[6];
+  uint32_t channel;
+  int32_t rssi;
+  uint8_t ip_address[4];
+  uint8_t gateway_address[4];
+  uint8_t netmask_address[4];
+} WifiBle_WifiStatus_t;
+
 void WIFI_BLE_App_ConfigureHardware(void);
 void WIFI_BLE_App_Run(void);
 WifiBle_State_t WIFI_BLE_App_GetState(void);
@@ -143,6 +179,12 @@ void WIFI_BLE_App_GetRuntimeStatus(WifiBle_RuntimeStatus_t *status);
 void WIFI_BLE_App_GetHardwareStatus(WifiBle_HardwareStatus_t *status);
 UINT WIFI_BLE_App_RequestAdvertising(uint32_t advertising);
 UINT WIFI_BLE_App_RequestDisconnect(void);
+void WIFI_BLE_App_GetWifiStatus(WifiBle_WifiStatus_t *status);
+UINT WIFI_BLE_App_WifiScan(WifiBle_WifiScanResults_t *results,
+                           ULONG wait_option);
+UINT WIFI_BLE_App_WifiConnect(const char *ssid, const char *password,
+                              ULONG wait_option);
+UINT WIFI_BLE_App_WifiDisconnect(uint32_t forget, ULONG wait_option);
 UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
                               ULONG length, ULONG wait_option);
 UINT WIFI_BLE_App_StreamRead(WifiBle_Stream_t stream, void *buffer,

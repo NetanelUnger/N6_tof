@@ -389,6 +389,8 @@ int vl53l9_frame_status_read_start_async(void *const p_dev,
 int vl53l9_frame_ack_start_async(void *const p_dev);
 int vl53l9_frame_command_status_start_async(void *const p_dev,
                                              uint8_t *command_status);
+int vl53l9_frame_command_status_read(void *const p_dev,
+                                     uint8_t *command_status);
 
 /**
  * @brief Retrieve the error status of the device

@@ -8,6 +8,7 @@
 #include "app_console.h"
 #include "app_features.h"
 #include "app_logging.h"
+#include "cloud_relay.h"
 #include "debug_uart.h"
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
 #include "display_app.h"
@@ -31,14 +32,17 @@
 #define CLI_PRINT_SIZE          (768U)
 #define CLI_MAX_ARGUMENTS       (8)
 #define CLI_HISTORY_DEPTH       (16U)
-#define CLI_WIFI_SCAN_MAX_APS   (15U)
+#define CLI_WIFI_SCAN_WAIT_TICKS (30U * TX_TIMER_TICKS_PER_SECOND)
+#define CLI_WIFI_CONNECT_WAIT_TICKS (35U * TX_TIMER_TICKS_PER_SECOND)
+#define CLI_WIFI_DISCONNECT_WAIT_TICKS (10U * TX_TIMER_TICKS_PER_SECOND)
 #define CLI_BLE_RX_BURST        (8U)
 #define CLI_BLE_TX_WAIT_TICKS   (TX_TIMER_TICKS_PER_SECOND / 20U)
 
 typedef enum
 {
   CLI_TRANSPORT_USB = 0,
-  CLI_TRANSPORT_BLE
+  CLI_TRANSPORT_BLE,
+  CLI_TRANSPORT_CLOUD
 } CliTransport_t;
 
 typedef struct
@@ -64,8 +68,11 @@ typedef struct
 } CliSession_t;
 
 static CliSession_t cli_usb_session;
+static CliSession_t cli_cloud_session
+    __attribute__((section(".cloud_shared_bss"), aligned(8), used));
 static CliSession_t *cli_active_session = &cli_usb_session;
 static CliSession_t *cli_update_session;
+static uint32_t cli_cloud_command_active;
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static CliSession_t *cli_ble_session;
 extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
@@ -92,7 +99,6 @@ extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
 #define cli_escape_state       (cli_active_session->escape_state)
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static uint8_t cli_pending_ssid[W6X_WIFI_MAX_SSID_SIZE + 1U];
-static volatile uint32_t cli_wifi_scan_active;
 #endif
 
 static void cli_process_byte(uint8_t byte);
@@ -107,6 +113,9 @@ static void cli_session_reset(CliSession_t *session, uint32_t stop_usb_streams);
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static void __attribute__((optimize("Os"))) cli_poll_ble(void);
 static uint32_t cli_ble_session_allocate(void);
+#endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+static void cli_poll_cloud(void);
 #endif
 static int cli_split_arguments(char *line, char *argv[], int max_arguments);
 static int cli_get_arguments(const char *command, char *copy,
@@ -154,6 +163,10 @@ static const char *cli_tof_state_name(TOF_App_State_t state);
 static const char *cli_radio_state_name(WifiBle_State_t state);
 static const char *cli_log_level_name(uint32_t level);
 static void cli_command_radio(Menu_t *menu, const char *command);
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+static void cli_command_cloud(Menu_t *menu, const char *command);
+static const char *cli_cloud_state_name(CloudRelay_State_t state);
+#endif
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static void cli_command_wifi(Menu_t *menu, const char *command);
 #endif
@@ -167,7 +180,6 @@ static uint32_t cli_radio_is_ready(void);
 static void cli_wifi_status(void);
 static void cli_wifi_scan(void);
 static void cli_wifi_connect_password(const char *password);
-static void cli_wifi_scan_callback(int32_t status, W6X_WiFi_Scan_Result_t *results);
 #endif
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static void __attribute__((optimize("Os"))) cli_ble_status(void);
@@ -197,6 +209,9 @@ static const Menu_Object_t cli_menu_objects[] =
   MENU_OBJECT("Start UART Firmware Update", cli_command_firmware_update),
   MENU_OBJECT("update", cli_command_firmware_update),
   MENU_OBJECT("radio", cli_command_radio),
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  MENU_OBJECT("cloud", cli_command_cloud),
+#endif
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
   MENU_OBJECT("wifi", cli_command_wifi),
 #endif
@@ -245,8 +260,18 @@ static const char *const cli_completion_base[] =
 #if (APP_ST67W6X_ENABLED == 1U)
   "radio info",
 #endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  "cloud status",
+  "cloud endpoint",
+  "cloud pair ",
+  "cloud enable",
+  "cloud disable",
+  "cloud reconnect",
+  "cloud unpair yes",
+#endif
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
   "wifi status",
+  "wifi ip",
   "wifi scan",
   "wifi connect ",
   "wifi disconnect",
@@ -277,6 +302,20 @@ void Debug_CLI_Run(void)
       tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND);
     }
   }
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  (void)memset(&cli_cloud_session, 0, sizeof(cli_cloud_session));
+  menu_status = cli_session_init(&cli_cloud_session, CLI_TRANSPORT_CLOUD);
+  if (menu_status != MENU_STATUS_OK)
+  {
+    Debug_UART_Log("CLI", "Cloud menu initialization failed: %d",
+                   (int)menu_status);
+  }
+  else
+  {
+    cli_cloud_session.console_mode = 1U;
+    cli_cloud_session.session_ready = 1U;
+  }
+#endif
 
   for (;;)
   {
@@ -285,6 +324,9 @@ void Debug_CLI_Run(void)
     Firmware_Update_Poll(HAL_GetTick());
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
     cli_poll_ble();
+#endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+    cli_poll_cloud();
 #endif
     cli_active_session = &cli_usb_session;
 
@@ -301,7 +343,8 @@ void Debug_CLI_Run(void)
       }
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
       tx_thread_sleep(((Firmware_Update_IsActive() != 0U) &&
-                       (cli_update_session == cli_ble_session)) ?
+                       ((cli_update_session == cli_ble_session) ||
+                        (cli_update_session == &cli_cloud_session))) ?
                       1U : (TX_TIMER_TICKS_PER_SECOND / 10U));
 #else
       tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 10U);
@@ -320,7 +363,8 @@ void Debug_CLI_Run(void)
      * deliberately shallow and must be drained fast enough that ATT writes
      * receive protocol-level ACK/NAK rather than being silently discarded. */
     if ((Firmware_Update_IsActive() != 0U) &&
-        (cli_update_session == cli_ble_session))
+        ((cli_update_session == cli_ble_session) ||
+         (cli_update_session == &cli_cloud_session)))
     {
       tx_thread_sleep(1U);
       continue;
@@ -332,6 +376,9 @@ void Debug_CLI_Run(void)
     {
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
       cli_poll_ble();
+#endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+      cli_poll_cloud();
 #endif
       continue;
     }
@@ -383,6 +430,9 @@ void Debug_CLI_Run(void)
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
     cli_poll_ble();
 #endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+    cli_poll_cloud();
+#endif
   }
 }
 
@@ -417,7 +467,7 @@ static void cli_session_reset(CliSession_t *session, uint32_t stop_usb_streams)
   cli_first_input_logged = 0U;
   cli_cdc_session_ready = 0U;
   Menu_Reset(&cli_menu);
-  if (session->transport == CLI_TRANSPORT_BLE)
+  if (session->transport != CLI_TRANSPORT_USB)
   {
     /* A reconnect may be a different peer. Do not expose the previous peer's
      * command history through terminal cursor keys. */
@@ -581,6 +631,98 @@ static void __attribute__((optimize("Os"))) cli_poll_ble(void)
         }
         break;
       }
+    }
+  }
+
+  cli_active_session = &cli_usb_session;
+}
+#endif
+
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+static void cli_poll_cloud(void)
+{
+  CloudRelay_Input_t input;
+  uint32_t update_was_active;
+
+  cli_active_session = &cli_cloud_session;
+
+  /* XMODEM finalizes asynchronously after EOT. Close the logical browser
+   * command only after the updater has emitted its final ACK/result. */
+  if ((cli_cloud_command_active != 0U) &&
+      (cli_update_session == &cli_cloud_session) &&
+      (Firmware_Update_IsActive() == 0U))
+  {
+    Firmware_Update_Poll(HAL_GetTick());
+    if (CloudRelay_CompleteCommand() == TX_SUCCESS)
+    {
+      cli_cloud_command_active = 0U;
+      cli_update_session = NULL;
+    }
+  }
+
+  /* A long command (notably "help") can temporarily fill the bounded Cloud
+   * output queue.  Do not lease the next browser command until the completion
+   * marker for the previous command has also been accepted by the relay. */
+  if ((cli_cloud_command_active != 0U) &&
+      (cli_update_session != &cli_cloud_session))
+  {
+    if (CloudRelay_CompleteCommand() == TX_SUCCESS)
+    {
+      cli_cloud_command_active = 0U;
+    }
+    else
+    {
+      cli_active_session = &cli_usb_session;
+      return;
+    }
+  }
+
+  if (CloudRelay_ReadInput(&input) != TX_SUCCESS)
+  {
+    cli_active_session = &cli_usb_session;
+    return;
+  }
+
+  cli_cloud_command_active = 1U;
+  update_was_active = Firmware_Update_IsActive();
+  if ((input.binary != 0U) &&
+      (cli_update_session == &cli_cloud_session) &&
+      (Firmware_Update_IsActive() != 0U))
+  {
+    Firmware_Update_Feed(input.data, input.length, HAL_GetTick());
+    Firmware_Update_Poll(HAL_GetTick());
+  }
+  else if (input.binary == 0U)
+  {
+    for (uint32_t index = 0U; index < input.length; ++index)
+    {
+      cli_process_byte(input.data[index]);
+      if ((Firmware_Update_IsActive() != 0U) &&
+          (cli_update_session == &cli_cloud_session))
+      {
+        break;
+      }
+    }
+  }
+
+  (void)CloudRelay_AcknowledgeInput(&input);
+  if ((update_was_active == 0U) &&
+      !((Firmware_Update_IsActive() != 0U) &&
+        (cli_update_session == &cli_cloud_session)))
+  {
+    if (CloudRelay_CompleteCommand() == TX_SUCCESS)
+    {
+      cli_cloud_command_active = 0U;
+    }
+  }
+  else if ((input.completed != 0U) &&
+           (Firmware_Update_IsActive() == 0U))
+  {
+    Firmware_Update_Poll(HAL_GetTick());
+    if (CloudRelay_CompleteCommand() == TX_SUCCESS)
+    {
+      cli_cloud_command_active = 0U;
+      cli_update_session = NULL;
     }
   }
 
@@ -1084,13 +1226,6 @@ cli_command_dataset(Menu_t *menu, const char *command)
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
 
-  if (cli_active_session->transport == CLI_TRANSPORT_BLE)
-  {
-    (void)Menu_Reply(menu,
-                     "Dataset binary streaming is USB-only in this release.");
-    return;
-  }
-
   if ((argc == 3) &&
       (cli_token_equals(argv[1], "stream") != 0U) &&
       (cli_token_equals(argv[2], "on") != 0U))
@@ -1343,7 +1478,8 @@ static void cli_command_wifi(Menu_t *menu, const char *command)
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
 
-  if ((argc == 2) && (strcmp(argv[1], "status") == 0))
+  if ((argc == 2) &&
+      ((strcmp(argv[1], "status") == 0) || (strcmp(argv[1], "ip") == 0)))
   {
     if (cli_radio_is_ready() == 0U) return;
     cli_wifi_status();
@@ -1379,18 +1515,33 @@ static void cli_command_wifi(Menu_t *menu, const char *command)
   else if ((argc >= 2) && (strcmp(argv[1], "disconnect") == 0))
   {
     uint32_t forget;
-    W6X_Status_t status;
+    UINT result;
+    WifiBle_WifiStatus_t wifi;
 
     if (cli_radio_is_ready() == 0U) return;
+    if ((argc > 3) || ((argc == 3) && (strcmp(argv[2], "forget") != 0)))
+    {
+      (void)Menu_Reply(menu, "Usage: wifi disconnect [forget]");
+      return;
+    }
     forget = ((argc == 3) && (strcmp(argv[2], "forget") == 0)) ? 1U : 0U;
-    status = W6X_WiFi_Disconnect(forget);
-    cli_print("Wi-Fi disconnect: %s%s\r\n", W6X_StatusToStr(status),
+    result = WIFI_BLE_App_WifiDisconnect(forget,
+                                         CLI_WIFI_DISCONNECT_WAIT_TICKS);
+    WIFI_BLE_App_GetWifiStatus(&wifi);
+    if (result != TX_SUCCESS)
+    {
+      cli_print("Wi-Fi disconnect timed out or is busy (ThreadX %u).\r\n",
+                (unsigned int)result);
+      return;
+    }
+    cli_print("Wi-Fi disconnect: %s%s\r\n",
+              W6X_StatusToStr((W6X_Status_t)wifi.last_status),
               (forget != 0U) ? " (stored credentials removed)" : "");
   }
   else
   {
     (void)Menu_Reply(menu,
-                     "Usage: wifi status|scan|connect \"SSID\"|disconnect [forget]");
+                     "Usage: wifi status|ip|scan|connect \"SSID\"|disconnect [forget]");
   }
 }
 #endif
@@ -1453,19 +1604,88 @@ static void cli_command_ble(Menu_t *menu, const char *command)
 }
 #endif
 
-static void cli_command_reboot(Menu_t *menu, const char *command)
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+static void cli_command_cloud(Menu_t *menu, const char *command)
 {
   char copy[CLI_LINE_SIZE];
   char *argv[CLI_MAX_ARGUMENTS];
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
 
-  if (cli_active_session->transport == CLI_TRANSPORT_BLE)
+  if ((argc == 2) && (strcmp(argv[1], "status") == 0))
+  {
+    CloudRelay_Status_t status;
+    CloudRelay_GetStatus(&status);
+    cli_print("Cloud Relay: %s, %s, endpoint https://%s\r\n"
+              "Device: %s, workspace: %s, generation %lu\r\n"
+              "HTTP: active %lu, last %ld, transport %ld, backoff %lu s\r\n"
+              "CLI: input %lu, output %lu, received %lu, acked %lu, sent %lu\r\n"
+              "ToF: sent %lu, dropped %lu; request errors %lu\r\n",
+              cli_cloud_state_name(status.state),
+              (status.paired != 0U) ? "paired" : "not paired",
+              CLOUD_RELAY_HOST, status.device_id,
+              (status.workspace_id[0] != '\0') ? status.workspace_id : "-",
+              (unsigned long)status.generation,
+              (unsigned long)status.request_active,
+              (long)status.last_http_status,
+              (long)status.last_transport_status,
+              (unsigned long)status.backoff_seconds,
+              (unsigned long)status.input_ready,
+              (unsigned long)status.output_queued,
+              (unsigned long)status.commands_received,
+              (unsigned long)status.commands_acked,
+              (unsigned long)status.output_records,
+              (unsigned long)status.tof_frames_sent,
+              (unsigned long)status.tof_frames_dropped,
+              (unsigned long)status.request_errors);
+  }
+  else if ((argc == 2) && (strcmp(argv[1], "endpoint") == 0))
+  {
+    cli_print("Cloud Relay endpoint: https://%s/\r\n", CLOUD_RELAY_HOST);
+  }
+  else if ((argc == 3) && (strcmp(argv[1], "pair") == 0))
+  {
+    UINT result = CloudRelay_RequestPair(argv[2]);
+    cli_print("Cloud pairing request: %s.\r\n",
+              (result == TX_SUCCESS) ? "queued" : "invalid code or unavailable");
+  }
+  else if ((argc == 2) && (strcmp(argv[1], "enable") == 0))
+  {
+    cli_print("Cloud Relay: %s.\r\n",
+              (CloudRelay_SetEnabled(1U) == TX_SUCCESS) ? "enabled" : "unavailable");
+  }
+  else if ((argc == 2) && (strcmp(argv[1], "disable") == 0))
+  {
+    cli_print("Cloud Relay: %s.\r\n",
+              (CloudRelay_SetEnabled(0U) == TX_SUCCESS) ? "disabled" : "unavailable");
+  }
+  else if ((argc == 2) &&
+           ((strcmp(argv[1], "reconnect") == 0) ||
+            (strcmp(argv[1], "test") == 0)))
+  {
+    cli_print("Cloud reconnect/test: %s.\r\n",
+              (CloudRelay_RequestReconnect() == TX_SUCCESS) ? "queued" : "unavailable");
+  }
+  else if ((argc == 3) && (strcmp(argv[1], "unpair") == 0) &&
+           (strcmp(argv[2], "yes") == 0))
+  {
+    cli_print("Cloud unpair: %s.\r\n",
+              (CloudRelay_Unpair() == TX_SUCCESS) ? "local token removed" : "unavailable");
+  }
+  else
   {
     (void)Menu_Reply(menu,
-                     "Remote reboot is locked until BLE authentication is implemented.");
-    return;
+        "Usage: cloud status|endpoint|test|pair <6 digits>|enable|disable|reconnect|unpair yes");
   }
+}
+#endif
+
+static void cli_command_reboot(Menu_t *menu, const char *command)
+{
+  char copy[CLI_LINE_SIZE];
+  char *argv[CLI_MAX_ARGUMENTS];
+  int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
+                               CLI_MAX_ARGUMENTS);
 
   if ((argc == 2) && (strcmp(argv[1], "yes") == 0))
   {
@@ -1490,10 +1710,12 @@ static void cli_command_firmware_update(Menu_t *menu, const char *command)
   Menu_Reset(menu);
   TOF_App_SetDatasetStreamEnabled(0U);
   cli_update_session = cli_active_session;
+  const char *transport_name =
+      (cli_update_session->transport == CLI_TRANSPORT_BLE) ? "BLE CLI" :
+      (cli_update_session->transport == CLI_TRANSPORT_CLOUD) ? "Cloud CLI" :
+      "USB CDC";
   if (Firmware_Update_Start(
-          cli_update_write, cli_update_session,
-          (cli_update_session->transport == CLI_TRANSPORT_BLE) ?
-          "BLE CLI" : "USB CDC") != 0)
+          cli_update_write, cli_update_session, transport_name) != 0)
   {
     cli_update_session = NULL;
     (void)Menu_Reply(menu, "Unable to start firmware update mode.");
@@ -1582,6 +1804,12 @@ static UINT cli_session_write(CliSession_t *session, const void *buffer,
                                     CLI_BLE_TX_WAIT_TICKS);
   }
 #endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  if (session->transport == CLI_TRANSPORT_CLOUD)
+  {
+    return CloudRelay_WriteOutput(buffer, (size_t)length, 0U);
+  }
+#endif
   return App_Console_Write(buffer, length);
 }
 
@@ -1594,6 +1822,20 @@ static int32_t cli_update_write(const void *buffer, size_t length,
   {
     return -1;
   }
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  if (session->transport == CLI_TRANSPORT_CLOUD)
+  {
+    uint32_t binary = 0U;
+    if ((length == 1U) && (buffer != NULL))
+    {
+      uint8_t value = *(const uint8_t *)buffer;
+      binary = ((value == 0x43U) || (value == 0x06U) ||
+                (value == 0x15U) || (value == 0x18U)) ? 1U : 0U;
+    }
+    return (CloudRelay_WriteOutput(buffer, length, binary) == TX_SUCCESS) ?
+           0 : -1;
+  }
+#endif
   return (cli_session_write(session, buffer, (ULONG)length) == TX_SUCCESS) ?
          0 : -1;
 }
@@ -1979,41 +2221,77 @@ static void cli_prompt(void)
 
 static void cli_show_help(void)
 {
-  cli_print("Commands:\r\n"
-            "  (MAP ON: keys 1..5 toggle sensor channels; Enter returns.)\r\n"
-            "  version                        running application version\r\n"
-            "  status                         system summary\r\n"
-            "  usb status                     USB queues, pool, flow/error counters\r\n"
-            "  MAP ON                         show map until Enter is pressed\r\n"
-            "  MAP CHANNELS [1..5]            list channels or toggle one\r\n"
+  cli_print("CLI HELP (%s)\r\n"
+            "The same commands are available on USB CDC, BLE and Cloud CLI.\r\n"
+            "Keys: Tab=complete, Up/Down=history, Ctrl-C=cancel.\r\n"
+            "\r\nGeneral:\r\n"
+            "  help | menu | ?\r\n"
+            "  version\r\n"
+            "  status\r\n"
+            "  usb status\r\n"
+            "  clear\r\n",
+            (cli_active_session->transport == CLI_TRANSPORT_BLE) ?
+                "BLE GATT CLI" :
+            (cli_active_session->transport == CLI_TRANSPORT_CLOUD) ?
+                "Cloud CLI" : "USB CDC");
+
+  cli_print("\r\nSensor, display and AI:\r\n"
+            "  MAP ON | MAP OFF               ToF stream; dedicated image channel on BLE/Cloud\r\n"
+            "  MAP CHANNELS [1..5]            list/toggle channels\r\n"
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
-            "  MAP ON SCREEN|DISPLAY          show map + NPU result on the SPI display\r\n"
-            "  MAP OFF SCREEN|DISPLAY         stop and clear the SPI display map\r\n"
-            "  MAP DISPLAY ON|OFF             equivalent BLE-friendly display syntax\r\n"
+            "  MAP ON|OFF SCREEN|DISPLAY\r\n"
+            "  MAP SCREEN|DISPLAY ON|OFF      equivalent syntax\r\n"
 #endif
-            "  MAP PROCESSING                 select/configure depth filtering\r\n"
-            "  tof status|pause|resume        inspect/control ranging\r\n"
-            "  DATASET STREAM ON|OFF|STATUS   N6DF v3 raw depth + exact NPU tensor\r\n"
-            "  RPS ON|OFF|STATUS              Neural-ART inference and raw int8 scores\r\n"
-            "  debug off|error|warn|info|debug ST67 runtime log level\r\n"
-            "  Start UART Firmware Update      receive signed .n6fw via XMODEM-CRC\r\n"
-            "  update                          short alias for firmware update\r\n"
-            "  radio hardware                 safe ST67 pin/SPI/EXTI baseline\r\n"
-            "  radio status                   ST67 manager and W6X_Init result\r\n"
+            "  tof status|pause|resume\r\n"
+            "  DATASET STREAM ON|OFF|STATUS\r\n"
+            "  RPS ON|OFF|STATUS\r\n");
+
+  cli_print("\r\nMap processing (USB+BLE+Cloud):\r\n"
+            "  MAP PROCESSING                       list filters/values/ranges\r\n"
+            "  MAP PROCESSING OFF|BOX|MEDIAN|GAUSSIAN|SHARPEN|MIN|MAX\r\n"
+            "  MAP PROCESSING OBJECT 1..7 | NPU    stages or exact NPU input\r\n"
+            "  MAP PROCESSING <filter> <value>      single-parameter form\r\n"
+            "  MAP PROCESSING <filter> <parameter> <value>\r\n"
+            "  Parameters: BOX radius/passes; MEDIAN radius/threshold_mm;\r\n"
+            "              GAUSSIAN radius/passes; SHARPEN radius/amount_percent;\r\n"
+            "              MIN/MAX radius; OBJECT 7 threshold.\r\n");
+
+  cli_print("\r\nRadio and Wi-Fi:\r\n"
+            "  debug off|error|warn|info|debug\r\n"
+            "  radio hardware|status"
 #if (APP_ST67W6X_ENABLED == 1U)
-            "  radio info                     ST67 module identity\r\n"
+            "|info"
 #endif
+            "\r\n"
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
-            "  wifi status|scan               Wi-Fi state and nearby networks\r\n"
-            "  wifi connect \"SSID\"          connect; password is requested hidden\r\n"
-            "  wifi disconnect [forget]       disconnect, optionally erase credentials\r\n"
+            "  wifi status | wifi ip         link/DHCP addresses\r\n"
+            "  wifi scan                     scan <=15 networks\r\n"
+            "  wifi connect \"SSID\"          hidden password + DHCP\r\n"
+            "  wifi disconnect [forget]      optionally erase credentials\r\n"
 #endif
+            );
+
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  cli_print("\r\nCloud CLI via HTTPS Relay:\r\n"
+            "  cloud status | cloud endpoint\r\n"
+            "  cloud pair <6-digit-code>     available from USB or BLE\r\n"
+            "  cloud enable | cloud disable\r\n"
+            "  cloud reconnect | cloud test\r\n"
+            "  cloud unpair yes              delete the saved device token\r\n"
+            "  CLI text/XMODEM and ToF use independent Cloud channels.\r\n");
+#endif
+
+  cli_print("\r\nBLE, update and reset:\r\n"
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
-            "  ble status|adv on|adv off       BLE state and advertising\r\n"
-            "  ble disconnect                 disconnect current BLE peer\r\n"
+            "  ble status                   GATT/link/MTU/queues\r\n"
+            "  ble adv on | ble adv off\r\n"
+            "  ble disconnect\r\n"
+            "  BLE modes: CLI RX=Write, CLI TX=Notify; ToF image=dedicated Notify.\r\n"
+            "             DEBUG TX=Notify; DEBUG RX is disabled by policy.\r\n"
+            "  BLE ToF pixels stay on the dedicated ToF-image CCCD.\r\n"
 #endif
-            "  clear                          clear terminal\r\n"
-            "  reboot yes                     reset the STM32\r\n");
+            "  update                       signed XMODEM firmware update\r\n"
+            "  reboot yes\r\n");
 }
 
 static void cli_show_status(void)
@@ -2328,91 +2606,136 @@ static uint32_t cli_radio_is_ready(void)
   }
   return 1U;
 }
+
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+static const char *cli_cloud_state_name(CloudRelay_State_t state)
+{
+  switch (state)
+  {
+    case CLOUD_RELAY_STATE_DISABLED: return "disabled";
+    case CLOUD_RELAY_STATE_WAIT_WIFI: return "waiting for Wi-Fi";
+    case CLOUD_RELAY_STATE_UNPAIRED: return "unpaired";
+    case CLOUD_RELAY_STATE_CONNECTING: return "connecting";
+    case CLOUD_RELAY_STATE_POLLING: return "polling";
+    case CLOUD_RELAY_STATE_BACKOFF: return "backoff";
+    case CLOUD_RELAY_STATE_ERROR: return "error";
+    default: return "unknown";
+  }
+}
+#endif
 #endif
 
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static void cli_wifi_status(void)
 {
-  W6X_WiFi_StaStateType_e state = W6X_WIFI_STATE_STA_DISCONNECTED;
-  W6X_WiFi_Connect_t connection = {0};
-  W6X_Status_t status = W6X_WiFi_Station_GetState(&state, &connection);
-  if (status != W6X_STATUS_OK)
-  {
-    cli_print("Wi-Fi status failed: %s\r\n", W6X_StatusToStr(status));
-    return;
-  }
+  WifiBle_WifiStatus_t status;
 
-  cli_print("Wi-Fi station: %s\r\n", W6X_WiFi_StateToStr(state));
-  if ((state == W6X_WIFI_STATE_STA_CONNECTED) || (state == W6X_WIFI_STATE_STA_GOT_IP))
+  WIFI_BLE_App_GetWifiStatus(&status);
+  cli_print("Wi-Fi station: %s%s\r\n",
+            W6X_WiFi_StateToStr(status.station_state),
+            (status.operation_active != 0U) ? " (operation in progress)" : "");
+  if (status.connected != 0U)
   {
     cli_print("SSID: %s, channel: %" PRIu32 ", RSSI: %" PRIi32 " dBm\r\n"
               "AP: %02X:%02X:%02X:%02X:%02X:%02X\r\n",
-              connection.SSID, connection.Channel, connection.Rssi,
-              connection.MAC[0], connection.MAC[1], connection.MAC[2],
-              connection.MAC[3], connection.MAC[4], connection.MAC[5]);
+              status.ssid, status.channel, status.rssi,
+              status.ap_mac[0], status.ap_mac[1], status.ap_mac[2],
+              status.ap_mac[3], status.ap_mac[4], status.ap_mac[5]);
+  }
+  if (status.ip_valid != 0U)
+  {
+    cli_print("IPv4: %u.%u.%u.%u\r\n"
+              "Gateway: %u.%u.%u.%u, netmask: %u.%u.%u.%u\r\n",
+              status.ip_address[0], status.ip_address[1],
+              status.ip_address[2], status.ip_address[3],
+              status.gateway_address[0], status.gateway_address[1],
+              status.gateway_address[2], status.gateway_address[3],
+              status.netmask_address[0], status.netmask_address[1],
+              status.netmask_address[2], status.netmask_address[3]);
+  }
+  else if (status.connected != 0U)
+  {
+    cli_print("IPv4: not acquired yet.\r\n");
   }
 }
 
 static void cli_wifi_scan(void)
 {
-  W6X_WiFi_Scan_Opts_t options = {0};
-  if (cli_wifi_scan_active != 0U)
+  WifiBle_WifiScanResults_t results;
+  UINT status;
+
+  (void)memset(&results, 0, sizeof(results));
+  cli_print("Scanning Wi-Fi networks...\r\n");
+  status = WIFI_BLE_App_WifiScan(&results, CLI_WIFI_SCAN_WAIT_TICKS);
+  if (status != TX_SUCCESS)
   {
-    cli_print("A Wi-Fi scan is already running.\r\n");
+    cli_print("Wi-Fi scan timed out or is busy (ThreadX %u).\r\n",
+              (unsigned int)status);
     return;
   }
-  options.Scan_type = W6X_WIFI_SCAN_ACTIVE;
-  options.MaxCnt = CLI_WIFI_SCAN_MAX_APS;
-  cli_wifi_scan_active = 1U;
-  W6X_Status_t status = W6X_WiFi_Scan(&options, cli_wifi_scan_callback);
-  if (status != W6X_STATUS_OK)
+  cli_print("Wi-Fi scan complete (status %" PRIi32 ").\r\n",
+            results.status);
+  if (results.status != (int32_t)W6X_STATUS_OK)
   {
-    cli_wifi_scan_active = 0U;
-    cli_print("Wi-Fi scan failed to start: %s\r\n", W6X_StatusToStr(status));
+    cli_print("Wi-Fi scan failed: %s\r\n",
+              W6X_StatusToStr((W6X_Status_t)results.status));
+    return;
   }
-  else
+  if (results.count == 0U)
   {
-    cli_print("Wi-Fi scan started; results will follow asynchronously.\r\n");
+    cli_print("Wi-Fi scan completed: no networks found.\r\n");
+    return;
+  }
+
+  cli_print("Wi-Fi scan completed: %" PRIu32 " network(s).\r\n",
+            results.count);
+  cli_print("%-4s %-5s %-13s %-5s %s\r\n",
+            "CH", "RSSI", "SECURITY", "MODE", "SSID");
+  for (uint32_t i = 0U; i < results.count; ++i)
+  {
+    cli_print("%-4u %-5d %-13.13s %-5.5s %s\r\n",
+              (unsigned int)results.access_points[i].channel,
+              (int)results.access_points[i].rssi,
+              W6X_WiFi_SecurityToStr(results.access_points[i].security),
+              W6X_WiFi_ProtocolToStr(
+                  (W6X_WiFi_Protocol_e)results.access_points[i].protocol),
+              results.access_points[i].ssid);
   }
 }
 
 static void cli_wifi_connect_password(const char *password)
 {
-  W6X_WiFi_Connect_Opts_t options = {0};
   size_t password_length = strlen(password);
+  UINT result;
+  WifiBle_WifiStatus_t status;
+
   if (password_length > W6X_WIFI_MAX_PASSWORD_SIZE)
   {
     cli_print("Password is too long.\r\n");
     return;
   }
-  (void)memcpy(options.SSID, cli_pending_ssid, sizeof(cli_pending_ssid));
-  (void)memcpy(options.Password, password, password_length);
-  W6X_Status_t status = W6X_WiFi_Connect(&options);
-  (void)memset(&options, 0, sizeof(options));
-  cli_print("Wi-Fi connect request: %s. Use 'wifi status' to follow it.\r\n",
-            W6X_StatusToStr(status));
-}
-
-static void cli_wifi_scan_callback(int32_t status, W6X_WiFi_Scan_Result_t *results)
-{
-  cli_wifi_scan_active = 0U;
-  cli_print("\r\nWi-Fi scan complete (status %" PRIi32 ").\r\n", status);
-  if ((status != (int32_t)W6X_STATUS_OK) || (results == NULL) || (results->AP == NULL))
+  cli_print("Connecting to Wi-Fi...\r\n");
+  result = WIFI_BLE_App_WifiConnect((const char *)cli_pending_ssid,
+                                    password,
+                                    CLI_WIFI_CONNECT_WAIT_TICKS);
+  WIFI_BLE_App_GetWifiStatus(&status);
+  if (result != TX_SUCCESS)
   {
-    cli_print("No scan results available.\r\nn6> ");
+    cli_print("Wi-Fi connect timed out or is busy (ThreadX %u).\r\n",
+              (unsigned int)result);
     return;
   }
-
-  cli_print("%-4s %-5s %-5s %s\r\n", "CH", "RSSI", "MODE", "SSID");
-  for (uint32_t i = 0U; i < results->Count; ++i)
+  if ((status.last_status != (int32_t)W6X_STATUS_OK) ||
+      (status.ip_valid == 0U))
   {
-    cli_print("%-4u %-5d %-5s %s\r\n",
-              (unsigned int)results->AP[i].Channel,
-              (int)results->AP[i].RSSI,
-              W6X_WiFi_ProtocolToStr(results->AP[i].Protocol),
-              results->AP[i].SSID);
+    cli_print("Wi-Fi connect failed: %s.\r\n",
+              W6X_StatusToStr((W6X_Status_t)status.last_status));
+    return;
   }
-  cli_print("n6> ");
+  cli_print("Wi-Fi connected to %s. IPv4: %u.%u.%u.%u\r\n",
+            status.ssid,
+            status.ip_address[0], status.ip_address[1],
+            status.ip_address[2], status.ip_address[3]);
 }
 #endif
 

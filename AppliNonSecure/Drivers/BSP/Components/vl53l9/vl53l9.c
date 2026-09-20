@@ -905,6 +905,13 @@ int vl53l9_frame_command_status_start_async(void *const p_dev,
                              command_status, 1U);
 }
 
+int vl53l9_frame_command_status_read(void *const p_dev,
+                                     uint8_t *command_status) {
+    CHECK_NULL_PTR(p_dev);
+    CHECK_NULL_PTR(command_status);
+    return vl53l9_read8(p_dev, VL53L9_REGADDR_COMMAND, command_status);
+}
+
 int vl53l9_get_status(void *const p_dev, vl53l9_status_t *status) {
     int ret;
 

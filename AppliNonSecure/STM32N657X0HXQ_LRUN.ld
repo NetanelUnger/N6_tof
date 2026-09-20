@@ -48,6 +48,9 @@ MEMORY
   /* Reserve the upper 176 KiB of SRAM3 for CPU-side transient workspaces.
      Stage 08 rejects a generated network that also selects SRAM3. */
   NPU_RAM3     (xrw) : ORIGIN = 0x24244000, LENGTH = 176K
+  /* ThreadX application stacks are zero-initialized runtime storage. Keep
+     them in otherwise-unused SRAM4 so code growth cannot starve VL53L9. */
+  APP_RAM4     (xrw) : ORIGIN = 0x24280000, LENGTH = 256K
   /* Reserve the top 64 KiB of SRAM4 for the optional ST67 ThreadX pool.
      Current Neural-ART activations use SRAM5; Stage 08 rejects SRAM4 use. */
   RADIO_RAM4   (xrw) : ORIGIN = 0x242D0000, LENGTH = 64K
@@ -190,6 +193,21 @@ SECTIONS
 
   ASSERT(SIZEOF(.npu_shared_bss) <= LENGTH(NPU_RAM3),
          "NPU SRAM3 shared workspace overflow")
+
+  .app_shared_bss (NOLOAD) :
+  {
+    . = ALIGN(64);
+    __sapp_shared_bss = .;
+    *(.app_shared_bss)
+    *(.app_shared_bss*)
+    *(.cloud_shared_bss)
+    *(.cloud_shared_bss*)
+    . = ALIGN(64);
+    __eapp_shared_bss = .;
+  } >APP_RAM4
+
+  ASSERT(SIZEOF(.app_shared_bss) <= LENGTH(APP_RAM4),
+         "ThreadX application SRAM4 workspace overflow")
 
   .radio_shared_bss (NOLOAD) :
   {
