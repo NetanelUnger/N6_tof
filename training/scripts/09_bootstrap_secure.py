@@ -1,4 +1,4 @@
-"""One-time signed SWD installation of the Secure Neural-ART bootstrap."""
+"""Signed SWD installation of the matching FSBL and Secure bootstrap."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def main() -> int:
         return 0
 
     confirmation = input(
-        "This one-time operation writes only FSBL + Secure through SWD and "
+        "This operation writes only FSBL + Secure through SWD and "
         "preserves both application slots. Set BOOT0=1-2, BOOT1=2-3, press "
         "RESET, then type BOOTCHAIN: "
     ).strip()
@@ -54,6 +54,10 @@ def main() -> int:
         details={
             "firmware_version_preserved": version,
             "secure_image_sha256": sha256_file(secure_image),
+            "secure_raw_sha256": sha256_file(
+                PROJECT_ROOT / "AppliSecure" / "Debug" / "N6_AppliSecure.bin"),
+            "fsbl_raw_sha256": sha256_file(
+                PROJECT_ROOT / "FSBL" / "Debug" / "N6_FSBL.bin"),
             "application_slots_preserved": True,
         },
     )

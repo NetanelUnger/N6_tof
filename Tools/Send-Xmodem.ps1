@@ -140,10 +140,7 @@ if ($fileBytes.Length -eq 0) {
     throw "XMODEM input file is empty: $filePath"
 }
 
-if ([string]::IsNullOrWhiteSpace($Port)) {
-    $Port = Find-N6UsbCdcPort
-}
-$Port = $Port.ToUpperInvariant()
+$Port = Wait-N6UsbCdcPort -RequestedPort $Port
 
 $serial = [IO.Ports.SerialPort]::new(
     $Port,
@@ -159,7 +156,12 @@ $serial.RtsEnable = $false
 
 try {
     Write-Host "Opening $Port and preparing to send $($fileBytes.Length) bytes."
-    $serial.Open()
+    try {
+        $serial.Open()
+    }
+    catch {
+        throw "Could not open active CDC port $Port before transfer; no firmware bytes were sent. Check CN8, close other terminals, and retry. $($_.Exception.Message)"
+    }
     Start-Sleep -Milliseconds 500
     $serial.DiscardInBuffer()
 

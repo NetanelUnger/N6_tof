@@ -876,13 +876,17 @@ external Flash Slot A/B
 שלב 08 גם מתקין snapshot תואם של headers, sources וספריית runtime מתוך אותה
 גרסת STEdgeAI שיצרה את הרשת. הוא אינו מבצע fallback ל־M55.
 
-### 09 — bootstrap חד־פעמי של Secure
+### 09 — התקנת FSBL ו־Secure תואמים
 
 הפעלת שעוני NPU/CACHEAXI, פתיחת SRAM3–6 והעברת NPU interrupts ל־Non‑Secure
 שייכות ל־TrustZone Secure. `.n6fw` מעדכן בכוונה רק את האפליקציה, ולכן מריצים
-פעם אחת לכל לוח את `09_BOOTSTRAP_NPU_SWD.bat`. הוא בונה וחותם הכול, ואז—רק
+את `09_BOOTSTRAP_NPU_SWD.bat` לפני העדכון הראשון, ושוב אחרי שינוי FSBL או Secure.
+הוא בונה וחותם הכול, ואז—רק
 אחרי הקלדת `BOOTCHAIN`—צורב דרך SWD רק FSBL + Secure. שני app slots ו־A/B
 metadata נשמרים. `--build-only` בודק את כל התוצרים בלי לשנות חומרה.
+ההתקנה רושמת hashes של שני ה־images; XMODEM מסרב לצרוב כשהבנייה הנוכחית אינה
+תואמת להם, גם אם Stage 09 הושלם בעבר. טעינת RAM מחליפה גם את Secure, ולכן HIL
+תקין ב־RAM לבדו אינו מוכיח תאימות ל־Secure שבפלאש.
 
 ### 10 — טעינת המודל המשולב ל־RAM
 
@@ -993,7 +997,8 @@ Full erase מוחק גם Slot B וכל trial/pending state. זה אינו תחל
 4. לפחות 2 sessions של `01_CAPTURE.bat`, ובסך הכול 8 bursts לכל מחלקה.
 5. `03_VALIDATE.bat`; לצלם עוד אם class/session diversity חלשים.
 6. `BUILD_MODEL_FOR_N6.bat`.
-7. `09_BOOTSTRAP_NPU_SWD.bat` פעם אחת ללוח; להחזיר BOOT0/BOOT1 ל־1-2.
+7. `09_BOOTSTRAP_NPU_SWD.bat` לפני עדכון ראשון ושוב אחרי שינוי FSBL/Secure;
+   להחזיר BOOT0/BOOT1 ל־1-2.
 8. `10_LOAD_RAM.bat` שוב כדי להריץ את המודל המשולב ב־SRAM.
 9. מיד לאחר מכן, בלי RESET, להריץ `11_HIL.bat` ולהמשיך רק אם PC ו־NPU עברו את השער.
 10. רק בסוף, `12_FLASH_RELEASE.bat` לגרסת flash שעולה אחרי RESET.

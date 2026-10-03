@@ -110,10 +110,13 @@ if (-not (Test-Path -LiteralPath $tools.SigningTool -PathType Leaf)) {
     throw "STM32 signing tool was not found: $($tools.SigningTool)"
 }
 
-if (-not $PackageOnly -and [string]::IsNullOrWhiteSpace($Port)) {
+$requestedPort = $Port
+if (-not $PackageOnly) {
+    Assert-N6InstalledBootChain -ProjectRoot $ProjectRoot
     # Fail before changing the tracked version header if the final-test cable
     # is not connected. The port is rediscovered after the device resets.
-    $Port = Find-N6UsbCdcPort
+    $initialPort = Wait-N6UsbCdcPort -RequestedPort $requestedPort
+    Write-Host "Active CN8 CDC port: $initialPort. It will be rediscovered immediately before transfer."
 }
 
 $currentVersion = Get-N6FirmwareVersion -ProjectRoot $ProjectRoot
@@ -180,7 +183,7 @@ try {
     else {
         & (Join-Path $PSScriptRoot 'Send-Xmodem.ps1') `
             -File $package `
-            -Port $Port
+            -Port $requestedPort
         if ($LASTEXITCODE -ne 0) {
             throw 'XMODEM installation failed.'
         }
@@ -191,7 +194,7 @@ try {
         $keepNewVersion = $true
         if (-not $SkipBootVerification) {
             Wait-N6InstalledVersion `
-                -RequestedPort $Port `
+                -RequestedPort $requestedPort `
                 -ExpectedVersion $FirmwareVersion
         }
 

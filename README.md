@@ -1613,8 +1613,32 @@ The XMODEM lane changes only the inactive Non-Secure slot. FSBL, Secure, the
 active slot, and the last confirmed metadata remain untouched until the package
 has been authenticated and finalized. The `version` CLI command reports the
 running application version and is also used by the automation after reset.
-Run `training\09_BOOTSTRAP_NPU_SWD.bat` once first: it programs only signed
-FSBL + Secure and preserves both application slots/metadata. The guided release
+
+After RAM HIL, set BOOT0 and BOOT1 to `1-2` **without pressing Reset**.
+Keep CN8 connected and the validated RAM application running until the
+XMODEM updater completes and resets the device itself. Resetting beforehand
+discards that RAM application and may remove its CDC endpoint. Port discovery
+filters historical CIM/USB-registry identities against currently present COM
+ports, waits up to 30 seconds for enumeration, and repeats auto discovery
+immediately before transfer and after reset. Explicit `-Port` remains fixed.
+`Tools/Test-UsbCdcDiscovery.ps1` checks disconnected identities, the registry
+fallback, and bounded enumeration waiting without opening serial endpoints.
+
+Run `training\09_BOOTSTRAP_NPU_SWD.bat` first, and again after changing FSBL or
+Secure: it programs only signed FSBL + Secure and preserves both application
+slots/metadata. The XMODEM installer requires their current raw-image hashes
+to match the recorded SWD installation. A historical Stage 09 PASS is insufficient:
+Secure gateway addresses move when Secure is rebuilt, while Non-Secure links
+against those addresses. RAM HIL replaces Secure in SRAM and can pass even when
+the installed Secure is incompatible. Such a Flash trial can fault in the first
+`SystemCoreClockUpdate` call and roll back before CDC enumerates.
+`Tools/Test-BootChainCompatibility.ps1` checks this release gate without hardware.
+On 2026-10-03, this recovery completed 100-frame HIL, installed v7 through
+authenticated XMODEM, and verified a second Flash boot with confirmed slot B/v7
+(metadata sequence 15), CDC version 7, streaming ToF, and a ready Neural-ART
+runtime with zero inference/I3C errors. The board was left in Flash boot with
+BOOT0/BOOT1 at `1-2`.
+The guided release
 BAT also requires a passing N6DF v3 raw-vs-device-tensor-vs-NPU HIL fingerprint before it asks
 for the explicit `FLASH` confirmation.
 
@@ -1885,8 +1909,8 @@ when historical context is explicitly required.
 10. Replace `-nk` and the workstation development key with a protected,
     provisioned production signing/root-of-trust and anti-rollback chain before
     treating physical update security as production-ready.
-11. Follow the numbered release sequence: Stage 09 installs the one-time Secure
-    boot chain, Stage 10 loads the exact integrated model into SRAM, Stage 11
+11. Follow the numbered release sequence: Stage 09 installs the matching Secure
+    boot chain (repeat after FSBL/Secure changes), Stage 10 loads the exact integrated model into SRAM, Stage 11
     runs HIL against that live SRAM image, and Stage 12 installs the persistent
     update only after the HIL fingerprint passes.
 ### Post-GOTIP Secure fault diagnosis (2026-09-25)

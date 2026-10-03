@@ -6,6 +6,26 @@ explicitly requires historical context.
 
 ### 2026-10-03
 
+- Diagnosed v7 trial rollback to v5 as a Secure gateway ABI mismatch: the new
+  application called `SECURE_SystemCoreClockUpdate` at 0x3400F610, outside the
+  installed Secure gateway range. Reproduced the startup INVEP fault while
+  retaining installed Secure, then verified startup with the matching Secure.
+  The XMODEM release gate now checks FSBL/Secure raw hashes recorded by Stage 09,
+  rather than accepting an old complete state after Secure changed. Boot-chain
+  SWD recovery preserves both application slots and A/B metadata.
+  Recovery completed with 100-frame HIL PASS, authenticated v7 XMODEM install,
+  trial confirmation, and a second Flash boot selecting confirmed slot B/v7
+  (metadata sequence 15). CDC reported version 7; ToF and NPU were ready with
+  zero I3C/inference errors. Five hardware-free compatibility checks passed.
+
+- Fixed Stage 12 accepting disconnected CDC identities from CIM/the persistent
+  USB enumeration registry. Only currently present serial ports are accepted;
+  initial discovery waits up to 30 seconds, auto selection is repeated before
+  XMODEM and after reset, and explicit port selection stays fixed. Six
+  hardware-free checks passed, including registry fallback under denied CIM.
+  The reported v6 attempt stopped at SerialPort.Open before any firmware byte
+  was sent and restored the tracked version to 5. The user had pressed Reset
+  with external-Flash boot jumpers after RAM HIL, discarding that live image.
 - Diagnosed Stage 10 startup failure from the retained ST-LINK log: target
   initialization succeeded, then binding host TCP port 61234 failed. RAM
   loading had not begun; the exact port owner/reservation was no longer

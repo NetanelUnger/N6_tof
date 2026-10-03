@@ -1,5 +1,27 @@
 $ErrorActionPreference = 'Stop'
 
+function Assert-N6InstalledBootChain {
+    param([Parameter(Mandatory = $true)][string]$ProjectRoot)
+
+    $statePath = Join-Path $ProjectRoot 'training/state/09_secure_bootstrap.json'
+    if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) {
+        throw 'The installed boot chain has no hash record. Run 09_BOOTSTRAP_NPU_SWD.bat before XMODEM installation.'
+    }
+    $state = Get-Content -Raw -LiteralPath $statePath | ConvertFrom-Json
+    foreach ($image in @(
+        @{ Name = 'Secure'; Path = 'AppliSecure/Debug/N6_AppliSecure.bin'; Field = 'secure_raw_sha256' },
+        @{ Name = 'FSBL'; Path = 'FSBL/Debug/N6_FSBL.bin'; Field = 'fsbl_raw_sha256' }
+    )) {
+        $rawPath = Join-Path $ProjectRoot $image.Path
+        $recorded = $state.details.($image.Field)
+        if (($state.status -ne 'complete') -or [string]::IsNullOrWhiteSpace($recorded) -or
+            (-not (Test-Path -LiteralPath $rawPath -PathType Leaf)) -or
+            ((Get-N6FileSha256 -Path $rawPath) -ne $recorded)) {
+            throw "The installed $($image.Name) does not match the current build, or its installation hash is missing. Run 09_BOOTSTRAP_NPU_SWD.bat again before XMODEM. RAM HIL replaces Secure in SRAM and cannot verify the Secure image in Flash."
+        }
+    }
+}
+
 function Resolve-N6PluginTool {
     param(
         [Parameter(Mandatory = $true)]
@@ -417,6 +439,13 @@ function Find-N6UsbCdcPort {
         }
     }
 
+    # Enum/USB and Win32_PnPEntity retain disconnected device instances.
+    # Match identity candidates against the current serial device map before
+    # accepting them. GetPortNames does not open the endpoint or send bytes.
+    $presentPorts = @([IO.Ports.SerialPort]::GetPortNames())
+    $ports = @($ports | Where-Object { $_ -in $presentPorts } |
+        Sort-Object -Unique)
+
     if ($ports.Count -eq 0) {
         throw 'The N6 USB CDC port (VID 0483, PID 5740) was not found. Connect CN8 and wait for Windows to enumerate it.'
     }
@@ -425,6 +454,33 @@ function Find-N6UsbCdcPort {
     }
 
     return $ports[0]
+}
+
+function Wait-N6UsbCdcPort {
+    param(
+        [string]$RequestedPort,
+        [ValidateRange(1, 120)][int]$TimeoutSeconds = 30
+    )
+
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    $lastError = 'No active CN8 CDC endpoint.'
+    while ([DateTime]::UtcNow -lt $deadline) {
+        try {
+            if ([string]::IsNullOrWhiteSpace($RequestedPort)) {
+                return (Find-N6UsbCdcPort)
+            }
+            $candidate = $RequestedPort.ToUpperInvariant()
+            if ($candidate -in [IO.Ports.SerialPort]::GetPortNames()) {
+                return $candidate
+            }
+            $lastError = "Requested port $candidate is not currently present."
+        }
+        catch {
+            $lastError = $_.Exception.Message
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    throw "USB CDC was not available within $TimeoutSeconds seconds. $lastError If RESET was pressed after RAM HIL, reload RAM before retrying; RESET discards the RAM application."
 }
 
 function Get-N6FileSha256 {
