@@ -51,6 +51,12 @@ typedef struct
 typedef struct
 {
     TOF_App_State_t state;
+    uint32_t acquisition_started;
+    uint32_t acquisition_cycles;
+    uint32_t acquisition_last_tick;
+    uint32_t processing_started;
+    uint32_t processing_cycles;
+    uint32_t processing_last_tick;
     uint32_t map_enabled;
     uint32_t map_channel_mask;
     TOF_App_Channel_t map_active_channel;
@@ -64,6 +70,10 @@ typedef struct
     uint32_t processed_frames;
     uint32_t dropped_frames;
     uint32_t queue_failures;
+    uint32_t command_start_failures;
+    uint32_t command_tx_wait_failures;
+    uint32_t command_status_read_failures;
+    uint32_t command_status_timeouts;
     uint32_t minimum_mm;
     uint32_t maximum_mm;
     uint32_t dataset_frames_submitted;

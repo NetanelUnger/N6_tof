@@ -39,6 +39,20 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
+typedef struct
+{
+  ULONG manager_started;
+  ULONG events_processed;
+  ULONG last_event_tick;
+  UINT device_started;
+  UINT cdc_active;
+  UINT dtr_asserted;
+  UINT recovery_count;
+  ULONG event_post_failures;
+  ULONG last_failed_event_type;
+  ULONG last_failed_event_status;
+} App_USBX_DeviceStatus_t;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -83,6 +97,7 @@ UINT App_USBX_Device_NotifyCdcDeactivated(VOID *cdc_acm_instance);
 UINT App_USBX_Device_NotifyCdcParameterChange(VOID *cdc_acm_instance);
 UINT App_USBX_Device_ReportRxError(UINT usb_status);
 UINT App_USBX_Device_ReportTxError(UINT usb_status);
+void App_USBX_Device_GetStatus(App_USBX_DeviceStatus_t *status);
 
 /* USER CODE END EFP */
 

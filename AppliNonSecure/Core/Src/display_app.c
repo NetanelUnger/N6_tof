@@ -13,16 +13,17 @@
 #define DISPLAY_EVENT_TX_ERROR     (1UL << 1)
 #define DISPLAY_EVENT_FRAME_READY  (1UL << 2)
 #define DISPLAY_EVENT_MODE_CHANGED (1UL << 3)
+#define DISPLAY_EVENT_SYSTEM_READY (1UL << 4)
 #define DISPLAY_TRANSFER_TIMEOUT   (2U * TX_TIMER_TICKS_PER_SECOND)
 #define DISPLAY_TEXT_SCALE         (2U)
 #define DISPLAY_GLYPH_WIDTH        (5U)
 #define DISPLAY_GLYPH_HEIGHT       (7U)
 #define DISPLAY_GLYPH_ADVANCE      (6U)
-#define DISPLAY_TEXT               "SYSTEM IS LOADING"
-#define DISPLAY_TEXT_LENGTH        (sizeof(DISPLAY_TEXT) - 1U)
-#define DISPLAY_TEXT_WIDTH         \
-  (((DISPLAY_TEXT_LENGTH * DISPLAY_GLYPH_ADVANCE) - 1U) * DISPLAY_TEXT_SCALE)
+#define DISPLAY_LOADING_TEXT       "SYSTEM IS LOADING"
+#define DISPLAY_READY_TEXT         "SYSTEM ON"
 #define DISPLAY_TEXT_HEIGHT        (DISPLAY_GLYPH_HEIGHT * DISPLAY_TEXT_SCALE)
+#define DISPLAY_LOADING_BACKGROUND DISPLAY_RGB565(0U, 40U, 160U)
+#define DISPLAY_READY_BACKGROUND   DISPLAY_RGB565(0U, 112U, 32U)
 #define DISPLAY_MAP_SCALE          (4U)
 #define DISPLAY_MAP_WIDTH          \
   (DISPLAY_APP_MAP_SOURCE_WIDTH * DISPLAY_MAP_SCALE)
@@ -73,6 +74,8 @@ static TX_EVENT_FLAGS_GROUP display_events;
 static GC9A01_Handle_t display_handle;
 static volatile uint32_t display_initialized;
 static volatile uint32_t display_map_enabled;
+static volatile uint32_t display_system_ready;
+static volatile uint32_t display_screen_state;
 static volatile uint32_t display_frame_in_flight;
 static volatile Display_Frame_t *display_pending_frame;
 static volatile uint32_t display_submitted_frames;
@@ -298,11 +301,16 @@ static UINT Display_InitializePanel(void)
   return TX_SUCCESS;
 }
 
-static UINT Display_Clear(void)
+static UINT Display_FillScreen(uint16_t color)
 {
   uint32_t remaining = GC9A01_WIDTH * GC9A01_HEIGHT * 2U;
+  uint32_t pixel;
 
-  memset(display_row_pixels, 0, sizeof(display_row_pixels));
+  for (pixel = 0U; pixel < GC9A01_WIDTH; ++pixel)
+  {
+    display_row_pixels[pixel * 2U] = (uint8_t)(color >> 8);
+    display_row_pixels[(pixel * 2U) + 1U] = (uint8_t)color;
+  }
   if (Display_SetAddressWindow(0U, 0U, GC9A01_WIDTH, GC9A01_HEIGHT) != TX_SUCCESS)
   {
     return TX_NOT_DONE;
@@ -375,7 +383,7 @@ static const uint8_t *Display_Glyph(char character)
 
 static UINT Display_RenderResultText(const Display_Frame_t *frame)
 {
-  const char *text = "";
+  const char *text = "WAITING";
   size_t text_length;
   uint32_t text_width;
   uint32_t text_x;
@@ -384,10 +392,6 @@ static UINT Display_RenderResultText(const Display_Frame_t *frame)
   if ((frame != NULL) && (frame->rps_valid != 0U))
   {
     text = RPS_AI_ClassDisplayName(frame->rps_class_id);
-  }
-  else if (frame != NULL)
-  {
-    text = "WAITING";
   }
   text_length = strlen(text);
   text_width = (text_length == 0U) ? 0U :
@@ -431,42 +435,56 @@ static UINT Display_RenderResultText(const Display_Frame_t *frame)
   return TX_SUCCESS;
 }
 
-static void Display_RenderLoadingTextRow(uint32_t y)
+static void Display_RenderCenteredTextRow(const char *text,
+                                          size_t text_length,
+                                          uint32_t text_width,
+                                          uint32_t y,
+                                          uint16_t background)
 {
   uint32_t x;
   uint32_t glyph_row = y / DISPLAY_TEXT_SCALE;
 
-  memset(display_row_pixels, 0, sizeof(display_row_pixels));
-  for (x = 0U; x < DISPLAY_TEXT_WIDTH; ++x)
+  for (x = 0U; x < text_width; ++x)
   {
     uint32_t unscaled_x = x / DISPLAY_TEXT_SCALE;
     uint32_t character_index = unscaled_x / DISPLAY_GLYPH_ADVANCE;
     uint32_t glyph_column = unscaled_x % DISPLAY_GLYPH_ADVANCE;
     bool foreground = false;
 
-    if ((character_index < DISPLAY_TEXT_LENGTH) &&
+    if ((character_index < text_length) &&
         (glyph_column < DISPLAY_GLYPH_WIDTH))
     {
-      const uint8_t *glyph = Display_Glyph(DISPLAY_TEXT[character_index]);
+      const uint8_t *glyph = Display_Glyph(text[character_index]);
       foreground = ((glyph[glyph_column] & (1U << glyph_row)) != 0U);
     }
 
-    if (foreground)
-    {
-      uint32_t offset = x * 2U;
-      display_row_pixels[offset] = 0xFFU;
-      display_row_pixels[offset + 1U] = 0xFFU;
-    }
+    uint16_t color = foreground ? 0xFFFFU : background;
+    uint32_t offset = x * 2U;
+    display_row_pixels[offset] = (uint8_t)(color >> 8);
+    display_row_pixels[offset + 1U] = (uint8_t)color;
   }
 }
 
-static UINT Display_ShowLoadingText(void)
+static UINT Display_ShowCenteredText(const char *text, uint16_t background)
 {
-  uint16_t x = (uint16_t)((GC9A01_WIDTH - DISPLAY_TEXT_WIDTH) / 2U);
+  size_t text_length = strlen(text);
+  uint32_t text_width;
+  uint16_t x;
   uint16_t y = (uint16_t)((GC9A01_HEIGHT - DISPLAY_TEXT_HEIGHT) / 2U);
   uint32_t row;
 
-  if (Display_SetAddressWindow(x, y, DISPLAY_TEXT_WIDTH,
+  if (text_length == 0U)
+  {
+    return TX_SIZE_ERROR;
+  }
+  text_width =
+      (((uint32_t)text_length * DISPLAY_GLYPH_ADVANCE) - 1U) * DISPLAY_TEXT_SCALE;
+  if (text_width > GC9A01_WIDTH)
+  {
+    return TX_SIZE_ERROR;
+  }
+  x = (uint16_t)((GC9A01_WIDTH - text_width) / 2U);
+  if (Display_SetAddressWindow(x, y, (uint16_t)text_width,
                                DISPLAY_TEXT_HEIGHT) != TX_SUCCESS)
   {
     return TX_NOT_DONE;
@@ -474,15 +492,25 @@ static UINT Display_ShowLoadingText(void)
 
   for (row = 0U; row < DISPLAY_TEXT_HEIGHT; ++row)
   {
-    Display_RenderLoadingTextRow(row);
+    Display_RenderCenteredTextRow(text, text_length, text_width, row,
+                                  background);
     if (Display_Transmit(true, display_row_pixels,
-                         (uint16_t)(DISPLAY_TEXT_WIDTH * 2U),
+                         (uint16_t)(text_width * 2U),
                          row == (DISPLAY_TEXT_HEIGHT - 1U)) != TX_SUCCESS)
     {
       return TX_NOT_DONE;
     }
   }
   return TX_SUCCESS;
+}
+
+static UINT Display_ShowIdleScreen(const char *text, uint16_t background)
+{
+  if (Display_FillScreen(background) != TX_SUCCESS)
+  {
+    return TX_NOT_DONE;
+  }
+  return Display_ShowCenteredText(text, background);
 }
 
 static uint16_t Display_DepthToRgb565(float distance_mm,
@@ -587,26 +615,11 @@ static UINT Display_RenderMapFrame(const Display_Frame_t *frame)
   return TX_SUCCESS;
 }
 
-static UINT Display_ClearMapArea(void)
+static UINT Display_PrepareMap(void)
 {
-  uint32_t row;
-
-  memset(display_row_pixels, 0, DISPLAY_MAP_WIDTH * 2U);
-  if (Display_SetAddressWindow(DISPLAY_MAP_X, DISPLAY_MAP_Y,
-                               DISPLAY_MAP_WIDTH,
-                               DISPLAY_MAP_HEIGHT) != TX_SUCCESS)
+  if (Display_FillScreen(0U) != TX_SUCCESS)
   {
     return TX_NOT_DONE;
-  }
-
-  for (row = 0U; row < DISPLAY_MAP_HEIGHT; ++row)
-  {
-    if (Display_Transmit(true, display_row_pixels,
-                         (uint16_t)(DISPLAY_MAP_WIDTH * 2U),
-                         row == (DISPLAY_MAP_HEIGHT - 1U)) != TX_SUCCESS)
-    {
-      return TX_NOT_DONE;
-    }
   }
   ++display_clear_operations;
   return Display_RenderResultText(NULL);
@@ -616,6 +629,12 @@ void Display_App_SetMapEnabled(uint32_t enabled)
 {
   display_map_enabled = (enabled != 0U) ? 1U : 0U;
   (void)tx_event_flags_set(&display_events, DISPLAY_EVENT_MODE_CHANGED, TX_OR);
+}
+
+void Display_App_SetSystemReady(void)
+{
+  display_system_ready = 1U;
+  (void)tx_event_flags_set(&display_events, DISPLAY_EVENT_SYSTEM_READY, TX_OR);
 }
 
 uint32_t Display_App_IsMapEnabled(void)
@@ -717,6 +736,7 @@ void Display_App_GetStatus(Display_App_Status_t *status)
   TX_DISABLE
   status->initialized = display_initialized;
   status->map_enabled = display_map_enabled;
+  status->screen_state = display_screen_state;
   status->frame_in_flight = display_frame_in_flight;
   status->submitted_frames = display_submitted_frames;
   status->rendered_frames = display_rendered_frames;
@@ -749,14 +769,15 @@ void Display_App_Run(void)
   Debug_UART_Log("DISPLAY", "GC9A01 task started on SPI4 TX DMA");
 
   if ((Display_InitializePanel() != TX_SUCCESS) ||
-      (Display_Clear() != TX_SUCCESS) ||
-      (Display_ShowLoadingText() != TX_SUCCESS))
+      (Display_ShowIdleScreen(DISPLAY_LOADING_TEXT,
+                              DISPLAY_LOADING_BACKGROUND) != TX_SUCCESS))
   {
     Debug_UART_Log("DISPLAY", "ERROR: GC9A01 initialization/transfer failed");
   }
   else
   {
     display_initialized = 1U;
+    display_screen_state = DISPLAY_APP_SCREEN_LOADING;
     Debug_UART_Log("DISPLAY", "SYSTEM IS LOADING rendered");
   }
 
@@ -766,13 +787,52 @@ void Display_App_Run(void)
   for (;;)
   {
     UINT wait_status = tx_event_flags_get(
-        &display_events, DISPLAY_EVENT_FRAME_READY | DISPLAY_EVENT_MODE_CHANGED,
+        &display_events, DISPLAY_EVENT_FRAME_READY | DISPLAY_EVENT_MODE_CHANGED |
+                         DISPLAY_EVENT_SYSTEM_READY,
         TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
     if (wait_status != TX_SUCCESS)
     {
       Debug_UART_Log("DISPLAY", "ERROR: event wait failed: %u",
                      (unsigned int)wait_status);
       continue;
+    }
+
+    if ((display_initialized != 0U) &&
+        ((actual_flags & (DISPLAY_EVENT_MODE_CHANGED |
+                          DISPLAY_EVENT_SYSTEM_READY)) != 0UL))
+    {
+      UINT screen_status;
+      uint32_t next_screen;
+
+      if (display_map_enabled != 0U)
+      {
+        screen_status = Display_PrepareMap();
+        next_screen = DISPLAY_APP_SCREEN_MAP;
+      }
+      else if (display_system_ready != 0U)
+      {
+        screen_status = Display_ShowIdleScreen(DISPLAY_READY_TEXT,
+                                               DISPLAY_READY_BACKGROUND);
+        next_screen = DISPLAY_APP_SCREEN_SYSTEM_ON;
+      }
+      else
+      {
+        screen_status = Display_ShowIdleScreen(DISPLAY_LOADING_TEXT,
+                                               DISPLAY_LOADING_BACKGROUND);
+        next_screen = DISPLAY_APP_SCREEN_LOADING;
+      }
+      if (screen_status == TX_SUCCESS)
+      {
+        display_screen_state = next_screen;
+        Debug_UART_Log("DISPLAY", "screen state %lu rendered",
+                       (unsigned long)next_screen);
+      }
+      else
+      {
+        ++display_render_errors;
+        Debug_UART_Log("DISPLAY", "ERROR: screen state %lu failed: %u",
+                       (unsigned long)next_screen, (unsigned int)screen_status);
+      }
     }
 
     if ((actual_flags & DISPLAY_EVENT_FRAME_READY) != 0UL)
@@ -839,20 +899,6 @@ void Display_App_Run(void)
       }
     }
 
-    if ((display_map_enabled == 0U) && (display_initialized != 0U) &&
-        (((actual_flags & DISPLAY_EVENT_MODE_CHANGED) != 0UL) ||
-         ((actual_flags & DISPLAY_EVENT_FRAME_READY) != 0UL)))
-    {
-      if (Display_ClearMapArea() != TX_SUCCESS)
-      {
-        ++display_render_errors;
-        Debug_UART_Log("DISPLAY", "ERROR: map-area clear failed");
-      }
-      else
-      {
-        Debug_UART_Log("DISPLAY", "screen map disabled and map area cleared");
-      }
-    }
   }
 }
 

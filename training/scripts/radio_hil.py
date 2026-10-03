@@ -10,6 +10,16 @@ from typing import Any
 
 
 CLI_SERVICE_UUID = "7a1e0001-b5a3-f393-e0a9-e50e24dcca9e"
+WIFI_SCAN_ACCEPT_RE = re.compile(r"Wi-Fi scan request accepted:\s*id=(\d+)\.")
+WIFI_SCAN_REJECT_RE = re.compile(
+    r"Wi-Fi scan request rejected\s*\(ThreadX\s+(\d+)\)\."
+)
+
+
+def wifi_scan_result_pattern(request_id: int) -> re.Pattern[str]:
+    return re.compile(
+        rf"Wi-Fi scan request id={request_id}:\s*[^\r\n]*?\((-?\d+)\)\."
+    )
 
 
 def _feature_value(header: str, name: str) -> bool:
@@ -158,15 +168,37 @@ def validate_radio_cli(text: str, flags: dict[str, bool],
                 "Wi-Fi is enabled in app_features.h but runtime reports it disabled."
             )
         station = re.search(r"Wi-Fi station:\s*([^\r\n]+)", text)
-        scan = re.search(r"Wi-Fi scan complete \(status\s+(-?\d+)\)", text)
-        if station is None or scan is None or int(scan.group(1)) != 0:
+        if station is None:
             raise RuntimeError(
-                "Wi-Fi basic HIL did not complete both station-status and a "
-                "successful passive connectivity scan."
+                "Wi-Fi basic HIL did not receive a station-status line."
+            )
+        rejected = WIFI_SCAN_REJECT_RE.search(text)
+        if rejected is not None:
+            raise RuntimeError(
+                f"Wi-Fi scan request was rejected (ThreadX {rejected.group(1)})."
+            )
+        accepted = WIFI_SCAN_ACCEPT_RE.search(text)
+        if accepted is None:
+            raise RuntimeError(
+                "Wi-Fi scan request was not accepted; check the USB transcript."
+            )
+        request_id = int(accepted.group(1))
+        scan = wifi_scan_result_pattern(request_id).search(text, accepted.end())
+        if scan is None:
+            raise RuntimeError(
+                f"Wi-Fi scan request id={request_id} was accepted but no matching "
+                "final result arrived before the HIL timeout."
+            )
+        scan_status = int(scan.group(1))
+        if scan_status != 0:
+            raise RuntimeError(
+                f"Wi-Fi scan request id={request_id} failed with status "
+                f"{scan_status}."
             )
         report["wifi"] = {
             "station": station.group(1).strip(),
-            "scan_status": int(scan.group(1)),
+            "request_id": request_id,
+            "scan_status": scan_status,
         }
 
     report["result"] = "pass"

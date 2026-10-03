@@ -140,8 +140,15 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   `APP_ST67W6X_WIFI_SERVICES_ENABLED=1U` enables the Wi-Fi station and DHCP/IP
   query path. USB CDC, BLE and Cloud use the same command table, including
   bounded network scan, hidden password entry, connect/disconnect, update and
-  reboot. This equality is an intentional demo policy. All
-  Wi-Fi and BLE control calls are serialized by the Radio Manager. Physical
+  reboot. This equality is an intentional demo policy. BLE maintenance remains
+  in the Radio Manager, while high-level Wi-Fi scan/connect/disconnect calls are
+  serialized by the dedicated priority-11 Wi-Fi control worker. `wifi scan`,
+  `wifi connect`, and `wifi disconnect [forget]` are submission-only and return
+  a routed request ID. M3.9 routes bounded result snapshots only to a matching
+  live transport/generation, counts stale results, and suppresses text during
+  XMODEM. M3.8 was explicitly authorized despite the open M3.7 BLE
+  repeatability failure, so
+  neither M3.7 nor the Milestone 3 gate is accepted. Physical
   SRAM HIL on 2026-09-19 passed scan, hidden-password association, DHCP/IP
   reporting, and a connected rescan while ToF/NPU and BLE advertising remained
   healthy; the SRAM4 radio pool retained 21,056 bytes. `help`, `menu`, and `?`
@@ -153,6 +160,15 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   errors. The
   bounded stream layer now queues CLI RX, provides CLI/DEBUG TX queues and
   fragments notifications to `MTU-3`; DEBUG RX is still rejected by policy.
+  Treat malformed direct-event input and SPI handshake loss as scheduling-
+  safety boundaries. The vendored direct parser now drops/scrubs malformed
+  records, partial `+BLE:GATTWRITE` numeric fields return `-EAGAIN`, and a raw
+  bus write that cannot advance exits through the common transmit-lock release
+  path. Repeated HIL observed clean boots where BLE connected but an initial
+  reply was lost, with intermittent SPI transaction-ready/I/O faults while
+  application threads remained alive. Targeted SPI recovery now bounds retries
+  and handles a lost ready edge, but five consecutive clean-boot BLE/USB probes
+  did not pass; do not claim M3.7 BLE acceptance.
   BLE CLI RX/TX is attached to its own SRAM4 parser/editor/history/output
   session, allocated only after the vendor radio reaches READY. Signed XMODEM
   may enter raw mode on that session and must reuse the Secure A/B installer.
@@ -547,6 +563,7 @@ Current task sizing:
 | USB CDC RX worker | 9 | 12 KiB, statically allocated |
 | USB CDC TX worker | 9 | 12 KiB, statically allocated |
 | ST67 Radio Manager | 9 | 8 KiB, active in dedicated SRAM4 pool |
+| ST67 Wi-Fi control | 11 | 6 KiB, active in dedicated SRAM4 pool |
 | USB debug CLI | 9 | 6 KiB |
 
 ## 9. Known ST defects and non-defects
@@ -640,6 +657,11 @@ stack-local version or split the address phase back into a blocking transfer.
 
 - ST-LINK VCP and CN8 USB CDC are two different COM ports.
 - UART diagnostics must remain operational even if USBX faults.
+- Non-Secure ST-LINK UART accepts one-key read-only status snapshots and one
+  periodic watch at a time (`?`, `a`, `r/t/c/u`, `R/T/C/U`, `0`). RX ISR only
+  queues bytes; formatting and status getters run in the UART diagnostic
+  thread. Keep it separate from the USB/BLE command broker, redact secrets,
+  and do not make a status getter wait indefinitely on another subsystem.
 - Initialize PCD, USBX Device stack, and HAL_PCD_Start from task context after ThreadX starts.
 - Preserve the N6 USB1 HS-PHY reset/configuration/release sequence in the MSP USER block. CubeMX's generated clock and VDDUSB setup is not the complete sequence used by ST's board example.
 - Preserve the explicit `RCC_PERIPHCLK_USBPHY1` configuration in the MSP USER block. The generated code fills `UsbPhy1ClockSelection` but requests only `RCC_PERIPHCLK_USBOTGHS1`, so the HAL otherwise skips the PHY mux field.
@@ -724,7 +746,7 @@ stack-local version or split the address phase back into a blocking transfer.
 - APP_ST67W6X_ENABLED is 1U for the current attached-shield phase-1 test.
 - APP_ST67W6X_BLE_GATT_ENABLED is 1U; two logical UART services and their
   bounded transport queues are implemented. The CLI service owns an independent
-  5,272-byte session in SRAM4 and is attached to the shared command definitions;
+  5,176-byte session in SRAM4 and is attached to the shared command definitions;
   the DEBUG output producer remains detached.
   RAM HIL on 2026-09-14 found `N6-MAINT-B8FB`, connected at MTU 247, validated
   both services/four characteristics and CCCDs, and confirmed advertising
@@ -732,9 +754,9 @@ stack-local version or split the address phase back into a blocking transfer.
   explicit advertising-parameter plus scan-response overrides made
   `W6X_Ble_AdvStart()` return `W6X_STATUS_ERROR` and remain deferred.
 - APP_ST67W6X_WIFI_SERVICES_ENABLED is 1U. Keep scan/connect/disconnect and IP
-  queries serialized in the Radio Manager; callbacks may only snapshot bounded
-  results/state and signal completion. Never print or issue W6X control calls
-  from a Wi-Fi callback.
+  queries serialized in the dedicated Wi-Fi control worker; callbacks may only
+  snapshot bounded results/state and signal completion. Never print or issue
+  W6X control calls from a Wi-Fi callback.
 - Accept Wi-Fi credentials on USB CDC, BLE and Cloud by explicit demo policy.
   Password entry must remain hidden, absent from command history, and cleared
   from CLI/manager buffers immediately after use.
@@ -749,6 +771,12 @@ stack-local version or split the address phase back into a blocking transfer.
 - BLE callbacks may only snapshot event metadata and enqueue/signal bounded
   work. W6X control/send operations and advertising recovery belong to the
   Radio Manager thread.
+- The Radio Manager now reconciles BLE desired state against command ACKs and
+  periodic BLEINIT?/BLECONN? observations. ADV has no AT state query: keep
+  `UNKNOWN` distinct from last acknowledged state, cap retries, and never
+  claim command ACK proves RF advertising. Do not reset the whole ST67 NCP
+  from a BLE-only fault while Wi-Fi/Cloud may be active; external HIL scanning
+  is the RF-level check.
 - Preserve the item-9 stream contract: CLI RX 8x512 bytes, CLI TX 8x768 bytes,
   DEBUG RX 2x512 bytes but disabled by policy, and DEBUG TX 8x256 bytes. All
   storage is allocated from the SRAM4 radio byte pool. Every connect and
@@ -773,6 +801,15 @@ stack-local version or split the address phase back into a blocking transfer.
   every CLI transport; do not present this as a production authorization model.
 - In disabled mode, do not create its task, initialize the compatibility layer, or call W6X initialization.
 - Enabling the radio requires verification of SPI5, CS, CHIP_EN, BOOT, SPI_RDY, DMA, and NCP firmware.
+- The SPI transfer worker waits for EXTI-ready or host-TX events while idle;
+  do not restore the 20 ms idle `SPI_RDY` level poll without an explicit
+  architecture decision. Active-transaction handshake level checks remain.
+- Keep the AT modem's queued SPI packet alive until every byte is consumed.
+  A short destination read must never free and discard the packet tail;
+  incomplete AT records stay in the parser's bounded assembly buffer. Keep
+  that fixed buffer in the modem object/application SRAM, not the constrained
+  64 KiB radio byte pool: SRAM HIL showed the pool nearly exhausted when the
+  two-MTU assembly buffer was dynamically allocated there.
 - Never implement OTA by overwriting the active image in place.
 - BLE XMODEM and any future Wi-Fi delivery must feed the existing Secure
   Begin/Write/Finalize byte interface. Preserve inactive-slot writes, CMSE range checks and Secure copies,

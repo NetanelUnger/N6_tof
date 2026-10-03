@@ -21,6 +21,7 @@
 #include "debug_uart.h"
 #include "vl53l9.h"
 #include "vl53l9_interface.h"
+#include "tx_api.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -31,6 +32,10 @@
 #ifndef VL53L9_PLATFORM_I3C_WRITE_CHUNK_SIZE
 #define VL53L9_PLATFORM_I3C_WRITE_CHUNK_SIZE (64U)
 #endif
+
+/* The register-address phase of a blocking read must not spin forever if the
+ * HAL state never returns to READY/LISTEN after its bounded transmit call. */
+#define VL53L9_PLATFORM_I3C_READ_STATE_TIMEOUT_MS (100U)
 
 #if (VL53L9_PLATFORM_I3C_WRITE_CHUNK_SIZE < 3U)
 #error "VL53L9_PLATFORM_I3C_WRITE_CHUNK_SIZE must be >= 3 (2-byte address + >=1 payload byte)"
@@ -62,6 +67,9 @@ static int _i3c_write_async(void *const p_dev, I3C_PrivateTypeDef *descriptor,
                             I3C_XferTypeDef *transfer);
 static void _i3c_log_async_failure(const char *stage, HAL_StatusTypeDef hal_status,
                                    const I3C_HandleTypeDef *p_hi3c);
+static void _i3c_log_blocking_read_failure(const char *stage,
+                                           HAL_StatusTypeDef hal_status,
+                                           const I3C_HandleTypeDef *p_hi3c);
 
 int vl53l9_read(void *const p_dev, uint16_t address, uint8_t *p_values, uint32_t size) {
 
@@ -390,9 +398,11 @@ int vl53l9_get_config_ext_clock(void *const p_dev, uint32_t *ext_clock) {
 static int _i3c_read(void *const p_dev, I3C_PrivateTypeDef *aPrivateDescriptor, I3C_XferTypeDef *aContextBuffers) {
 
     int ret = VL53L9_ERROR_NONE;
+    HAL_StatusTypeDef hal_status;
     vl53l9_device_t *p_device = (vl53l9_device_t *)p_dev;
     I3C_HandleTypeDef *p_hi3c = (I3C_HandleTypeDef *)p_device->bus;
     uint32_t option;
+    uint32_t state_wait_start;
 
     if (p_device->bus_property & PLATFORM_BUS_PROPERTY_I3C_LEGACY) {
         aPrivateDescriptor[0].TargetAddr = aPrivateDescriptor[0].TargetAddr >> 1;
@@ -402,15 +412,32 @@ static int _i3c_read(void *const p_dev, I3C_PrivateTypeDef *aPrivateDescriptor, 
         option = I3C_PRIVATE_WITHOUT_ARB_RESTART;
     }
 
-    if (HAL_I3C_AddDescToFrame(p_hi3c, NULL, &aPrivateDescriptor[0], &aContextBuffers[0],
-                               aContextBuffers[0].CtrlBuf.Size, option) != HAL_OK) {
+    hal_status = HAL_I3C_AddDescToFrame(p_hi3c, NULL, &aPrivateDescriptor[0], &aContextBuffers[0],
+                                        aContextBuffers[0].CtrlBuf.Size, option);
+    if (hal_status != HAL_OK) {
+        platform_record_i3c_start_failure(PLATFORM_I3C_BLOCKING_READ_TX_DESCRIPTOR,
+                                          (uint32_t)hal_status);
+        _i3c_log_blocking_read_failure("TX descriptor", hal_status, p_hi3c);
         return VL53L9_ERROR_PLATFORM;
     }
-    if (HAL_I3C_Ctrl_Transmit(p_hi3c, &aContextBuffers[0], 100) != HAL_OK) {
+    hal_status = HAL_I3C_Ctrl_Transmit(p_hi3c, &aContextBuffers[0], 100);
+    if (hal_status != HAL_OK) {
+        platform_record_i3c_start_failure(PLATFORM_I3C_BLOCKING_READ_TX,
+                                          (uint32_t)hal_status);
+        _i3c_log_blocking_read_failure("register-address TX", hal_status, p_hi3c);
         return VL53L9_ERROR_PLATFORM;
     }
 
+    state_wait_start = HAL_GetTick();
     while ((HAL_I3C_GetState(p_hi3c) != HAL_I3C_STATE_READY) && (HAL_I3C_GetState(p_hi3c) != HAL_I3C_STATE_LISTEN)) {
+        if ((uint32_t)(HAL_GetTick() - state_wait_start) >=
+            VL53L9_PLATFORM_I3C_READ_STATE_TIMEOUT_MS) {
+            platform_record_i3c_start_failure(PLATFORM_I3C_BLOCKING_READ_STATE_TIMEOUT,
+                                              (uint32_t)HAL_TIMEOUT);
+            _i3c_log_blocking_read_failure("TX state wait", HAL_TIMEOUT, p_hi3c);
+            return VL53L9_ERROR_TIMEOUT;
+        }
+        tx_thread_sleep(1U);
     }
 
     if (p_device->bus_property & PLATFORM_BUS_PROPERTY_I3C_LEGACY) {
@@ -419,14 +446,34 @@ static int _i3c_read(void *const p_dev, I3C_PrivateTypeDef *aPrivateDescriptor, 
         option = I3C_PRIVATE_WITHOUT_ARB_STOP;
     }
 
-    if (HAL_I3C_AddDescToFrame(p_hi3c, NULL, &aPrivateDescriptor[1], &aContextBuffers[1],
-                               aContextBuffers[1].CtrlBuf.Size, option) != HAL_OK) {
+    hal_status = HAL_I3C_AddDescToFrame(p_hi3c, NULL, &aPrivateDescriptor[1], &aContextBuffers[1],
+                                        aContextBuffers[1].CtrlBuf.Size, option);
+    if (hal_status != HAL_OK) {
+        platform_record_i3c_start_failure(PLATFORM_I3C_BLOCKING_READ_RX_DESCRIPTOR,
+                                          (uint32_t)hal_status);
+        _i3c_log_blocking_read_failure("RX descriptor", hal_status, p_hi3c);
         return VL53L9_ERROR_PLATFORM;
     }
-    if ((ret = HAL_I3C_Ctrl_Receive(p_hi3c, &aContextBuffers[1], 100)) != HAL_OK) {
+    hal_status = HAL_I3C_Ctrl_Receive(p_hi3c, &aContextBuffers[1], 100);
+    if (hal_status != HAL_OK) {
+        platform_record_i3c_start_failure(PLATFORM_I3C_BLOCKING_READ_RX,
+                                          (uint32_t)hal_status);
+        _i3c_log_blocking_read_failure("data RX", hal_status, p_hi3c);
         return VL53L9_ERROR_PLATFORM;
     }
     return ret;
+}
+
+static void _i3c_log_blocking_read_failure(const char *stage,
+                                           HAL_StatusTypeDef hal_status,
+                                           const I3C_HandleTypeDef *p_hi3c) {
+    Debug_UART_Log("I3C",
+                   "blocking read %s failed: HAL=%u state=0x%02lX error=0x%08lX EVR=0x%08lX",
+                   stage, (unsigned int)hal_status,
+                   (unsigned long)p_hi3c->State,
+                   (unsigned long)p_hi3c->ErrorCode,
+                   (unsigned long)((p_hi3c->Instance != NULL) ?
+                                   p_hi3c->Instance->EVR : UINT32_MAX));
 }
 
 static int _i3c_read_async(void *const p_dev, I3C_PrivateTypeDef *aPrivateDescriptor,

@@ -4,6 +4,348 @@ This file contains the dated engineering record extracted from `README.md`.
 Do not load it during normal project work; consult it only when a task
 explicitly requires historical context.
 
+### 2026-10-03
+
+- Diagnosed Stage 10 startup failure from the retained ST-LINK log: target
+  initialization succeeded, then binding host TCP port 61234 failed. RAM
+  loading had not begun; the exact port owner/reservation was no longer
+  observable. RAM debug now preflights a three-port range, selects a fallback
+  when the default is unavailable, honors explicit port selection, rejects
+  unrelated listeners as readiness evidence, and includes startup logs in
+  errors. Five hardware-free regression checks passed, and the unchanged
+  Secure/Non-Secure builds loaded through ThreadX on hardware. External NOR
+  and the firmware version were not changed.
+
+### 2026-09-26
+
+- Stage 11 now treats low raw/model-input diversity and an empty/static scene
+  as advisory `HIL NOTE` evidence instead of requiring a person to move a hand
+  for unattended runs. CRC, frame progression, sensor rate, exact device/host
+  preprocessing, NPU coverage/counter progression and TFLite score comparison
+  remain gates. The JSON retains the measured diversity and notes separately.
+- Fixed Stage 11 Wi-Fi radio preflight after the CLI became asynchronous:
+  it now waits for scan acceptance and a matching request-ID result within a
+  bounded timeout, rejects stale/failed results, and preserves the USB
+  transcript on failure. The previous `Wi-Fi scan complete (status 0)` parser
+  caused a false HIL RADIO FAIL. Synthetic tests and live COM8 radio/BLE/Wi-Fi
+  preflight passed; the full 100-frame Stage 11 gate was not rerun.
+- Added a diagnostic GC9A01 boot screen: blue `SYSTEM IS LOADING`, then
+  green `SYSTEM ON` after the ToF pipeline-ready event. `MAP ON DISPLAY`
+  switches to a black map canvas with `WAITING` until a frame arrives, and
+  `MAP OFF DISPLAY` restores the ready screen. `tof status` now reports the
+  last screen submitted through SPI DMA, not proof that the panel lit. The
+  change is for RAM-only hardware diagnosis; the external-NOR image is unchanged.
+- Added focused VL53L9CX DSS-command diagnostics: separate TX-start,
+  TX-completion, command-status-read and command-status-timeout counters in
+  `tof status`; blocking I3C reads now capture the exact failing HAL step and
+  bound the formerly infinite post-TX state wait. Incremental build and
+  hardware-free checks passed. The first RAM-only baseline ran 3,785 acquired
+  frames plus one Wi-Fi scan without a ToF fault; the exact prior `DSS map
+  command (-1)` cause is still unproven, and local sensor recovery is not yet
+  implemented. No external-NOR write was made.
+- Switched the demonstration Cloud Relay transport from failing T01 HTTPS to
+  plaintext HTTP/1.1 on TCP port 80, preserving T01 offload and the same Azure
+  host/API. The HTTP build skips CA/TLS socket options and the TLS-only SNTP
+  prerequisite, labels the endpoint and security state accurately, and warns
+  on COM6. TLS verification now defaults to enabled whenever TLS is restored.
+  Incremental Non-Secure build and RAM-only boot passed; the user subsequently
+  reported a successful pairing. The first deliberately invalid-code probe
+  timed out before an HTTP response, and post-pair status was not captured.
+  The same RAM run later stopped ToF after 1,507 acquired frames with a
+  `DSS map command (-1)` fault; M8.4a/M8.5 recovery remains open. This is an
+  insecure experiment, not a customer-ready T01 TLS resolution or a passing
+  Cloud/ToF end-to-end HIL result.
+
+### 2026-09-25
+
+- Added an explicitly insecure Cloud TLS demo switch. The current RAM test
+  build skips server-certificate verification but keeps TLS 1.2 and SNI;
+  `cloud status` and COM6 warn about this. Incremental build and hardware-free
+  checks passed, and SRAM-only boot reached Radio Manager/Cloud after one
+  transient `W6X_Init` startup failure. A dummy-code Cloud handshake test is
+  pending Wi-Fi reconnection. Never treat this mode as a secure release.
+- Fixed a vendor socket-lifetime leak exposed by failed Cloud TLS connects:
+  closing an allocated-but-not-connected socket now releases its slot and
+  copied TLS credentials. Cloud status distinguishes allocation, option,
+  connect and send failures. Build, Python utility tests and SRAM-only load
+  passed; ten subsequent attempts reached `CIPSTART` without slot exhaustion.
+  The NCP still rejects it, so paired Cloud is not verified. A read-only host
+  TLS test measured a 6603-byte Azure handshake record, above ST's documented
+  6144-byte T01 limit; Azure did not honor a 4096-byte MFL request. This is a
+  high-confidence cause candidate, not a captured NCP error code.
+- Fixed the Cloud TLS tag-list count mismatch found by dual-COM HIL:
+  `TLS_SEC_TAG_LIST` consumed four byte-sized tags from one `int32_t` and
+  rejected the undefined zero tag before HTTP. The caller now passes one tag
+  while retaining safe 32-bit backing. Incremental build, RAM load, Python
+  HIL utility checks and diff check passed. Post-fix RAM HIL passed the old
+  credential failure but failed later at NCP `AT+CIPSTART`, before HTTP; Cloud
+  stayed unpaired and Radio Manager max gap reached 7150 ms. The Cloud gate
+  remains open; no external NOR was written.
+- Added `training/DUAL_COM_DEBUG.bat` and a dual-port Python capture tool with
+  USB-ID discovery, automatic COM reconnection, separate per-run live logs,
+  diagnostic CLI/Debug-UART commands, and an optional existing BLE GATT probe.
+  Hardware smoke capture confirmed COM6/COM8, a USB PONG and BLE status, and
+  a Debug-UART one-key reply; no firmware was changed for this utility.
+- Investigated a persistent BLE notification stall also accompanied by Wi-Fi
+  state-query timeouts. A queued TX slot could suppress BLE link probes
+  indefinitely; sustained contention now permits bounded link probing and
+  emits a one-time SPI/pin snapshot on COM6. Build and RAM load passed; root
+  cause and physical recovery remain unverified. No automatic NCP reset was
+  added.
+- Under an explicit user-approved gate exception, completed M5.1 only:
+  Cloud output and completion admission now use `TX_NO_WAIT`, eight fixed
+  384-byte slots, and all-or-none record publication. A startup forced-full
+  self-test passed on the RAM image; the slots moved to application SRAM to
+  preserve 4,472 bytes of radio-pool headroom. Non-Secure build and RAM boot
+  passed. Paired Cloud HIL and all earlier milestone gates remain open.
+- Reproduced the post-GOTIP Secure HardFault with browser BLE. Valid SFAR
+  `0x00000EBC` and SWD-recovered PSP_NS frame gave PC `0x2413FE8E`
+  (`W61_AT_Common_SetExecute`, `w61_at_common.c:492`) and LR `0x24140CE1`
+  (`W61_Net_SNTP_SetConfiguration`, `w61_at_net.c:1126`). Both vendor Net
+  pointers were NULL: Cloud Relay reached SNTP without `W6X_Net_Init()`.
+  Initialize Net before Cloud, disable only Cloud if that fails, skip SNTP
+  while Cloud is unpaired, and inspect both NS stack candidates in fault reports. Both incremental builds
+  pass and the new images run from SRAM with USB/advertising alive. The
+  20-cycle Wi-Fi/BLE and negative-path HIL gate remains open.
+- Extended Secure fault diagnostics to decode an EXC_RETURN-selected
+  Non-Secure exception frame in SRAM2..6, including SRAM4 ThreadX stacks,
+  after range, stacking-status and CMSE checks. The handler now prints the
+  stacked PC/LR/xPSR and flags an invalid SFAR. Secure and Non-Secure builds,
+  Python HIL utility checks, and diff check pass. The reported post-GOTIP
+  fault is not yet reproduced or root-caused: COM6 is occupied and ST-LINK
+  returns a USB communication error, so no RAM load or 20-cycle HIL is claimed.
+  After reconnecting ST-LINK, the diagnostic Secure and current Non-Secure
+  images loaded into SRAM only. Radio/BLE initialized and five minutes of idle
+  USB pings passed 1040/1040 (p95 32.5 ms, max 52.1 ms); ToF DSS-unmap failed
+  before any Wi-Fi request. The GOTIP fault was not reproduced in this run, so
+  root cause and the 20-cycle acceptance remain open.
+
+### 2026-09-24
+
+- Fixed silent AT-byte truncation when a queued SPI packet exceeded the modem
+  parser's remaining buffer space. The modem retains the full packet and
+  consumption offset until all bytes are copied; the assembly buffer now holds
+  two SPI MTUs in fixed application SRAM rather than the near-exhausted radio
+  pool. A full unparseable record is counted and reported rather than spinning.
+  Non-Secure build and HIL utility self-test passed. The final SRAM image
+  passed USB radio/ToF preflight and three NCP Wi-Fi scans (11/13/11 networks)
+  with stable 3,784-byte radio-pool headroom. BLE host HIL failed before any
+  GATT write: WinRT returned E_FAIL while creating the device, with or without
+  pairing. Its report records zero pings sent; BLE repeatability remains open.
+  External NOR was not changed.
+- Removed the SPI worker's idle 20 ms `SPI_RDY` level poll. It now waits for
+  EXTI-ready or host-TX events; transaction-time handshake reads remain. A
+  missed RX-only ready edge can stall until another event, so physical HIL
+  validation of the edge-only path remains open. No Flash was changed.
+- Added single-key `n` ST-LINK UART NCP trace with bounded, credential-safe
+  AT/event summaries and safe `debug ping` checkpoints from the NCP direct
+  event parser through BLE RX, CLI parser and reply queue. Built and loaded
+  the initial trace image to SRAM only;
+  physical UART toggle and BLE trace worked. An idle trace run failed 23/28,
+  with 23 matching ping inputs observed at every CLI checkpoint, so the
+  missing inputs remain unlocalized. The final trace image was rebuilt and
+  loaded to SRAM; a five-second probe failed 12/15, with 12 matching tokens
+  at the NCP direct-event parser and every CLI checkpoint, and zero UART
+  diagnostic drops. The missing three were not seen as complete direct
+  events, so this run does not implicate the CLI command parser. One earlier
+  RAM boot logged an intermittent ToF DSS-unmap error. No Flash was changed.
+- Reconnected ST-LINK and loaded the latest Secure/Non-Secure image to SRAM;
+  external NOR remained unchanged. COM6 proved the new one-key UART snapshots
+  (`a`), five-second Radio watch (`R`) and stop (`0`) while ordinary logs
+  continued. Fixed a mixed HAL-milliseconds/ThreadX-ticks calculation exposed
+  by that test, and corrected the Milestone-4 host gate to parse both old and
+  new gap labels in milliseconds. Rebuilt/reloaded and retested. The elevated
+  45-second BLE/Wi-Fi probe failed 117/137 (20 missing), while concurrent USB
+  passed 24/24; a separate 20-second BLE idle probe failed 71/77 (6 missing).
+  BLE TX drops and RX drops remained zero, but the HIL gate stays open. The ToF
+  status remained READY at roughly 4.0 fps with substantial frame drops; no
+  claim of a healthy 10 fps pipeline is made.
+
+- Added one-key ST-LINK UART status snapshots for Radio, ToF, CLI and USB,
+  plus a selectable five-second watch of one mechanism. UART RX interrupt
+  only queues a byte; the diagnostic thread formats output. Exposed safe
+  thread progress fields through status APIs and made USB status observation
+  non-blocking when its state mutex is occupied. Incremental Non-Secure build
+  and memory preflight pass; hardware runtime remains unverified while
+  ST-LINK reports `DEV_USB_COMM_ERR`. No external NOR was changed.
+
+- Added BLE desired/observed reconciliation in the Radio Manager: explicit
+  UNKNOWN evidence after failed commands, bounded ADV retries, alternating
+  idle-time BLE mode/link queries, two-observation link correction and bounded
+  BLE-only reinitialization on confirmed mode loss. `ble status` exposes probe,
+  repair and retry diagnostics. The Wi-Fi worker also checks station state
+  every 30 seconds when idle and discards observations superseded by an event.
+  Whole-NCP reset and RF-verification claims remain out of scope; build and
+  physical HIL evidence are recorded separately. Final Non-Secure incremental
+  build, memory preflight, diff check and HIL utility self-test passed. A
+  RAM-only hardware load was attempted but ST-LINK GDB startup failed with
+  `DEV_USB_COMM_ERR` before loading the image; no external NOR was written,
+  so the new runtime behavior is not yet hardware-verified.
+
+- Grouped ToF, CLI, USB lifecycle and CDC transport mutable state into
+  debugger-visible root contexts, with individual thread heartbeats. Preserved
+  SRAM3 payload and SRAM4 Cloud-session placements; Non-Secure build and
+  memory preflight pass. `app_usbx_device.c` generated globals outside USER
+  CODE were consolidated and need review after any CubeMX regeneration.
+
+- Consolidated Radio Manager state, pending work, SRAM4 queue ownership and
+  diagnostics under one context. Added desired/observed BLE advertising and
+  manager fault counters to `ble status`; reconnect advertising now respects
+  an explicit `ble adv off`. No general NCP self-healing policy is added yet.
+
+- Added an automatic five-consecutive-RAM-boot M3.7/M4 HIL gate with BLE,
+  concurrent USB, radio, Wi-Fi and ToF observations. The BLE probe now keeps
+  measuring after a missing reply while preserving FAIL; the aggregate retries
+  transient Dropbox file locks and stops when five passes become unreachable.
+  Shortened the BLE startup banner and reserved a sentinel byte in the W61 RX
+  allocation. NonSecure build and host self-test passed. Physical gate failed:
+  BLE 148/162 then 222/222, USB 24/24 on both, ToF DSS unmap error on both,
+  followed by an ST-LINK GDB startup failure. M3.7/M4 remain open.
+
+### 2026-09-23
+
+- Implemented M4.4–M4.6: all remaining manual Wi-Fi/Network/System AT TX-lock
+  waits are finite, and BLE TX retains active packets/frames on transient
+  BUSY/TIMEOUT with visible streak/duration/recovery counters. Build, global
+  lock search, diff check and host self-tests passed. A RAM BLE/Wi-Fi probe
+  failed early at 14/15 replies (one missing) despite zero BLE TX drops; a
+  repeat passed the full 45 seconds at 222/222. USB passed 24/24 in each run.
+  One radio-init boot failed and ToF later faulted separately. Milestone 4,
+  M3.7 five-boot and Cloud HIL remain open; no NOR write, commit or push.
+  A final rebuild recomputed each AT caller's remaining budget after command
+  preparation; its fresh RAM probe passed 222/222 BLE replies (p95 149.209 ms)
+  and 24/24 USB pings, with three transient timeout attempts and zero TX
+  drops. The earlier missing reply remains unresolved.
+
+- Completed M4.3's three manual BLE AT TX-lock bounds and made the
+  notification's 100 ms deadline include lock acquisition and subsequent
+  response waits in the shared send-data path. Incremental build and one full
+  45-second BLE/Wi-Fi RAM probe passed: 223/223 PONGs, zero missing, p95
+  152.095 ms, zero reconnects; parallel USB passed 24/24. BLE TX recorded
+  zero drops and one retry/error; radio max gap was 50 ticks. A separate ToF
+  fault (-5/-1) persists on that boot. M4.1 HIL, M3.7 five-boot, Cloud HIL,
+  and the Milestone 3 gate remain open. M4.4 was not started.
+
+- Completed M4.2's two manual common-command TX-lock bounds. Lock acquisition
+  uses the operation timeout and returns `W61_STATUS_TIMEOUT` on failure;
+  Query/Parse subtracts acquisition time before its response wait. Build and
+  one full 45-second concurrent BLE/Wi-Fi RAM probe passed (221/221 PONGs,
+  zero missing, p95 169.995 ms; 24/24 USB pings). BLE CLI RX/TX drops were
+  zero. The same boot had a separate ToF initialization error (-5), and this
+  one probe does not erase M4.1's failed probes or close M3.7's five-boot gate.
+  M4.3 remains unstarted.
+
+- Implemented M4.1 in `modem_cmd_send_ext()`: finite TX-lock acquisition now
+  uses the supplied operation timeout, lock failure returns `-ETIMEDOUT`, only
+  an acquired lock is released, and elapsed lock/write time reduces the modem
+  reply budget. Build and RAM load passed. Two concurrent BLE/Wi-Fi probes
+  failed (18/19 and 15/16 replies, p95 263.543/262.771 ms), while both
+  24-ping USB series passed. M4.1 HIL acceptance, M3.7, Cloud HIL and the
+  Milestone 3 gate remain open; M4.2 was not started.
+
+- Completed the focused M3.9 Cloud/per-session result follow-up and M3.10 API
+  removal. A Cloud Wi-Fi request retains its originating Relay command until
+  its matching result is queued. The Cloud result is one nonblocking, atomic
+  output record, avoiding the Relay writer's 15-second queue wait. A Relay
+  command hold prevents a later poll from replacing the ACKed command ID
+  before its asynchronous result is accepted; password/
+  XMODEM deferral is scoped to the
+  owning CLI session, with a bounded four-result mailbox and visible overflow
+  counter. Removed the three blocking application Wi-Fi APIs and their legacy
+  pending/done state. Incremental build, Python checks, RAM load, six USB slot-
+  reuse requests, and bidirectional USB/BLE isolation during password prompts
+  passed. Cloud HIL was unavailable because the board was unpaired/off Wi-Fi;
+  M3.7 and the Milestone 3 gate remain open.
+
+- Routed M3.9 Wi-Fi result snapshots in bounded CLI batches to only the live
+  matching transport/generation. USB/BLE HIL separated concurrent IDs 7/8,
+  recycled result slots across six USB requests, counted stale BLE/USB results
+  after reconnect/close, and kept a completed scan out of XMODEM until CAN-CAN
+  cancellation. Deliberate BLE disconnect during scan output caused one write
+  error and expected stale stream drops; M3.7 and the Milestone 3 gate remain
+  open. M3.10 has not started.
+
+- With explicit approval to proceed past the open M3.7 BLE repeatability gate,
+  made `wifi disconnect [forget]` submission-only. It sends the active CLI
+  route and forget bit in an owned request, returns an ID immediately, and no
+  longer waits ten seconds or prints a final result. RAM HIL accepted USB IDs
+  1/2 and BLE IDs 3/4; immediate BLE pings and 24/24 concurrent USB pings
+  passed with zero BLE stream drops. M3.7 and the Milestone 3 gate remain
+  unapproved; final result delivery awaits M3.9.
+
+### 2026-09-22
+
+- Hardened the M3.7 BLE/AT failure paths found by repeated physical HIL. The
+  direct parser now leaves malformed input with bounded progress, partial BLE
+  numeric fields request more data, and a raw SPI write that cannot advance
+  releases the shared AT transmit lock instead of spinning forever. Two fresh
+  45-second invalid-Wi-Fi probes passed 222/222 with zero missing replies and
+  p95 148.352/152.370 ms; the latter ran alongside 24/24 USB PONGs at p95
+  30.6 ms, with radio/BLE maximum loop gap 390 ticks and no stream drops,
+  retries, or errors. An intervening clean run connected but failed to publish
+  the initial BLE prompt and logged repeated SPI transaction-ready timeouts
+  before any Wi-Fi request. M3.7 therefore remains implemented but not accepted
+  pending bounded SPI handshake recovery and a repeatable clean-boot gate.
+
+### 2026-09-21
+
+- Made `wifi connect` submission-only. The hidden-password path now copies the
+  session route and credentials into a zeroed owned request, submits it, scrubs
+  the complete stack request immediately, and returns the request ID without
+  waiting for association or DHCP; the caller still scrubs the complete
+  session credential buffers on every outcome. USB RAM HIL returned the prompt
+  in 12.6 ms, answered 8/8 concurrent pings within 14.2–30.6 ms, held the radio
+  loop maximum gap at 21 ticks, and left 3,188 SRAM4 radio-pool bytes available.
+  Manual BLE GATT discovery subsequently passed, and one exact 45-second probe
+  passed with 225/225 replies, zero missing and p95 162.088 ms while 18/18 USB
+  pings remained responsive. A fresh-boot repeat was not reliable: it delivered
+  21/75 replies before a malformed/truncated `+BLE:GATTWRITE` event exposed a
+  vendor direct-parser livelock in priority-2 `Modem_Process`, starving Radio
+  Manager and USB without a Cortex fault. M3.7 therefore remains implemented
+  but not accepted pending a targeted parser fix and repeat BLE HIL.
+- Made `wifi scan` submission-only. The CLI now submits one routed, fully owned
+  SCAN request, prints its monotonic request ID, and returns in milliseconds;
+  six live pings during the worker scan all returned within 8–30 ms. Result
+  display remains M3.9. The change adds no SRAM4 storage. The first scan still
+  triggers the vendor driver's existing one-time 928-byte lazy result buffer;
+  a repeated scan held the pool stable at 2,260 bytes.
+- Created the dedicated priority-11 Wi-Fi control worker with a 6 KiB stack in
+  the SRAM4 radio pool. Its entry calls only the radio-ready-gated control loop.
+  RAM HIL and a live connect breakpoint proved that W6X connect runs on this
+  worker rather than the priority-9 Radio Manager; the exercised stack retained
+  3,936 bytes, while the fully initialized radio pool retained a narrow 3,188
+  bytes that remains a later soak-test watch item.
+- Added the staged Wi-Fi control loop. It waits for radio readiness, exclusively
+  owns runtime scan/connect/disconnect calls, turns every dequeued owned request
+  into an independent routed result (including scan timeout/failure), and
+  scrubs connect credentials around the vendor call. The existing radio/BLE
+  loop no longer executes high-level Wi-Fi work. Thread creation remains M3.5,
+  so the loop is compiled but not started yet and the CLI source is unchanged.
+- Exposed non-blocking Wi-Fi submit/result APIs over the fixed slot queues.
+  Submit validates routed owned input, assigns a non-zero monotonic request ID,
+  copies only operation-relevant fields, and rolls publish failure back;
+  receive copies and immediately scrubs/releases a result. The APIs have no
+  wait, sleep, polling, or retry path and are not yet used by the CLI.
+- Added four fixed Wi-Fi request slots, four result slots, and four one-pointer
+  ThreadX free/ready queues in the one-time SRAM4 control allocation. A startup
+  self-test verifies immediate fifth-acquire saturation, unique slots, complete
+  release scrubbing, ready-queue traversal, restored pool counts, and clean
+  initialization rollback. The legacy blocking path remains active until its
+  later worker/API migration.
+- Defined public, fully owned Wi-Fi request/result message values with routed
+  request identity, fixed credential storage, final status, and independent
+  status/scan snapshots. The types contain no caller-owned pointers and are not
+  yet connected to queues, a worker, or a non-blocking submit API.
+- Added transport-independent USB/BLE/Cloud/System routes and numeric request
+  IDs. Every CLI session now owns a fixed transport plus non-zero generation;
+  reset advances with wrap protection, BLE follows its existing radio epoch,
+  and Cloud follows successful pair, explicit reconnect/test, and unpair.
+- Moved pending Wi-Fi SSID, hidden password storage, and prompt state into each
+  CLI session. Submission, cancellation, input failure, disconnect, and reset
+  scrub complete credential buffers without changing another session. Added
+  `debug route` with focused generation, stale-route, isolation, and cleanup
+  diagnostics. The Wi-Fi worker/queue remains intentionally deferred to M3.
+
 ### 2026-09-19
 
 - Passed the final Cloud-integrated Stage 11 SRAM HIL: SDK 2.0.106, 11 Wi-Fi

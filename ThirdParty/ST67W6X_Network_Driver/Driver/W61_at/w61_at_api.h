@@ -1166,7 +1166,12 @@ typedef struct modem
   TaskHandle_t modem_task_handle;                         /*!< Modem task handle */
   struct modem_cmd_handler handler;                       /*!< Modem command handler */
   struct modem_cmd_handler_data handler_data;             /*!< Modem command handler data */
+  uint8_t rx_assembly[RX_BUF_SIZE + 1U];                  /*!< Persistent AT assembly buffer outside the radio byte pool */
   struct modem_iface iface;                               /*!< Modem interface */
+  void *spi_rx_pending;                                    /*!< SPI RX packet retained until every byte is consumed */
+  uint8_t *spi_rx_pending_data;                            /*!< Data in the retained SPI RX packet */
+  size_t spi_rx_pending_len;                               /*!< Retained packet length */
+  size_t spi_rx_pending_offset;                            /*!< Bytes already passed to the AT parser */
   SemaphoreHandle_t sem_tx_ready;                         /*!< TX ready semaphore */
   SemaphoreHandle_t sem_response;                         /*!< Response semaphore */
   SemaphoreHandle_t sem_if_ready;                         /*!< Interface ready semaphore */

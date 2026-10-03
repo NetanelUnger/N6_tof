@@ -66,13 +66,18 @@ typedef enum {
     PLATFORM_I3C_ERROR_EVT = 64,
 } platform_event_t;
 
-/* Identifies a synchronous HAL failure before an asynchronous I3C transfer
- * was accepted. These values are printed in the later task-context snapshot. */
+/* Identifies the HAL step that failed when starting an asynchronous transfer
+ * or executing the blocking one-byte command-status read. */
 typedef enum {
     PLATFORM_I3C_START_RX_DESCRIPTOR = 1,
     PLATFORM_I3C_START_RX_DMA = 2,
     PLATFORM_I3C_START_TX_DESCRIPTOR = 3,
     PLATFORM_I3C_START_TX_DMA = 4,
+    PLATFORM_I3C_BLOCKING_READ_TX_DESCRIPTOR = 5,
+    PLATFORM_I3C_BLOCKING_READ_TX = 6,
+    PLATFORM_I3C_BLOCKING_READ_STATE_TIMEOUT = 7,
+    PLATFORM_I3C_BLOCKING_READ_RX_DESCRIPTOR = 8,
+    PLATFORM_I3C_BLOCKING_READ_RX = 9,
 } platform_i3c_start_stage_t;
 
 typedef enum {

@@ -148,6 +148,12 @@ void W61_AT_ModemDeInit(W61_Object_t *Obj);
   */
 W61_Status_t W61_Status(int32_t ret);
 
+/* Returns remaining operation ticks with the TX mutex owned, or zero with
+ * no mutex owned (including acquisition timeout). */
+TickType_t W61_AT_Common_TakeTxLockBudget(SemaphoreHandle_t lock, uint32_t timeout_ms,
+                                          TickType_t *started_at);
+TickType_t W61_AT_Common_RemainingTxBudget(TickType_t started_at, uint32_t timeout_ms);
+
 /**
   * @brief  Send the AT command for Set and Execute mode, and check the status response
   * @param  Obj: pointer to module handle

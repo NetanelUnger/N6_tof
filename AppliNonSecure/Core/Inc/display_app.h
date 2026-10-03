@@ -15,6 +15,10 @@ extern "C" {
 #define DISPLAY_APP_MAP_SOURCE_WIDTH   (54U)
 #define DISPLAY_APP_MAP_SOURCE_HEIGHT  (42U)
 #define DISPLAY_APP_FRAME_STORAGE_SIZE (4608U)
+#define DISPLAY_APP_SCREEN_NONE        (0U)
+#define DISPLAY_APP_SCREEN_LOADING     (1U)
+#define DISPLAY_APP_SCREEN_SYSTEM_ON   (2U)
+#define DISPLAY_APP_SCREEN_MAP         (3U)
 
 typedef void (*Display_App_FrameReleaseCallback_t)(void *context);
 
@@ -22,6 +26,7 @@ typedef struct
 {
   uint32_t initialized;
   uint32_t map_enabled;
+  uint32_t screen_state; /* Last screen successfully submitted to SPI DMA. */
   uint32_t frame_in_flight;
   uint32_t submitted_frames;
   uint32_t rendered_frames;
@@ -42,6 +47,7 @@ typedef struct
 UINT Display_App_Init(void);
 void Display_App_Run(void);
 void Display_App_SetMapEnabled(uint32_t enabled);
+void Display_App_SetSystemReady(void);
 uint32_t Display_App_IsMapEnabled(void);
 UINT Display_App_SubmitDepthFrame(
     void *storage, size_t storage_size, const float *depth,

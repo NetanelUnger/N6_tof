@@ -63,73 +63,143 @@ typedef struct
   USB_CDC_SlotState_t state;
 } USB_CDC_RxSlot_t;
 
-static TX_QUEUE usb_cdc_tx_queue;
-static TX_QUEUE usb_cdc_rx_ingress_queue;
-static TX_QUEUE usb_cdc_rx_delivery_queue;
-static TX_EVENT_FLAGS_GROUP usb_cdc_worker_flags;
-static TX_MUTEX usb_cdc_state_mutex;
-static TX_MUTEX usb_cdc_io_mutex;
-static TX_MUTEX usb_cdc_rx_consumer_mutex;
-static TX_SEMAPHORE usb_cdc_control_free;
-static TX_SEMAPHORE usb_cdc_map_free;
-static TX_SEMAPHORE usb_cdc_rx_free;
-static TX_SEMAPHORE usb_cdc_tx_completion;
-static TX_THREAD usb_cdc_tx_thread;
-static TX_THREAD usb_cdc_rx_thread;
+/* Large buffers and worker stacks must remain in the SRAM3 linker section. */
+typedef struct
+{
+  ULONG tx_stack[USB_CDC_TX_STACK_SIZE / sizeof(ULONG)];
+  ULONG rx_stack[USB_CDC_RX_STACK_SIZE / sizeof(ULONG)];
+  UCHAR control_storage[USB_CDC_TX_CONTROL_SLOT_COUNT]
+                       [USB_CDC_TX_CONTROL_SLOT_SIZE];
+  UCHAR map_storage[USB_CDC_TX_MAP_SLOT_COUNT][USB_CDC_TX_MAP_SLOT_SIZE];
+  USB_CDC_RxSlot_t rx_slots[USB_CDC_RX_SLOT_COUNT];
+} USB_CDC_Workspace_t;
+static USB_CDC_Workspace_t usb_cdc_workspace NPU_SHARED_BSS;
 
-static ULONG usb_cdc_tx_queue_storage[USB_CDC_TX_QUEUE_DEPTH];
-static ULONG usb_cdc_rx_ingress_storage[USB_CDC_RX_SLOT_COUNT];
-static ULONG usb_cdc_rx_delivery_storage[USB_CDC_RX_SLOT_COUNT];
-static ULONG usb_cdc_tx_stack[USB_CDC_TX_STACK_SIZE / sizeof(ULONG)]
-                              NPU_SHARED_BSS;
-static ULONG usb_cdc_rx_stack[USB_CDC_RX_STACK_SIZE / sizeof(ULONG)]
-                              NPU_SHARED_BSS;
+typedef struct
+{
+  struct
+  {
+    TX_THREAD tx;
+    TX_THREAD rx;
+    struct { volatile ULONG started, cycles, last_tick; } tx_status;
+    struct { volatile ULONG started, cycles, last_tick; } rx_status;
+  } threads;
+  struct
+  {
+    TX_QUEUE tx;
+    TX_QUEUE rx_ingress;
+    TX_QUEUE rx_delivery;
+    TX_EVENT_FLAGS_GROUP worker_flags;
+    TX_MUTEX state_mutex;
+    TX_MUTEX io_mutex;
+    TX_MUTEX rx_consumer_mutex;
+    TX_SEMAPHORE control_free;
+    TX_SEMAPHORE map_free;
+    TX_SEMAPHORE rx_free;
+    TX_SEMAPHORE tx_completion;
+    ULONG tx_storage[USB_CDC_TX_QUEUE_DEPTH];
+    ULONG rx_ingress_storage[USB_CDC_RX_SLOT_COUNT];
+    ULONG rx_delivery_storage[USB_CDC_RX_SLOT_COUNT];
+    USB_CDC_TxSlot_t tx_slots[USB_CDC_TX_QUEUE_DEPTH];
+    USB_CDC_Workspace_t *workspace;
+  } queues;
+  struct
+  {
+    UINT initialized;
+    UINT active;
+    volatile UINT host_ready;
+    ULONG session;
+    UX_SLAVE_CLASS_CDC_ACM *instance;
+    USB_CDC_RxSlot_t *rx_consumer_slot;
+    ULONG rx_consumer_offset;
+    USB_CDC_TxSlot_t *volatile inflight_slot;
+    volatile ULONG submit_sequence;
+    volatile ULONG completion_sequence;
+    volatile UINT completion_status;
+    volatile ULONG completion_length;
+  } state;
+  struct
+  {
+    ULONG tx_packets_queued;
+    ULONG tx_packets_completed;
+    ULONG tx_bytes_completed;
+    ULONG tx_packets_dropped;
+    ULONG tx_slot_exhaustions;
+    ULONG tx_unavailable_drops;
+    ULONG tx_queue_failures;
+    ULONG tx_callback_timeouts;
+    ULONG tx_callback_completions;
+    ULONG tx_errors;
+    ULONG tx_last_error;
+    ULONG rx_packets_received;
+    ULONG rx_packets_delivered;
+    ULONG rx_bytes_received;
+    ULONG rx_packets_dropped;
+    ULONG rx_slot_exhaustions;
+    ULONG rx_queue_failures;
+    ULONG rx_errors;
+    ULONG rx_last_error;
+    ULONG worker_sync_failures;
+    volatile ULONG diagnostic_flags;
+  } counters;
+} USB_CDC_Context_t;
+static USB_CDC_Context_t usb_cdc_context;
 
-static UCHAR usb_cdc_control_storage[USB_CDC_TX_CONTROL_SLOT_COUNT]
-                                     [USB_CDC_TX_CONTROL_SLOT_SIZE]
-                                     NPU_SHARED_BSS;
-static UCHAR usb_cdc_map_storage[USB_CDC_TX_MAP_SLOT_COUNT]
-                                 [USB_CDC_TX_MAP_SLOT_SIZE]
-                                 NPU_SHARED_BSS;
-static USB_CDC_TxSlot_t usb_cdc_tx_slots[USB_CDC_TX_QUEUE_DEPTH];
-static USB_CDC_RxSlot_t usb_cdc_rx_slots[USB_CDC_RX_SLOT_COUNT]
-                                             NPU_SHARED_BSS;
-
-static UINT usb_cdc_initialized;
-static UINT usb_cdc_active;
-static volatile UINT usb_cdc_host_ready;
-static ULONG usb_cdc_session;
-static UX_SLAVE_CLASS_CDC_ACM *usb_cdc_instance;
-static USB_CDC_RxSlot_t *usb_cdc_rx_consumer_slot;
-static ULONG usb_cdc_rx_consumer_offset;
-
-static USB_CDC_TxSlot_t *volatile usb_cdc_inflight_slot;
-static volatile ULONG usb_cdc_submit_sequence;
-static volatile ULONG usb_cdc_completion_sequence;
-static volatile UINT usb_cdc_completion_status;
-static volatile ULONG usb_cdc_completion_length;
-
-static ULONG usb_cdc_tx_packets_queued;
-static ULONG usb_cdc_tx_packets_completed;
-static ULONG usb_cdc_tx_bytes_completed;
-static ULONG usb_cdc_tx_packets_dropped;
-static ULONG usb_cdc_tx_slot_exhaustions;
-static ULONG usb_cdc_tx_unavailable_drops;
-static ULONG usb_cdc_tx_queue_failures;
-static ULONG usb_cdc_tx_callback_timeouts;
-static ULONG usb_cdc_tx_callback_completions;
-static ULONG usb_cdc_tx_errors;
-static ULONG usb_cdc_tx_last_error;
-static ULONG usb_cdc_rx_packets_received;
-static ULONG usb_cdc_rx_packets_delivered;
-static ULONG usb_cdc_rx_bytes_received;
-static ULONG usb_cdc_rx_packets_dropped;
-static ULONG usb_cdc_rx_slot_exhaustions;
-static ULONG usb_cdc_rx_queue_failures;
-static ULONG usb_cdc_rx_errors;
-static ULONG usb_cdc_rx_last_error;
-static ULONG usb_cdc_worker_sync_failures;
-static volatile ULONG usb_cdc_diagnostic_flags;
+#define usb_cdc_tx_queue usb_cdc_context.queues.tx
+#define usb_cdc_rx_ingress_queue usb_cdc_context.queues.rx_ingress
+#define usb_cdc_rx_delivery_queue usb_cdc_context.queues.rx_delivery
+#define usb_cdc_worker_flags usb_cdc_context.queues.worker_flags
+#define usb_cdc_state_mutex usb_cdc_context.queues.state_mutex
+#define usb_cdc_io_mutex usb_cdc_context.queues.io_mutex
+#define usb_cdc_rx_consumer_mutex usb_cdc_context.queues.rx_consumer_mutex
+#define usb_cdc_control_free usb_cdc_context.queues.control_free
+#define usb_cdc_map_free usb_cdc_context.queues.map_free
+#define usb_cdc_rx_free usb_cdc_context.queues.rx_free
+#define usb_cdc_tx_completion usb_cdc_context.queues.tx_completion
+#define usb_cdc_tx_thread usb_cdc_context.threads.tx
+#define usb_cdc_rx_thread usb_cdc_context.threads.rx
+#define usb_cdc_tx_queue_storage usb_cdc_context.queues.tx_storage
+#define usb_cdc_rx_ingress_storage usb_cdc_context.queues.rx_ingress_storage
+#define usb_cdc_rx_delivery_storage usb_cdc_context.queues.rx_delivery_storage
+#define usb_cdc_tx_stack usb_cdc_context.queues.workspace->tx_stack
+#define usb_cdc_rx_stack usb_cdc_context.queues.workspace->rx_stack
+#define usb_cdc_control_storage usb_cdc_context.queues.workspace->control_storage
+#define usb_cdc_map_storage usb_cdc_context.queues.workspace->map_storage
+#define usb_cdc_tx_slots usb_cdc_context.queues.tx_slots
+#define usb_cdc_rx_slots usb_cdc_context.queues.workspace->rx_slots
+#define usb_cdc_initialized usb_cdc_context.state.initialized
+#define usb_cdc_active usb_cdc_context.state.active
+#define usb_cdc_host_ready usb_cdc_context.state.host_ready
+#define usb_cdc_session usb_cdc_context.state.session
+#define usb_cdc_instance usb_cdc_context.state.instance
+#define usb_cdc_rx_consumer_slot usb_cdc_context.state.rx_consumer_slot
+#define usb_cdc_rx_consumer_offset usb_cdc_context.state.rx_consumer_offset
+#define usb_cdc_inflight_slot usb_cdc_context.state.inflight_slot
+#define usb_cdc_submit_sequence usb_cdc_context.state.submit_sequence
+#define usb_cdc_completion_sequence usb_cdc_context.state.completion_sequence
+#define usb_cdc_completion_status usb_cdc_context.state.completion_status
+#define usb_cdc_completion_length usb_cdc_context.state.completion_length
+#define usb_cdc_tx_packets_queued usb_cdc_context.counters.tx_packets_queued
+#define usb_cdc_tx_packets_completed usb_cdc_context.counters.tx_packets_completed
+#define usb_cdc_tx_bytes_completed usb_cdc_context.counters.tx_bytes_completed
+#define usb_cdc_tx_packets_dropped usb_cdc_context.counters.tx_packets_dropped
+#define usb_cdc_tx_slot_exhaustions usb_cdc_context.counters.tx_slot_exhaustions
+#define usb_cdc_tx_unavailable_drops usb_cdc_context.counters.tx_unavailable_drops
+#define usb_cdc_tx_queue_failures usb_cdc_context.counters.tx_queue_failures
+#define usb_cdc_tx_callback_timeouts usb_cdc_context.counters.tx_callback_timeouts
+#define usb_cdc_tx_callback_completions usb_cdc_context.counters.tx_callback_completions
+#define usb_cdc_tx_errors usb_cdc_context.counters.tx_errors
+#define usb_cdc_tx_last_error usb_cdc_context.counters.tx_last_error
+#define usb_cdc_rx_packets_received usb_cdc_context.counters.rx_packets_received
+#define usb_cdc_rx_packets_delivered usb_cdc_context.counters.rx_packets_delivered
+#define usb_cdc_rx_bytes_received usb_cdc_context.counters.rx_bytes_received
+#define usb_cdc_rx_packets_dropped usb_cdc_context.counters.rx_packets_dropped
+#define usb_cdc_rx_slot_exhaustions usb_cdc_context.counters.rx_slot_exhaustions
+#define usb_cdc_rx_queue_failures usb_cdc_context.counters.rx_queue_failures
+#define usb_cdc_rx_errors usb_cdc_context.counters.rx_errors
+#define usb_cdc_rx_last_error usb_cdc_context.counters.rx_last_error
+#define usb_cdc_worker_sync_failures usb_cdc_context.counters.worker_sync_failures
+#define usb_cdc_diagnostic_flags usb_cdc_context.counters.diagnostic_flags
 
 static void usb_cdc_tx_thread_entry(ULONG thread_input);
 static void usb_cdc_rx_thread_entry(ULONG thread_input);
@@ -167,6 +237,8 @@ UINT USB_CDC_Transport_Init(void)
   {
     return TX_SUCCESS;
   }
+
+  usb_cdc_context.queues.workspace = &usb_cdc_workspace;
 
   for (index = 0U; index < USB_CDC_TX_CONTROL_SLOT_COUNT; ++index)
   {
@@ -636,12 +708,16 @@ void USB_CDC_Transport_GetStatus(USB_CDC_TransportStatus_t *status)
     return;
   }
 
-  if (tx_mutex_get(&usb_cdc_state_mutex, TX_WAIT_FOREVER) == TX_SUCCESS)
+  if (tx_mutex_get(&usb_cdc_state_mutex, TX_NO_WAIT) == TX_SUCCESS)
   {
     status->active = usb_cdc_active;
     status->host_ready = usb_cdc_host_ready;
     status->session = usb_cdc_session;
     (void)tx_mutex_put(&usb_cdc_state_mutex);
+  }
+  else
+  {
+    status->state_snapshot_busy = 1U;
   }
 
   (void)tx_semaphore_info_get(&usb_cdc_control_free, &name, &count,
@@ -718,10 +794,13 @@ static void usb_cdc_tx_thread_entry(ULONG thread_input)
   USB_CDC_TxSlot_t *slot;
 
   (void)thread_input;
+  usb_cdc_context.threads.tx_status.started = 1U;
   Debug_UART_Log("CDC", "USB TX callback scheduler started");
 
   for (;;)
   {
+    usb_cdc_context.threads.tx_status.cycles++;
+    usb_cdc_context.threads.tx_status.last_tick = tx_time_get();
     rtos_status = usb_cdc_note_sync_status(
         tx_event_flags_set(&usb_cdc_worker_flags,
                            USB_CDC_FLAG_TX_IDLE, TX_OR));
@@ -917,10 +996,13 @@ static void usb_cdc_rx_thread_entry(ULONG thread_input)
   USB_CDC_RxSlot_t *slot;
 
   (void)thread_input;
+  usb_cdc_context.threads.rx_status.started = 1U;
   Debug_UART_Log("CDC", "USB RX callback dispatcher started");
 
   for (;;)
   {
+    usb_cdc_context.threads.rx_status.cycles++;
+    usb_cdc_context.threads.rx_status.last_tick = tx_time_get();
     rtos_status = usb_cdc_note_sync_status(
         tx_event_flags_set(&usb_cdc_worker_flags,
                            USB_CDC_FLAG_RX_IDLE, TX_OR));

@@ -936,6 +936,26 @@ int32_t W6X_Net_Close(int32_t sock)
     return ret;
   }
 
+  /* A failed Connect leaves the local socket ALLOCATED. There is no NCP
+   * connection to stop, but its slot and copied TLS credentials must be
+   * released. Otherwise each failed Cloud retry consumes a socket. */
+  if (p_net_ctx->Sockets[sock].Status == W6X_NET_SOCKET_ALLOCATED)
+  {
+    if (p_net_ctx->Sockets[sock].Ca_Cert != NULL)
+      vPortFree(p_net_ctx->Sockets[sock].Ca_Cert);
+    if (p_net_ctx->Sockets[sock].Private_Key != NULL)
+      vPortFree(p_net_ctx->Sockets[sock].Private_Key);
+    if (p_net_ctx->Sockets[sock].Certificate != NULL)
+      vPortFree(p_net_ctx->Sockets[sock].Certificate);
+    if (p_net_ctx->Sockets[sock].PSK != NULL)
+      vPortFree(p_net_ctx->Sockets[sock].PSK);
+    if (p_net_ctx->Sockets[sock].PSK_Identity != NULL)
+      vPortFree(p_net_ctx->Sockets[sock].PSK_Identity);
+    (void)memset(&p_net_ctx->Sockets[sock], 0, sizeof(W6X_Net_Socket_t));
+    p_net_ctx->Sockets[sock].Number = W61_NET_MAX_CONNECTIONS + 1U;
+    return 0;
+  }
+
   /* Check if the socket is used */
   if (p_net_ctx->Sockets[sock].Status == W6X_NET_SOCKET_CONNECTED)
   {

@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import shlex
 import struct
 import sys
@@ -56,6 +57,21 @@ TOF_IMAGE_FLAG_START = 0x01
 TOF_IMAGE_FLAG_END = 0x02
 TOF_IMAGE_FLOAT32_LE = 1
 TOF_IMAGE_MAX_PAYLOAD = 54 * 42 * 4
+
+LATENCY_PING_INTERVAL_SECONDS = 0.200
+LATENCY_STALLED_REPLY_SECONDS = 1.0
+LATENCY_LIMIT_MS = 250.0
+DEFAULT_LATENCY_PROBE_SECONDS = 10.0
+DEFAULT_WIFI_BLOCKING_PROBE_SECONDS = 45.0
+DEFAULT_REPLY_GRACE_SECONDS = 3.0
+WIFI_TRIGGER_AFTER_SECONDS = 2.0
+
+PONG_PATTERN = re.compile(r"PONG\s+(\S+)\s+(\d+)")
+RADIO_LOOP_PATTERN = re.compile(
+    r"Radio loop:\s+count=(\d+)\s+last_tick=(\d+)\s+"
+    r"max_gap_ticks=(\d+)")
+BLE_TX_PUMP_PATTERN = re.compile(
+    r"BLE TX pump:\s+last_tick=(\d+)\s+max_gap_ticks=(\d+)")
 
 
 def utc_timestamp() -> str:
@@ -203,6 +219,155 @@ class ScanRecord:
     advertisement: Any
 
 
+def percentile(values: Sequence[float], percent: float) -> float | None:
+    """Return a linearly interpolated percentile for deterministic reports."""
+
+    if not values:
+        return None
+    ordered = sorted(float(value) for value in values)
+    rank = (len(ordered) - 1) * (percent / 100.0)
+    lower = int(rank)
+    upper = min(lower + 1, len(ordered) - 1)
+    fraction = rank - lower
+    return ordered[lower] + ((ordered[upper] - ordered[lower]) * fraction)
+
+
+class LatencyProbeCollector:
+    """Collect CLI PONG lines and retain the raw notification evidence."""
+
+    def __init__(self, started_at: float) -> None:
+        self.started_at = started_at
+        self.line_buffer = ""
+        self.transcript = ""
+        self.samples: list[dict[str, Any]] = []
+        self.samples_by_token: dict[str, list[dict[str, Any]]] = {}
+        self.raw_notifications: list[dict[str, Any]] = []
+        self.duplicate_replies = 0
+        self.unknown_replies: list[dict[str, Any]] = []
+        self.radio_metrics: dict[str, int] = {}
+
+    def add_ping(self, sequence: int, token: str, scheduled_at: float,
+                 sent_at: float) -> dict[str, Any]:
+        sample: dict[str, Any] = {
+            "sequence": sequence,
+            "token": token,
+            "scheduled_ms": round(
+                (scheduled_at - self.started_at) * 1000.0, 3),
+            "sent_ms": round((sent_at - self.started_at) * 1000.0, 3),
+            "send_lag_ms": round((sent_at - scheduled_at) * 1000.0, 3),
+            "reply_ms": None,
+            "latency_ms": None,
+            "device_tick": None,
+            "write_error": None,
+        }
+        self.samples.append(sample)
+        self.samples_by_token.setdefault(token, []).append(sample)
+        return sample
+
+    def on_notification(self, _characteristic: Any, data: bytearray) -> None:
+        received_at = time.monotonic()
+        payload = bytes(data)
+        text = payload.decode("utf-8", errors="replace")
+        self.raw_notifications.append({
+            "received_ms": round(
+                (received_at - self.started_at) * 1000.0, 3),
+            "hex": bytes_to_hex(payload),
+        })
+        self.transcript += text
+        self.line_buffer += text
+        while "\n" in self.line_buffer:
+            line, self.line_buffer = self.line_buffer.split("\n", 1)
+            self._process_line(line.rstrip("\r"), received_at)
+
+    def _process_line(self, line: str, received_at: float) -> None:
+        for match in PONG_PATTERN.finditer(line):
+            token = match.group(1)
+            device_tick = int(match.group(2), 10)
+            token_samples = self.samples_by_token.get(token, [])
+            sample = next(
+                (candidate for candidate in reversed(token_samples)
+                 if candidate["reply_ms"] is None),
+                None)
+            if sample is None and not token_samples:
+                self.unknown_replies.append({
+                    "token": token,
+                    "device_tick": device_tick,
+                    "received_ms": round(
+                        (received_at - self.started_at) * 1000.0, 3),
+                })
+            elif sample is None:
+                self.duplicate_replies += 1
+            else:
+                sample["reply_ms"] = round(
+                    (received_at - self.started_at) * 1000.0, 3)
+                sample["latency_ms"] = round(
+                    (received_at - (self.started_at
+                                    + (sample["sent_ms"] / 1000.0)))
+                    * 1000.0, 3)
+                sample["device_tick"] = device_tick
+
+        match = RADIO_LOOP_PATTERN.search(line)
+        if match is not None:
+            self.radio_metrics.update({
+                "loop_count": int(match.group(1), 10),
+                "last_loop_tick": int(match.group(2), 10),
+                "max_loop_gap_ticks": int(match.group(3), 10),
+            })
+        match = BLE_TX_PUMP_PATTERN.search(line)
+        if match is not None:
+            self.radio_metrics.update({
+                "last_ble_tx_tick": int(match.group(1), 10),
+                "max_ble_tx_gap_ticks": int(match.group(2), 10),
+            })
+
+    def build_result(self, scenario: str, duration_seconds: float,
+                     disconnects: int, reconnects: int,
+                     trigger: dict[str, Any] | None) -> dict[str, Any]:
+        latencies = [
+            float(sample["latency_ms"])
+            for sample in self.samples
+            if sample["latency_ms"] is not None
+        ]
+        missing = [
+            sample["token"] for sample in self.samples
+            if sample["reply_ms"] is None
+        ]
+        statistics = {
+            "minimum_ms": round(min(latencies), 3) if latencies else None,
+            "p50_ms": (round(percentile(latencies, 50.0), 3)
+                       if latencies else None),
+            "p95_ms": (round(percentile(latencies, 95.0), 3)
+                       if latencies else None),
+            "maximum_ms": round(max(latencies), 3) if latencies else None,
+        }
+        passed = (
+            not missing
+            and statistics["p95_ms"] is not None
+            and float(statistics["p95_ms"]) <= LATENCY_LIMIT_MS
+        )
+        return {
+            "scenario": scenario,
+            "passed": passed,
+            "duration_seconds": duration_seconds,
+            "ping_interval_ms": int(LATENCY_PING_INTERVAL_SECONDS * 1000),
+            "latency_limit_ms": LATENCY_LIMIT_MS,
+            "pings_sent": len(self.samples),
+            "replies_received": len(latencies),
+            "missing_replies": len(missing),
+            "missing_tokens": missing,
+            "disconnects": disconnects,
+            "reconnects": reconnects,
+            "duplicate_replies": self.duplicate_replies,
+            "unknown_replies": self.unknown_replies,
+            "statistics": statistics,
+            "radio_metrics": self.radio_metrics,
+            "wifi_trigger": trigger,
+            "samples": self.samples,
+            "raw_notifications": self.raw_notifications,
+            "raw_cli_transcript": self.transcript + self.line_buffer,
+        }
+
+
 class TofFrameAssembler:
     """Reassemble one atomic N6 ToF frame from ordered BLE notifications."""
 
@@ -304,6 +469,8 @@ class BleInspector:
             "cli": [], "debug": [], "tof": []
         }
         self.tof_assembler = TofFrameAssembler()
+        self.disconnect_count = 0
+        self.connect_count = 0
 
     def write_report(self, command: str, ok: bool, **payload: Any) -> None:
         report = {
@@ -334,6 +501,7 @@ class BleInspector:
         raise last_error
 
     def on_disconnect(self, _client: Any) -> None:
+        self.disconnect_count += 1
         address = (str(self.connected_record.device.address)
                    if self.connected_record is not None else None)
         self.client = None
@@ -421,6 +589,7 @@ class BleInspector:
                 if not client.is_connected:
                     raise RuntimeError(
                         "BLE backend returned without an active connection")
+                self.connect_count += 1
                 break
             except Exception as error:
                 last_error = error
@@ -693,6 +862,262 @@ class BleInspector:
               f"{passed_cycles}/{cycles} cycles passed; "
               f"report saved to {self.report_path}")
 
+    async def _run_latency_probe(self, selector: str, duration_seconds: float,
+                                 reply_grace_seconds: float,
+                                 invalid_wifi: tuple[str, str] | None
+                                 ) -> dict[str, Any]:
+        if duration_seconds <= 0.0 or reply_grace_seconds < 0.0:
+            raise ValueError("probe duration must be positive and grace nonnegative")
+        if invalid_wifi is not None and duration_seconds <= WIFI_TRIGGER_AFTER_SECONDS:
+            raise ValueError("Wi-Fi probe duration must exceed the trigger delay")
+        if self.client is not None and self.client.is_connected:
+            raise RuntimeError("start a noninteractive probe without an existing connection")
+        if not self.records:
+            await self.scan(self.scan_timeout)
+
+        scenario = "wifi-blocking" if invalid_wifi is not None else "idle"
+        started_at = time.monotonic()
+        collector = LatencyProbeCollector(started_at)
+        connects_before = self.connect_count
+        disconnects_before = self.disconnect_count
+        trigger_result: dict[str, Any] | None = None
+        report: dict[str, Any] | None = None
+
+        try:
+            await self.connect(selector)
+            client = self.require_connection()
+            services = serialize_services(client.services)
+            contract = evaluate_n6_gatt(services)
+            if not contract["passed"]:
+                raise RuntimeError("N6 GATT contract did not pass")
+            await client.start_notify(N6_STREAM_UUIDS["cli"]["tx"],
+                                      collector.on_notification)
+            self.subscriptions.add("cli")
+            loop = asyncio.get_running_loop()
+            startup_prompt_requested = False
+            unsolicited_prompt_deadline = loop.time() + 5.0
+            startup_deadline = loop.time() + 15.0
+            while "n6> " not in (collector.transcript +
+                                  collector.line_buffer):
+                if (not startup_prompt_requested
+                        and loop.time() >= unsolicited_prompt_deadline):
+                    # The connection banner is intentionally much larger than
+                    # the bounded BLE CLI TX queue. If its final four-byte
+                    # prompt is the one record rejected at startup, request a
+                    # fresh empty-command prompt after the banner has drained.
+                    # This remains a real end-to-end RX/TX prompt check and is
+                    # bounded; it does not retry probe pings or hide a missing
+                    # latency reply.
+                    await client.write_gatt_char(
+                        N6_STREAM_UUIDS["cli"]["rx"], b"\r", response=True)
+                    startup_prompt_requested = True
+                if loop.time() >= startup_deadline:
+                    raise RuntimeError(
+                        "BLE CLI did not publish its initial prompt")
+                await asyncio.sleep(0.05)
+
+            if not startup_prompt_requested:
+                # A newly reset session first shows the banner/menu prompt but
+                # remains in menu mode until Enter. Mirror the interactive
+                # client contract and require the resulting console prompt
+                # before measuring the first command.
+                console_prompt_offset = len(
+                    collector.transcript + collector.line_buffer)
+                await client.write_gatt_char(
+                    N6_STREAM_UUIDS["cli"]["rx"], b"\r", response=True)
+                console_prompt_deadline = loop.time() + 2.0
+                while "n6> " not in (
+                        collector.transcript + collector.line_buffer
+                        )[console_prompt_offset:]:
+                    if loop.time() >= console_prompt_deadline:
+                        raise RuntimeError(
+                            "BLE CLI did not enter console mode")
+                    await asyncio.sleep(0.02)
+
+            measurement_started = loop.time()
+            measurement_ends = measurement_started + duration_seconds
+            next_ping = measurement_started
+            sequence = 0
+            trigger_sent = False
+
+            print(f"Starting {scenario} latency probe for "
+                  f"{duration_seconds:.1f}s at 200 ms intervals...")
+            while loop.time() < measurement_ends:
+                now = loop.time()
+                if now < next_ping:
+                    await asyncio.sleep(next_ping - now)
+                    now = loop.time()
+
+                trigger_due = (
+                    invalid_wifi is not None
+                    and not trigger_sent
+                    and (now - measurement_started)
+                    >= WIFI_TRIGGER_AFTER_SECONDS)
+                latest_ping_in_flight = bool(
+                    collector.samples
+                    and collector.samples[-1]["reply_ms"] is None)
+                if trigger_due and latest_ping_in_flight:
+                    # Keep the long connect+password write out of the NCP raw
+                    # GATT event window that is still delivering the previous
+                    # ping. A successful run must resolve that ping before the
+                    # Wi-Fi trigger; a lost ping remains visible and fails.
+                    next_ping = loop.time() + 0.05
+                    continue
+                if trigger_due:
+                    ssid, password = invalid_wifi
+                    payload = (f'wifi connect "{ssid}"\r{password}\r'
+                               .encode("utf-8"))
+                    trigger_transcript_offset = len(
+                        collector.transcript + collector.line_buffer)
+                    trigger_started = loop.time()
+                    await self.require_connection().write_gatt_char(
+                        N6_STREAM_UUIDS["cli"]["rx"], payload, response=True)
+                    trigger_result = {
+                        "ssid": ssid,
+                        "sent_ms": round(
+                            (trigger_started - started_at) * 1000.0, 3),
+                        "write_completed_ms": round(
+                            (loop.time() - started_at) * 1000.0, 3),
+                    }
+                    trigger_sent = True
+                    print(f"Triggered invalid Wi-Fi connection to {ssid!r}.")
+                    # The submission-only contract includes an immediate
+                    # acceptance reply and prompt. Observe both before issuing
+                    # a subsequent command so the probe never feeds the CLI in
+                    # the middle of its command-to-secret parser transition.
+                    trigger_reply_deadline = loop.time() + 2.0
+                    while True:
+                        trigger_reply = (
+                            collector.transcript + collector.line_buffer
+                        )[trigger_transcript_offset:]
+                        if ("Wi-Fi connect request accepted:" in trigger_reply
+                                and "n6> " in trigger_reply):
+                            break
+                        if loop.time() >= trigger_reply_deadline:
+                            raise RuntimeError(
+                                "Wi-Fi submit did not publish acceptance and prompt")
+                        await asyncio.sleep(0.02)
+                    next_ping = loop.time() + LATENCY_PING_INTERVAL_SECONDS
+                    continue
+
+                if loop.time() >= measurement_ends:
+                    break
+                if latest_ping_in_flight:
+                    # The NCP exposes GATT writes through one raw unsolicited
+                    # AT-event window. Do not overlap timely replies. After a
+                    # bounded silence, continue with a new numbered command
+                    # so the report reveals whether RX recovers. The original
+                    # missing sample is retained and still fails the run.
+                    last_sent = collector.samples[-1]["sent_ms"] / 1000.0
+                    if (loop.time() - collector.started_at - last_sent
+                            >= LATENCY_STALLED_REPLY_SECONDS):
+                        latest_ping_in_flight = False
+                    else:
+                        next_ping += LATENCY_PING_INTERVAL_SECONDS
+                        continue
+                sequence += 1
+                # Keep both directions within the smallest reliable BLE CLI
+                # record. A single hex digit makes the command exactly 13
+                # bytes. Tokens wrap, so the collector keeps an ordered list
+                # per token and assigns a PONG to its first unresolved send.
+                token = f"{sequence & 0xF:X}"
+                sent_at = loop.time()
+                sample = collector.add_ping(sequence, token, next_ping,
+                                            sent_at)
+                try:
+                    await self.require_connection().write_gatt_char(
+                        N6_STREAM_UUIDS["cli"]["rx"],
+                        f"debug ping {token}\r".encode("ascii"),
+                        response=True)
+                except Exception as exc:
+                    sample["write_error"] = f"{type(exc).__name__}: {exc}"
+                next_ping += LATENCY_PING_INTERVAL_SECONDS
+                if next_ping < loop.time():
+                    next_ping = loop.time() + LATENCY_PING_INTERVAL_SECONDS
+
+            if self.client is not None and self.client.is_connected:
+                try:
+                    await self.client.write_gatt_char(
+                        N6_STREAM_UUIDS["cli"]["rx"], b"radio status\r",
+                        response=True)
+                except Exception as exc:
+                    print(f"Unable to request final radio status: {exc}")
+            if reply_grace_seconds != 0.0:
+                await asyncio.sleep(reply_grace_seconds)
+
+            report = collector.build_result(
+                scenario, duration_seconds,
+                self.disconnect_count - disconnects_before,
+                max(0, self.connect_count - connects_before - 1),
+                trigger_result)
+            report["startup_prompt_requested"] = startup_prompt_requested
+            report["n6_gatt_contract"] = contract
+            self.write_report(f"{scenario}-latency-probe", report["passed"],
+                              latency_probe=report)
+            stats = report["statistics"]
+            print(f"Latency probe {scenario}: replies "
+                  f"{report['replies_received']}/{report['pings_sent']}, "
+                  f"missing={report['missing_replies']}, "
+                  f"p50={stats['p50_ms']} ms, p95={stats['p95_ms']} ms, "
+                  f"max={stats['maximum_ms']} ms, "
+                  f"reconnects={report['reconnects']}")
+            print("PASS" if report["passed"] else "FAIL")
+            print(f"Raw report saved to {self.report_path}")
+            return report
+        except Exception as exc:
+            self.write_report(
+                f"{scenario}-latency-probe", False,
+                error_type=type(exc).__name__, error=str(exc),
+                latency_probe=(collector.build_result(
+                    scenario, duration_seconds,
+                    self.disconnect_count - disconnects_before,
+                    max(0, self.connect_count - connects_before - 1),
+                    trigger_result)))
+            raise
+        finally:
+            cleanup_client = self.client
+            if cleanup_client is not None and cleanup_client.is_connected:
+                if "cli" in self.subscriptions:
+                    try:
+                        await cleanup_client.stop_notify(
+                            N6_STREAM_UUIDS["cli"]["tx"])
+                    except Exception as exc:
+                        print(f"CLI unsubscribe cleanup failed: {exc}")
+                    self.subscriptions.discard("cli")
+                if cleanup_client.is_connected:
+                    await cleanup_client.disconnect()
+
+    async def run_latency_probe(self, selector: str,
+                                duration_seconds: float,
+                                reply_grace_seconds: float
+                                ) -> dict[str, Any]:
+        """Measure idle BLE CLI ping latency and save every raw observation."""
+
+        return await self._run_latency_probe(
+            selector, duration_seconds, reply_grace_seconds, None)
+
+    async def run_wifi_blocking_probe(self, selector: str,
+                                      duration_seconds: float,
+                                      reply_grace_seconds: float,
+                                      invalid_ssid: str,
+                                      invalid_password: str
+                                      ) -> dict[str, Any]:
+        """Measure pings while the current synchronous Wi-Fi path is blocked."""
+
+        if (not invalid_ssid or len(invalid_ssid) > 32
+                or any(character in invalid_ssid
+                       for character in ('"', "\r", "\n"))):
+            raise ValueError(
+                "invalid SSID must be 1..32 characters without quote/newline")
+        if (len(invalid_password) > 63
+                or any(character in invalid_password
+                       for character in ("\r", "\n"))):
+            raise ValueError(
+                "invalid password must be at most 63 characters without newline")
+        return await self._run_latency_probe(
+            selector, duration_seconds, reply_grace_seconds,
+            (invalid_ssid, invalid_password))
+
     async def run_command(self, line: str) -> bool:
         arguments = parse_command(line)
         if not arguments:
@@ -804,20 +1229,69 @@ def build_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT,
                         help="JSON file overwritten after every command")
+    parser.add_argument(
+        "--probe", choices=("latency", "wifi-blocking"),
+        help=("run a noninteractive 200 ms ping probe and exit nonzero on "
+              "a missing reply or p95 above 250 ms"),
+    )
+    parser.add_argument(
+        "--device", default="n6",
+        help="probe target: scan index, address, or unique 'n6' (default: n6)",
+    )
+    parser.add_argument(
+        "--probe-seconds", type=float,
+        help="probe duration; defaults to 10 s idle or 45 s Wi-Fi-blocking",
+    )
+    parser.add_argument(
+        "--reply-grace", type=float, default=DEFAULT_REPLY_GRACE_SECONDS,
+        help="seconds to collect late replies after sending (default: 3)",
+    )
+    parser.add_argument(
+        "--invalid-ssid",
+        help=("known-absent SSID for --probe wifi-blocking; default is a "
+              "run-specific N6-HIL-MISSING name"),
+    )
+    parser.add_argument(
+        "--invalid-password", default="N6-invalid-HIL-password",
+        help="non-secret password used only by the invalid Wi-Fi probe",
+    )
     return parser
 
 
 def main() -> int:
     arguments = build_argument_parser().parse_args()
-    if arguments.scan_timeout <= 0.0 or arguments.connect_timeout <= 0.0:
+    if (arguments.scan_timeout <= 0.0
+            or arguments.connect_timeout <= 0.0
+            or arguments.reply_grace < 0.0):
         raise SystemExit("timeouts must be positive")
     inspector = BleInspector(arguments.report.resolve(),
                              arguments.scan_timeout,
                              arguments.connect_timeout,
                              arguments.pair,
                              arguments.uncached_services)
+
+    async def run_selected_mode() -> int:
+        if arguments.probe is None:
+            return await inspector.run()
+        if arguments.probe == "latency":
+            duration = (arguments.probe_seconds
+                        if arguments.probe_seconds is not None
+                        else DEFAULT_LATENCY_PROBE_SECONDS)
+            result = await inspector.run_latency_probe(
+                arguments.device, duration, arguments.reply_grace)
+        else:
+            duration = (arguments.probe_seconds
+                        if arguments.probe_seconds is not None
+                        else DEFAULT_WIFI_BLOCKING_PROBE_SECONDS)
+            invalid_ssid = (arguments.invalid_ssid
+                            or f"N6-HIL-MISSING-{os.getpid():08X}")
+            result = await inspector.run_wifi_blocking_probe(
+                arguments.device, duration, arguments.reply_grace,
+                invalid_ssid, arguments.invalid_password)
+        return 0 if result["passed"] else 1
+
     try:
-        return asyncio.run(inspector.run())
+        return asyncio.run(run_selected_mode())
     except KeyboardInterrupt:
         print("\nStopped.")
         return 130
@@ -828,6 +1302,9 @@ def main() -> int:
                   file=sys.stderr)
             return 2
         raise
+    except (ValueError, RuntimeError) as exc:
+        print(f"Probe failed: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

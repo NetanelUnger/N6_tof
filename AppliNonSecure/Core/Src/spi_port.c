@@ -21,6 +21,7 @@
 } while (0)
 
 static spi_transaction_complete_t transaction_complete_callback;
+static volatile int32_t transaction_failed;
 
 void *spi_port_memcpy(void *dest, const void *src, unsigned int len)
 {
@@ -94,6 +95,7 @@ int32_t spi_port_transfer_dma(void *tx_buf, void *rx_buf, uint16_t len)
   SCB_CleanInvalidateDCache_by_Addr(rx_buf, len);
 #endif
 
+  transaction_failed = 0;
   if (tx_buf != NULL)
   {
 #if defined(__DCACHE_PRESENT) && (__DCACHE_PRESENT == 1U)
@@ -110,7 +112,35 @@ int32_t spi_port_transfer_dma(void *tx_buf, void *rx_buf, uint16_t len)
                          GET_DMA_CHANNEL(NCP_SPI_HANDLE.hdmatx), LL_DMA_SRC_FIXED);
     status = HAL_SPI_TransmitReceive_DMA(&NCP_SPI_HANDLE, &tx_dummy, rx_buf, len);
   }
-  return (status == HAL_OK) ? 0 : -1;
+  if (status != HAL_OK)
+  {
+    transaction_failed = 1;
+    return -1;
+  }
+  return 0;
+}
+
+int32_t spi_port_transfer_dma_status(void)
+{
+  return ((transaction_failed == 0) &&
+          (NCP_SPI_HANDLE.State == HAL_SPI_STATE_READY) &&
+          (NCP_SPI_HANDLE.ErrorCode == HAL_SPI_ERROR_NONE)) ? 0 : -1;
+}
+
+int32_t spi_port_abort(void)
+{
+  if (NCP_SPI_HANDLE.State == HAL_SPI_STATE_RESET)
+  {
+    return -1;
+  }
+
+  if (HAL_SPI_Abort(&NCP_SPI_HANDLE) != HAL_OK)
+  {
+    return -1;
+  }
+  NCP_SPI_HANDLE.ErrorCode = HAL_SPI_ERROR_NONE;
+  transaction_failed = 0;
+  return 0;
 }
 
 int32_t spi_port_is_ready(void)
@@ -167,6 +197,7 @@ void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
 #endif
   if (hspi == &NCP_SPI_HANDLE)
   {
+    transaction_failed = 1;
     LogError("SPI5 transfer error: 0x%08lx\n", (unsigned long)hspi->ErrorCode);
     spi_port_complete(hspi);
   }

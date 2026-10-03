@@ -24,6 +24,7 @@
 
 #include "secure_firmware_update.h"
 #include "boot_splash.h"
+#include <arm_cmse.h>
 
 /* USER CODE END Includes */
 
@@ -538,10 +539,14 @@ static void MX_GPDMA1_Init(void)
   /* USER CODE END RIF_Init 1 */
   /* USER CODE BEGIN RIF_Init 2 */
 
-  /* Hand the ST-LINK VCP peripheral and pins to the non-secure application. */
+  /* Hand the ST-LINK VCP peripheral, pins, and interrupt target to the
+     non-secure application.  The partition defaults leave USART1_IRQn
+     Secure, which would strand HAL_UART_Transmit_IT completions in the
+     Secure vector table after ownership of USART1 itself is released. */
   Secure_Trace("[SECURE] releasing USART1 and PE5/PE6 to NonSecure\r\n");
   HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_USART1,
                                         RIF_ATTRIBUTE_NSEC | RIF_ATTRIBUTE_NPRIV);
+  (void)NVIC_SetTargetState(USART1_IRQn);
   __HAL_RCC_GPIOE_CLK_ENABLE();
   HAL_GPIO_ConfigPinAttributes(GPIOE, GPIO_PIN_5 | GPIO_PIN_6,
                                GPIO_PIN_NSEC | GPIO_PIN_NPRIV);
@@ -576,19 +581,72 @@ static void NonSecure_StartCached(void)
   Error_Handler();
 }
 
-void Secure_FaultTrace(const char *fault_name)
+static uint32_t FaultFrameInRange(uint32_t address, uint32_t bytes,
+                                  uint32_t base, uint32_t size)
 {
+  /* Check the entire frame without permitting arithmetic wraparound. */
+  return ((address & (sizeof(uint32_t) - 1U)) == 0U) &&
+         (bytes <= size) && (address >= base) &&
+         ((address - base) <= (size - bytes));
+}
+
+static uint32_t FaultTraceNonSecureFrame(uint32_t address, uint32_t core_offset,
+                                         const char *label)
+{
+  const uint32_t bytes = (core_offset + 8U) * sizeof(uint32_t);
+  const uint32_t *frame;
+
+  if ((FaultFrameInRange(address, bytes, SRAM2_AXI_BASE_NS, SRAM2_AXI_SIZE) == 0U) &&
+      (FaultFrameInRange(address, bytes, SRAM3_AXI_BASE_NS,
+                         (SRAM6_AXI_BASE_NS + SRAM6_AXI_SIZE) - SRAM3_AXI_BASE_NS) == 0U))
+  {
+    return 0U;
+  }
+  if (cmse_check_address_range((void *)address, bytes,
+                               CMSE_NONSECURE | CMSE_MPU_READ) == NULL)
+  {
+    return 0U;
+  }
+
+  frame = (const uint32_t *)address;
+  /* An exception frame must have the Thumb xPSR bit and a nonzero PC.
+   * These checks distinguish the live PSP_NS frame from stale MSP_NS data. */
+  if (((frame[core_offset + 7U] & (1UL << 24U)) == 0U) ||
+      (frame[core_offset + 6U] == 0U))
+  {
+    return 0U;
+  }
+  Secure_Trace("[SECURE-FAULT] plausible NS frame: ");
+  Secure_Trace(label);
+  Secure_Trace("\r\n");
+  Secure_TraceHex("[SECURE-FAULT] frame SP = ", address);
+  Secure_TraceHex("[SECURE-FAULT] stacked LR = ", frame[core_offset + 5U]);
+  Secure_TraceHex("[SECURE-FAULT] stacked PC = ", frame[core_offset + 6U]);
+  Secure_TraceHex("[SECURE-FAULT] stacked xPSR = ", frame[core_offset + 7U]);
+  return 1U;
+}
+
+void Secure_FaultTrace(const char *fault_name, uint32_t exc_return)
+{
+  uint32_t msp_s;
+  uint32_t psp_s;
   uint32_t msp_ns;
   uint32_t psp_ns;
-  const uint32_t *stack_ns;
+  uint32_t found_frame = 0U;
+  uint32_t sfsr = SCB->SFSR;
 
   Secure_Trace("[SECURE-FAULT] ");
   Secure_Trace(fault_name);
   Secure_Trace("\r\n");
   Secure_TraceHex("[SECURE-FAULT] CFSR = ", SCB->CFSR);
   Secure_TraceHex("[SECURE-FAULT] HFSR = ", SCB->HFSR);
-  Secure_TraceHex("[SECURE-FAULT] SFSR = ", SCB->SFSR);
+  Secure_TraceHex("[SECURE-FAULT] SFSR = ", sfsr);
   Secure_TraceHex("[SECURE-FAULT] SFAR = ", SCB->SFAR);
+  if ((sfsr & SAU_SFSR_SFARVALID_Msk) == 0U)
+  {
+    Secure_Trace("[SECURE-FAULT] SFAR is not marked valid by SFSR\r\n");
+  }
+  Secure_TraceHex("[SECURE-FAULT] EXC_RETURN = ", exc_return);
 
   /* A NonSecure configurable fault is escalated here while BFHFNMINS is 0. */
   Secure_TraceHex("[NS-FAULT] CFSR_NS = ", SCB_NS->CFSR);
@@ -597,23 +655,45 @@ void Secure_FaultTrace(const char *fault_name)
   Secure_TraceHex("[NS-FAULT] BFAR_NS = ", SCB_NS->BFAR);
   Secure_TraceHex("[NS-FAULT] SHCSR_NS = ", SCB_NS->SHCSR);
 
+  msp_s = __get_MSP();
+  psp_s = __get_PSP();
   msp_ns = __TZ_get_MSP_NS();
   psp_ns = __TZ_get_PSP_NS();
+  Secure_TraceHex("[SECURE-FAULT] current MSP_S = ", msp_s);
+  Secure_TraceHex("[SECURE-FAULT] current PSP_S = ", psp_s);
   Secure_TraceHex("[NS-FAULT] MSP_NS = ", msp_ns);
   Secure_TraceHex("[NS-FAULT] PSP_NS = ", psp_ns);
 
-  /* ThreadX threads run on PSP_NS. Dump both possible Cortex-M stack layouts:
-   * basic frame PC/LR at words 6/5, extended FP frame PC/LR at words 24/23. */
-  if ((psp_ns >= SRAM2_AXI_BASE_NS) &&
-      (psp_ns <= ((SRAM2_AXI_BASE_NS + 0x00100000U) - (26U * sizeof(uint32_t)))))
+  if ((exc_return & 0xFFFFFF00U) != 0xFFFFFF00U)
   {
-    stack_ns = (const uint32_t *)psp_ns;
-    Secure_TraceHex("[NS-FAULT] basic LR = ", stack_ns[5]);
-    Secure_TraceHex("[NS-FAULT] basic PC = ", stack_ns[6]);
-    Secure_TraceHex("[NS-FAULT] basic xPSR = ", stack_ns[7]);
-    Secure_TraceHex("[NS-FAULT] FP-frame LR = ", stack_ns[23]);
-    Secure_TraceHex("[NS-FAULT] FP-frame PC = ", stack_ns[24]);
-    Secure_TraceHex("[NS-FAULT] FP-frame xPSR = ", stack_ns[25]);
+    Secure_Trace("[SECURE-FAULT] invalid EXC_RETURN; frame not read\r\n");
+    return;
+  }
+
+  /* In an escalated Secure fault EXC_RETURN can describe the Secure handler
+   * transition rather than the original NonSecure ThreadX stack.  Inspect
+   * both NS stacks and both legal frame layouts; label every candidate. */
+  if ((exc_return & EXC_RETURN_S) != 0U)
+  {
+    /* C entry has already moved MSP_S, so it is not the exception-entry SP.
+     * Do not present a made-up Secure stacked PC as a diagnosis. */
+    Secure_Trace("[SECURE-FAULT] Secure-origin frame needs entry SP; frame not read\r\n");
+    return;
+  }
+  if ((SCB_NS->CFSR & (SCB_CFSR_MSTKERR_Msk | SCB_CFSR_MLSPERR_Msk |
+               SCB_CFSR_STKERR_Msk | SCB_CFSR_LSPERR_Msk |
+               SCB_CFSR_STKOF_Msk)) != 0U)
+  {
+    Secure_Trace("[SECURE-FAULT] stacking error; frame not read\r\n");
+    return;
+  }
+  found_frame |= FaultTraceNonSecureFrame(psp_ns, 0U, "PSP_NS basic");
+  found_frame |= FaultTraceNonSecureFrame(psp_ns, 18U, "PSP_NS extended FP");
+  found_frame |= FaultTraceNonSecureFrame(msp_ns, 0U, "MSP_NS basic");
+  found_frame |= FaultTraceNonSecureFrame(msp_ns, 18U, "MSP_NS extended FP");
+  if (found_frame == 0U)
+  {
+    Secure_Trace("[SECURE-FAULT] no plausible readable NS frame\r\n");
   }
 }
 

@@ -984,6 +984,8 @@ W61_Status_t W61_Net_PullDataFromSocket(W61_Object_t *Obj, uint8_t Socket, uint3
   W61_NULL_ASSERT(pData);
   W61_NULL_ASSERT(Receivedlen);
   W61_Status_t ret;
+  TickType_t remaining;
+  TickType_t started_at;
   struct modem *mdm = (struct modem *) &Obj->Modem;
   struct modem_cmd_handler_data *data = (struct modem_cmd_handler_data *)mdm->handler.cmd_handler_data;
   W61_Net_PullDataFromSocket_t pull_data =
@@ -1004,19 +1006,28 @@ W61_Status_t W61_Net_PullDataFromSocket(W61_Object_t *Obj, uint8_t Socket, uint3
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data->sem_tx_lock, portMAX_DELAY);
-
-  *Receivedlen = 0;
-  mdm->rx_data = &pull_data;
+  remaining = W61_AT_Common_TakeTxLockBudget(data->sem_tx_lock, Timeout, &started_at);
+  if (remaining == 0U)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
 
   (void)snprintf(cmd, W61_CMDRSP_STRING_SIZE, "AT+CIPRECVDATA=%" PRIu16 ",%" PRIu32 "\r\n", Socket, Reqlen);
+  remaining = W61_AT_Common_RemainingTxBudget(started_at, Timeout);
+  if (remaining == 0U)
+  {
+    (void)xSemaphoreGive(data->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
+  *Receivedlen = 0;
+  mdm->rx_data = &pull_data;
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
                                       &mdm->handler,
                                       handlers,
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)cmd,
                                       mdm->sem_response,
-                                      W61_NET_TIMEOUT,
+                                      remaining,
                                       MODEM_NO_TX_LOCK));
 
   (void)xSemaphoreGive(data->sem_tx_lock);
@@ -1119,6 +1130,8 @@ W61_Status_t W61_Net_SNTP_GetTime(W61_Object_t *Obj, W61_Net_Time_t *Time)
   W61_NULL_ASSERT(Obj);
   W61_NULL_ASSERT(Time);
   W61_Status_t ret;
+  TickType_t remaining;
+  TickType_t started_at;
   struct modem *mdm = (struct modem *) &Obj->Modem;
   struct modem_cmd_handler_data *data = (struct modem_cmd_handler_data *)mdm->handler.cmd_handler_data;
 
@@ -1131,17 +1144,26 @@ W61_Status_t W61_Net_SNTP_GetTime(W61_Object_t *Obj, W61_Net_Time_t *Time)
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data->sem_tx_lock, portMAX_DELAY);
+  remaining = W61_AT_Common_TakeTxLockBudget(data->sem_tx_lock, W61_NET_TIMEOUT, &started_at);
+  if (remaining == 0U)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
 
+  remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_NET_TIMEOUT);
+  if (remaining == 0U)
+  {
+    (void)xSemaphoreGive(data->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
   mdm->rx_data = Time;
-
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
                                       &mdm->handler,
                                       handlers,
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)"AT+CIPSNTPTIME?\r\n",
                                       mdm->sem_response,
-                                      W61_NET_TIMEOUT,
+                                      remaining,
                                       MODEM_NO_TX_LOCK));
 
   (void)xSemaphoreGive(data->sem_tx_lock);
@@ -1193,6 +1215,8 @@ W61_Status_t W61_Net_GetSocketInformation(W61_Object_t *Obj, uint8_t Socket, W61
   struct modem *mdm = (struct modem *) &Obj->Modem;
   struct modem_cmd_handler_data *data = (struct modem_cmd_handler_data *)mdm->handler.cmd_handler_data;
   W61_Status_t ret;
+  TickType_t remaining;
+  TickType_t started_at;
   W61_NULL_ASSERT(Obj);
   W61_NULL_ASSERT(conn);
 
@@ -1205,19 +1229,28 @@ W61_Status_t W61_Net_GetSocketInformation(W61_Object_t *Obj, uint8_t Socket, W61
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data->sem_tx_lock, portMAX_DELAY);
+  remaining = W61_AT_Common_TakeTxLockBudget(data->sem_tx_lock, W61_NET_TIMEOUT, &started_at);
+  if (remaining == 0U)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
 
+  remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_NET_TIMEOUT);
+  if (remaining == 0U)
+  {
+    (void)xSemaphoreGive(data->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
   (void)memset(conn, 0, sizeof(W61_Net_Connection_t));
   conn->Number = Socket;
   mdm->rx_data = conn;
-
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
                                       &mdm->handler,
                                       handlers,
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)"AT+CIPSTATE?\r\n",
                                       mdm->sem_response,
-                                      W61_NET_TIMEOUT,
+                                      remaining,
                                       MODEM_NO_TX_LOCK));
 
   (void)xSemaphoreGive(data->sem_tx_lock);

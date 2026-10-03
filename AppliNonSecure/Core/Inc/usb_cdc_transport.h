@@ -24,6 +24,7 @@ typedef struct
   UINT initialized;
   UINT active;
   UINT host_ready;
+  UINT state_snapshot_busy;
   ULONG session;
   ULONG tx_control_slots_free;
   ULONG tx_map_slots_free;

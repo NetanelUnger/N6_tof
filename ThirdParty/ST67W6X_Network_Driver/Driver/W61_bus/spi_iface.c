@@ -68,6 +68,15 @@
 /** Maximum packets serviced before letting lower-priority ThreadX work run. */
 #define SPI_XFER_MAX_CONTIGUOUS_BURST   8U
 
+/** Maximum self-driven retries for one failed transaction activation. */
+#define SPI_XFER_MAX_RETRIES            3U
+
+/** A transaction was not started because the ready handshake timed out. */
+#define SPI_XFER_TXN_RDY_TIMEOUT        (-2)
+
+/** A local SPI polling/DMA transfer failed or did not complete. */
+#define SPI_XFER_TRANSPORT_ERROR        (-3)
+
 /** Maximum digits for 64-bit integer string representation */
 #define STR64BIT_DIGIT                  (20 + 1)
 
@@ -534,6 +543,12 @@ static int32_t spi_txrx(struct spi_xfer_engine *engine, void *tx_buf, void *rx_b
       SPI_STAT_INC(&engine->stat, wait_msg_xfer_timeouts, 1U);
       return -3;
     }
+    if (spi_port_transfer_dma_status() != 0)
+    {
+      spi_err("spi txrx transaction completed with a HAL error\n");
+      SPI_STAT_INC(&engine->stat, io_err, 1U);
+      return -4;
+    }
   }
 
   return 0;
@@ -579,6 +594,12 @@ static int32_t spi_rx(struct spi_xfer_engine *engine, void *rx_buf, uint16_t len
       SPI_STAT_INC(&engine->stat, wait_msg_xfer_timeouts, 1U);
       return -3;
     }
+    if (spi_port_transfer_dma_status() != 0)
+    {
+      spi_err("spi rx transaction completed with a HAL error\n");
+      SPI_STAT_INC(&engine->stat, io_err, 1U);
+      return -4;
+    }
   }
 
   return 0;
@@ -599,12 +620,36 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
 
   spi_trace(SPI_TP_NONE, "wait_txn_rdy %" PRIi32 "\n", wait_txn_rdy);
   engine->state = SPI_XFER_STATE_FIRST_PART;
-  if ((wait_txn_rdy != 0) &&
-      (spi_wait_event(engine, SPI_EVT_TXN_RDY, SPI_WAIT_TXN_TIMEOUT_MS) == 0))
+  if (wait_txn_rdy != 0)
   {
-    SPI_STAT_INC(&engine->stat, wait_txn_timeouts, 1U);
-    spi_err("waiting for spi txn ready timeouted\n");
-    return -1;
+    /* SPI_RDY is level-readable as well as edge-signalled.  Sampling it on
+     * both sides of the bounded event wait closes the race where EXTI sets a
+     * coalesced/lost event while the pin already advertises readiness. */
+    if (spi_port_is_ready() != 0)
+    {
+      if (spi_wait_event(engine, SPI_EVT_TXN_RDY, 0) == 0)
+      {
+        SPI_STAT_INC(&engine->stat, recovered_lost_ready, 1U);
+      }
+    }
+    else if (spi_wait_event(engine, SPI_EVT_TXN_RDY,
+                            SPI_WAIT_TXN_TIMEOUT_MS) == 0)
+    {
+      SPI_STAT_INC(&engine->stat, wait_txn_timeouts, 1U);
+      if (spi_port_is_ready() != 0)
+      {
+        /* Consume a late event if it raced the timeout.  The high level is
+         * sufficient proof that this transaction may proceed even if the
+         * edge was not retained by the event group. */
+        (void)spi_wait_event(engine, SPI_EVT_TXN_RDY, 0);
+        SPI_STAT_INC(&engine->stat, recovered_lost_ready, 1U);
+      }
+      else
+      {
+        spi_err("waiting for spi txn ready timeouted\n");
+        return SPI_XFER_TXN_RDY_TIMEOUT;
+      }
+    }
   }
 
   /* Re-initialize events in case of pending ones. */
@@ -654,6 +699,7 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
   if (spi_txrx(engine, txp, rxbuf->data, xfer_size) != 0)
   {
     spi_err("Failed to do the first transaction\n");
+    err = SPI_XFER_TRANSPORT_ERROR;
     goto out;
   }
 
@@ -703,6 +749,7 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
     if (spi_rx(engine, rxp, remain) != 0)
     {
       spi_err("Failed to receive the remaining bytes\n");
+      err = SPI_XFER_TRANSPORT_ERROR;
       goto out;
     }
     spi_trace(SPI_TP_SECOND_TXN_END, "Remaining transfer completed\n");
@@ -812,9 +859,11 @@ out:
 static int32_t spi_do_xfer(struct spi_xfer_engine *engine, uint32_t flags)
 {
   struct spi_buffer *txbuf;
+  int32_t xfer_status;
   int32_t rx_pending;
   int32_t wait_txn_rdy;
   uint32_t burst_count = 0U;
+  uint32_t retry_count = 0U;
 
   /*
    * The NCP owns SPI_RDY. If a boot-mode, wiring or protocol fault holds it
@@ -850,12 +899,66 @@ static int32_t spi_do_xfer(struct spi_xfer_engine *engine, uint32_t flags)
         wait_txn_rdy = 1;
       }
 
-      (void)spi_xfer_one(engine, txbuf, wait_txn_rdy);
+      xfer_status = spi_xfer_one(engine, txbuf, wait_txn_rdy);
 
       /* De-assert chip select */
       spi_trace(SPI_TP_DEASSERT_CS, "Deassert CS\n");
       (void)spi_port_set_cs(0);
       engine->state = SPI_XFER_STATE_TXN_DONE;
+
+      if (xfer_status != 0)
+      {
+        int32_t ready_after_failure = spi_port_is_ready();
+
+        retry_count++;
+        if (xfer_status == SPI_XFER_TRANSPORT_ERROR)
+        {
+          /* A timed-out DMA leaves HAL_SPI busy, so another transfer would
+           * fail immediately. Abort only the local peripheral/DMA state after
+           * CS is low; the NCP is not reset and the owned TX buffer is kept. */
+          if (spi_port_abort() == 0)
+          {
+            SPI_STAT_INC(&engine->stat, transport_recoveries, 1U);
+          }
+          else
+          {
+            spi_err("failed to abort incomplete local spi transaction\n");
+          }
+        }
+        if (xfer_status == SPI_XFER_TXN_RDY_TIMEOUT)
+        {
+          /* The level may have changed while CS was being deasserted.  Count
+           * this as a recovered edge and retry inside this bounded activation;
+           * setting a fresh event here would reset the local retry budget. */
+          if (ready_after_failure != 0)
+          {
+            SPI_STAT_INC(&engine->stat, recovered_lost_ready, 1U);
+          }
+        }
+
+        /* A polling/DMA failure can leave SPI_RDY high with no future edge.
+         * Retry the same owned buffer while the NCP still requests service.
+         * If a TX buffer is retained, a low level is also safe: the next
+         * spi_xfer_one() performs its normal bounded ready wait. */
+        if ((retry_count < SPI_XFER_MAX_RETRIES) &&
+            ((ready_after_failure != 0) || (engine->txbuf != NULL)))
+        {
+          vTaskDelay(pdMS_TO_TICKS(1U));
+          continue;
+        }
+
+        /* Ownership remains with engine->txbuf.  Do not free or dequeue a
+         * replacement. After an exhausted window the worker returns to its
+         * event wait; a later real ready/TX event can retry this exact packet. */
+        if (retry_count >= SPI_XFER_MAX_RETRIES)
+        {
+          SPI_STAT_INC(&engine->stat, retry_exhaustions, 1U);
+          spi_err("spi transaction retries exhausted; tx buffer retained\n");
+        }
+        break;
+      }
+
+      retry_count = 0U;
 
       burst_count++;
       if (burst_count >= SPI_XFER_MAX_CONTIGUOUS_BURST)
@@ -884,6 +987,9 @@ static void spi_xfer_engine_task(void *arg)
   {
     engine->state = SPI_XFER_STATE_IDLE;
     bits = SPI_EVT_TXN_PENDING | SPI_EVT_TXN_RDY;
+    /* Remain asleep until host TX or the SPI_RDY EXTI posts an event.
+     * SPI_RDY level checks during an active transaction remain part of the
+     * handshake; there is no periodic idle-level poll. */
     bits = xEventGroupWaitBits(engine->event, bits, pdTRUE, pdFALSE,
                                portMAX_DELAY);
     spi_trace(SPI_TP_NONE, "Got event bits %" PRIx32 "\n", bits);
@@ -1414,6 +1520,13 @@ static void num2string64(char *out, int32_t out_strlen, const uint64_t num)
   uint64_t temp = num;
   int32_t count = 0;
 
+  if (num == 0U)
+  {
+    out[0] = '0';
+    out[1] = '\0';
+    return;
+  }
+
   /* Count number of digit */
   while ((temp != 0U) && (count < out_strlen))
   {
@@ -1459,6 +1572,12 @@ static void spi_show_stat(struct spi_stat *stat)
   LogInfo("header error          %s\n", count_ui64);
   num2string64(count_ui64, STR64BIT_DIGIT, stat->wait_txn_timeouts);
   LogInfo("wait_txn_timeout      %s\n", count_ui64);
+  num2string64(count_ui64, STR64BIT_DIGIT, stat->recovered_lost_ready);
+  LogInfo("recovered_lost_ready %s\n", count_ui64);
+  num2string64(count_ui64, STR64BIT_DIGIT, stat->transport_recoveries);
+  LogInfo("transport_recovery   %s\n", count_ui64);
+  num2string64(count_ui64, STR64BIT_DIGIT, stat->retry_exhaustions);
+  LogInfo("retry_exhaustion     %s\n", count_ui64);
   num2string64(count_ui64, STR64BIT_DIGIT, stat->wait_hdr_ack_timeouts);
   LogInfo("wait_hdr_ack_timeout  %s\n", count_ui64);
 }

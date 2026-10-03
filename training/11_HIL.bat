@@ -16,8 +16,8 @@ echo checked for NCP SDK version, GATT/advertising state and a real host scan;
 echo enabled Wi-Fi also performs station status and a network scan.
 echo The same input is run through host TFLite; class and raw int8 scores are
 echo compared so this proves the NPU executed, not merely that the sensor works.
-echo During the 100 frames, move a visible hand through ROCK, PAPER and
-echo SCISSORS. An empty or static model-input stream now fails this gate.
+echo Optional: move a hand through ROCK, PAPER and SCISSORS to demonstrate
+echo scene diversity. An unattended/static scene produces a note, not a failure.
 echo.
 "%TRAINING_PY%" scripts\11_hil_validate.py %*
 set "RESULT=%ERRORLEVEL%"

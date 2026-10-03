@@ -66,6 +66,7 @@ void UCPD1_IRQHandler(void);
 void USB1_OTG_HS_IRQHandler(void);
 /* USER CODE BEGIN EFP */
 void EXTI9_IRQHandler(void);
+void USART1_IRQHandler(void);
 
 /* USER CODE END EFP */
 

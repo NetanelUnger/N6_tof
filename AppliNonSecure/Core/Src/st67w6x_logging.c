@@ -7,31 +7,55 @@
 
 #include "task.h"
 
-static TX_MUTEX logging_mutex;
+#define ST67_LOG_BUFFER_COUNT  (4U)
+
+_Static_assert(sizeof(void *) <= sizeof(ULONG),
+               "ThreadX pointer queues require one ULONG per pointer");
+
+static TX_QUEUE logging_free_buffers;
+static ULONG logging_free_buffer_storage[ST67_LOG_BUFFER_COUNT];
+static char logging_buffers[ST67_LOG_BUFFER_COUNT][MAX_LOG_MESSAGE_LENGTH];
 static UINT logging_initialized;
 static uint32_t logging_level = LOG_DEFAULT_LEVEL;
 static void (*logging_output)(const char *message);
-static char logging_buffer[MAX_LOG_MESSAGE_LENGTH];
+static uint32_t logging_submitted_messages;
+static uint32_t logging_buffer_exhaustions;
+static uint32_t logging_interrupt_rejections;
+static uint32_t logging_format_errors;
 
 void *vLoggingInit(void (*LogOutput_cb)(const char *message))
 {
   logging_output = LogOutput_cb;
   if (logging_initialized == 0U)
   {
-    if (tx_mutex_create(&logging_mutex, "ST67W6X log", TX_INHERIT) != TX_SUCCESS)
+    uint32_t index;
+
+    if (tx_queue_create(&logging_free_buffers, "ST67 log buffers", 1U,
+                        logging_free_buffer_storage,
+                        sizeof(logging_free_buffer_storage)) != TX_SUCCESS)
     {
       return NULL;
     }
+    for (index = 0U; index < ST67_LOG_BUFFER_COUNT; index++)
+    {
+      char *buffer = logging_buffers[index];
+
+      if (tx_queue_send(&logging_free_buffers, &buffer, TX_NO_WAIT) != TX_SUCCESS)
+      {
+        (void)tx_queue_delete(&logging_free_buffers);
+        return NULL;
+      }
+    }
     logging_initialized = 1U;
   }
-  return &logging_mutex;
+  return &logging_free_buffers;
 }
 
 void vLoggingSetVerbosity(uint32_t level)
 {
   if (level <= MAX_LOG_LEVEL)
   {
-    logging_level = level;
+    __atomic_store_n(&logging_level, level, __ATOMIC_RELAXED);
   }
 }
 
@@ -42,7 +66,24 @@ void App_Logging_SetVerbosity(uint32_t level)
 
 uint32_t App_Logging_GetVerbosity(void)
 {
-  return logging_level;
+  return __atomic_load_n(&logging_level, __ATOMIC_RELAXED);
+}
+
+void App_Logging_GetStatus(AppLogging_Status_t *status)
+{
+  if (status == NULL)
+  {
+    return;
+  }
+
+  status->submitted_messages =
+      __atomic_load_n(&logging_submitted_messages, __ATOMIC_RELAXED);
+  status->buffer_exhaustions =
+      __atomic_load_n(&logging_buffer_exhaustions, __ATOMIC_RELAXED);
+  status->interrupt_rejections =
+      __atomic_load_n(&logging_interrupt_rejections, __ATOMIC_RELAXED);
+  status->format_errors =
+      __atomic_load_n(&logging_format_errors, __ATOMIC_RELAXED);
 }
 
 void vLoggingPrintf(uint32_t log_level, const uint8_t metadata_print,
@@ -50,24 +91,32 @@ void vLoggingPrintf(uint32_t log_level, const uint8_t metadata_print,
                     const char *const format, ...)
 {
   static const char *const level_name[] = { "NONE", "ERROR", "WARN", "INFO", "DEBUG" };
+  char *logging_buffer;
   int offset = 0;
+  int format_result;
   va_list args;
 
-  if ((log_level > logging_level) || (log_level > MAX_LOG_LEVEL) ||
+  if ((log_level > __atomic_load_n(&logging_level, __ATOMIC_RELAXED)) ||
+      (log_level > MAX_LOG_LEVEL) ||
       (logging_initialized == 0U) || (logging_output == NULL))
   {
     return;
   }
 
-  /* USBX and ThreadX mutex services are not ISR-safe.  Transport callbacks
-     may log from SPI/DMA interrupt context, so those messages are dropped. */
+  /* ThreadX queue services are not used from interrupt context.  Transport
+   * callbacks may log from SPI/DMA interrupts, so count those rejections. */
   if (xPortIsInsideInterrupt() != pdFALSE)
   {
+    (void)__atomic_fetch_add(&logging_interrupt_rejections, 1U,
+                             __ATOMIC_RELAXED);
     return;
   }
 
-  if (tx_mutex_get(&logging_mutex, TX_WAIT_FOREVER) != TX_SUCCESS)
+  if (tx_queue_receive(&logging_free_buffers, &logging_buffer,
+                       TX_NO_WAIT) != TX_SUCCESS)
   {
+    (void)__atomic_fetch_add(&logging_buffer_exhaustions, 1U,
+                             __ATOMIC_RELAXED);
     return;
   }
 
@@ -88,35 +137,47 @@ void vLoggingPrintf(uint32_t log_level, const uint8_t metadata_print,
     {
       short_name = slash + 1;
     }
-    offset = snprintf(logging_buffer, sizeof(logging_buffer),
+    offset = snprintf(logging_buffer, MAX_LOG_MESSAGE_LENGTH,
                       "[%s][%lu][%s:%lu] ", level_name[log_level],
                       (unsigned long)xTaskGetTickCount(), short_name,
                       (unsigned long)line_number);
     if (offset < 0)
     {
-      offset = 0;
+      (void)__atomic_fetch_add(&logging_format_errors, 1U, __ATOMIC_RELAXED);
+      (void)tx_queue_send(&logging_free_buffers, &logging_buffer, TX_NO_WAIT);
+      return;
     }
-    if ((size_t)offset >= sizeof(logging_buffer))
+    if ((size_t)offset >= MAX_LOG_MESSAGE_LENGTH)
     {
-      offset = (int)sizeof(logging_buffer) - 1;
+      offset = (int)MAX_LOG_MESSAGE_LENGTH - 1;
     }
   }
 
   va_start(args, format);
-  (void)vsnprintf(&logging_buffer[offset], sizeof(logging_buffer) - (size_t)offset,
-                  format, args);
+  format_result = vsnprintf(&logging_buffer[offset],
+                            MAX_LOG_MESSAGE_LENGTH - (size_t)offset,
+                            format, args);
   va_end(args);
-  logging_buffer[sizeof(logging_buffer) - 1U] = '\0';
+  logging_buffer[MAX_LOG_MESSAGE_LENGTH - 1U] = '\0';
+  if (format_result < 0)
+  {
+    (void)__atomic_fetch_add(&logging_format_errors, 1U, __ATOMIC_RELAXED);
+    (void)tx_queue_send(&logging_free_buffers, &logging_buffer, TX_NO_WAIT);
+    return;
+  }
+  /* The output callback copies into a fixed UART slot.  Physical USART1
+   * transmission happens later in the owner task.  This buffer belongs to
+   * this message until that copy returns, so producers never share storage. */
   logging_output(logging_buffer);
-
-  (void)tx_mutex_put(&logging_mutex);
+  (void)__atomic_fetch_add(&logging_submitted_messages, 1U, __ATOMIC_RELAXED);
+  (void)tx_queue_send(&logging_free_buffers, &logging_buffer, TX_NO_WAIT);
 }
 
 void vLoggingDeInit(void)
 {
   if (logging_initialized != 0U)
   {
-    (void)tx_mutex_delete(&logging_mutex);
+    (void)tx_queue_delete(&logging_free_buffers);
     logging_initialized = 0U;
   }
   logging_output = NULL;

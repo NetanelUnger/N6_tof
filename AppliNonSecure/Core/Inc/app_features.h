@@ -27,9 +27,33 @@
 #define APP_ST67W6X_WIFI_SERVICES_ENABLED (1U)
 #endif
 
-/* Outbound HTTPS Cloud Relay CLI and independent ToF upload path. */
+/* Outbound Cloud Relay CLI and independent ToF upload path. */
 #ifndef APP_ST67W6X_CLOUD_RELAY_ENABLED
 #define APP_ST67W6X_CLOUD_RELAY_ENABLED (1U)
+#endif
+
+/* INSECURE DEMO-ONLY transport. 0 sends pairing codes, bearer tokens, CLI
+ * records and ToF frames in plaintext HTTP over TCP port 80. Keep this at 0
+ * only on a trusted lab network; restore TLS before any customer/security
+ * claim. This switch does not change the server's HTTPS configuration. */
+#ifndef APP_ST67W6X_CLOUD_USE_TLS
+#define APP_ST67W6X_CLOUD_USE_TLS (0U)
+#endif
+
+#if ((APP_ST67W6X_CLOUD_USE_TLS != 0U) && \
+     (APP_ST67W6X_CLOUD_USE_TLS != 1U))
+#error "APP_ST67W6X_CLOUD_USE_TLS must be 0 or 1"
+#endif
+
+/* If TLS is re-enabled, verify the server by default. Setting this to 0 is
+ * an additional insecure diagnostic override, not an HTTP compatibility fix. */
+#ifndef APP_ST67W6X_CLOUD_TLS_VERIFY_SERVER
+#define APP_ST67W6X_CLOUD_TLS_VERIFY_SERVER (1U)
+#endif
+
+#if ((APP_ST67W6X_CLOUD_TLS_VERIFY_SERVER != 0U) && \
+     (APP_ST67W6X_CLOUD_TLS_VERIFY_SERVER != 1U))
+#error "APP_ST67W6X_CLOUD_TLS_VERIFY_SERVER must be 0 or 1"
 #endif
 
 #if (((APP_ST67W6X_BLE_GATT_ENABLED == 1U) || \

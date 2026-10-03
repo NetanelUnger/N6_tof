@@ -13,4 +13,10 @@
 #define LOG_INCLUDE_TIMESTAMP   (1)
 #define MAX_LOG_MESSAGE_LENGTH  (512U)
 
+/* The asynchronous USART1 transport owns a fixed, allocation-free slot pool.
+ * Keep the slot size equal to the largest formatted ST67 log record so one
+ * normal log line always fits in a single slot. */
+#define DEBUG_UART_SLOT_COUNT    (32U)
+#define DEBUG_UART_SLOT_SIZE     (512U)
+
 #endif /* LOGGING_CONFIG_H */

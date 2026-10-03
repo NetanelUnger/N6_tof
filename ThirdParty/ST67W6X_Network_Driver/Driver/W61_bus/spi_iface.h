@@ -80,6 +80,9 @@ struct spi_stat
   uint64_t io_err;                  /*!< Number of I/O errors */
   uint64_t hdr_err;                 /*!< Number of header errors */
   uint64_t wait_txn_timeouts;       /*!< Number of wait transaction timeouts */
+  uint64_t recovered_lost_ready;    /*!< Ready pin recovered a missing/coalesced event */
+  uint64_t transport_recoveries;    /*!< Local SPI aborts completed before retry */
+  uint64_t retry_exhaustions;       /*!< Bounded transaction retry windows exhausted */
   uint64_t wait_msg_xfer_timeouts;  /*!< Number of wait message transfer timeouts */
   uint64_t wait_hdr_ack_timeouts;   /*!< Number of wait header ack timeouts */
   uint64_t mem_err;                 /*!< Number of memory errors */

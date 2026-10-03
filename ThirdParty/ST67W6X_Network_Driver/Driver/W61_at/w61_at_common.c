@@ -22,6 +22,7 @@
 #include "w61_io.h"
 #include <stdlib.h>
 #include "modem_cmd_handler.h"
+#include "debug_uart.h"
 #include "stdio.h"
 #if (defined(SYS_DBG_ENABLE_TA4) && (SYS_DBG_ENABLE_TA4 >= 1))
 #include "trcRecorder.h"
@@ -310,6 +311,11 @@ int32_t W61_AT_ModemInit(W61_Object_t *Obj)
   int32_t ret = -1;
   struct modem *mdm = (struct modem *) &Obj->Modem;
 
+  mdm->spi_rx_pending = NULL;
+  mdm->spi_rx_pending_data = NULL;
+  mdm->spi_rx_pending_len = 0U;
+  mdm->spi_rx_pending_offset = 0U;
+
   /* Cmd handler */
   const struct modem_cmd_handler_config cmd_handler_config =
   {
@@ -339,13 +345,10 @@ int32_t W61_AT_ModemInit(W61_Object_t *Obj)
     goto __err;
   }
 
-  /* Assign rx_buff */
-  /** Linear RX buffer to process */
-  mdm->handler_data.rx_buf = pvPortMalloc(RX_BUF_SIZE);
-  if (mdm->handler_data.rx_buf == NULL)
-  {
-    goto __err;
-  }
+  /* The static modem object lives in application SRAM, not the constrained
+   * 64 KiB radio byte pool. Keep one extra sentinel byte for direct parsers. */
+  (void)memset(mdm->rx_assembly, 0, sizeof(mdm->rx_assembly));
+  mdm->handler_data.rx_buf = mdm->rx_assembly;
 
   ret = modem_cmd_handler_init(&mdm->handler, &mdm->handler_data,
                                &cmd_handler_config);
@@ -386,9 +389,22 @@ int32_t W61_AT_ModemInit(W61_Object_t *Obj)
 
   return ret;
 __err:
+  if (mdm->modem_task_handle != NULL)
+  {
+    vTaskDelete(mdm->modem_task_handle);
+    mdm->modem_task_handle = NULL;
+  }
+  if (mdm->spi_rx_pending != NULL)
+  {
+    (void)BusIo_SPI_Free(mdm->spi_rx_pending);
+    mdm->spi_rx_pending = NULL;
+  }
+  mdm->spi_rx_pending_data = NULL;
+  mdm->spi_rx_pending_len = 0U;
+  mdm->spi_rx_pending_offset = 0U;
   if (mdm->handler_data.rx_buf != NULL)
   {
-    vPortFree(mdm->handler_data.rx_buf);
+    (void)memset(mdm->rx_assembly, 0, sizeof(mdm->rx_assembly));
     mdm->handler_data.rx_buf = NULL;
   }
   if (mdm->sem_response != NULL)
@@ -405,11 +421,6 @@ __err:
   {
     vSemaphoreDelete(mdm->sem_tx_ready);
     mdm->sem_tx_ready = NULL;
-  }
-  if (mdm->modem_task_handle != NULL)
-  {
-    vTaskDelete(mdm->modem_task_handle);
-    mdm->modem_task_handle = NULL;
   }
   return ret;
 }
@@ -417,10 +428,23 @@ __err:
 void W61_AT_ModemDeInit(W61_Object_t *Obj)
 {
   struct modem *mdm = (struct modem *) &Obj->Modem;
+  if (mdm->modem_task_handle != NULL)
+  {
+    vTaskDelete(mdm->modem_task_handle);
+    mdm->modem_task_handle = NULL;
+  }
   (void)io_deinit(&mdm->iface);
+  if (mdm->spi_rx_pending != NULL)
+  {
+    (void)BusIo_SPI_Free(mdm->spi_rx_pending);
+    mdm->spi_rx_pending = NULL;
+  }
+  mdm->spi_rx_pending_data = NULL;
+  mdm->spi_rx_pending_len = 0U;
+  mdm->spi_rx_pending_offset = 0U;
   if (mdm->handler_data.rx_buf != NULL)
   {
-    vPortFree(mdm->handler_data.rx_buf);
+    (void)memset(mdm->rx_assembly, 0, sizeof(mdm->rx_assembly));
     mdm->handler_data.rx_buf = NULL;
   }
   if (mdm->sem_response != NULL)
@@ -437,11 +461,6 @@ void W61_AT_ModemDeInit(W61_Object_t *Obj)
   {
     vSemaphoreDelete(mdm->sem_tx_ready);
     mdm->sem_tx_ready = NULL;
-  }
-  if (mdm->modem_task_handle != NULL)
-  {
-    vTaskDelete(mdm->modem_task_handle);
-    mdm->modem_task_handle = NULL;
   }
 }
 
@@ -479,18 +498,63 @@ W61_Status_t W61_AT_Common_SetExecute(W61_Object_t *Obj, uint8_t *p_cmd, uint32_
                                    timeout_ms));
 }
 
+TickType_t W61_AT_Common_RemainingTxBudget(TickType_t started_at, uint32_t timeout_ms)
+{
+  TickType_t budget = pdMS_TO_TICKS(timeout_ms);
+  TickType_t elapsed = xTaskGetTickCount() - started_at;
+
+  return (elapsed >= budget) ? 0U : (budget - elapsed);
+}
+
+TickType_t W61_AT_Common_TakeTxLockBudget(SemaphoreHandle_t lock, uint32_t timeout_ms,
+                                          TickType_t *started_at)
+{
+  TickType_t remaining;
+
+  if ((lock == NULL) || (started_at == NULL))
+  {
+    return 0U;
+  }
+  *started_at = xTaskGetTickCount();
+  if (xSemaphoreTake(lock, pdMS_TO_TICKS(timeout_ms)) != pdPASS)
+  {
+    return 0U;
+  }
+  remaining = W61_AT_Common_RemainingTxBudget(*started_at, timeout_ms);
+  if (remaining == 0U)
+  {
+    (void)xSemaphoreGive(lock);
+    return 0U;
+  }
+  return remaining;
+}
+
 W61_Status_t W61_AT_Common_Query_Parse(W61_Object_t *Obj, char *p_cmd, char *p_resp,
                                        uint16_t *argc, char **argv, uint32_t timeout_ms)
 {
   struct modem *mdm = (struct modem *) &Obj->Modem;
   struct modem_cmd_handler_data *data = (struct modem_cmd_handler_data *)mdm->handler.cmd_handler_data;
   W61_Status_t ret;
+  TickType_t lock_budget = pdMS_TO_TICKS(timeout_ms);
+  TickType_t started_at = xTaskGetTickCount();
+  TickType_t remaining;
 
   if (data == NULL)
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data->sem_tx_lock, portMAX_DELAY);
+  if (xSemaphoreTake(data->sem_tx_lock, lock_budget) != pdPASS)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
+  remaining = xTaskGetTickCount() - started_at;
+  remaining = (remaining >= lock_budget) ? 0U :
+              (lock_budget - remaining);
+  if (remaining == 0U)
+  {
+    (void)xSemaphoreGive(data->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
   /* **argv reference p_cmd to ensure re-entrance */
   mdm->rx_data = p_cmd;
   mdm->argc = argc;
@@ -513,7 +577,7 @@ W61_Status_t W61_AT_Common_Query_Parse(W61_Object_t *Obj, char *p_cmd, char *p_r
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)p_cmd,
                                       mdm->sem_response,
-                                      timeout_ms,
+                                      remaining,
                                       MODEM_NO_TX_LOCK));
   (void)xSemaphoreGive(data->sem_tx_lock);
   return ret;
@@ -526,6 +590,10 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
   int32_t ret;
   int32_t bytes_consumed_by_the_bus = 0;
   int32_t bytes_to_send;
+  TickType_t lock_budget = pdMS_TO_TICKS(timeout_ms);
+  TickType_t started_at = xTaskGetTickCount();
+  TickType_t elapsed;
+  TickType_t remaining;
 
   static const struct modem_cmd cmds[] =
   {
@@ -533,13 +601,23 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
     MODEM_CMD("Recv ", on_cmd_recv, 1U, " "),
   };
 
-  (void)xSemaphoreTake(mdm->handler_data.sem_tx_lock, portMAX_DELAY);
+  if (xSemaphoreTake(mdm->handler_data.sem_tx_lock, lock_budget) != pdPASS)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
+  elapsed = xTaskGetTickCount() - started_at;
+  if (elapsed >= lock_budget)
+  {
+    ret = -ETIMEDOUT;
+    goto out;
+  }
+  remaining = lock_budget - elapsed;
   /*reset mdm->sem_tx_read */
   (void)xSemaphoreTake(mdm->sem_tx_ready, 0);
 
   ret = modem_cmd_send_ext(&mdm->iface, &mdm->handler,
                            cmds, ARRAY_SIZE(cmds), p_cmd, mdm->sem_response,
-                           check_resp ? pdMS_TO_TICKS(timeout_ms) : 0U, /* If check_resp is false don't wait for OK */
+                           check_resp ? remaining : 0U, /* If check_resp is false don't wait for OK */
                            MODEM_NO_TX_LOCK | MODEM_NO_UNSET_CMDS);
   if (ret < 0)
   {
@@ -555,7 +633,18 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
   mdm->rx_data_len = len;
 
   /* Wait for '>' */
-  if (xSemaphoreTake(mdm->sem_tx_ready, pdMS_TO_TICKS(5000)) != pdPASS)
+  elapsed = xTaskGetTickCount() - started_at;
+  if (elapsed >= lock_budget)
+  {
+    ret = -ETIMEDOUT;
+    goto out;
+  }
+  remaining = lock_budget - elapsed;
+  if (remaining > pdMS_TO_TICKS(5000))
+  {
+    remaining = pdMS_TO_TICKS(5000);
+  }
+  if (xSemaphoreTake(mdm->sem_tx_ready, remaining) != pdPASS)
   {
     SYS_LOG_DEBUG("Timeout waiting for tx\n");
     ret = -ETIMEDOUT;
@@ -564,14 +653,38 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
 
   while (bytes_consumed_by_the_bus < len)
   {
+    int32_t bytes_written;
+
+    if ((xTaskGetTickCount() - started_at) >= lock_budget)
+    {
+      ret = -ETIMEDOUT;
+      goto out;
+    }
+
     bytes_to_send = len - bytes_consumed_by_the_bus;
-    bytes_consumed_by_the_bus += modem_cmd_send_data_nolock(&mdm->iface,
-                                                            &pdata[bytes_consumed_by_the_bus],
-                                                            bytes_to_send);
+    bytes_written = modem_cmd_send_data_nolock(&mdm->iface,
+                                               &pdata[bytes_consumed_by_the_bus],
+                                               bytes_to_send);
+    if ((bytes_written <= 0) || (bytes_written > bytes_to_send))
+    {
+      /* A failed/zero-length bus write cannot make forward progress.  Do not
+       * spin forever while holding sem_tx_lock: callers need the lock in
+       * order to report the transport failure and continue servicing BLE and
+       * Wi-Fi control traffic. */
+      ret = (bytes_written < 0) ? bytes_written : -EIO;
+      goto out;
+    }
+    bytes_consumed_by_the_bus += bytes_written;
   }
 
   /* Wait for "Recv " */
-  if (xSemaphoreTake(mdm->sem_response, pdMS_TO_TICKS(timeout_ms)) != pdPASS)
+  elapsed = xTaskGetTickCount() - started_at;
+  if (elapsed >= lock_budget)
+  {
+    ret = -ETIMEDOUT;
+    goto out;
+  }
+  if (xSemaphoreTake(mdm->sem_response, lock_budget - elapsed) != pdPASS)
   {
     SYS_LOG_DEBUG("No send response\n");
     ret = -ETIMEDOUT;
@@ -700,27 +813,75 @@ static void W61_Modem_Process_task(void *arg)
 }
 
 static int32_t modem_iface_spi_write(struct modem_iface *iface,
-                                     const uint8_t *buf, size_t size)
+                                      const uint8_t *buf, size_t size)
 {
+  int32_t result;
   if (size == 0U)
   {
     return 0;
   }
   AT_LOG_HOST_OUT((uint8_t *)buf, size);
-  return BusIo_SPI_SendData(SPI_MSG_CTRL_TRAFFIC_AT_CMD, (uint8_t *)buf, size, IO_SEND_TIMEOUT);
+  result = BusIo_SPI_SendData(SPI_MSG_CTRL_TRAFFIC_AT_CMD, (uint8_t *)buf, size, IO_SEND_TIMEOUT);
+  Debug_UART_NcpTrace("TX queued", buf, size, result);
+  return result;
 }
 
 static int32_t modem_iface_spi_read(struct modem_iface *iface,
                                     uint8_t *buf, size_t size, size_t *bytes_read)
 {
-  int32_t received = BusIo_SPI_ReceiveData(SPI_MSG_CTRL_TRAFFIC_AT_CMD, buf, size, portMAX_DELAY);
-  AT_LOG_HOST_IN(buf, received);
-  if (received < 0)
+  struct modem *mdm;
+  size_t available;
+  size_t copy_len;
+  int32_t received;
+
+  if ((iface == NULL) || (buf == NULL) || (bytes_read == NULL) || (size == 0U))
   {
-    *bytes_read = 0;
-    return received;
+    return -EINVAL;
   }
-  *bytes_read = received;
+
+  mdm = CONTAINER_OF(iface, struct modem, iface);
+  *bytes_read = 0U;
+  if (mdm->spi_rx_pending == NULL)
+  {
+    /* Take ownership of the complete framed SPI packet. Never ask spi_read()
+     * to copy into the parser's remaining space: that API frees the packet
+     * even when its destination is shorter than the packet. */
+    received = BusIo_SPI_ReceivePtr(SPI_MSG_CTRL_TRAFFIC_AT_CMD,
+                                    &mdm->spi_rx_pending,
+                                    &mdm->spi_rx_pending_data,
+                                    portMAX_DELAY);
+    if ((received <= 0) || (mdm->spi_rx_pending == NULL) ||
+        (mdm->spi_rx_pending_data == NULL))
+    {
+      if (mdm->spi_rx_pending != NULL)
+      {
+        (void)BusIo_SPI_Free(mdm->spi_rx_pending);
+        mdm->spi_rx_pending = NULL;
+      }
+      mdm->spi_rx_pending_data = NULL;
+      return (received < 0) ? received : -EIO;
+    }
+    mdm->spi_rx_pending_len = (size_t)received;
+    mdm->spi_rx_pending_offset = 0U;
+  }
+
+  available = mdm->spi_rx_pending_len - mdm->spi_rx_pending_offset;
+  copy_len = (available < size) ? available : size;
+  (void)memcpy(buf, mdm->spi_rx_pending_data + mdm->spi_rx_pending_offset,
+               copy_len);
+  mdm->spi_rx_pending_offset += copy_len;
+  AT_LOG_HOST_IN(buf, copy_len);
+  Debug_UART_NcpTrace("RX read", buf, copy_len, (int32_t)copy_len);
+  *bytes_read = copy_len;
+
+  if (mdm->spi_rx_pending_offset == mdm->spi_rx_pending_len)
+  {
+    (void)BusIo_SPI_Free(mdm->spi_rx_pending);
+    mdm->spi_rx_pending = NULL;
+    mdm->spi_rx_pending_data = NULL;
+    mdm->spi_rx_pending_len = 0U;
+    mdm->spi_rx_pending_offset = 0U;
+  }
   return 0;
 }
 
@@ -853,7 +1014,15 @@ MODEM_CMD_DIRECT_DEFINE(on_cmd_ble_write_data_event)
 
   if (Obj->Callbacks.Ble_event_data_cb != NULL)
   {
-    return Obj->Callbacks.Ble_event_data_cb(W61_BLE_EVT_WRITE_ID, data, len);
+    int32_t consumed = Obj->Callbacks.Ble_event_data_cb(W61_BLE_EVT_WRITE_ID,
+                                                        data, len);
+    if ((consumed > 0) && (data->rx_buf != NULL) &&
+        ((size_t)consumed <= data->rx_buf_len))
+    {
+      Debug_UART_NcpTracePingFrame("NCP direct parsed", data->rx_buf,
+                                   (size_t)consumed);
+    }
+    return consumed;
   }
   return 0;
 }

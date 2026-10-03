@@ -128,6 +128,20 @@ int32_t spi_port_transfer(void *tx_buf, void *rx_buf, uint16_t len, uint32_t tim
 int32_t spi_port_transfer_dma(void *tx_buf, void *rx_buf, uint16_t len);
 
 /**
+  * @brief  Query the completion status of the most recent DMA transaction
+  * @retval 0 only when the HAL completion callback reported a clean, idle SPI;
+  *         -1 after an error callback or while the peripheral is still busy
+  */
+int32_t spi_port_transfer_dma_status(void);
+
+/**
+  * @brief  Abort an incomplete local SPI transaction and return the HAL
+  *         peripheral/DMA state to idle. This does not reset the NCP.
+  * @retval 0 if successful, -1 otherwise
+  */
+int32_t spi_port_abort(void);
+
+/**
   * @brief  Check if NCP requires to send a new data packet
   * @retval 1 if ready, 0 otherwise
   */

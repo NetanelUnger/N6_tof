@@ -369,6 +369,14 @@ void EXTI9_IRQHandler(void)
   HAL_GPIO_EXTI_IRQHandler(SPI_RDY_Pin);
 }
 
+/**
+  * @brief This function handles interrupt-driven debug USART1 transmission.
+  */
+void USART1_IRQHandler(void)
+{
+  Debug_UART_IRQHandler();
+}
+
 #if defined(TCPP0203_SUPPORT)
 /**
   * @brief Handles the active-low fault/VBUS event output of the TCPP0203 on CN8.

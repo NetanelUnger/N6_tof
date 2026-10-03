@@ -73,27 +73,82 @@ typedef struct
 
 /* Private variables ---------------------------------------------------------*/
 
-static ULONG cdc_acm_interface_number;
-static ULONG cdc_acm_configuration_number;
-static UX_SLAVE_CLASS_CDC_ACM_PARAMETER cdc_acm_parameter;
-static TX_THREAD ux_device_app_thread;
-
 /* USER CODE BEGIN PV */
 extern PCD_HandleTypeDef           hpcd_USB_OTG_HS1;
-static TX_QUEUE                    usb_device_state_queue;
-static TX_TIMER                    usb_cdc_probe_timer;
-static ULONG                       usb_device_queue_storage[APP_USB_DEVICE_QUEUE_DEPTH * 2U];
-static UINT                        usb_device_started;
-static UINT                        usb_cdc_active;
-static UINT                        usb_cdc_probe_sent;
-static UINT                        usb_cdc_recovery_count;
-static UX_SLAVE_CLASS_CDC_ACM     *usb_cdc_current_instance;
-static volatile ULONG             usb_device_event_post_failures;
-static volatile ULONG             usb_device_event_post_failures_by_type[APP_USB_DEVICE_EVENT_COUNT];
-static volatile ULONG             usb_device_last_failed_event_type;
-static volatile ULONG             usb_device_last_failed_event_status;
-static volatile ULONG             usb_cdc_parameter_change_count;
-static volatile UINT              usb_cdc_dtr_asserted;
+typedef struct
+{
+  struct
+  {
+    TX_THREAD control;
+    volatile ULONG started;
+    volatile ULONG events_processed;
+    volatile ULONG last_tick;
+  } thread;
+  struct
+  {
+    TX_QUEUE state_queue;
+    TX_TIMER probe_timer;
+    ULONG queue_storage[APP_USB_DEVICE_QUEUE_DEPTH * 2U];
+  } work;
+  struct
+  {
+    ULONG cdc_interface_number;
+    ULONG cdc_configuration_number;
+    UX_SLAVE_CLASS_CDC_ACM_PARAMETER cdc_parameter;
+    UINT device_started;
+    UINT cdc_active;
+    UINT probe_sent;
+    UINT recovery_count;
+    UX_SLAVE_CLASS_CDC_ACM *current_instance;
+    volatile UINT dtr_asserted;
+  } state;
+  struct
+  {
+    volatile ULONG event_post_failures;
+    volatile ULONG event_post_failures_by_type[APP_USB_DEVICE_EVENT_COUNT];
+    volatile ULONG last_failed_event_type;
+    volatile ULONG last_failed_event_status;
+    volatile ULONG parameter_change_count;
+  } counters;
+} AppUsbContext_t;
+static AppUsbContext_t app_usb_context;
+
+void App_USBX_Device_GetStatus(App_USBX_DeviceStatus_t *status)
+{
+  if (status == NULL)
+  {
+    return;
+  }
+  status->manager_started = app_usb_context.thread.started;
+  status->events_processed = app_usb_context.thread.events_processed;
+  status->last_event_tick = app_usb_context.thread.last_tick;
+  status->device_started = app_usb_context.state.device_started;
+  status->cdc_active = app_usb_context.state.cdc_active;
+  status->dtr_asserted = app_usb_context.state.dtr_asserted;
+  status->recovery_count = app_usb_context.state.recovery_count;
+  status->event_post_failures = app_usb_context.counters.event_post_failures;
+  status->last_failed_event_type = app_usb_context.counters.last_failed_event_type;
+  status->last_failed_event_status = app_usb_context.counters.last_failed_event_status;
+}
+
+#define cdc_acm_interface_number app_usb_context.state.cdc_interface_number
+#define cdc_acm_configuration_number app_usb_context.state.cdc_configuration_number
+#define cdc_acm_parameter app_usb_context.state.cdc_parameter
+#define ux_device_app_thread app_usb_context.thread.control
+#define usb_device_state_queue app_usb_context.work.state_queue
+#define usb_cdc_probe_timer app_usb_context.work.probe_timer
+#define usb_device_queue_storage app_usb_context.work.queue_storage
+#define usb_device_started app_usb_context.state.device_started
+#define usb_cdc_active app_usb_context.state.cdc_active
+#define usb_cdc_probe_sent app_usb_context.state.probe_sent
+#define usb_cdc_recovery_count app_usb_context.state.recovery_count
+#define usb_cdc_current_instance app_usb_context.state.current_instance
+#define usb_cdc_dtr_asserted app_usb_context.state.dtr_asserted
+#define usb_device_event_post_failures app_usb_context.counters.event_post_failures
+#define usb_device_event_post_failures_by_type app_usb_context.counters.event_post_failures_by_type
+#define usb_device_last_failed_event_type app_usb_context.counters.last_failed_event_type
+#define usb_device_last_failed_event_status app_usb_context.counters.last_failed_event_status
+#define usb_cdc_parameter_change_count app_usb_context.counters.parameter_change_count
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -302,6 +357,7 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
   ULONG reported_parameter_changes = 0U;
 
   TX_PARAMETER_NOT_USED(thread_input);
+  app_usb_context.thread.started = 1U;
   Debug_UART_Log("USBX", "USB device control thread running");
   Debug_UART_Log("USBX", "Waiting for USB-PD CAD attach event");
 
@@ -313,6 +369,8 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
       Debug_UART_Log("USBX", "ERROR: device-state queue receive failed");
       Error_Handler();
     }
+    app_usb_context.thread.events_processed++;
+    app_usb_context.thread.last_tick = tx_time_get();
 
     if (usb_device_event_post_failures != reported_post_failures)
     {

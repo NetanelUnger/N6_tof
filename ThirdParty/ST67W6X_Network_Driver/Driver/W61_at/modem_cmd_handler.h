@@ -60,7 +60,7 @@ extern "C" {
 #endif /* CONFIG_MODEM_CMD_HANDLER_MAX_PARAM_COUNT */
 
 /** Size of the receive buffer */
-#define RX_BUF_SIZE        W61_MAX_SPI_XFER
+#define RX_BUF_SIZE        (2U * W61_MAX_SPI_XFER)
 
 #define EIO                 5       /*!< I/O error */
 #define EAGAIN              11      /*!< No more contexts */
@@ -182,6 +182,8 @@ struct modem_cmd_handler_data
   uint8_t *rx_buf;
   /** Length of RX net buffer */
   size_t rx_buf_len;
+  /** A record exceeded the bounded AT assembly buffer without a parse boundary */
+  uint32_t rx_assembly_overflows;
   /** TX lock */
   SemaphoreHandle_t sem_tx_lock;
   /** Parse lock */

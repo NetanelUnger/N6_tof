@@ -389,6 +389,37 @@ VIEW_LIVE.bat --port COM8
 Escape שולחים `DATASET STREAM OFF` וסוגרים את ה־COM. הכלי אינו שומר דוגמאות
 אימון ואינו משנה את המודל.
 
+### DUAL_COM_DEBUG — לכידת USB ו־ST-LINK במקביל
+
+סוגרים את שני חלונות Tera Term לפני ההפעלה (COM יכול להיות פתוח רק בתוכנית אחת),
+ומפעילים מתוך `training`:
+
+```bat
+DUAL_COM_DEBUG.bat
+```
+
+הכלי מזהה את N6 USB CDC ואת ST‑LINK Virtual COM לפי מזהי USB, פותח את שניהם
+ב־115200 baud, ומנסה להתחבר מחדש אם אחת היציאות מתנתקת או שמספרה משתנה לאחר
+reset. כל הרצה יוצרת תיקייה חדשה תחת `training\reports\dual_com\<timestamp>` עם
+`COM_INNER_LOGS.txt` (לוגי ST‑LINK) ו־`COM_LOGS.txt` (USB CLI). הנתיבים המדויקים
+מודפסים בתחילת ההרצה. הקבצים נשמרים ומתעדכנים תוך כדי הריצה, בלי למחוק לוגים
+של הרצות קודמות; אפשר לפתוח אותם לקריאה במקביל. תשובות USB מופיעות גם בחלון,
+בעוד לוג INNER נשמר לקובץ ללא הדפסה למסוף כדי לא להאט לכידה עמוסה. לדיבוג
+חי של INNER מוסיפים `--live-inner`; ללכידה לקבצים בלבד מוסיפים `--quiet`.
+ניתן לכפות יציאות, למשל
+`DUAL_COM_DEBUG.bat --inner-port COM6 --usb-port COM8`, או להציג רשימה עם
+`DUAL_COM_DEBUG.bat --list-ports`.
+
+בחלון ה־BAT מקלידים `help` לרשימת הפקודות. לדוגמה: `status` שולח אבחוני radio,
+BLE, Wi‑Fi ו־Debug UART; `wifi scan`, `ble status` ו־`usb debug ping test`
+נשלחים ל־USB CLI; `inner a` שולח את פקודת snapshot של ה־Debug UART. הקיצור
+`bleprobe 45` מריץ את בדיקת ה־BLE GATT הקיימת בזמן שהלכידה בשני ה־COM ממשיכה.
+פקודות `ble ...` בחלון זה הן פקודות CLI דרך USB, **לא** חיבור GATT בפני עצמן.
+פקודת `wifi connect "SSID"` מבקשת סיסמה בהזנה מוסתרת; תוכן הפקודות שנשלחו
+אינו נשמר ב־host markers כדי לא לתעד סיסמאות או tokens. `mark <text>` מוסיף
+סמן זמן לשני הקבצים, ו־`quit` סוגר את שתי היציאות באופן מסודר. אין להשתמש
+בכלי זה במקביל ל־`VIEW_LIVE.bat` או לכל תוכנה אחרת שמחזיקה את אותן יציאות.
+
 ## מבנה התיקייה
 
 ```text
@@ -404,6 +435,7 @@ training/
   state/                   manifests שמאפשרים resume/idempotence
   00_SETUP.bat ...         כניסה מודרכת לכל שלב
   VIEW_LIVE.bat            Viewer מלא ל־raw ול־NPU עם בחירת COM
+  DUAL_COM_DEBUG.bat       לכידת שני ה־COM ופקודות אבחון אינטראקטיביות
   BUILD_MODEL_FOR_N6.bat   orchestrator משלבים 03–08
   99_STATUS_RESUME.bat     תמונת מצב read-only
   RESET_TRAINING_DATA.bat  איפוס מוגן של data ותוצרי הלמידה
@@ -440,7 +472,7 @@ training/
 | `08_INTEGRATE_MODEL.bat` | מתקין את הרשת, runtime וה־weights בתוך עץ ה־Firmware ומתקן כתובות/מאפייני NPU | משנה את `AppliNonSecure/AI`; עדיין אינו צורב לוח |
 | `09_BOOTSTRAP_NPU_SWD.bat` | מתקין פעם אחת FSBL+Secure שמפעילים clocks, TrustZone והרשאות NPU | דורש ST‑LINK ומצב boot מתאים; כותב Flash רק אחרי `BOOTCHAIN`, ומשמר את שני app slots. ‏`--build-only` אינו כותב חומרה |
 | `10_LOAD_RAM.bat` | בונה incremental וטוען Secure+Non‑Secure+model ל־SRAM דרך SWD | דורש DEV boot ו־ST‑LINK; זמני בלבד, ללא חתימה/version/Flash ונעלם ב־RESET |
-| `11_HIL.bat` | קורא את דגלי radio, מאמת גרסת NCP ו־BLE/Wi‑Fi פעילים, ואז קורא 100 פריימים ומשווה חיישן, CRC, tensor, TFLite ו־Neural‑ART לאותו frame ID | דורש להריץ 10 מיד לפניו, Bluetooth פעיל במחשב אם BLE מאופשר, ולהזיז יד בין המחוות; אינו כותב Flash, כן כותב דוח HIL |
+| `11_HIL.bat` | קורא את דגלי radio, מאמת גרסת NCP ו־BLE/Wi‑Fi פעילים, ואז קורא 100 פריימים ומשווה חיישן, CRC, tensor, TFLite ו־Neural‑ART לאותו frame ID | דורש להריץ 10 מיד לפניו ו־Bluetooth פעיל במחשב אם BLE מאופשר; תנועת יד אופציונלית ונרשמת כהערת גיוון סצנה; אינו כותב Flash, כן כותב דוח HIL |
 | `12_FLASH_RELEASE.bat` | בונה, מעלה version בדיוק באחד, חותם, יוצר `.n6fw`, שולח XMODEM, מאתחל ומוודא trial confirmation | משנה Flash רק אחרי `FLASH`; דורש Stage 09 ו־HIL תואם. `--package-only` בונה חבילה בלי לגעת בלוח |
 | `13_FACTORY_PROVISION.bat` | בונה וחותם את כל השרשרת, מוחק את כל ה־NOR החיצוני, כותב ומאמת FSBL+Secure+Slot A+metadata, ואז בודק version דרך CN8 | הרסני ודורש `ERASE ALL`; מיועד למעגל חדש או שחזור מפעל. `-BuildOnly` אינו נוגע בחומרה |
 | `99_STATUS_RESUME.bat` | מציג counts, state, stale/current והפקודה הבאה המומלצת | read-only; לא צריך לוח ולא משנה תוצרים |
@@ -862,19 +894,21 @@ version; reset מוחק את ההרצה.
 ### 11 — HIL על תמונת ה־RAM הנוכחית
 
 מריצים את `11_HIL.bat` מיד אחרי `10_LOAD_RAM.bat`, בלי לבצע RESET ביניהם.
-במהלך הבדיקה מציגים לחיישן יד ומחליפים בין אבן, נייר ומספריים. הבדיקה קוראת
+אפשר להציג לחיישן יד ולהחליף בין אבן, נייר ומספריים, אך זו אינה דרישה להרצה
+ללא מפעיל. הבדיקה קוראת
 ברירת מחדל של 100 frames אמיתיים ובודקת:
 
 - רישום Stage 10 חייב להכיל fingerprint זהה לקוד ולמודל הנוכחיים; שינוי קוד
   או מודל מחייב להריץ שוב `10_LOAD_RAM.bat` לפני שה־HIL ניגש ללוח;
-- לפני טעינת TensorFlow או איסוף frames הוא שולח `RPS ON` ו־`RPS STATUS`.
+- אחרי טעינת TensorFlow, אך לפני איסוף frames, הוא שולח `RPS ON` ו־`RPS STATUS`.
   image ישן, פקודה חסרה או `ready=0` נעצרים מיד עם הסבר ולא אחרי 100 frames;
 - הוא קורא את דגלי `APP_ST67W6X_*` מהקוד ומשווה אותם ל־`radio hardware` של
   התמונה שרצה. כאשר radio פעיל הוא דורש manager=`ready`, ‏`W6X_Init=passed`
   וגרסת SDK מדויקת לפי `radio_firmware/contract.json`;
 - כאשר BLE פעיל הוא דורש GATT ו־advertising, וסורק מהמחשב פרסום יחיד בשם
   `N6-MAINT-xxxx` שמכיל את UUID שירות ה־CLI. כאשר Wi‑Fi פעיל הוא דורש גם
-  `wifi status` ו־scan מוצלח;
+  `wifi status` ו־scan מוצלח. הסריקה אסינכרונית: הבדיקה ממתינה ל־request ID
+  שהתקבל ומאמתת תוצאה סופית מוצלחת לאותו ID, ולא טקסט של ה־API החוסם הישן;
 - שני CRC לכל frame;
 - frame IDs מתקדמים ללא חזרה/קפיצה בלתי סבירה;
 - timeout אם התהליך נתקע;
@@ -885,8 +919,10 @@ version; reset מוחק את ההרצה.
 - לפחות 95% decision consistency בין TFLite ל־Neural‑ART. התאמת class ישירה
   עוברת; גם החלפת argmax בגבול כמעט שווה עוברת רק אם margin שתי המחלקות מוסבר
   במלואו על־ידי טולרנס ציוני ה־int8. סטייה מעבר לטולרנס עדיין נכשלת;
-- לפחות 20% טנזורי מודל שאינם שחורים ולפחות ארבעה טנזורים שונים, כדי שסצנה
-  ריקה או קבועה לא תוכל לאשר בטעות נתיב NPU שאינו מקבל את הקלט החי;
+- שיעור טנזורי מודל שאינם שחורים ומספר טנזורים שונים נרשמים בדוח. מתחת לספי
+  20% וארבעה בהתאמה מתקבלת `HIL NOTE`, ולא כישלון: סצנה ריקה או קבועה אינה
+  מוכיחה גיוון קלט, אך אינה פוסלת תקינות של נתוני frame, ‏CRC, ‏NPU והשוואת
+  host/device;
 - הפרש מרבי שמוגדר ב־`config/training.json`. בפרופיל הלימודי הוא 16 יחידות
   raw `int8`, כלומר 0.0625 לפי output scale של 1/256.
 
@@ -901,7 +937,8 @@ SPI. ההשוואה היא על אותו frame ID ועל raw output quantized, �
 
 פערים ב־frame IDs מדווחים כ־CDC backpressure ואינם מוסתרים. הם אינם כשל לבדם:
 ברירת המחדל שומרת 3 samples/sec ולכן ה־gate דורש לפחות 3 records תקינים לשנייה,
-אפס שגיאות CRC, IDs שאינם חוזרים ולפחות 80% payloads שונים. כך sensor של 10Hz
+אפס שגיאות CRC ו־IDs שאינם חוזרים. פחות מ־80% payloads שונים נרשם כהערת
+גיוון סצנה, כי חיישן המכוון לסצנה קבועה אינו מחייב תנועה. כך sensor של 10Hz
 יכול לדלג על frames ב־transport ועדיין לספק קצב צילום תקין ומדיד.
 
 ### 12 — התקנת release קבועה

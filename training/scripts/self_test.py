@@ -35,13 +35,26 @@ BLE init stage: 13, last W6X status: 0
 Name: N6-MAINT-1234
 Address: 00:11:22:33:44:55
 Wi-Fi station: disconnected
-Wi-Fi scan complete (status 0).
-Wi-Fi scan completed: 2 network(s).
+Wi-Fi scan request accepted: id=7.
+Wi-Fi scan request id=7: OK (0).
+Wi-Fi scan: 2 network(s).
 """
     radio_report = validate_radio_cli(radio_text, feature_flags, "2.0.106")
     assert radio_report["result"] == "pass"
     assert radio_report["observed_sdk_version"] == "2.0.106"
     assert radio_report["ble"]["device_name"] == "N6-MAINT-1234"
+    assert radio_report["wifi"]["request_id"] == 7
+    assert radio_report["wifi"]["scan_status"] == 0
+    for stale_or_failed in (
+        radio_text.replace("request id=7: OK", "request id=6: OK"),
+        radio_text.replace("request id=7: OK (0)", "request id=7: TIMEOUT (3)"),
+    ):
+        try:
+            validate_radio_cli(stale_or_failed, feature_flags, "2.0.106")
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("Wi-Fi HIL accepted a stale or failed scan")
 
     with tempfile.TemporaryDirectory() as temporary_root:
         state_path = Path(temporary_root) / "state.json"

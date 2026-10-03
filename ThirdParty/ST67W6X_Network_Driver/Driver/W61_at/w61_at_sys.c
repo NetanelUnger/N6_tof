@@ -459,6 +459,8 @@ W61_Status_t W61_GetStoreMode(W61_Object_t *Obj, uint32_t *mode)
 W61_Status_t W61_ReadEFuse(W61_Object_t *Obj, uint32_t addr, uint32_t nbytes, uint8_t *data)
 {
   W61_Status_t ret;
+  TickType_t remaining;
+  TickType_t started_at;
   char cmd[W61_CMDRSP_STRING_SIZE];
   W61_NULL_ASSERT_STR(Obj, W61_Obj_Null_str);
   W61_NULL_ASSERT(data);
@@ -474,9 +476,11 @@ W61_Status_t W61_ReadEFuse(W61_Object_t *Obj, uint32_t addr, uint32_t nbytes, ui
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data_mdm->sem_tx_lock, portMAX_DELAY);
-
-  mdm->rx_data = data;
+  remaining = W61_AT_Common_TakeTxLockBudget(data_mdm->sem_tx_lock, W61_NCP_TIMEOUT, &started_at);
+  if (remaining == 0U)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
 
   /* Read the content of the eFuse at the specified address. The parameters are:
      - <nbytes>: The number of bytes to be read.
@@ -485,13 +489,20 @@ W61_Status_t W61_ReadEFuse(W61_Object_t *Obj, uint32_t addr, uint32_t nbytes, ui
      The response is in the form of
      +EFUSE-R:<nbytes>,[data] */
   (void)snprintf((char *)cmd, W61_CMDRSP_STRING_SIZE, "AT+EFUSE-R=%" PRIu32 ",\"0x%03" PRIx32 "\",1\r\n", nbytes, addr);
+  remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_NCP_TIMEOUT);
+  if (remaining == 0U)
+  {
+    (void)xSemaphoreGive(data_mdm->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
+  mdm->rx_data = data;
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
                                       &mdm->handler,
                                       handlers,
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)cmd,
                                       mdm->sem_response,
-                                      W61_NCP_TIMEOUT,
+                                      remaining,
                                       MODEM_NO_TX_LOCK));
 
   (void)xSemaphoreGive(data_mdm->sem_tx_lock);
@@ -561,6 +572,8 @@ W61_Status_t W61_FS_ReadFile(W61_Object_t *Obj, char *filename, uint32_t offset,
   W61_NULL_ASSERT(data);
 
   W61_Status_t ret;
+  TickType_t remaining;
+  TickType_t started_at;
   struct modem *mdm = (struct modem *) &Obj->Modem;
   struct modem_cmd_handler_data *data_mdm = (struct modem_cmd_handler_data *)mdm->handler.cmd_handler_data;
 
@@ -573,9 +586,11 @@ W61_Status_t W61_FS_ReadFile(W61_Object_t *Obj, char *filename, uint32_t offset,
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data_mdm->sem_tx_lock, portMAX_DELAY);
-
-  mdm->rx_data = (void *)data;
+  remaining = W61_AT_Common_TakeTxLockBudget(data_mdm->sem_tx_lock, W61_NCP_TIMEOUT, &started_at);
+  if (remaining == 0U)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
 
   /* Read the specified file in the filesystem. The parameters are:
     - <type>: 0
@@ -587,13 +602,20 @@ W61_Status_t W61_FS_ReadFile(W61_Object_t *Obj, char *filename, uint32_t offset,
     +FS:READ,<nbytes>,[data] */
   (void)snprintf(cmd, W61_CMDRSP_STRING_SIZE, "AT+FS=0,3,\"%s\",%" PRIu32 ",%" PRIu32 "\r\n",
                  filename, offset, len);
+  remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_NCP_TIMEOUT);
+  if (remaining == 0U)
+  {
+    (void)xSemaphoreGive(data_mdm->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
+  mdm->rx_data = (void *)data;
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
                                       &mdm->handler,
                                       handlers,
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)cmd,
                                       mdm->sem_response,
-                                      W61_NCP_TIMEOUT,
+                                      remaining,
                                       MODEM_NO_TX_LOCK));
 
   (void)xSemaphoreGive(data_mdm->sem_tx_lock);
@@ -635,6 +657,8 @@ W61_Status_t W61_FS_GetSizeFile(W61_Object_t *Obj, char *filename, uint32_t *siz
 W61_Status_t W61_FS_ListFiles(W61_Object_t *Obj, W61_FS_FilesList_t *files_list)
 {
   W61_Status_t ret;
+  TickType_t remaining;
+  TickType_t started_at;
   W61_NULL_ASSERT_STR(Obj, W61_Obj_Null_str);
   W61_NULL_ASSERT_STR(files_list, "File list pointer is NULL");
 
@@ -650,11 +674,11 @@ W61_Status_t W61_FS_ListFiles(W61_Object_t *Obj, W61_FS_FilesList_t *files_list)
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data->sem_tx_lock, portMAX_DELAY);
-
-  mdm->rx_data = (void *)files_list;
-
-  files_list->nb_files = 0; /* Reset the number of files */
+  remaining = W61_AT_Common_TakeTxLockBudget(data->sem_tx_lock, W61_NCP_TIMEOUT, &started_at);
+  if (remaining == 0U)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
 
   /* Get the files list in the filesystem. The parameters are:
     - <type>: 0
@@ -662,13 +686,21 @@ W61_Status_t W61_FS_ListFiles(W61_Object_t *Obj, W61_FS_FilesList_t *files_list)
     - <dirname>: The name of the directory to list files from
     The multiline responses are in the form of
     +FS:LIST,<nfiles>,[filename] */
+  remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_NCP_TIMEOUT);
+  if (remaining == 0U)
+  {
+    (void)xSemaphoreGive(data->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
+  mdm->rx_data = (void *)files_list;
+  files_list->nb_files = 0; /* Reset the number of files */
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
                                       &mdm->handler,
                                       handlers,
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)"AT+FS=0,5,\".\"\r\n",
                                       mdm->sem_response,
-                                      W61_NCP_TIMEOUT,
+                                      remaining,
                                       MODEM_NO_TX_LOCK));
 
   (void)xSemaphoreGive(data->sem_tx_lock);

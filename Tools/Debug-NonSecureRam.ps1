@@ -3,7 +3,7 @@ param(
 
     [switch]$Run,
 
-    [ValidateRange(1, 65535)]
+    [ValidateRange(1, 65533)]
     [int]$GdbPort = 61234,
 
     [ValidateRange(100, 50000)]
@@ -22,6 +22,46 @@ function ConvertTo-GdbPath {
     return ((Resolve-Path -LiteralPath $Path).Path -replace '\\', '/')
 }
 
+function Resolve-N6GdbPort {
+    param(
+        [int]$PreferredPort,
+        [switch]$AllowFallback
+    )
+
+    $candidates = @($PreferredPort)
+    if ($AllowFallback) {
+        $candidates += 0..19 | ForEach-Object { 61300 + (3 * $_) }
+    }
+    foreach ($candidate in $candidates) {
+        $listeners = @()
+        try {
+            # Bind without connecting to a server. This also detects Windows
+            # reserved ports, which do not appear as active TCP listeners.
+            # ST-LINK opens the GDB port and its adjacent SWV port; leave room
+            # for the semihost console port as well.
+            foreach ($offset in 0..2) {
+                $listener = [Net.Sockets.TcpListener]::new(
+                    [Net.IPAddress]::Any, ($candidate + $offset))
+                $listeners += $listener
+                $listener.Server.ExclusiveAddressUse = $true
+                $listener.Start()
+            }
+            return $candidate
+        }
+        catch [Net.Sockets.SocketException] {
+            if (-not $AllowFallback) {
+                throw "GDB port range $candidate..$($candidate + 2) is occupied or reserved by Windows. Close the other debugger or rerun with -GdbPort 61300. Socket error: $($_.Exception.SocketErrorCode)."
+            }
+        }
+        finally {
+            foreach ($listener in $listeners) {
+                $listener.Stop()
+            }
+        }
+    }
+    throw 'No available GDB port range was found. Close the other debugger or choose a free range with -GdbPort.'
+}
+
 function Wait-GdbServer {
     param(
         [Parameter(Mandatory = $true)][Diagnostics.Process]$Process,
@@ -32,8 +72,11 @@ function Wait-GdbServer {
 
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     while ([DateTime]::UtcNow -lt $deadline) {
+        $Process.Refresh()
         if ($Process.HasExited) {
-            throw "ST-LINK GDB server exited before accepting a connection (exit code $($Process.ExitCode))."
+            $Process.WaitForExit()
+            $exitCode = if ($null -eq $Process.ExitCode) { 'unavailable' } else { $Process.ExitCode }
+            throw "ST-LINK GDB server exited before accepting a connection (exit code $exitCode)."
         }
 
         # Do not probe this port with TcpClient. ST-LINK GDB server treats the
@@ -42,6 +85,7 @@ function Wait-GdbServer {
             -LocalPort $Port `
             -State Listen `
             -ErrorAction SilentlyContinue |
+            Where-Object { $_.OwningProcess -eq $Process.Id } |
             Select-Object -First 1
         if ($null -ne $listener) {
             return
@@ -49,7 +93,7 @@ function Wait-GdbServer {
         # Some Windows builds hide the owning listener from
         # Get-NetTCPConnection even though ST-LINK has completed startup.
         # The server emits this line only after its GDB socket is ready.
-        if (($null -ne $StartupLog) -and
+        if ((-not [string]::IsNullOrEmpty($StartupLog)) -and
             (Test-Path -LiteralPath $StartupLog) -and
             (Select-String -Quiet -LiteralPath $StartupLog `
                 -Pattern 'Waiting for debugger connection')) {
@@ -61,6 +105,13 @@ function Wait-GdbServer {
 }
 
 $tools = Get-N6DevelopmentTools -IdeRoot $IdeRoot
+
+$preferredGdbPort = $GdbPort
+$GdbPort = Resolve-N6GdbPort -PreferredPort $GdbPort `
+    -AllowFallback:(-not $PSBoundParameters.ContainsKey('GdbPort'))
+if ($GdbPort -ne $preferredGdbPort) {
+    Write-Host "Default GDB port range $preferredGdbPort..$($preferredGdbPort + 2) is unavailable; using $GdbPort..$($GdbPort + 2)."
+}
 
 $probeOutput = (& (Join-Path $tools.ProgrammerBin 'STM32_Programmer_CLI.exe') `
     -l stlink 2>&1) -join "`n"
@@ -181,6 +232,7 @@ $serverArguments = @(
 Write-Host ('Starting DEV-boot RAM debug through the known-good FSBL handoff at 0x{0:X8}. Local Secure main: 0x{1:X8}.' -f $fsblJumpToApplication, $secureMain)
 Write-Host 'Both the locally built Secure runtime and Non-Secure application will be replaced in SRAM; external NOR is unchanged.'
 Write-Host 'Required jumpers: BOOT0=1-2 and BOOT1=2-3. A reset returns to the DEV-boot ROM; rerun this script to restore the RAM build.'
+Write-Host "GDB TCP port: $GdbPort. Startup logs: $serverStdout and $serverStderr"
 
 # Windows treats environment-variable names case-insensitively, but a parent
 # process can still hand PowerShell both Path and PATH entries.  The build
@@ -210,17 +262,22 @@ try {
         Wait-GdbServer -Process $server -Port $GdbPort -StartupLog $serverStdout
     }
     catch {
+        $startupFailure = $_.Exception.Message
         Start-Sleep -Milliseconds 100
-        $serverStartupOutput = if (Test-Path -LiteralPath $serverStdout) {
-            Get-Content -Raw -LiteralPath $serverStdout
+        $serverStartupOutput = foreach ($logPath in @($serverStdout, $serverStderr)) {
+            if (Test-Path -LiteralPath $logPath) {
+                Get-Content -LiteralPath $logPath -Tail 30
+            }
         }
-        else {
-            ''
+        $serverStartupOutput = $serverStartupOutput -join "`n"
+        $logDetails = "`nST-LINK startup output:`n$serverStartupOutput`nLogs: $serverStdout; $serverStderr; $serverLog"
+        if ($serverStartupOutput -match 'Failed to bind|TCP port .* not available|Failure starting.*server') {
+            throw "ST-LINK could not start its TCP server. Port range $GdbPort..$($GdbPort + 2) may have become occupied or reserved. Rerun with -GdbPort 61300.$logDetails"
         }
         if ($serverStartupOutput -match 'Target connection failed|Target not halted|No device found') {
-            throw "Unable to open STM32N6 debug access. Put BOOT0 at 1-2 and BOOT1 at 2-3, press RESET, and rerun. ST-LINK log: $serverStdout"
+            throw "Unable to open STM32N6 debug access. Put BOOT0 at 1-2 and BOOT1 at 2-3, press RESET, and rerun.$logDetails"
         }
-        throw
+        throw "$startupFailure$logDetails"
     }
 
     $gdbFsblPath = ConvertTo-GdbPath $fsblElf

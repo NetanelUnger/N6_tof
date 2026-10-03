@@ -79,56 +79,78 @@ _Static_assert(DISPLAY_APP_FRAME_STORAGE_SIZE <= TOF_RAW_BUFFER_SIZE,
                "Display frame storage must fit in a released ToF raw slot");
 #endif
 
-/* The renderer writes directly into a transport-owned static map slot. */
-static char *terminal_buffer;
-static size_t terminal_capacity;
-static TOF_RawFrame_t tof_raw_frame_pool[TOF_RAW_SLOT_COUNT]
-                                         __attribute__((aligned(32)));
-/* This full-frame transient is consumed by CPU processing just like the RPS
- * snapshots.  Keep it in the explicitly cleared SRAM3 workspace so enabling
- * BLE middleware cannot erode the VL53L9 transform heap contract in SRAM2. */
-static float tof_depth_data[TOF_DEPTH_PIXEL_COUNT] NPU_SHARED_BSS;
-/* The selected auxiliary channel and displayed depth filters use this buffer
- * at different points in a frame.  Reusing it preserves transform heap margin
- * instead of reserving four full auxiliary images. */
-static float tof_processing_workspace[TOF_DEPTH_PIXEL_COUNT]
-                                     NPU_SHARED_BSS;
-static uint8_t tof_calibration[VL53L9_CALIB_DATA_SIZE];
-static TX_QUEUE tof_free_queue;
-static TX_QUEUE tof_ready_queue;
-static TX_EVENT_FLAGS_GROUP tof_pipeline_flags;
-static ULONG tof_free_queue_storage[TOF_RAW_SLOT_COUNT];
-static ULONG tof_ready_queue_storage[TOF_RAW_SLOT_COUNT];
-static transform_t *tof_transform;
-static uint16_t tof_raw_buffer_size;
-static uint8_t tof_depth_width;
-static uint8_t tof_depth_height;
-static volatile uint32_t tof_pipeline_initialized;
-static volatile TOF_App_State_t tof_state = TOF_APP_STATE_STARTING;
-static volatile uint32_t tof_map_enabled;
-static volatile uint32_t tof_map_channel_mask = 1UL;
-static volatile TOF_App_Channel_t tof_map_active_channel =
-    TOF_APP_CHANNEL_DEPTH;
-static TOF_App_Channel_t tof_map_next_channel = TOF_APP_CHANNEL_DEPTH;
-static volatile uint32_t tof_dataset_stream_enabled;
-static volatile uint32_t tof_paused;
-static volatile uint32_t tof_width;
-static volatile uint32_t tof_height;
-static volatile uint32_t tof_frame_counter;
-static volatile uint32_t tof_fps_x10;
-static volatile uint32_t tof_acquired_frames;
-static volatile uint32_t tof_processed_frames;
-static volatile uint32_t tof_dropped_frames;
-static volatile uint32_t tof_queue_failures;
-static volatile uint32_t tof_minimum_mm;
-static volatile uint32_t tof_maximum_mm;
-static volatile uint32_t tof_dataset_frames_submitted;
-static volatile uint32_t tof_dataset_frames_dropped;
-static volatile uint32_t tof_dataset_last_frame;
-static volatile uint32_t tof_dataset_last_crc32;
-static volatile int tof_error_code;
-static const char *volatile tof_error_stage;
-static TOF_ImageProcessingConfig_t tof_processing_config;
+/* SRAM3 remains a distinct section; the root context points to it for debug. */
+typedef struct
+{
+    float depth_data[TOF_DEPTH_PIXEL_COUNT];
+    float processing_workspace[TOF_DEPTH_PIXEL_COUNT];
+} TOF_Workspace_t;
+static TOF_Workspace_t tof_workspace NPU_SHARED_BSS;
+
+typedef struct
+{
+    struct
+    {
+        volatile uint32_t started;
+        volatile uint32_t cycles;
+        volatile uint32_t last_tick;
+    } acquisition_thread, processing_thread;
+    struct
+    {
+        char *terminal_buffer;
+        size_t terminal_capacity;
+        TOF_RawFrame_t raw_frame_pool[TOF_RAW_SLOT_COUNT]
+                                          __attribute__((aligned(32)));
+        uint8_t calibration[VL53L9_CALIB_DATA_SIZE];
+        TX_QUEUE free_queue;
+        TX_QUEUE ready_queue;
+        TX_EVENT_FLAGS_GROUP pipeline_flags;
+        ULONG free_queue_storage[TOF_RAW_SLOT_COUNT];
+        ULONG ready_queue_storage[TOF_RAW_SLOT_COUNT];
+        TOF_Workspace_t *workspace;
+    } buffers;
+    struct
+    {
+        transform_t *transform;
+        uint16_t raw_buffer_size;
+        uint8_t depth_width;
+        uint8_t depth_height;
+        volatile uint32_t pipeline_initialized;
+        volatile TOF_App_State_t state;
+        volatile uint32_t map_enabled;
+        volatile uint32_t map_channel_mask;
+        volatile TOF_App_Channel_t map_active_channel;
+        TOF_App_Channel_t map_next_channel;
+        volatile uint32_t dataset_stream_enabled;
+        volatile uint32_t paused;
+        volatile uint32_t width;
+        volatile uint32_t height;
+        TOF_ImageProcessingConfig_t processing_config;
+    } state;
+    struct
+    {
+        volatile uint32_t frame_counter;
+        volatile uint32_t fps_x10;
+        volatile uint32_t acquired_frames;
+        volatile uint32_t processed_frames;
+        volatile uint32_t dropped_frames;
+        volatile uint32_t queue_failures;
+        volatile uint32_t command_start_failures;
+        volatile uint32_t command_tx_wait_failures;
+        volatile uint32_t command_status_read_failures;
+        volatile uint32_t command_status_timeouts;
+        volatile uint32_t minimum_mm;
+        volatile uint32_t maximum_mm;
+        volatile uint32_t dataset_frames_submitted;
+        volatile uint32_t dataset_frames_dropped;
+        volatile uint32_t dataset_last_frame;
+        volatile uint32_t dataset_last_crc32;
+        volatile int error_code;
+        const char *volatile error_stage;
+    } counters;
+} TOF_Context_t;
+
+static TOF_Context_t tof_context;
 
 typedef struct
 {
@@ -143,17 +165,17 @@ typedef struct
 
 static const TOF_ChannelDescriptor_t tof_channel_descriptors[] = {
     { TOF_APP_CHANNEL_DEPTH, "depth", "ZF32", "DEPTH",
-      "calibrated distance", "mm", tof_depth_data },
+      "calibrated distance", "mm", tof_workspace.depth_data },
     { TOF_APP_CHANNEL_AMPLITUDE, "amplitude", "AF32", "AMPLITUDE",
       "active-IR return strength", "processed units",
-      tof_processing_workspace },
+      tof_workspace.processing_workspace },
     { TOF_APP_CHANNEL_AMBIENT, "ambient", "IF32", "AMBIENT",
-      "ambient-light level", "processed units", tof_processing_workspace },
+      "ambient-light level", "processed units", tof_workspace.processing_workspace },
     { TOF_APP_CHANNEL_REFLECTANCE, "reflectance", "RF32", "REFLECTANCE",
-      "estimated target reflectance", "%", tof_processing_workspace },
+      "estimated target reflectance", "%", tof_workspace.processing_workspace },
     { TOF_APP_CHANNEL_CONFIDENCE, "confidence", "CF32", "CONFIDENCE",
       "distance-measurement confidence", "processed units",
-      tof_processing_workspace },
+      tof_workspace.processing_workspace },
 };
 
 _Static_assert((sizeof(tof_channel_descriptors) /
@@ -226,28 +248,33 @@ UINT TOF_App_Init(void)
 {
     ULONG frame_message;
 
-    if (tof_pipeline_initialized != 0U)
+    if (tof_context.state.pipeline_initialized != 0U)
     {
         return TX_SUCCESS;
     }
 
-    TOF_ImageProcessing_InitConfig(&tof_processing_config);
+    tof_context.buffers.workspace = &tof_workspace;
+    tof_context.state.map_channel_mask = 1UL;
+    tof_context.state.map_active_channel = TOF_APP_CHANNEL_DEPTH;
+    tof_context.state.map_next_channel = TOF_APP_CHANNEL_DEPTH;
+
+    TOF_ImageProcessing_InitConfig(&tof_context.state.processing_config);
 
     if (platform_event_init() != 0)
     {
         return TX_GROUP_ERROR;
     }
 
-    if ((tx_queue_create(&tof_free_queue, "ToF free raw slots", TX_1_ULONG,
-                         tof_free_queue_storage,
-                         sizeof(tof_free_queue_storage)) != TX_SUCCESS) ||
-        (tx_queue_create(&tof_ready_queue, "ToF ready raw slots", TX_1_ULONG,
-                         tof_ready_queue_storage,
-                         sizeof(tof_ready_queue_storage)) != TX_SUCCESS))
+    if ((tx_queue_create(&tof_context.buffers.free_queue, "ToF free raw slots", TX_1_ULONG,
+                         tof_context.buffers.free_queue_storage,
+                         sizeof(tof_context.buffers.free_queue_storage)) != TX_SUCCESS) ||
+        (tx_queue_create(&tof_context.buffers.ready_queue, "ToF ready raw slots", TX_1_ULONG,
+                         tof_context.buffers.ready_queue_storage,
+                         sizeof(tof_context.buffers.ready_queue_storage)) != TX_SUCCESS))
     {
         return TX_QUEUE_ERROR;
     }
-    if (tx_event_flags_create(&tof_pipeline_flags,
+    if (tx_event_flags_create(&tof_context.buffers.pipeline_flags,
                               "ToF pipeline state") != TX_SUCCESS)
     {
         return TX_GROUP_ERROR;
@@ -255,16 +282,16 @@ UINT TOF_App_Init(void)
 
     for (uint32_t i = 0U; i < TOF_RAW_SLOT_COUNT; ++i)
     {
-        tof_raw_frame_pool[i].id = i;
-        frame_message = (ULONG)&tof_raw_frame_pool[i];
-        if (tx_queue_send(&tof_free_queue, &frame_message,
+        tof_context.buffers.raw_frame_pool[i].id = i;
+        frame_message = (ULONG)&tof_context.buffers.raw_frame_pool[i];
+        if (tx_queue_send(&tof_context.buffers.free_queue, &frame_message,
                           TX_NO_WAIT) != TX_SUCCESS)
         {
             return TX_QUEUE_ERROR;
         }
     }
 
-    tof_pipeline_initialized = 1U;
+    tof_context.state.pipeline_initialized = 1U;
     return TX_SUCCESS;
 }
 
@@ -276,34 +303,35 @@ void TOF_App_Acquire(void)
     vl53l9_device_t *sensor = &device[TOF_DEVICE_ID];
     vl53l9_profile_t profile = g_ranging_profiles[TOF_USECASE];
 
-    tof_state = TOF_APP_STATE_STARTING;
+    tof_context.acquisition_thread.started = 1U;
+    tof_context.state.state = TOF_APP_STATE_STARTING;
     Debug_UART_Log("TOF", "VL53L9CX acquisition task: initialization started");
 
     /* Let USBX finish its first scheduling pass before lengthy sensor setup. */
     tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 4U);
     tof_log("\r\nVL53L9CX: starting initialization...\r\n");
 
-    tof_transform = vl53l9_transform_create();
-    if (tof_transform == NULL)
+    tof_context.state.transform = vl53l9_transform_create();
+    if (tof_context.state.transform == NULL)
     {
         tof_fatal("transform create", -1);
     }
 
-    ret = vl53l9_get_raw_buffer_size(profile.binning, &tof_raw_buffer_size);
-    if ((ret != 0) || (tof_raw_buffer_size != TOF_RAW_BUFFER_SIZE))
+    ret = vl53l9_get_raw_buffer_size(profile.binning, &tof_context.state.raw_buffer_size);
+    if ((ret != 0) || (tof_context.state.raw_buffer_size != TOF_RAW_BUFFER_SIZE))
     {
         tof_fatal("raw buffer size", (ret != 0) ? ret : -1);
     }
 
-    ret = vl53l9_utils_get_resolution(profile.binning, &tof_depth_width,
-                                      &tof_depth_height);
-    if ((ret != 0) || (tof_depth_width != TOF_DEPTH_WIDTH) ||
-        (tof_depth_height != TOF_DEPTH_HEIGHT))
+    ret = vl53l9_utils_get_resolution(profile.binning, &tof_context.state.depth_width,
+                                      &tof_context.state.depth_height);
+    if ((ret != 0) || (tof_context.state.depth_width != TOF_DEPTH_WIDTH) ||
+        (tof_context.state.depth_height != TOF_DEPTH_HEIGHT))
     {
         tof_fatal("resolution", (ret != 0) ? ret : -1);
     }
-    tof_width = tof_depth_width;
-    tof_height = tof_depth_height;
+    tof_context.state.width = tof_context.state.depth_width;
+    tof_context.state.height = tof_context.state.depth_height;
 
     ret = platform_power_reset(TOF_DEVICE_ID);
     if (ret != 0)
@@ -320,7 +348,7 @@ void TOF_App_Acquire(void)
     {
         tof_fatal("sensor init", ret);
     }
-    ret = vl53l9_get_calib_data(sensor, tof_calibration);
+    ret = vl53l9_get_calib_data(sensor, tof_context.buffers.calibration);
     if (ret != 0)
     {
         tof_fatal("calibration read", ret);
@@ -334,9 +362,9 @@ void TOF_App_Acquire(void)
         tof_fatal("ranging profile", ret);
     }
 
-    ret = tof_configure_transform(tof_transform, tof_calibration,
+    ret = tof_configure_transform(tof_context.state.transform, tof_context.buffers.calibration,
                                   TOF_RAW_BUFFER_SIZE,
-                                  tof_depth_width, tof_depth_height);
+                                  tof_context.state.depth_width, tof_context.state.depth_height);
     if (ret != 0)
     {
         tof_fatal("depth transform", ret);
@@ -350,15 +378,15 @@ void TOF_App_Acquire(void)
     }
 
     tof_log("VL53L9CX: ready, %ux%u at up to %u fps.\r\n",
-            (unsigned int)tof_depth_width, (unsigned int)tof_depth_height,
+            (unsigned int)tof_context.state.depth_width, (unsigned int)tof_context.state.depth_height,
             (unsigned int)TOF_TARGET_FPS);
     Debug_UART_Log("TOF", "pipeline ready: 3x14842 raw slots, %ux%u depth, target=%u fps",
-                   (unsigned int)tof_depth_width,
-                   (unsigned int)tof_depth_height,
+                   (unsigned int)tof_context.state.depth_width,
+                   (unsigned int)tof_context.state.depth_height,
                    (unsigned int)TOF_TARGET_FPS);
 
-    tof_state = TOF_APP_STATE_READY;
-    UINT pipeline_status = tx_event_flags_set(&tof_pipeline_flags,
+    tof_context.state.state = TOF_APP_STATE_READY;
+    UINT pipeline_status = tx_event_flags_set(&tof_context.buffers.pipeline_flags,
                                               TOF_PIPELINE_READY_FLAG, TX_OR);
     if (pipeline_status != TX_SUCCESS)
     {
@@ -366,18 +394,25 @@ void TOF_App_Acquire(void)
                        (unsigned int)pipeline_status);
         tof_fatal("pipeline-ready event post", (int)pipeline_status);
     }
+#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+    /* The display owns SPI4. Only signal that the sensor pipeline is ready;
+     * the display task performs the actual transition to SYSTEM ON. */
+    Display_App_SetSystemReady();
+#endif
 
     for (;;)
     {
-        while (tof_paused != 0U)
+        tof_context.acquisition_thread.cycles++;
+        tof_context.acquisition_thread.last_tick = HAL_GetTick();
+        while (tof_context.state.paused != 0U)
         {
             ret = vl53l9_stop(sensor);
             if (ret != 0)
             {
                 tof_fatal("stream pause", ret);
             }
-            tof_state = TOF_APP_STATE_PAUSED;
-            while (tof_paused != 0U)
+            tof_context.state.state = TOF_APP_STATE_PAUSED;
+            while (tof_context.state.paused != 0U)
             {
                 tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 20U);
             }
@@ -388,7 +423,7 @@ void TOF_App_Acquire(void)
                 tof_fatal("stream resume", ret);
             }
         }
-        tof_state = TOF_APP_STATE_READY;
+        tof_context.state.state = TOF_APP_STATE_READY;
 
         if (first_frame_diagnostic != 0U)
         {
@@ -410,16 +445,16 @@ void TOF_App_Acquire(void)
             /* Keep live-display latency bounded: evict the oldest frame that
              * has not yet been claimed by the processing task. */
             ULONG evicted_message;
-            if (tx_queue_receive(&tof_ready_queue, &evicted_message,
+            if (tx_queue_receive(&tof_context.buffers.ready_queue, &evicted_message,
                                  TX_NO_WAIT) != TX_SUCCESS)
             {
-                ++tof_dropped_frames;
+                ++tof_context.counters.dropped_frames;
                 tof_log_queue_failure("no free or evictable raw slot",
                                       TX_QUEUE_EMPTY, NULL);
                 continue;
             }
             raw_frame = (TOF_RawFrame_t *)evicted_message;
-            ++tof_dropped_frames;
+            ++tof_context.counters.dropped_frames;
         }
 
         if (first_frame_diagnostic != 0U)
@@ -430,7 +465,7 @@ void TOF_App_Acquire(void)
         (void)platform_acknowledge_event(PLATFORM_I3C_DMA_RX_EVT);
         (void)platform_acknowledge_event(PLATFORM_I3C_ERROR_EVT);
         ret = vl53l9_frame_main_read_start_async(
-            sensor, raw_frame->data, tof_raw_buffer_size);
+            sensor, raw_frame->data, tof_context.state.raw_buffer_size);
         if (ret != 0)
         {
             tof_release_raw_frame(raw_frame);
@@ -455,7 +490,7 @@ void TOF_App_Acquire(void)
         (void)platform_acknowledge_event(PLATFORM_I3C_DMA_RX_EVT);
         (void)platform_acknowledge_event(PLATFORM_I3C_ERROR_EVT);
         ret = vl53l9_frame_dss_read_start_async(
-            sensor, raw_frame->data, tof_raw_buffer_size);
+            sensor, raw_frame->data, tof_context.state.raw_buffer_size);
         if (ret != 0)
         {
             tof_release_raw_frame(raw_frame);
@@ -480,7 +515,7 @@ void TOF_App_Acquire(void)
         (void)platform_acknowledge_event(PLATFORM_I3C_DMA_RX_EVT);
         (void)platform_acknowledge_event(PLATFORM_I3C_ERROR_EVT);
         ret = vl53l9_frame_status_read_start_async(
-            sensor, raw_frame->data, tof_raw_buffer_size);
+            sensor, raw_frame->data, tof_context.state.raw_buffer_size);
         if (ret != 0)
         {
             tof_release_raw_frame(raw_frame);
@@ -502,13 +537,13 @@ void TOF_App_Acquire(void)
             tof_fatal("frame acknowledge command", ret);
         }
 
-        ++tof_acquired_frames;
+        ++tof_context.counters.acquired_frames;
         ULONG ready_message = (ULONG)raw_frame;
-        UINT queue_status = tx_queue_send(&tof_ready_queue, &ready_message,
+        UINT queue_status = tx_queue_send(&tof_context.buffers.ready_queue, &ready_message,
                                           TX_NO_WAIT);
         if (queue_status != TX_SUCCESS)
         {
-            ++tof_dropped_frames;
+            ++tof_context.counters.dropped_frames;
             tof_log_queue_failure("publish ready raw slot", queue_status,
                                   raw_frame);
             tof_release_raw_frame(raw_frame);
@@ -529,9 +564,10 @@ void TOF_App_Process(void)
     uint32_t previous_tick;
     uint32_t first_frame_diagnostic = 1U;
 
+    tof_context.processing_thread.started = 1U;
     Debug_UART_Log("TOF", "processing task waiting for sensor pipeline");
     UINT pipeline_status = tx_event_flags_get(
-        &tof_pipeline_flags, TOF_PIPELINE_READY_FLAG,
+        &tof_context.buffers.pipeline_flags, TOF_PIPELINE_READY_FLAG,
         TX_AND, &actual_flags, TX_WAIT_FOREVER);
     if (pipeline_status != TX_SUCCESS)
     {
@@ -548,13 +584,15 @@ void TOF_App_Process(void)
 
     for (;;)
     {
+        tof_context.processing_thread.cycles++;
+        tof_context.processing_thread.last_tick = HAL_GetTick();
         int ret;
         memory_t channel_memory[2];
         memories_t channel_memories[2];
         stream_buffer_t stream_items[3];
 
         ULONG ready_message;
-        UINT queue_status = tx_queue_receive(&tof_ready_queue, &ready_message,
+        UINT queue_status = tx_queue_receive(&tof_context.buffers.ready_queue, &ready_message,
                                              TX_WAIT_FOREVER);
         if (queue_status != TX_SUCCESS)
         {
@@ -568,7 +606,7 @@ void TOF_App_Process(void)
         ble_image_requested = WIFI_BLE_App_IsTofImageSubscribed();
 #endif
         TOF_App_Channel_t map_channel =
-            ((tof_map_enabled != 0U) || (ble_image_requested != 0U)) ?
+            ((tof_context.state.map_enabled != 0U) || (ble_image_requested != 0U)) ?
             tof_select_next_map_channel() : TOF_APP_CHANNEL_NONE;
         const TOF_ChannelDescriptor_t *map_descriptor =
             tof_get_channel_descriptor(map_channel);
@@ -576,8 +614,8 @@ void TOF_App_Process(void)
         memory_t raw_memory = {
             .data = raw_frame->data,
             .offset = 0U,
-            .size = tof_raw_buffer_size,
-            .maxsize = tof_raw_buffer_size,
+            .size = tof_context.state.raw_buffer_size,
+            .maxsize = tof_context.state.raw_buffer_size,
             .flags = MEM_FLAG_NONE,
         };
         memories_t raw_memories = {
@@ -591,10 +629,10 @@ void TOF_App_Process(void)
             .buffer = { .memories = &raw_memories, .nb = 1U }
         };
         channel_memory[0] = (memory_t){
-            .data = (uint8_t *)tof_depth_data,
+            .data = (uint8_t *)tof_workspace.depth_data,
             .offset = 0U,
-            .size = sizeof(tof_depth_data),
-            .maxsize = sizeof(tof_depth_data),
+            .size = sizeof(tof_workspace.depth_data),
+            .maxsize = sizeof(tof_workspace.depth_data),
             .flags = MEM_FLAG_NONE,
         };
         channel_memories[0] = (memories_t){
@@ -612,10 +650,10 @@ void TOF_App_Process(void)
             (map_channel != TOF_APP_CHANNEL_DEPTH))
         {
             channel_memory[1] = (memory_t){
-                .data = (uint8_t *)tof_processing_workspace,
+                .data = (uint8_t *)tof_workspace.processing_workspace,
                 .offset = 0U,
-                .size = sizeof(tof_processing_workspace),
-                .maxsize = sizeof(tof_processing_workspace),
+                .size = sizeof(tof_workspace.processing_workspace),
+                .maxsize = sizeof(tof_workspace.processing_workspace),
                 .flags = MEM_FLAG_NONE,
             };
             channel_memories[1] = (memories_t){
@@ -641,7 +679,7 @@ void TOF_App_Process(void)
             Debug_UART_Log("TOF", "frame 1: processing raw frame %lu",
                            (unsigned long)raw_frame->id);
         }
-        ret = transform_process_stream(tof_transform, &stream_buffers);
+        ret = transform_process_stream(tof_context.state.transform, &stream_buffers);
         if (ret != 0)
         {
             tof_release_raw_frame(raw_frame);
@@ -650,7 +688,7 @@ void TOF_App_Process(void)
 
         vl53l9_frame_t frame = { 0 };
         ret = vl53l9_utils_parse_frame(raw_frame->data,
-                                       tof_raw_buffer_size, &frame);
+                                       tof_context.state.raw_buffer_size, &frame);
         if (ret != 0)
         {
             tof_release_raw_frame(raw_frame);
@@ -662,13 +700,13 @@ void TOF_App_Process(void)
         TOF_ImageProcessingConfig_t processing;
         RPS_AI_Status_t rps_status;
         RPS_AI_ImageView_t processing_view = { 0 };
-        const float *processed_depth = tof_depth_data;
+        const float *processed_depth = tof_workspace.depth_data;
         TOF_App_ChannelFrame_t map_frame = {
             .frame_id = frame.p_metadata->frame_counter,
             .channel_id = map_channel,
             .pixels = (map_descriptor != NULL) ? map_descriptor->pixels : NULL,
-            .width = tof_depth_width,
-            .height = tof_depth_height,
+            .width = tof_context.state.depth_width,
+            .height = tof_context.state.depth_height,
         };
         uint32_t display_owns_raw_frame = 0U;
         previous_tick = now;
@@ -677,8 +715,8 @@ void TOF_App_Process(void)
             processing.values[TOF_IMAGE_FILTER_OBJECT_7][0]);
         RPS_AI_SetViewSelection(
             tof_rps_view_selection(processing.selected_filter));
-        (void)RPS_AI_ProcessDepth(tof_depth_data, tof_depth_width,
-                                 tof_depth_height,
+        (void)RPS_AI_ProcessDepth(tof_workspace.depth_data, tof_context.state.depth_width,
+                                 tof_context.state.depth_height,
                                  frame.p_metadata->frame_counter);
         RPS_AI_GetStatus(&rps_status);
         (void)RPS_AI_GetImageView(&processing_view);
@@ -697,25 +735,25 @@ void TOF_App_Process(void)
 #endif
         /* When an auxiliary map is selected, render it before this shared
          * workspace is reused for the SPI display's depth filter below. */
-        if ((tof_map_enabled != 0U) &&
+        if ((tof_context.state.map_enabled != 0U) &&
             (map_channel == TOF_APP_CHANNEL_DEPTH) &&
             (processing.selected_filter != TOF_IMAGE_FILTER_NONE) &&
             (tof_filter_is_rps_view(processing.selected_filter) == 0U))
         {
             processed_depth = TOF_ImageProcessing_Apply(
-                tof_depth_data, tof_processing_workspace,
-                tof_depth_width, tof_depth_height, &processing);
+                tof_workspace.depth_data, tof_workspace.processing_workspace,
+                tof_context.state.depth_width, tof_context.state.depth_height, &processing);
         }
         if (map_channel == TOF_APP_CHANNEL_DEPTH)
         {
             map_frame.pixels = processed_depth;
         }
-        tof_render_frame(&map_frame, tof_depth_data,
-                         tof_depth_width, tof_depth_height,
+        tof_render_frame(&map_frame, tof_workspace.depth_data,
+                         tof_context.state.depth_width, tof_context.state.depth_height,
                          frame.p_metadata->frame_counter, elapsed_ms,
                          &processing, &rps_status, &processing_view);
-        tof_stream_dataset_frame(tof_depth_data, tof_depth_width,
-                                 tof_depth_height,
+        tof_stream_dataset_frame(tof_workspace.depth_data, tof_context.state.depth_width,
+                                 tof_context.state.depth_height,
                                  frame.p_metadata->frame_counter, now,
                                  processing.selected_filter);
 
@@ -727,12 +765,12 @@ void TOF_App_Process(void)
                 (tof_filter_is_rps_view(processing.selected_filter) == 0U))
             {
                 processed_depth = TOF_ImageProcessing_Apply(
-                    tof_depth_data, tof_processing_workspace,
-                    tof_depth_width, tof_depth_height, &processing);
+                    tof_workspace.depth_data, tof_workspace.processing_workspace,
+                    tof_context.state.depth_width, tof_context.state.depth_height, &processing);
             }
             UINT display_status = Display_App_SubmitDepthFrame(
                 raw_frame->data, sizeof(raw_frame->data), processed_depth,
-                tof_depth_width, tof_depth_height,
+                tof_context.state.depth_width, tof_context.state.depth_height,
                 frame.p_metadata->frame_counter,
                 TOF_MIN_DISPLAY_MM, TOF_MAX_DISPLAY_MM,
                 &rps_status,
@@ -742,7 +780,7 @@ void TOF_App_Process(void)
         }
 #endif
 
-        ++tof_processed_frames;
+        ++tof_context.counters.processed_frames;
         if (display_owns_raw_frame == 0U)
         {
             tof_release_raw_frame(raw_frame);
@@ -752,23 +790,23 @@ void TOF_App_Process(void)
             Debug_UART_Log("TOF", "frame 1: transform/render publish complete");
             first_frame_diagnostic = 0U;
         }
-        if ((tof_processed_frames % 10U) == 0U)
+        if ((tof_context.counters.processed_frames % 10U) == 0U)
         {
             Debug_UART_Log("TOF", "alive: acquired=%lu processed=%lu dropped=%lu sensor-frame=%lu",
-                           (unsigned long)tof_acquired_frames,
-                           (unsigned long)tof_processed_frames,
-                           (unsigned long)tof_dropped_frames,
-                           (unsigned long)tof_frame_counter);
+                           (unsigned long)tof_context.counters.acquired_frames,
+                           (unsigned long)tof_context.counters.processed_frames,
+                           (unsigned long)tof_context.counters.dropped_frames,
+                           (unsigned long)tof_context.counters.frame_counter);
         }
     }
 }
 
 void TOF_App_SetMapEnabled(uint32_t enabled)
 {
-    tof_map_enabled = (enabled != 0U) ? 1U : 0U;
+    tof_context.state.map_enabled = (enabled != 0U) ? 1U : 0U;
     if (enabled != 0U)
     {
-        tof_dataset_stream_enabled = 0U;
+        tof_context.state.dataset_stream_enabled = 0U;
     }
 }
 
@@ -780,19 +818,19 @@ uint32_t TOF_App_ToggleMapChannel(TOF_App_Channel_t channel)
     if ((channel < TOF_APP_CHANNEL_DEPTH) ||
         (channel > TOF_APP_CHANNEL_COUNT))
     {
-        return tof_map_channel_mask;
+        return tof_context.state.map_channel_mask;
     }
 
     TX_DISABLE
-    tof_map_channel_mask ^= 1UL << ((uint32_t)channel - 1U);
-    mask = tof_map_channel_mask;
+    tof_context.state.map_channel_mask ^= 1UL << ((uint32_t)channel - 1U);
+    mask = tof_context.state.map_channel_mask;
     TX_RESTORE
     return mask;
 }
 
 uint32_t TOF_App_GetMapChannelMask(void)
 {
-    return tof_map_channel_mask;
+    return tof_context.state.map_channel_mask;
 }
 
 const char *TOF_App_GetChannelName(TOF_App_Channel_t channel)
@@ -814,17 +852,17 @@ const char *TOF_App_GetChannelDescription(TOF_App_Channel_t channel)
 
 void TOF_App_SetDatasetStreamEnabled(uint32_t enabled)
 {
-    tof_dataset_stream_enabled = (enabled != 0U) ? 1U : 0U;
+    tof_context.state.dataset_stream_enabled = (enabled != 0U) ? 1U : 0U;
     if (enabled != 0U)
     {
         /* ANSI maps and binary records must never share the CDC byte stream. */
-        tof_map_enabled = 0U;
+        tof_context.state.map_enabled = 0U;
     }
 }
 
 void TOF_App_SetPaused(uint32_t paused)
 {
-    tof_paused = (paused != 0U) ? 1U : 0U;
+    tof_context.state.paused = (paused != 0U) ? 1U : 0U;
 }
 
 void TOF_App_GetStatus(TOF_App_Status_t *status)
@@ -834,28 +872,38 @@ void TOF_App_GetStatus(TOF_App_Status_t *status)
         return;
     }
 
-    status->state = tof_state;
-    status->map_enabled = tof_map_enabled;
-    status->map_channel_mask = tof_map_channel_mask;
-    status->map_active_channel = tof_map_active_channel;
-    status->dataset_stream_enabled = tof_dataset_stream_enabled;
-    status->paused = tof_paused;
-    status->width = tof_width;
-    status->height = tof_height;
-    status->frame_counter = tof_frame_counter;
-    status->fps_x10 = tof_fps_x10;
-    status->acquired_frames = tof_acquired_frames;
-    status->processed_frames = tof_processed_frames;
-    status->dropped_frames = tof_dropped_frames;
-    status->queue_failures = tof_queue_failures;
-    status->minimum_mm = tof_minimum_mm;
-    status->maximum_mm = tof_maximum_mm;
-    status->dataset_frames_submitted = tof_dataset_frames_submitted;
-    status->dataset_frames_dropped = tof_dataset_frames_dropped;
-    status->dataset_last_frame = tof_dataset_last_frame;
-    status->dataset_last_crc32 = tof_dataset_last_crc32;
-    status->error_code = tof_error_code;
-    status->error_stage = tof_error_stage;
+    status->state = tof_context.state.state;
+    status->acquisition_started = tof_context.acquisition_thread.started;
+    status->acquisition_cycles = tof_context.acquisition_thread.cycles;
+    status->acquisition_last_tick = tof_context.acquisition_thread.last_tick;
+    status->processing_started = tof_context.processing_thread.started;
+    status->processing_cycles = tof_context.processing_thread.cycles;
+    status->processing_last_tick = tof_context.processing_thread.last_tick;
+    status->map_enabled = tof_context.state.map_enabled;
+    status->map_channel_mask = tof_context.state.map_channel_mask;
+    status->map_active_channel = tof_context.state.map_active_channel;
+    status->dataset_stream_enabled = tof_context.state.dataset_stream_enabled;
+    status->paused = tof_context.state.paused;
+    status->width = tof_context.state.width;
+    status->height = tof_context.state.height;
+    status->frame_counter = tof_context.counters.frame_counter;
+    status->fps_x10 = tof_context.counters.fps_x10;
+    status->acquired_frames = tof_context.counters.acquired_frames;
+    status->processed_frames = tof_context.counters.processed_frames;
+    status->dropped_frames = tof_context.counters.dropped_frames;
+    status->queue_failures = tof_context.counters.queue_failures;
+    status->command_start_failures = tof_context.counters.command_start_failures;
+    status->command_tx_wait_failures = tof_context.counters.command_tx_wait_failures;
+    status->command_status_read_failures = tof_context.counters.command_status_read_failures;
+    status->command_status_timeouts = tof_context.counters.command_status_timeouts;
+    status->minimum_mm = tof_context.counters.minimum_mm;
+    status->maximum_mm = tof_context.counters.maximum_mm;
+    status->dataset_frames_submitted = tof_context.counters.dataset_frames_submitted;
+    status->dataset_frames_dropped = tof_context.counters.dataset_frames_dropped;
+    status->dataset_last_frame = tof_context.counters.dataset_last_frame;
+    status->dataset_last_crc32 = tof_context.counters.dataset_last_crc32;
+    status->error_code = tof_context.counters.error_code;
+    status->error_stage = tof_context.counters.error_stage;
 }
 
 TOF_ImageProcessingStatus_t TOF_App_SelectMapFilter(
@@ -873,7 +921,7 @@ TOF_ImageProcessingStatus_t TOF_App_SelectMapFilter(
     }
 
     TX_DISABLE
-    tof_processing_config = updated;
+    tof_context.state.processing_config = updated;
     TX_RESTORE
     return TOF_IMAGE_PROCESSING_OK;
 }
@@ -894,7 +942,7 @@ TOF_ImageProcessingStatus_t TOF_App_SetMapFilterParameter(
     }
 
     TX_DISABLE
-    tof_processing_config = updated;
+    tof_context.state.processing_config = updated;
     TX_RESTORE
     return TOF_IMAGE_PROCESSING_OK;
 }
@@ -909,7 +957,7 @@ void TOF_App_GetMapProcessingConfig(TOF_ImageProcessingConfig_t *config)
     }
 
     TX_DISABLE
-    *config = tof_processing_config;
+    *config = tof_context.state.processing_config;
     TX_RESTORE
 }
 
@@ -917,7 +965,7 @@ static TOF_RawFrame_t *tof_acquire_raw_frame(void)
 {
     ULONG frame_message;
 
-    if (tx_queue_receive(&tof_free_queue, &frame_message,
+    if (tx_queue_receive(&tof_context.buffers.free_queue, &frame_message,
                          TX_NO_WAIT) == TX_SUCCESS)
     {
         return (TOF_RawFrame_t *)frame_message;
@@ -927,11 +975,11 @@ static TOF_RawFrame_t *tof_acquire_raw_frame(void)
 
 static void tof_release_raw_frame(TOF_RawFrame_t *frame)
 {
-    if ((frame >= &tof_raw_frame_pool[0]) &&
-        (frame < &tof_raw_frame_pool[TOF_RAW_SLOT_COUNT]))
+    if ((frame >= &tof_context.buffers.raw_frame_pool[0]) &&
+        (frame < &tof_context.buffers.raw_frame_pool[TOF_RAW_SLOT_COUNT]))
     {
         ULONG frame_message = (ULONG)frame;
-        UINT status = tx_queue_send(&tof_free_queue, &frame_message, TX_NO_WAIT);
+        UINT status = tx_queue_send(&tof_context.buffers.free_queue, &frame_message, TX_NO_WAIT);
         if (status != TX_SUCCESS)
         {
             tof_log_queue_failure("release raw frame", status, frame);
@@ -949,7 +997,7 @@ static void tof_display_frame_release(void *context)
 static void tof_log_queue_failure(const char *operation, UINT status,
                                   const TOF_RawFrame_t *frame)
 {
-    uint32_t count = ++tof_queue_failures;
+    uint32_t count = ++tof_context.counters.queue_failures;
     ULONG frame_id = (frame != NULL) ? frame->id : UINT32_MAX;
 
     /* Log the first failure and powers of two thereafter. This retains
@@ -1018,6 +1066,8 @@ static int tof_wait_command_complete(vl53l9_device_t *sensor,
         int ret = vl53l9_frame_command_status_read(sensor, &command_status);
         if (ret != 0)
         {
+            ++tof_context.counters.command_status_read_failures;
+            Debug_UART_Log("TOF", "command status read failed: result=%d", ret);
             return ret;
         }
         if (command_status == 0U)
@@ -1028,6 +1078,9 @@ static int tof_wait_command_complete(vl53l9_device_t *sensor,
         tx_thread_sleep(1U);
     } while ((uint32_t)(HAL_GetTick() - started_at) < timeout_ms);
 
+    ++tof_context.counters.command_status_timeouts;
+    Debug_UART_Log("TOF", "command status timeout: last=0x%02X budget_ms=%lu",
+                   (unsigned int)command_status, (unsigned long)timeout_ms);
     return VL53L9_ERROR_TIMEOUT;
 }
 
@@ -1042,11 +1095,15 @@ static int tof_start_command_and_wait(vl53l9_device_t *sensor,
     ret = start(sensor);
     if (ret != 0)
     {
+        ++tof_context.counters.command_start_failures;
+        Debug_UART_Log("TOF", "command TX start failed: result=%d", ret);
         return ret;
     }
     ret = tof_wait_i3c_event(PLATFORM_I3C_DMA_TX_EVT);
     if (ret != 0)
     {
+        ++tof_context.counters.command_tx_wait_failures;
+        Debug_UART_Log("TOF", "command TX completion failed: result=%d", ret);
         return ret;
     }
     return tof_wait_command_complete(sensor, timeout_ms);
@@ -1171,16 +1228,16 @@ static const TOF_ChannelDescriptor_t *tof_get_channel_descriptor(
 
 static TOF_App_Channel_t tof_select_next_map_channel(void)
 {
-    uint32_t mask = tof_map_channel_mask;
-    TOF_App_Channel_t candidate = tof_map_next_channel;
+    uint32_t mask = tof_context.state.map_channel_mask;
+    TOF_App_Channel_t candidate = tof_context.state.map_next_channel;
 
     for (uint32_t attempt = 0U; attempt < TOF_APP_CHANNEL_COUNT; ++attempt)
     {
         uint32_t bit = 1UL << ((uint32_t)candidate - 1U);
         if ((mask & bit) != 0U)
         {
-            tof_map_active_channel = candidate;
-            tof_map_next_channel =
+            tof_context.state.map_active_channel = candidate;
+            tof_context.state.map_next_channel =
                 (candidate == TOF_APP_CHANNEL_COUNT) ?
                 TOF_APP_CHANNEL_DEPTH : (TOF_App_Channel_t)(candidate + 1U);
             return candidate;
@@ -1190,7 +1247,7 @@ static TOF_App_Channel_t tof_select_next_map_channel(void)
                     (TOF_App_Channel_t)(candidate + 1U);
     }
 
-    tof_map_active_channel = TOF_APP_CHANNEL_NONE;
+    tof_context.state.map_active_channel = TOF_APP_CHANNEL_NONE;
     return TOF_APP_CHANNEL_NONE;
 }
 
@@ -1278,12 +1335,12 @@ tof_render_frame(const TOF_App_ChannelFrame_t *map_frame,
     }
 
     uint32_t fps_x10 = (elapsed_ms == 0U) ? 0U : (10000U / elapsed_ms);
-    tof_frame_counter = frame_counter;
-    tof_fps_x10 = fps_x10;
-    tof_minimum_mm = valid_min;
-    tof_maximum_mm = valid_max;
+    tof_context.counters.frame_counter = frame_counter;
+    tof_context.counters.fps_x10 = fps_x10;
+    tof_context.counters.minimum_mm = valid_min;
+    tof_context.counters.maximum_mm = valid_max;
 
-    if ((tof_map_enabled == 0U) || (App_Console_IsReady() == UX_FALSE))
+    if ((tof_context.state.map_enabled == 0U) || (App_Console_IsReady() == UX_FALSE))
     {
         return;
     }
@@ -1293,8 +1350,8 @@ tof_render_frame(const TOF_App_ChannelFrame_t *map_frame,
     {
         return;
     }
-    terminal_buffer = output.data;
-    terminal_capacity = (size_t)output.capacity;
+    tof_context.buffers.terminal_buffer = output.data;
+    tof_context.buffers.terminal_capacity = (size_t)output.capacity;
 
     size_t pos = 0U;
     pos = append_text(pos, "\033[?25l\033[HVL53L9CX  ");
@@ -1314,7 +1371,7 @@ tof_render_frame(const TOF_App_ChannelFrame_t *map_frame,
     pos = append_text(pos, (channel_descriptor != NULL) ?
                            channel_descriptor->display_name : "NONE");
     pos = append_text(pos, "  enabled [");
-    pos = append_channel_mask(pos, tof_map_channel_mask);
+    pos = append_channel_mask(pos, tof_context.state.map_channel_mask);
     pos = append_text(pos, "]  depth ");
     pos = append_u32(pos, valid_min);
     pos = append_text(pos, "..");
@@ -1496,7 +1553,7 @@ tof_render_frame(const TOF_App_ChannelFrame_t *map_frame,
     }
     pos = append_text(pos,
                       "Keys 1..5 toggle channels; Enter returns to MENU.\033[K");
-    if (pos < terminal_capacity)
+    if (pos < tof_context.buffers.terminal_capacity)
     {
         (void)App_Console_CommitFrameBuffer(&output, (ULONG)pos);
     }
@@ -1504,8 +1561,8 @@ tof_render_frame(const TOF_App_ChannelFrame_t *map_frame,
     {
         App_Console_CancelFrameBuffer(&output);
     }
-    terminal_buffer = NULL;
-    terminal_capacity = 0U;
+    tof_context.buffers.terminal_buffer = NULL;
+    tof_context.buffers.terminal_capacity = 0U;
 }
 
 /*
@@ -1556,7 +1613,7 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
     uint32_t payload_crc;
     uint32_t model_payload_crc;
 
-    if ((tof_dataset_stream_enabled == 0U) ||
+    if ((tof_context.state.dataset_stream_enabled == 0U) ||
         (App_Console_IsReady() == UX_FALSE))
     {
         return;
@@ -1568,7 +1625,7 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
         (model_input.height != RPS_AI_MODEL_INPUT_HEIGHT) ||
         (model_input.is_npu_input == 0U))
     {
-        ++tof_dataset_frames_dropped;
+        ++tof_context.counters.dataset_frames_dropped;
         return;
     }
     model_payload_size = (size_t)model_input.width * model_input.height;
@@ -1580,7 +1637,7 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
         {
             App_Console_CancelFrameBuffer(&output);
         }
-        ++tof_dataset_frames_dropped;
+        ++tof_context.counters.dataset_frames_dropped;
         return;
     }
 
@@ -1652,13 +1709,13 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
 
     if (App_Console_CommitFrameBuffer(&output, (ULONG)record_size) == TX_SUCCESS)
     {
-        ++tof_dataset_frames_submitted;
-        tof_dataset_last_frame = frame_counter;
-        tof_dataset_last_crc32 = payload_crc;
+        ++tof_context.counters.dataset_frames_submitted;
+        tof_context.counters.dataset_last_frame = frame_counter;
+        tof_context.counters.dataset_last_crc32 = payload_crc;
     }
     else
     {
-        ++tof_dataset_frames_dropped;
+        ++tof_context.counters.dataset_frames_dropped;
     }
 }
 
@@ -1758,9 +1815,9 @@ static uint8_t model_input_to_color(uint8_t value)
 
 static size_t append_text(size_t pos, const char *text)
 {
-    while ((*text != '\0') && (pos < terminal_capacity))
+    while ((*text != '\0') && (pos < tof_context.buffers.terminal_capacity))
     {
-        terminal_buffer[pos++] = *text++;
+        tof_context.buffers.terminal_buffer[pos++] = *text++;
     }
     return pos;
 }
@@ -1776,9 +1833,9 @@ static size_t append_u32(size_t pos, uint32_t value)
         value /= 10U;
     } while ((value != 0U) && (count < sizeof(digits)));
 
-    while ((count > 0U) && (pos < terminal_capacity))
+    while ((count > 0U) && (pos < tof_context.buffers.terminal_capacity))
     {
-        terminal_buffer[pos++] = digits[--count];
+        tof_context.buffers.terminal_buffer[pos++] = digits[--count];
     }
     return pos;
 }
@@ -1831,9 +1888,9 @@ static void tof_log(const char *format, ...)
 
 static void tof_fatal(const char *stage, int error)
 {
-    tof_error_stage = stage;
-    tof_error_code = error;
-    tof_state = TOF_APP_STATE_ERROR;
+    tof_context.counters.error_stage = stage;
+    tof_context.counters.error_code = error;
+    tof_context.state.state = TOF_APP_STATE_ERROR;
     Debug_UART_Log("TOF", "FATAL at '%s', error=%d", stage, error);
 
     for (;;)

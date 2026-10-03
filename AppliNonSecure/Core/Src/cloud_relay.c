@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "app_features.h"
+#include "debug_uart.h"
 #include "firmware_build_version.h"
 #include "main.h"
 #include "w6x_api.h"
@@ -15,17 +16,21 @@
 #define CLOUD_CONTEXT_BUDGET       (9U * 1024U)
 #define CLOUD_RESPONSE_SIZE        (2400U)
 #define CLOUD_REQUEST_SIZE         (1200U)
-#define CLOUD_OUTPUT_SLOT_COUNT    (4U)
+#define CLOUD_OUTPUT_SLOT_COUNT    (8U)
 #define CLOUD_OUTPUT_SLOT_SIZE     (384U)
 #define CLOUD_TOKEN_SIZE           (1025U)
-#define CLOUD_TLS_TAG              (7U)
+#if (APP_ST67W6X_CLOUD_USE_TLS == 1U)
 #define CLOUD_HTTP_PORT            (443U)
+#define CLOUD_TLS_TAG              (7U)
+#define CLOUD_CA_FILE              "n6dg2.pem"
+#else
+#define CLOUD_HTTP_PORT            (80U)
+#endif
 #define CLOUD_HTTP_TIMEOUT_MS      (4500U)
 #define CLOUD_RECV_TIMEOUT_MS      (100U)
 #define CLOUD_BACKOFF_MAX_SECONDS  (60U)
 #define CLOUD_RECORD_MAGIC         (0x434C364EU) /* N6LC */
 #define CLOUD_RECORD_VERSION       (1U)
-#define CLOUD_CA_FILE              "n6dg2.pem"
 
 typedef enum
 {
@@ -71,8 +76,9 @@ typedef struct
   char ack_command_id[CLOUD_RELAY_COMMAND_ID_SIZE];
   uint32_t ack_sequence;
   char active_command_id[CLOUD_RELAY_COMMAND_ID_SIZE];
+  uint32_t hold_command;
   uint32_t output_sequence;
-  CloudOutputSlot_t output[CLOUD_OUTPUT_SLOT_COUNT];
+  CloudOutputSlot_t *output;
   uint32_t output_head;
   uint32_t output_tail;
   uint32_t output_count;
@@ -104,8 +110,12 @@ _Static_assert(sizeof(CloudRelayContext_t) <= CLOUD_CONTEXT_BUDGET,
                "Cloud Relay context exceeded its SRAM4 budget");
 
 static CloudRelayContext_t *cloud;
+/* Keep bounded output storage in application SRAM rather than reducing the
+ * already narrow SRAM4 radio byte-pool reserve. No post-init allocation. */
+static CloudOutputSlot_t cloud_output_slots[CLOUD_OUTPUT_SLOT_COUNT];
 static char cloud_pair_file[W6X_SYS_FS_FILENAME_SIZE] = "n6cloud.cfg";
 
+#if (APP_ST67W6X_CLOUD_USE_TLS == 1U)
 static const char cloud_root_ca[] =
   "-----BEGIN CERTIFICATE-----\r\n"
   "MIIDjjCCAnagAwIBAgIQAzrx5qcRqaC7KGSxHQn65TANBgkqhkiG9w0BAQsFADBh\r\n"
@@ -129,6 +139,7 @@ static const char cloud_root_ca[] =
   "pLiaWN0bfVKfjllDiIGknibVb63dDcY3fe0Dkhvld1927jyNxF1WW6LZZm6zNTfl\r\n"
   "MrY=\r\n"
   "-----END CERTIFICATE-----\r\n";
+#endif
 
 static uint32_t cloud_crc32(const void *data, size_t length);
 static void cloud_store_u16(uint8_t *target, uint16_t value);
@@ -166,6 +177,7 @@ static int cloud_base64_decode(const char *source, uint8_t *target,
                                size_t capacity, size_t *length);
 static const uint8_t *cloud_find_ci(const uint8_t *haystack, size_t haystack_length,
                                     const char *needle);
+static UINT cloud_output_admission_self_test(void);
 
 UINT CloudRelay_Initialize(TX_BYTE_POOL *pool, const char *suggested_device_id)
 {
@@ -183,14 +195,31 @@ UINT CloudRelay_Initialize(TX_BYTE_POOL *pool, const char *suggested_device_id)
 
   cloud = (CloudRelayContext_t *)memory;
   (void)memset(cloud, 0, sizeof(*cloud));
+  (void)memset(cloud_output_slots, 0, sizeof(cloud_output_slots));
+  cloud->output = cloud_output_slots;
   cloud->socket = -1;
   cloud->status.enabled = 1U;
   cloud->status.state = CLOUD_RELAY_STATE_WAIT_WIFI;
+#if (APP_ST67W6X_CLOUD_USE_TLS == 0U)
+  Debug_UART_Log("CLOUD", "WARNING: plaintext HTTP: pairing code/token and CLI are exposed (demo only)");
+#elif (APP_ST67W6X_CLOUD_TLS_VERIFY_SERVER == 0U)
+  Debug_UART_Log("CLOUD", "WARNING: TLS server verification disabled (demo only)");
+#endif
   if (tx_mutex_create(&cloud->gate, "N6 cloud relay", TX_INHERIT) != TX_SUCCESS)
   {
     (void)tx_byte_release(memory);
     cloud = NULL;
     return TX_MUTEX_ERROR;
+  }
+
+  if (cloud_output_admission_self_test() != TX_SUCCESS)
+  {
+    (void)tx_mutex_delete(&cloud->gate);
+    (void)memset(cloud_output_slots, 0, sizeof(cloud_output_slots));
+    (void)memset(cloud, 0, sizeof(*cloud));
+    (void)tx_byte_release(memory);
+    cloud = NULL;
+    return TX_NOT_AVAILABLE;
   }
 
   if ((suggested_device_id != NULL) && (suggested_device_id[0] != '\0'))
@@ -214,19 +243,29 @@ void CloudRelay_Process(uint32_t wifi_has_ip)
   if ((cloud->status.enabled == 0U) || (wifi_has_ip == 0U))
   {
     cloud_close_socket();
+#if (APP_ST67W6X_CLOUD_USE_TLS == 1U)
     if (wifi_has_ip == 0U)
     {
       cloud->time_configured = 0U;
       cloud->time_ready = 0U;
     }
+#endif
     cloud->status.state = (cloud->status.enabled != 0U) ?
         CLOUD_RELAY_STATE_WAIT_WIFI : CLOUD_RELAY_STATE_DISABLED;
     return;
   }
 
-  /* The NCP validates the Azure certificate. Ensure its clock is trustworthy
-   * before the first TLS handshake instead of silently accepting an unknown
-   * certificate time. */
+  /* An unpaired relay has no network work.  In particular, do not issue a
+   * synchronous SNTP command from Radio Manager merely because STA got IP. */
+  if ((cloud->pair_pending == 0U) &&
+      (cloud->pairing.magic != CLOUD_RECORD_MAGIC))
+  {
+    cloud->status.state = CLOUD_RELAY_STATE_UNPAIRED;
+    return;
+  }
+
+#if (APP_ST67W6X_CLOUD_USE_TLS == 1U)
+  /* Only TLS certificate validation needs a reliable NCP wall clock. */
   if (cloud->time_configured == 0U)
   {
     static uint8_t server1[] = "time.cloudflare.com";
@@ -258,6 +297,7 @@ void CloudRelay_Process(uint32_t wifi_has_ip)
     cloud->time_ready = 1U;
     cloud->next_action_tick = HAL_GetTick();
   }
+#endif
 
   if (cloud->http_kind != CLOUD_HTTP_NONE)
   {
@@ -318,7 +358,11 @@ UINT CloudRelay_SetEnabled(uint32_t enabled)
   cloud->status.enabled = (enabled != 0U) ? 1U : 0U;
   cloud->pairing.enabled = cloud->status.enabled;
   if (cloud->pairing.magic == CLOUD_RECORD_MAGIC) (void)cloud_save_pairing();
-  if (enabled == 0U) cloud_close_socket();
+  if (enabled == 0U)
+  {
+    cloud->hold_command = 0U;
+    cloud_close_socket();
+  }
   else cloud->next_action_tick = HAL_GetTick();
   return TX_SUCCESS;
 }
@@ -331,6 +375,7 @@ UINT CloudRelay_RequestReconnect(void)
   cloud->backoff_step = 0U;
   cloud->status.backoff_seconds = 0U;
   cloud->status.generation++;
+  cloud->hold_command = 0U;
   cloud->next_action_tick = HAL_GetTick();
   return TX_SUCCESS;
 }
@@ -359,7 +404,8 @@ UINT CloudRelay_ReadInput(CloudRelay_Input_t *input)
   return TX_SUCCESS;
 }
 
-UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input)
+UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input,
+                                  uint32_t hold_command)
 {
   if ((cloud == NULL) || (input == NULL)) return TX_PTR_ERROR;
   (void)tx_mutex_get(&cloud->gate, TX_WAIT_FOREVER);
@@ -368,10 +414,17 @@ UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input)
     (void)tx_mutex_put(&cloud->gate);
     return TX_NOT_AVAILABLE;
   }
+  if ((hold_command != 0U) &&
+      (strcmp(cloud->active_command_id, input->command_id) != 0))
+  {
+    (void)tx_mutex_put(&cloud->gate);
+    return TX_NOT_AVAILABLE;
+  }
   (void)snprintf(cloud->ack_command_id, sizeof(cloud->ack_command_id), "%s",
                  input->command_id);
   cloud->ack_sequence = input->sequence;
   cloud->ack_pending = 1U;
+  cloud->hold_command = (hold_command != 0U) ? 1U : 0U;
   cloud->input_ready = 0U;
   cloud->input_delivered = 0U;
   (void)tx_mutex_put(&cloud->gate);
@@ -381,42 +434,77 @@ UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input)
 UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary)
 {
   const uint8_t *bytes = (const uint8_t *)data;
-  uint32_t deadline = HAL_GetTick() + 15000U;
-  if ((cloud == NULL) || ((data == NULL) && (length != 0U))) return TX_PTR_ERROR;
-  if (cloud->active_command_id[0] == '\0') return TX_NOT_AVAILABLE;
+  size_t required_slots;
+  uint32_t tail;
+  UINT status;
+  UINT posture;
 
+  if ((cloud == NULL) || ((data == NULL) && (length != 0U))) return TX_PTR_ERROR;
+  required_slots = (length / CLOUD_OUTPUT_SLOT_SIZE) +
+                   ((length % CLOUD_OUTPUT_SLOT_SIZE) != 0U ? 1U : 0U);
+  status = tx_mutex_get(&cloud->gate, TX_NO_WAIT);
+  if (status != TX_SUCCESS) return status;
+  if (cloud->active_command_id[0] == '\0')
+  {
+    (void)tx_mutex_put(&cloud->gate);
+    return TX_NOT_AVAILABLE;
+  }
+  if ((cloud->output_count > CLOUD_OUTPUT_SLOT_COUNT) ||
+      (required_slots > (CLOUD_OUTPUT_SLOT_COUNT - cloud->output_count)))
+  {
+    (void)tx_mutex_put(&cloud->gate);
+    return TX_QUEUE_FULL;
+  }
+
+  /* Fill unpublished slots first. Readers see the complete response only
+   * after the single tail/count commit; a rejection changes neither. */
+  tail = cloud->output_tail;
   while (length != 0U)
   {
     size_t chunk = (length > CLOUD_OUTPUT_SLOT_SIZE) ?
         CLOUD_OUTPUT_SLOT_SIZE : length;
-    CloudOutputSlot_t *slot;
-    (void)tx_mutex_get(&cloud->gate, TX_WAIT_FOREVER);
-    if (cloud->output_count >= CLOUD_OUTPUT_SLOT_COUNT)
-    {
-      (void)tx_mutex_put(&cloud->gate);
-      if ((int32_t)(HAL_GetTick() - deadline) >= 0) return TX_QUEUE_FULL;
-      tx_thread_sleep(1U);
-      continue;
-    }
-    slot = &cloud->output[cloud->output_tail];
+    CloudOutputSlot_t *slot = &cloud->output[tail];
+    (void)memset(slot, 0, sizeof(*slot));
     slot->length = (uint16_t)chunk;
     slot->binary = (binary != 0U) ? 1U : 0U;
-    slot->completed = 0U;
     (void)memcpy(slot->data, bytes, chunk);
-    cloud->output_tail = (cloud->output_tail + 1U) % CLOUD_OUTPUT_SLOT_COUNT;
-    cloud->output_count++;
-    (void)tx_mutex_put(&cloud->gate);
+    tail = (tail + 1U) % CLOUD_OUTPUT_SLOT_COUNT;
     bytes += chunk;
     length -= chunk;
   }
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  cloud->output_tail = tail;
+  cloud->output_count += (uint32_t)required_slots;
+  (void)tx_interrupt_control(posture);
+  (void)tx_mutex_put(&cloud->gate);
   return TX_SUCCESS;
+}
+
+UINT CloudRelay_TryWriteOutput(const void *data, size_t length,
+                               uint32_t binary)
+{
+  if ((cloud == NULL) || (data == NULL)) return TX_PTR_ERROR;
+  if ((length == 0U) || (length > CLOUD_OUTPUT_SLOT_SIZE))
+  {
+    return TX_SIZE_ERROR;
+  }
+  return CloudRelay_WriteOutput(data, length, binary);
 }
 
 UINT CloudRelay_CompleteCommand(void)
 {
   CloudOutputSlot_t *slot;
-  if ((cloud == NULL) || (cloud->active_command_id[0] == '\0')) return TX_NOT_AVAILABLE;
-  (void)tx_mutex_get(&cloud->gate, TX_WAIT_FOREVER);
+  UINT status;
+  UINT posture;
+
+  if (cloud == NULL) return TX_NOT_AVAILABLE;
+  status = tx_mutex_get(&cloud->gate, TX_NO_WAIT);
+  if (status != TX_SUCCESS) return status;
+  if (cloud->active_command_id[0] == '\0')
+  {
+    (void)tx_mutex_put(&cloud->gate);
+    return TX_NOT_AVAILABLE;
+  }
   if (cloud->output_count >= CLOUD_OUTPUT_SLOT_COUNT)
   {
     (void)tx_mutex_put(&cloud->gate);
@@ -425,10 +513,69 @@ UINT CloudRelay_CompleteCommand(void)
   slot = &cloud->output[cloud->output_tail];
   (void)memset(slot, 0, sizeof(*slot));
   slot->completed = 1U;
+  posture = tx_interrupt_control(TX_INT_DISABLE);
   cloud->output_tail = (cloud->output_tail + 1U) % CLOUD_OUTPUT_SLOT_COUNT;
   cloud->output_count++;
+  (void)tx_interrupt_control(posture);
   (void)tx_mutex_put(&cloud->gate);
   return TX_SUCCESS;
+}
+
+static UINT cloud_output_admission_self_test(void)
+{
+  uint8_t payload[CLOUD_OUTPUT_SLOT_SIZE + 1U];
+  UINT result = TX_NOT_AVAILABLE;
+
+  /* Initialization is the only caller: no Cloud producer/consumer is active.
+   * Force a one-slot-short rejection and verify that no partial record leaks. */
+  (void)memset(payload, 0xA5, sizeof(payload));
+  (void)memcpy(cloud->active_command_id, "m51-self-test", sizeof("m51-self-test"));
+  for (uint32_t i = 0U; i < CLOUD_OUTPUT_SLOT_COUNT - 1U; ++i)
+  {
+    if (CloudRelay_WriteOutput(payload, CLOUD_OUTPUT_SLOT_SIZE, 0U) != TX_SUCCESS)
+    {
+      goto done;
+    }
+  }
+  if ((CloudRelay_WriteOutput(payload, sizeof(payload), 1U) != TX_QUEUE_FULL) ||
+      (cloud->output_count != CLOUD_OUTPUT_SLOT_COUNT - 1U) ||
+      (cloud->output_tail != CLOUD_OUTPUT_SLOT_COUNT - 1U) ||
+      (cloud->output[CLOUD_OUTPUT_SLOT_COUNT - 1U].length != 0U))
+  {
+    goto done;
+  }
+  if ((CloudRelay_CompleteCommand() != TX_SUCCESS) ||
+      (CloudRelay_CompleteCommand() != TX_QUEUE_FULL) ||
+      (cloud->output_count != CLOUD_OUTPUT_SLOT_COUNT))
+  {
+    goto done;
+  }
+
+  (void)memset(cloud_output_slots, 0, sizeof(cloud_output_slots));
+  cloud->output_head = 0U;
+  cloud->output_tail = 0U;
+  cloud->output_count = 0U;
+  if ((CloudRelay_WriteOutput(payload, sizeof(payload), 1U) != TX_SUCCESS) ||
+      (cloud->output_count != 2U) ||
+      (cloud->output[0].length != CLOUD_OUTPUT_SLOT_SIZE) ||
+      (cloud->output[1].length != 1U) ||
+      (cloud->output[0].binary != 1U) ||
+      (cloud->output[1].data[0] != 0xA5U) ||
+      (CloudRelay_CompleteCommand() != TX_SUCCESS) ||
+      (cloud->output_count != 3U) ||
+      (cloud->output[2].completed != 1U))
+  {
+    goto done;
+  }
+  result = TX_SUCCESS;
+
+done:
+  (void)memset(cloud_output_slots, 0, sizeof(cloud_output_slots));
+  (void)memset(cloud->active_command_id, 0, sizeof(cloud->active_command_id));
+  cloud->output_head = 0U;
+  cloud->output_tail = 0U;
+  cloud->output_count = 0U;
+  return result;
 }
 
 UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
@@ -548,7 +695,10 @@ static int cloud_begin_request(CloudHttpKind_t kind, const char *method,
                                uint32_t authenticated)
 {
   struct sockaddr_in address;
+#if (APP_ST67W6X_CLOUD_USE_TLS == 1U)
+  /* Vendor Setsockopt reads an int32_t but counts TLS tags in single bytes. */
   int32_t tags[1] = { CLOUD_TLS_TAG };
+#endif
   uint32_t timeout = CLOUD_RECV_TIMEOUT_MS;
   int length;
 
@@ -563,7 +713,9 @@ static int cloud_begin_request(CloudHttpKind_t kind, const char *method,
     }
     cloud->address_valid = 1U;
   }
-  if (cloud->ca_ready == 0U)
+#if (APP_ST67W6X_CLOUD_USE_TLS == 1U)
+  if ((APP_ST67W6X_CLOUD_TLS_VERIFY_SERVER != 0U) &&
+      (cloud->ca_ready == 0U))
   {
     if (W6X_Net_TLS_Credential_AddByContent(
             CLOUD_TLS_TAG, W6X_NET_TLS_CREDENTIAL_CA_CERTIFICATE,
@@ -575,16 +727,34 @@ static int cloud_begin_request(CloudHttpKind_t kind, const char *method,
     }
     cloud->ca_ready = 1U;
   }
+#endif
 
+#if (APP_ST67W6X_CLOUD_USE_TLS == 1U)
   cloud->socket = W6X_Net_Socket(AF_INET, SOCK_STREAM, IPPROTO_TLS_1_2);
-  if (cloud->socket < 0) return -1;
-  if ((W6X_Net_Setsockopt(cloud->socket, SOL_TLS, TLS_SEC_TAG_LIST,
-                          tags, sizeof(tags)) != 0) ||
-      (W6X_Net_Setsockopt(cloud->socket, SOL_TLS, TLS_HOSTNAME,
-                          CLOUD_RELAY_HOST, strlen(CLOUD_RELAY_HOST)) != 0) ||
-      (W6X_Net_Setsockopt(cloud->socket, SOL_SOCKET, SO_RCVTIMEO,
-                          &timeout, sizeof(timeout)) != 0))
+#else
+  cloud->socket = W6X_Net_Socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+#endif
+  if (cloud->socket < 0)
   {
+    cloud->status.last_transport_status = -12;
+    return -1;
+  }
+#if (APP_ST67W6X_CLOUD_USE_TLS == 1U)
+  if (((APP_ST67W6X_CLOUD_TLS_VERIFY_SERVER != 0U) &&
+       (W6X_Net_Setsockopt(cloud->socket, SOL_TLS, TLS_SEC_TAG_LIST,
+                           tags, 1U) != 0)) ||
+      (W6X_Net_Setsockopt(cloud->socket, SOL_TLS, TLS_HOSTNAME,
+                          CLOUD_RELAY_HOST, strlen(CLOUD_RELAY_HOST)) != 0))
+  {
+    cloud->status.last_transport_status = -13;
+    cloud_close_socket();
+    return -1;
+  }
+#endif
+  if (W6X_Net_Setsockopt(cloud->socket, SOL_SOCKET, SO_RCVTIMEO,
+                         &timeout, sizeof(timeout)) != 0)
+  {
+    cloud->status.last_transport_status = -13;
     cloud_close_socket();
     return -1;
   }
@@ -596,6 +766,7 @@ static int cloud_begin_request(CloudHttpKind_t kind, const char *method,
   if (W6X_Net_Connect(cloud->socket, (struct sockaddr *)&address,
                       sizeof(address)) != 0)
   {
+    cloud->status.last_transport_status = -14;
     cloud->address_valid = 0U;
     cloud_close_socket();
     return -1;
@@ -618,6 +789,7 @@ static int cloud_begin_request(CloudHttpKind_t kind, const char *method,
       ((body2_length != 0U) &&
        (cloud_send_all(cloud->socket, body2, body2_length) != 0)))
   {
+    cloud->status.last_transport_status = -15;
     cloud_close_socket();
     return -1;
   }
@@ -863,14 +1035,20 @@ static void cloud_finish_request(void)
       {
         CloudOutputSlot_t *slot = &cloud->output[cloud->output_head];
         uint32_t completed = slot->completed;
+        UINT posture;
         cloud->output_sequence++;
         (void)memset(slot, 0, sizeof(*slot));
+        /* Match the producer's short publication critical section: the
+         * consumer must not overwrite a concurrent count increment. */
+        posture = tx_interrupt_control(TX_INT_DISABLE);
         cloud->output_head = (cloud->output_head + 1U) % CLOUD_OUTPUT_SLOT_COUNT;
         if (cloud->output_count != 0U) cloud->output_count--;
+        (void)tx_interrupt_control(posture);
         cloud->status.output_records++;
         if (completed != 0U)
         {
           cloud->active_command_id[0] = '\0';
+          cloud->hold_command = 0U;
           cloud->output_sequence = 0U;
         }
       }
@@ -1007,7 +1185,8 @@ static void cloud_start_next_request(void)
     return;
   }
 
-  if ((cloud->input_ready == 0U) && (cloud->ack_pending == 0U))
+  if ((cloud->hold_command == 0U) &&
+      (cloud->input_ready == 0U) && (cloud->ack_pending == 0U))
   {
     if (cloud_begin_request(CLOUD_HTTP_POLL, "GET",
                             "/api/device/commands?waitSeconds=1",
@@ -1082,6 +1261,7 @@ static void cloud_clear_pairing(uint32_t delete_file)
   cloud->status.paired = 0U;
   cloud->status.workspace_id[0] = '\0';
   cloud->active_command_id[0] = '\0';
+  cloud->hold_command = 0U;
   cloud->input_ready = 0U;
   cloud->input_delivered = 0U;
   cloud->ack_pending = 0U;
@@ -1407,8 +1587,13 @@ UINT CloudRelay_SetEnabled(uint32_t enabled) { (void)enabled; return TX_NOT_AVAI
 UINT CloudRelay_RequestReconnect(void) { return TX_NOT_AVAILABLE; }
 UINT CloudRelay_Unpair(void) { return TX_NOT_AVAILABLE; }
 UINT CloudRelay_ReadInput(CloudRelay_Input_t *input) { (void)input; return TX_QUEUE_EMPTY; }
-UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input) { (void)input; return TX_NOT_AVAILABLE; }
+UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input,
+                                  uint32_t hold_command)
+{ (void)input; (void)hold_command; return TX_NOT_AVAILABLE; }
 UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary)
+{ (void)data; (void)length; (void)binary; return TX_NOT_AVAILABLE; }
+UINT CloudRelay_TryWriteOutput(const void *data, size_t length,
+                               uint32_t binary)
 { (void)data; (void)length; (void)binary; return TX_NOT_AVAILABLE; }
 UINT CloudRelay_CompleteCommand(void) { return TX_NOT_AVAILABLE; }
 UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,

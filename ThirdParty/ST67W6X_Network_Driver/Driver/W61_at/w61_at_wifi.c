@@ -477,6 +477,8 @@ W61_Status_t W61_WiFi_DeleteCredentials(W61_Object_t *Obj, uint8_t SSID[W61_WIFI
 W61_Status_t W61_WiFi_GetCredentials(W61_Object_t *Obj, W61_WiFi_CredentialsList_t *credentials_list)
 {
   W61_Status_t ret;
+  TickType_t remaining;
+  TickType_t started_at;
   W61_NULL_ASSERT(Obj);
   W61_NULL_ASSERT(credentials_list);
 
@@ -492,21 +494,30 @@ W61_Status_t W61_WiFi_GetCredentials(W61_Object_t *Obj, W61_WiFi_CredentialsList
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data->sem_tx_lock, portMAX_DELAY);
-
-  /* Set the pointer to the buffer where the credentials will be stored */
-  mdm->rx_data = (void *)credentials_list;
+  remaining = W61_AT_Common_TakeTxLockBudget(data->sem_tx_lock, W61_NCP_TIMEOUT, &started_at);
+  if (remaining == 0U)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
 
   /* Get the SSID of the stored credentials.
     The multiline responses are in the form of
     +CWCRED:"SSID1" */
+  remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_NCP_TIMEOUT);
+  if (remaining == 0U)
+  {
+    (void)xSemaphoreGive(data->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
+  /* Set the pointer to the buffer where the credentials will be stored. */
+  mdm->rx_data = (void *)credentials_list;
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
                                       &mdm->handler,
                                       handlers,
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)"AT+CWCRED?\r\n",
                                       mdm->sem_response,
-                                      W61_NCP_TIMEOUT,
+                                      remaining,
                                       MODEM_NO_TX_LOCK));
 
   (void)xSemaphoreGive(data->sem_tx_lock);
@@ -796,6 +807,8 @@ W61_Status_t W61_WiFi_AP_ListConnectedStations(W61_Object_t *Obj, W61_WiFi_Conne
   W61_NULL_ASSERT(Obj);
   W61_NULL_ASSERT(Stations);
   W61_Status_t ret;
+  TickType_t remaining;
+  TickType_t started_at;
   struct modem *mdm = (struct modem *) &Obj->Modem;
   struct modem_cmd_handler_data *data = (struct modem_cmd_handler_data *)mdm->handler.cmd_handler_data;
 
@@ -808,18 +821,27 @@ W61_Status_t W61_WiFi_AP_ListConnectedStations(W61_Object_t *Obj, W61_WiFi_Conne
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data->sem_tx_lock, portMAX_DELAY);
+  remaining = W61_AT_Common_TakeTxLockBudget(data->sem_tx_lock, W61_NCP_TIMEOUT, &started_at);
+  if (remaining == 0U)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
 
+  remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_NCP_TIMEOUT);
+  if (remaining == 0U)
+  {
+    (void)xSemaphoreGive(data->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
   mdm->rx_data = Stations;
   Stations->Count = 0;
-
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
                                       &mdm->handler,
                                       handlers,
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)"AT+CWLIF\r\n",
                                       mdm->sem_response,
-                                      W61_NCP_TIMEOUT,
+                                      remaining,
                                       MODEM_NO_TX_LOCK));
 
   (void)xSemaphoreGive(data->sem_tx_lock);
@@ -1034,6 +1056,8 @@ W61_Status_t W61_WiFi_TWT_GetStatus(W61_Object_t *Obj, W61_WiFi_TWT_Status_t *tw
   struct modem *mdm = (struct modem *) &Obj->Modem;
   struct modem_cmd_handler_data *data = (struct modem_cmd_handler_data *)mdm->handler.cmd_handler_data;
   W61_Status_t ret;
+  TickType_t remaining;
+  TickType_t started_at;
   W61_NULL_ASSERT(Obj);
   W61_NULL_ASSERT(twt_status);
 
@@ -1046,17 +1070,26 @@ W61_Status_t W61_WiFi_TWT_GetStatus(W61_Object_t *Obj, W61_WiFi_TWT_Status_t *tw
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data->sem_tx_lock, portMAX_DELAY);
+  remaining = W61_AT_Common_TakeTxLockBudget(data->sem_tx_lock, W61_NCP_TIMEOUT, &started_at);
+  if (remaining == 0U)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
 
+  remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_NCP_TIMEOUT);
+  if (remaining == 0U)
+  {
+    (void)xSemaphoreGive(data->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
   mdm->rx_data = twt_status;
-
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
                                       &mdm->handler,
                                       handlers,
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)"AT+TWT_STATUS?\r\n",
                                       mdm->sem_response,
-                                      W61_NCP_TIMEOUT,
+                                      remaining,
                                       MODEM_NO_TX_LOCK));
 
   (void)xSemaphoreGive(data->sem_tx_lock);

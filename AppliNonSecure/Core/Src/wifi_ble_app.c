@@ -47,12 +47,30 @@ extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
 #define BLE_TX_CHAR_INDEX       (1U)
 #define BLE_TOF_IMAGE_CHAR_INDEX (2U)
 #define BLE_ADV_REQUEST_NONE    (2U)
+#define BLE_HEALTH_PROBE_INTERVAL_MS (15000U)
+#define BLE_CONNECTED_IDLE_MS       (5000U)
+#define BLE_STALLED_TX_PROBE_TICKS   (5U * TX_TIMER_TICKS_PER_SECOND)
+#define BLE_ADV_RETRY_BASE_MS       (1000U)
+#define BLE_ADV_MAX_ATTEMPTS        (3U)
+#define BLE_RECOVERY_COOLDOWN_MS    (10000U)
+#define BLE_RECOVERY_MAX_ATTEMPTS   (3U)
+#define WIFI_HEALTH_PROBE_WAIT_TICKS (30U * TX_TIMER_TICKS_PER_SECOND)
 
-#define WIFI_CONTROL_DONE_FLAG         (1UL << 0U)
+#define WIFI_CONTROL_SCAN_DONE_FLAG    (1UL << 1U)
+#define WIFI_CONTROL_RADIO_READY_FLAG  (1UL << 2U)
+#define WIFI_CONTROL_WORK_FLAG         (1UL << 3U)
+#define WIFI_CONTROL_SCAN_WAIT_TICKS   (30U * TX_TIMER_TICKS_PER_SECOND)
 #define WIFI_EVENT_CONNECTED_FLAG      (1UL << 0U)
 #define WIFI_EVENT_GOT_IP_FLAG         (1UL << 1U)
 #define WIFI_EVENT_DISCONNECTED_FLAG   (1UL << 2U)
-#define WIFI_CONTROL_CONTEXT_BUDGET    (2U * 1024U)
+#define WIFI_CONTROL_SLOT_COUNT         (4U)
+/* Covers four owned request/result slots, pointer queues, fixed storage,
+ * status snapshot and worker event object. */
+#define WIFI_CONTROL_CONTEXT_BUDGET    (6U * 1024U)
+#define WIFI_QUEUE_CREATED_REQUEST_FREE  (1UL << 0U)
+#define WIFI_QUEUE_CREATED_REQUEST_READY (1UL << 1U)
+#define WIFI_QUEUE_CREATED_RESULT_FREE   (1UL << 2U)
+#define WIFI_QUEUE_CREATED_RESULT_READY  (1UL << 3U)
 
 #define BLE_CLI_SERVICE_UUID    "7a1e0001b5a3f393e0a9e50e24dcca9e"
 #define BLE_CLI_RX_UUID         "7a1e0002b5a3f393e0a9e50e24dcca9e"
@@ -135,6 +153,7 @@ typedef struct
   WifiBle_DebugTxSlot_t debug_tx_slots[BLE_DEBUG_TX_SLOT_COUNT];
   void *active_tx[WIFI_BLE_STREAM_COUNT];
   WifiBle_StreamStatus_t stats[WIFI_BLE_STREAM_COUNT];
+  uint32_t contention_start_tick[WIFI_BLE_STREAM_COUNT];
 } WifiBle_StreamContext_t;
 
 typedef enum
@@ -158,6 +177,7 @@ typedef struct
   uint8_t channel_id;
   uint8_t retries;
   WifiBle_TofImageStatus_t stats;
+  uint32_t contention_start_tick;
   uint8_t payload[BLE_TOF_IMAGE_MAX_BYTES] __attribute__((aligned(4)));
 } WifiBle_TofImageContext_t;
 
@@ -169,10 +189,6 @@ _Static_assert(sizeof(WifiBle_TofImageContext_t) <=
                BLE_TOF_IMAGE_CONTEXT_BUDGET,
                "BLE ToF image context exceeded its SRAM4 design budget");
 
-static uint8_t ble_receive_buffer[WIFI_BLE_RX_BUFFER_SIZE];
-static WifiBle_StreamContext_t *ble_stream_context;
-static WifiBle_TofImageContext_t *ble_tof_image_context;
-static TX_BYTE_POOL *ble_radio_pool;
 static const WifiBle_GattCharacteristic_t ble_characteristics[] =
 {
   {
@@ -201,75 +217,177 @@ static const WifiBle_GattCharacteristic_t ble_characteristics[] =
 #endif
 
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
-typedef enum
-{
-  WIFI_CONTROL_NONE = 0,
-  WIFI_CONTROL_SCAN,
-  WIFI_CONTROL_CONNECT,
-  WIFI_CONTROL_DISCONNECT
-} WifiBle_WifiControlOperation_t;
-
 typedef struct
 {
+  /* Worker wake, radio-ready and bounded scan-completion signals only. */
   TX_EVENT_FLAGS_GROUP completion;
-  volatile WifiBle_WifiControlOperation_t pending_operation;
-  volatile WifiBle_WifiControlOperation_t active_operation;
-  char request_ssid[W6X_WIFI_MAX_SSID_SIZE + 1U];
-  char request_password[W6X_WIFI_MAX_PASSWORD_SIZE + 1U];
-  uint32_t request_forget;
+  volatile WifiBle_WifiOperation_t active_operation;
   WifiBle_WifiStatus_t status;
   WifiBle_WifiScanResults_t scan_results;
+
+  /* M3.2 fixed storage. Queue messages contain one slot pointer. */
+  TX_QUEUE request_free;
+  TX_QUEUE request_ready;
+  TX_QUEUE result_free;
+  TX_QUEUE result_ready;
+  ULONG request_free_storage[WIFI_CONTROL_SLOT_COUNT];
+  ULONG request_ready_storage[WIFI_CONTROL_SLOT_COUNT];
+  ULONG result_free_storage[WIFI_CONTROL_SLOT_COUNT];
+  ULONG result_ready_storage[WIFI_CONTROL_SLOT_COUNT];
+  WifiBle_WifiRequest_t request_slots[WIFI_CONTROL_SLOT_COUNT];
+  WifiBle_WifiResult_t result_slots[WIFI_CONTROL_SLOT_COUNT];
 } WifiBle_WifiControlContext_t;
 
+_Static_assert(WIFI_CONTROL_SLOT_COUNT == 4U,
+               "Wi-Fi control requires exactly four slots per pool");
+_Static_assert(sizeof(void *) <= sizeof(ULONG),
+               "ThreadX pointer queues require one ULONG per pointer");
 _Static_assert(WIFI_BLE_WIFI_SSID_SIZE == (W6X_WIFI_MAX_SSID_SIZE + 1U),
                "Public and vendor Wi-Fi SSID sizes must match");
+_Static_assert(WIFI_BLE_WIFI_PASSWORD_SIZE ==
+               (W6X_WIFI_MAX_PASSWORD_SIZE + 1U),
+               "Public and vendor Wi-Fi password sizes must match");
 _Static_assert(WIFI_BLE_WIFI_SCAN_MAX_APS <= UINT8_MAX,
                "Vendor scan count is uint8_t");
 _Static_assert(sizeof(WifiBle_WifiControlContext_t) <=
                WIFI_CONTROL_CONTEXT_BUDGET,
                "Wi-Fi control context exceeded its SRAM4 design budget");
 
-static WifiBle_WifiControlContext_t *wifi_control_context;
-static volatile uint32_t wifi_pending_event_bits;
 #endif
 
-static volatile WifiBle_State_t wifi_ble_state = WIFI_BLE_STATE_DISABLED;
-static volatile uint32_t wifi_connected;
-static volatile uint32_t wifi_has_ip;
-static volatile uint32_t ble_gatt_ready;
-static volatile uint32_t ble_connected;
-static volatile uint32_t ble_advertising;
-static volatile uint32_t ble_connection_handle = 0xFFU;
-static volatile uint32_t ble_mtu = 23U;
-static volatile uint32_t ble_cli_tx_subscribed;
-static volatile uint32_t ble_debug_tx_subscribed;
-static volatile uint32_t ble_tof_image_subscribed;
-static volatile uint32_t ble_rx_write_events;
-static volatile uint32_t ble_rx_discarded_bytes;
-static volatile uint32_t ble_session_generation;
-static volatile uint32_t ble_transport_ready;
-static volatile uint32_t ble_stream_flush_pending;
-static volatile uint32_t ble_init_stage = WIFI_BLE_INIT_STAGE_IDLE;
-static volatile int32_t ble_last_status;
-static volatile uint32_t ble_connect_pending;
-static volatile uint32_t ble_restart_advertising_pending;
-static volatile uint32_t ble_adv_request = BLE_ADV_REQUEST_NONE;
-static volatile uint32_t ble_disconnect_request;
-static char ble_device_name[WIFI_BLE_DEVICE_NAME_SIZE];
-static uint8_t ble_address[WIFI_BLE_ADDRESS_SIZE];
+/* One owner for the NCP shadow, pending work, diagnostics and queue storage.
+ * The large queue contexts themselves remain in the bounded SRAM4 radio pool. */
+typedef struct
+{
+  struct
+  {
+    volatile WifiBle_State_t state;
+    volatile uint32_t wifi_connected;
+    volatile uint32_t wifi_has_ip;
+    volatile uint32_t wifi_state_confirmed;
+    volatile uint32_t ble_gatt_ready;
+    volatile uint32_t ble_connected;
+    volatile uint32_t ble_advertising;
+    volatile uint32_t ble_advertising_desired;
+    volatile WifiBle_AdvEvidence_t ble_advertising_evidence;
+    volatile uint32_t ble_mode_confirmed;
+    volatile uint32_t ble_link_confirmed;
+    volatile uint32_t ble_connection_handle;
+    volatile uint32_t ble_mtu;
+    volatile uint32_t ble_cli_tx_subscribed;
+    volatile uint32_t ble_debug_tx_subscribed;
+    volatile uint32_t ble_tof_image_subscribed;
+    volatile uint32_t ble_session_generation;
+    volatile uint32_t ble_transport_ready;
+    volatile uint32_t ble_init_stage;
+    volatile int32_t ble_last_status;
+    char ble_device_name[WIFI_BLE_DEVICE_NAME_SIZE];
+    uint8_t ble_address[WIFI_BLE_ADDRESS_SIZE];
+  } shadow;
+  struct
+  {
+    volatile uint32_t ble_connect_pending;
+    volatile uint32_t ble_restart_advertising_pending;
+    volatile uint32_t ble_adv_request;
+    volatile uint32_t ble_disconnect_request;
+    volatile uint32_t ble_stream_flush_pending;
+    volatile uint32_t ble_recovery_pending;
+    volatile uint32_t ble_advertising_retry_count;
+    volatile uint32_t ble_advertising_retry_due_tick;
+    uint32_t ble_recovery_retry_count;
+    uint32_t ble_recovery_due_tick;
+    uint32_t ble_probe_due_tick;
+    uint32_t ble_last_probe_tick;
+    int32_t ble_last_probe_status;
+    uint32_t ble_probe_link_next;
+    uint32_t ble_tx_stall_reported;
+    volatile uint32_t ble_last_activity_tick;
+    uint32_t ble_mode_mismatch_count;
+    uint32_t ble_link_mismatch_count;
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+    volatile uint32_t wifi_pending_event_bits;
+    volatile uint32_t wifi_event_generation;
+    uint32_t wifi_last_probe_tick;
+    int32_t wifi_last_probe_status;
+    AppRequestId_t wifi_last_request_id;
+#endif
+  } work;
+  struct
+  {
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+    uint8_t ble_receive_buffer[WIFI_BLE_RX_BUFFER_SIZE];
+    WifiBle_StreamContext_t *ble_stream_context;
+    WifiBle_TofImageContext_t *ble_tof_image_context;
+    TX_BYTE_POOL *ble_radio_pool;
+#endif
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+    WifiBle_WifiControlContext_t *wifi_control_context;
+#endif
+  } queues;
+  struct
+  {
+    volatile uint32_t wifi_ble_loop_count;
+    volatile uint32_t wifi_ble_last_loop_tick;
+    volatile uint32_t wifi_ble_max_loop_gap_ticks;
+    volatile uint32_t wifi_ble_last_tx_tick;
+    volatile uint32_t wifi_ble_max_tx_gap_ticks;
+    volatile uint32_t ble_rx_write_events;
+    volatile uint32_t ble_rx_discarded_bytes;
+    volatile WifiBle_ManagerHealth_t faults;
+  } counters;
+} WifiBle_RadioManagerContext_t;
+
+static WifiBle_RadioManagerContext_t radio_manager =
+{
+  .shadow = {
+    .state = WIFI_BLE_STATE_DISABLED,
+    .ble_advertising_desired = 1U,
+    .ble_connection_handle = 0xFFU,
+    .ble_mtu = 23U,
+    .ble_init_stage = WIFI_BLE_INIT_STAGE_IDLE
+  },
+  .work = { .ble_adv_request = BLE_ADV_REQUEST_NONE }
+};
+
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+/* The Cloud Relay must not use W6X_Net_* before W6X_Net_Init succeeds. */
+static uint32_t cloud_net_ready;
+
+static void network_event_callback(W6X_event_id_t event_id, void *event_args)
+{
+  /* W6X_Net_cb owns socket bookkeeping and wakes its receive semaphore. */
+  (void)event_id;
+  (void)event_args;
+}
+#endif
 
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static void wifi_event_callback(W6X_event_id_t event_id, void *event_args);
 static void wifi_scan_callback(int32_t status,
                                W6X_WiFi_Scan_Result_t *results);
 static UINT wifi_control_initialize(void);
-static UINT wifi_submit_request(WifiBle_WifiControlOperation_t operation,
-                                const char *ssid, const char *password,
-                                uint32_t forget, ULONG wait_option);
-static void wifi_process_pending_request(void);
+static void wifi_control_rollback(uint32_t queue_mask,
+                                  uint32_t event_created);
+static UINT wifi_create_pointer_queue(TX_QUEUE *queue, CHAR *name,
+                                      ULONG *storage);
+static UINT wifi_request_slot_acquire(WifiBle_WifiRequest_t **slot);
+static UINT wifi_request_slot_publish(WifiBle_WifiRequest_t *slot);
+static UINT wifi_request_slot_receive(WifiBle_WifiRequest_t **slot);
+static UINT wifi_request_slot_release(WifiBle_WifiRequest_t *slot);
+static UINT wifi_result_slot_acquire(WifiBle_WifiResult_t **slot);
+static UINT wifi_result_slot_acquire_wait(WifiBle_WifiResult_t **slot);
+static UINT wifi_result_slot_publish(WifiBle_WifiResult_t *slot);
+static UINT wifi_result_slot_receive(WifiBle_WifiResult_t **slot);
+static UINT wifi_result_slot_release(WifiBle_WifiResult_t *slot);
+static UINT wifi_control_queue_self_test(void);
+static void wifi_execute_request(WifiBle_WifiRequest_t *request,
+                                 WifiBle_WifiResult_t *result);
+static UINT wifi_validate_owned_request(const WifiBle_WifiRequest_t *request,
+                                        size_t *ssid_length,
+                                        size_t *password_length);
+static AppRequestId_t wifi_allocate_request_id(void);
 static void wifi_process_pending_events(void);
 static void wifi_refresh_status(void);
-static void wifi_complete_request(W6X_Status_t status);
 static W6X_Status_t wifi_enable_station_dhcp(void);
 static W6X_Status_t wifi_get_station_ip(uint8_t ip_address[4],
                                         uint8_t gateway_address[4],
@@ -279,6 +397,11 @@ static W6X_Status_t wifi_get_station_ip(uint8_t ip_address[4],
 static void ble_event_callback(W6X_event_id_t event_id, void *event_args);
 static W6X_Status_t ble_configure_gatt_server(void);
 static void ble_process_pending_events(void);
+static void ble_reconcile_advertising(uint32_t now);
+static void ble_probe_shadow(uint32_t now);
+static void ble_recover_subsystem(uint32_t now);
+static void ble_note_disconnected(void);
+static uint32_t ble_tick_due(uint32_t now, uint32_t due);
 static UINT ble_stream_initialize(void);
 static void ble_stream_enqueue_rx(WifiBle_Stream_t stream,
                                   const uint8_t *data, uint32_t length);
@@ -353,10 +476,15 @@ void WIFI_BLE_App_ConfigureHardware(void)
 void WIFI_BLE_App_Run(void)
 {
   W6X_Status_t status;
+  uint32_t now;
   static W6X_App_Cb_t callbacks = {
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
     .APP_wifi_cb = wifi_event_callback,
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+    .APP_net_cb = network_event_callback,
+#else
     .APP_net_cb = NULL,
+#endif
 #else
     .APP_wifi_cb = NULL,
     .APP_net_cb = NULL,
@@ -370,7 +498,16 @@ void WIFI_BLE_App_Run(void)
     .APP_error_cb = error_callback,
   };
 
-  wifi_ble_state = WIFI_BLE_STATE_STARTING;
+  radio_manager.counters.faults.init_attempts++;
+  radio_manager.shadow.state = WIFI_BLE_STATE_STARTING;
+  radio_manager.counters.wifi_ble_loop_count = 0U;
+  radio_manager.counters.wifi_ble_last_loop_tick = 0U;
+  radio_manager.counters.wifi_ble_max_loop_gap_ticks = 0U;
+  radio_manager.counters.wifi_ble_last_tx_tick = 0U;
+  radio_manager.counters.wifi_ble_max_tx_gap_ticks = 0U;
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  cloud_net_ready = 0U;
+#endif
 
   /* Give USB CDC time to enumerate so the complete bring-up log is visible. */
   tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND);
@@ -432,12 +569,27 @@ void WIFI_BLE_App_Run(void)
   wifi_refresh_status();
 #endif
 
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  /* GOTIP makes CloudRelay_Process call SNTP.  The vendor Net API keeps its
+   * W61 object pointer NULL until this explicit initialization completes. */
+  status = W6X_Net_Init();
+  if (status == W6X_STATUS_OK)
+  {
+    cloud_net_ready = 1U;
+  }
+  else
+  {
+    LogError("ST67W6X Network initialization failed: %" PRIi32
+             "; Cloud Relay disabled, Wi-Fi/BLE remain available.\r\n", status);
+  }
+#endif
+
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
-  (void)memset(ble_receive_buffer, 0, sizeof(ble_receive_buffer));
-  ble_init_stage = WIFI_BLE_INIT_STAGE_STACK;
-  status = W6X_Ble_Init(W6X_BLE_MODE_SERVER, ble_receive_buffer,
-                        sizeof(ble_receive_buffer) - 1U);
-  ble_last_status = status;
+  (void)memset(radio_manager.queues.ble_receive_buffer, 0, sizeof(radio_manager.queues.ble_receive_buffer));
+  radio_manager.shadow.ble_init_stage = WIFI_BLE_INIT_STAGE_STACK;
+  status = W6X_Ble_Init(W6X_BLE_MODE_SERVER, radio_manager.queues.ble_receive_buffer,
+                        sizeof(radio_manager.queues.ble_receive_buffer) - 1U);
+  radio_manager.shadow.ble_last_status = status;
   if (status != W6X_STATUS_OK)
   {
     LogError("ST67W6X BLE initialization failed: %" PRIi32 "\r\n", status);
@@ -452,15 +604,24 @@ void WIFI_BLE_App_Run(void)
 #endif
 
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
-  if (CloudRelay_Initialize(MX_RadioBytePool_Get(), ble_device_name) != TX_SUCCESS)
+  if ((cloud_net_ready != 0U) &&
+      (CloudRelay_Initialize(MX_RadioBytePool_Get(), radio_manager.shadow.ble_device_name) != TX_SUCCESS))
   {
-    LogError("ST67W6X Cloud Relay initialization failed.\r\n");
+    LogError("ST67W6X Cloud Relay initialization failed; Wi-Fi/BLE remain available.\r\n");
+    cloud_net_ready = 0U;
+  }
+#endif
+
+  radio_manager.shadow.state = WIFI_BLE_STATE_READY;
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  if (tx_event_flags_set(&radio_manager.queues.wifi_control_context->completion,
+                         WIFI_CONTROL_RADIO_READY_FLAG, TX_OR) != TX_SUCCESS)
+  {
+    LogError("ST67W6X Wi-Fi control ready signal failed.\r\n");
     status = W6X_STATUS_ERROR;
     goto error;
   }
 #endif
-
-  wifi_ble_state = WIFI_BLE_STATE_READY;
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   LogInfo("ST67W6X: BLE maintenance GATT server is advertising.\r\n");
   LogInfo("ST67W6X: bounded CLI/DEBUG streams, signed BLE XMODEM and ToF image notifications ready.\r\n");
@@ -469,7 +630,10 @@ void WIFI_BLE_App_Run(void)
   LogInfo("ST67W6X: Wi-Fi station service is ready; no credentials are configured.\r\n");
 #endif
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
-  LogInfo("ST67W6X: HTTPS Cloud CLI relay is ready; use 'cloud pair <code>'.\r\n");
+  if (cloud_net_ready != 0U)
+  {
+    LogInfo("ST67W6X: HTTPS Cloud CLI relay is ready; use 'cloud pair <code>'.\r\n");
+  }
 #endif
 #if ((APP_ST67W6X_BLE_GATT_ENABLED == 0U) && \
      (APP_ST67W6X_WIFI_SERVICES_ENABLED == 0U))
@@ -477,18 +641,41 @@ void WIFI_BLE_App_Run(void)
   LogInfo("ST67W6X: Wi-Fi and BLE services are disabled.\r\n");
 #endif
 
+  radio_manager.counters.wifi_ble_last_loop_tick = HAL_GetTick();
   for (;;)
   {
+    uint32_t loop_gap;
+
+    now = HAL_GetTick();
+    loop_gap = now - radio_manager.counters.wifi_ble_last_loop_tick;
+    radio_manager.counters.wifi_ble_last_loop_tick = now;
+    radio_manager.counters.wifi_ble_loop_count++;
+    if (loop_gap > radio_manager.counters.wifi_ble_max_loop_gap_ticks)
+    {
+      radio_manager.counters.wifi_ble_max_loop_gap_ticks = loop_gap;
+    }
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
     wifi_process_pending_events();
-    wifi_process_pending_request();
 #endif
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
     /* Run the Cloud uploader before BLE can release the shared ToF frame. */
-    CloudRelay_Process(wifi_has_ip);
+    if (cloud_net_ready != 0U)
+    {
+      CloudRelay_Process(radio_manager.shadow.wifi_has_ip);
+    }
 #endif
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
     ble_process_pending_events();
+    now = HAL_GetTick();
+    if (radio_manager.counters.wifi_ble_last_tx_tick != 0U)
+    {
+      uint32_t ble_tx_gap = now - radio_manager.counters.wifi_ble_last_tx_tick;
+      if (ble_tx_gap > radio_manager.counters.wifi_ble_max_tx_gap_ticks)
+      {
+        radio_manager.counters.wifi_ble_max_tx_gap_ticks = ble_tx_gap;
+      }
+    }
+    radio_manager.counters.wifi_ble_last_tx_tick = now;
 #endif
 #if ((APP_ST67W6X_BLE_GATT_ENABLED == 1U) || \
      (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U))
@@ -500,7 +687,8 @@ void WIFI_BLE_App_Run(void)
   }
 
 error:
-  wifi_ble_state = WIFI_BLE_STATE_ERROR;
+  radio_manager.counters.faults.init_failures++;
+  radio_manager.shadow.state = WIFI_BLE_STATE_ERROR;
   LogError("ST67W6X thread stopped in ERROR state; ToF continues running.\r\n");
   for (;;)
   {
@@ -510,7 +698,7 @@ error:
 
 WifiBle_State_t WIFI_BLE_App_GetState(void)
 {
-  return wifi_ble_state;
+  return radio_manager.shadow.state;
 }
 
 void WIFI_BLE_App_GetRuntimeStatus(WifiBle_RuntimeStatus_t *status)
@@ -522,49 +710,71 @@ void WIFI_BLE_App_GetRuntimeStatus(WifiBle_RuntimeStatus_t *status)
     return;
   }
 
-  status->state = wifi_ble_state;
-  status->wifi_connected = wifi_connected;
-  status->wifi_has_ip = wifi_has_ip;
-  status->ble_gatt_ready = ble_gatt_ready;
-  status->ble_connected = ble_connected;
-  status->ble_advertising = ble_advertising;
-  status->ble_connection_handle = ble_connection_handle;
-  status->ble_mtu = ble_mtu;
-  status->ble_cli_tx_subscribed = ble_cli_tx_subscribed;
-  status->ble_debug_tx_subscribed = ble_debug_tx_subscribed;
-  status->ble_tof_image_subscribed = ble_tof_image_subscribed;
-  status->ble_rx_write_events = ble_rx_write_events;
-  status->ble_rx_discarded_bytes = ble_rx_discarded_bytes;
-  status->ble_session_generation = ble_session_generation;
+  status->state = radio_manager.shadow.state;
+  status->wifi_connected = radio_manager.shadow.wifi_connected;
+  status->wifi_has_ip = radio_manager.shadow.wifi_has_ip;
+  status->wifi_state_confirmed = radio_manager.shadow.wifi_state_confirmed;
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  status->wifi_last_probe_tick = radio_manager.work.wifi_last_probe_tick;
+  status->wifi_last_probe_status = radio_manager.work.wifi_last_probe_status;
+#else
+  status->wifi_last_probe_tick = 0U;
+  status->wifi_last_probe_status = 0;
+#endif
+  status->loop_count = radio_manager.counters.wifi_ble_loop_count;
+  status->last_loop_tick = radio_manager.counters.wifi_ble_last_loop_tick;
+  status->max_loop_gap_ticks = radio_manager.counters.wifi_ble_max_loop_gap_ticks;
+  status->last_ble_tx_tick = radio_manager.counters.wifi_ble_last_tx_tick;
+  status->max_ble_tx_gap_ticks = radio_manager.counters.wifi_ble_max_tx_gap_ticks;
+  status->ble_gatt_ready = radio_manager.shadow.ble_gatt_ready;
+  status->ble_connected = radio_manager.shadow.ble_connected;
+  status->ble_advertising = radio_manager.shadow.ble_advertising;
+  status->ble_advertising_desired = radio_manager.shadow.ble_advertising_desired;
+  status->ble_advertising_evidence = radio_manager.shadow.ble_advertising_evidence;
+  status->ble_advertising_retry_count = radio_manager.work.ble_advertising_retry_count;
+  status->ble_recovery_pending = radio_manager.work.ble_recovery_pending;
+  status->ble_mode_confirmed = radio_manager.shadow.ble_mode_confirmed;
+  status->ble_link_confirmed = radio_manager.shadow.ble_link_confirmed;
+  status->ble_last_probe_tick = radio_manager.work.ble_last_probe_tick;
+  status->ble_last_probe_status = radio_manager.work.ble_last_probe_status;
+  status->ble_connection_handle = radio_manager.shadow.ble_connection_handle;
+  status->ble_mtu = radio_manager.shadow.ble_mtu;
+  status->ble_cli_tx_subscribed = radio_manager.shadow.ble_cli_tx_subscribed;
+  status->ble_debug_tx_subscribed = radio_manager.shadow.ble_debug_tx_subscribed;
+  status->ble_tof_image_subscribed = radio_manager.shadow.ble_tof_image_subscribed;
+  status->ble_rx_write_events = radio_manager.counters.ble_rx_write_events;
+  status->ble_rx_discarded_bytes = radio_manager.counters.ble_rx_discarded_bytes;
+  status->ble_session_generation = radio_manager.shadow.ble_session_generation;
   status->ble_att_payload_limit =
-      (ble_mtu > 3U) ? ((ble_mtu - 3U) < W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH ?
-                       (ble_mtu - 3U) : W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH) : 20U;
-  status->ble_transport_ready = ble_transport_ready;
+      (radio_manager.shadow.ble_mtu > 3U) ? ((radio_manager.shadow.ble_mtu - 3U) < W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH ?
+                       (radio_manager.shadow.ble_mtu - 3U) : W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH) : 20U;
+  status->ble_transport_ready = radio_manager.shadow.ble_transport_ready;
   status->ble_radio_pool_available = 0U;
   status->ble_radio_pool_fragments = 0U;
-  status->ble_init_stage = ble_init_stage;
-  status->ble_last_status = ble_last_status;
+  status->ble_init_stage = radio_manager.shadow.ble_init_stage;
+  status->ble_last_status = radio_manager.shadow.ble_last_status;
+  status->manager_health = radio_manager.counters.faults;
   (void)memset(status->ble_stream, 0, sizeof(status->ble_stream));
   (void)memset(&status->ble_tof_image, 0, sizeof(status->ble_tof_image));
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   posture = tx_interrupt_control(TX_INT_DISABLE);
-  if (ble_stream_context != NULL)
+  if (radio_manager.queues.ble_stream_context != NULL)
   {
     status->ble_stream[WIFI_BLE_STREAM_CLI] =
-        ble_stream_context->stats[WIFI_BLE_STREAM_CLI];
+        radio_manager.queues.ble_stream_context->stats[WIFI_BLE_STREAM_CLI];
     status->ble_stream[WIFI_BLE_STREAM_DEBUG] =
-        ble_stream_context->stats[WIFI_BLE_STREAM_DEBUG];
+        radio_manager.queues.ble_stream_context->stats[WIFI_BLE_STREAM_DEBUG];
   }
-  if (ble_tof_image_context != NULL)
+  if (radio_manager.queues.ble_tof_image_context != NULL)
   {
-    status->ble_tof_image = ble_tof_image_context->stats;
+    status->ble_tof_image = radio_manager.queues.ble_tof_image_context->stats;
   }
   (void)tx_interrupt_control(posture);
-  if (ble_radio_pool != NULL)
+  if (radio_manager.queues.ble_radio_pool != NULL)
   {
     ULONG available = 0U;
     ULONG fragments = 0U;
-    if (tx_byte_pool_info_get(ble_radio_pool, TX_NULL, &available, &fragments,
+    if (tx_byte_pool_info_get(radio_manager.queues.ble_radio_pool, TX_NULL, &available, &fragments,
                               TX_NULL, TX_NULL, TX_NULL) == TX_SUCCESS)
     {
       status->ble_radio_pool_available = available;
@@ -574,9 +784,9 @@ void WIFI_BLE_App_GetRuntimeStatus(WifiBle_RuntimeStatus_t *status)
 #else
   (void)posture;
 #endif
-  (void)memcpy(status->ble_device_name, ble_device_name,
+  (void)memcpy(status->ble_device_name, radio_manager.shadow.ble_device_name,
                sizeof(status->ble_device_name));
-  (void)memcpy(status->ble_address, ble_address,
+  (void)memcpy(status->ble_address, radio_manager.shadow.ble_address,
                sizeof(status->ble_address));
 }
 
@@ -611,21 +821,25 @@ void WIFI_BLE_App_GetHardwareStatus(WifiBle_HardwareStatus_t *status)
 
 UINT WIFI_BLE_App_RequestAdvertising(uint32_t advertising)
 {
-  if (ble_gatt_ready == 0U)
+  if (radio_manager.shadow.ble_gatt_ready == 0U)
   {
     return TX_NOT_AVAILABLE;
   }
-  ble_adv_request = (advertising != 0U) ? 1U : 0U;
+  radio_manager.shadow.ble_advertising_desired = (advertising != 0U) ? 1U : 0U;
+  radio_manager.shadow.ble_advertising_evidence = WIFI_BLE_ADV_UNKNOWN;
+  radio_manager.work.ble_advertising_retry_count = 0U;
+  radio_manager.work.ble_advertising_retry_due_tick = 0U;
+  radio_manager.work.ble_adv_request = (advertising != 0U) ? 1U : 0U;
   return TX_SUCCESS;
 }
 
 UINT WIFI_BLE_App_RequestDisconnect(void)
 {
-  if (ble_connected == 0U)
+  if (radio_manager.shadow.ble_connected == 0U)
   {
     return TX_NOT_AVAILABLE;
   }
-  ble_disconnect_request = 1U;
+  radio_manager.work.ble_disconnect_request = 1U;
   return TX_SUCCESS;
 }
 
@@ -637,12 +851,12 @@ void WIFI_BLE_App_GetWifiStatus(WifiBle_WifiStatus_t *status)
   }
 
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
-  if (wifi_control_context != NULL)
+  if (radio_manager.queues.wifi_control_context != NULL)
   {
     UINT posture = tx_interrupt_control(TX_INT_DISABLE);
-    *status = wifi_control_context->status;
-    status->connected = wifi_connected;
-    status->has_ip = wifi_has_ip;
+    *status = radio_manager.queues.wifi_control_context->status;
+    status->connected = radio_manager.shadow.wifi_connected;
+    status->has_ip = radio_manager.shadow.wifi_has_ip;
     (void)tx_interrupt_control(posture);
     return;
   }
@@ -652,66 +866,154 @@ void WIFI_BLE_App_GetWifiStatus(WifiBle_WifiStatus_t *status)
   status->last_status = (int32_t)W6X_STATUS_ERROR;
 }
 
-UINT WIFI_BLE_App_WifiScan(WifiBle_WifiScanResults_t *results,
-                           ULONG wait_option)
-{
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
-  UINT result;
+static UINT wifi_validate_owned_request(const WifiBle_WifiRequest_t *request,
+                                        size_t *ssid_length,
+                                        size_t *password_length)
+{
+  const char *ssid_end;
+  const char *password_end;
 
-  if (results == NULL)
+  if ((request == NULL) || (ssid_length == NULL) ||
+      (password_length == NULL))
   {
     return TX_PTR_ERROR;
   }
-  result = wifi_submit_request(WIFI_CONTROL_SCAN, NULL, NULL, 0U,
-                               wait_option);
-  if (result == TX_SUCCESS)
+  if (request->route.session_generation == 0U)
   {
-    *results = wifi_control_context->scan_results;
+    return TX_OPTION_ERROR;
   }
-  return result;
-#else
-  (void)results;
-  (void)wait_option;
-  return TX_NOT_AVAILABLE;
-#endif
-}
-
-UINT WIFI_BLE_App_WifiConnect(const char *ssid, const char *password,
-                              ULONG wait_option)
-{
-#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
-  size_t ssid_length;
-  size_t password_length;
-
-  if ((ssid == NULL) || (password == NULL))
+  switch (request->route.transport)
   {
-    return TX_PTR_ERROR;
+    case APP_TRANSPORT_USB:
+    case APP_TRANSPORT_BLE:
+    case APP_TRANSPORT_CLOUD:
+    case APP_TRANSPORT_SYSTEM:
+      break;
+
+    default:
+      return TX_OPTION_ERROR;
   }
-  ssid_length = strlen(ssid);
-  password_length = strlen(password);
-  if ((ssid_length == 0U) || (ssid_length > W6X_WIFI_MAX_SSID_SIZE) ||
-      (password_length > W6X_WIFI_MAX_PASSWORD_SIZE))
+
+  ssid_end = (const char *)memchr(request->ssid, '\0',
+                                  sizeof(request->ssid));
+  password_end = (const char *)memchr(request->password, '\0',
+                                      sizeof(request->password));
+  if ((ssid_end == NULL) || (password_end == NULL))
   {
     return TX_SIZE_ERROR;
   }
-  return wifi_submit_request(WIFI_CONTROL_CONNECT, ssid, password, 0U,
-                             wait_option);
+  *ssid_length = (size_t)(ssid_end - request->ssid);
+  *password_length = (size_t)(password_end - request->password);
+
+  switch (request->operation)
+  {
+    case WIFI_BLE_WIFI_OPERATION_SCAN:
+      return TX_SUCCESS;
+
+    case WIFI_BLE_WIFI_OPERATION_CONNECT:
+      return (*ssid_length != 0U) ? TX_SUCCESS : TX_SIZE_ERROR;
+
+    case WIFI_BLE_WIFI_OPERATION_DISCONNECT:
+      return (request->forget <= 1U) ? TX_SUCCESS : TX_OPTION_ERROR;
+
+    case WIFI_BLE_WIFI_OPERATION_NONE:
+    default:
+      return TX_OPTION_ERROR;
+  }
+}
+
+static AppRequestId_t wifi_allocate_request_id(void)
+{
+  AppRequestId_t request_id;
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+
+  request_id = radio_manager.work.wifi_last_request_id + 1U;
+  if (request_id == 0U)
+  {
+    request_id = 1U;
+  }
+  radio_manager.work.wifi_last_request_id = request_id;
+  (void)tx_interrupt_control(posture);
+  return request_id;
+}
+#endif
+
+UINT WIFI_BLE_App_WifiSubmit(const WifiBle_WifiRequest_t *request,
+                             AppRequestId_t *request_id)
+{
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  WifiBle_WifiRequest_t *slot = NULL;
+  AppRequestId_t assigned_id;
+  size_t ssid_length = 0U;
+  size_t password_length = 0U;
+  UINT result;
+
+  if ((request == NULL) || (request_id == NULL))
+  {
+    return TX_PTR_ERROR;
+  }
+  result = wifi_validate_owned_request(request, &ssid_length,
+                                       &password_length);
+  if (result != TX_SUCCESS)
+  {
+    return result;
+  }
+  result = wifi_request_slot_acquire(&slot);
+  if (result != TX_SUCCESS)
+  {
+    return result;
+  }
+
+  assigned_id = wifi_allocate_request_id();
+  (void)memset(slot, 0, sizeof(*slot));
+  slot->operation = request->operation;
+  slot->request_id = assigned_id;
+  slot->route = request->route;
+  if (request->operation == WIFI_BLE_WIFI_OPERATION_CONNECT)
+  {
+    (void)memcpy(slot->ssid, request->ssid, ssid_length + 1U);
+    (void)memcpy(slot->password, request->password, password_length + 1U);
+  }
+  else if (request->operation == WIFI_BLE_WIFI_OPERATION_DISCONNECT)
+  {
+    slot->forget = request->forget;
+  }
+
+  result = wifi_request_slot_publish(slot);
+  if (result != TX_SUCCESS)
+  {
+    UINT release_result = wifi_request_slot_release(slot);
+    return (release_result == TX_SUCCESS) ? result : release_result;
+  }
+  *request_id = assigned_id;
+  return TX_SUCCESS;
 #else
-  (void)ssid;
-  (void)password;
-  (void)wait_option;
+  (void)request;
+  (void)request_id;
   return TX_NOT_AVAILABLE;
 #endif
 }
 
-UINT WIFI_BLE_App_WifiDisconnect(uint32_t forget, ULONG wait_option)
+UINT WIFI_BLE_App_WifiReceiveResult(WifiBle_WifiResult_t *result)
 {
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
-  return wifi_submit_request(WIFI_CONTROL_DISCONNECT, NULL, NULL,
-                             (forget != 0U) ? 1U : 0U, wait_option);
+  WifiBle_WifiResult_t *slot = NULL;
+  UINT status;
+
+  if (result == NULL)
+  {
+    return TX_PTR_ERROR;
+  }
+  status = wifi_result_slot_receive(&slot);
+  if (status != TX_SUCCESS)
+  {
+    return status;
+  }
+  *result = *slot;
+  return wifi_result_slot_release(slot);
 #else
-  (void)forget;
-  (void)wait_option;
+  (void)result;
   return TX_NOT_AVAILABLE;
 #endif
 }
@@ -732,14 +1034,14 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
   {
     return TX_PTR_ERROR;
   }
-  if ((ble_transport_ready == 0U) || (ble_connected == 0U) ||
-      (ble_stream_context == NULL))
+  if ((radio_manager.shadow.ble_transport_ready == 0U) || (radio_manager.shadow.ble_connected == 0U) ||
+      (radio_manager.queues.ble_stream_context == NULL))
   {
     return TX_NOT_AVAILABLE;
   }
 
   subscribed = (stream == WIFI_BLE_STREAM_CLI) ?
-               ble_cli_tx_subscribed : ble_debug_tx_subscribed;
+               radio_manager.shadow.ble_cli_tx_subscribed : radio_manager.shadow.ble_debug_tx_subscribed;
   if (subscribed == 0U)
   {
     return TX_NOT_AVAILABLE;
@@ -747,8 +1049,8 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
 
   if (stream == WIFI_BLE_STREAM_CLI)
   {
-    free_queue = &ble_stream_context->cli_tx_free;
-    ready_queue = &ble_stream_context->cli_tx_ready;
+    free_queue = &radio_manager.queues.ble_stream_context->cli_tx_free;
+    ready_queue = &radio_manager.queues.ble_stream_context->cli_tx_ready;
     capacity = BLE_CLI_TX_SLOT_SIZE;
     if ((wait_option == TX_WAIT_FOREVER) ||
         (wait_option > BLE_CLI_TX_MAX_WAIT_TICKS))
@@ -758,8 +1060,8 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
   }
   else
   {
-    free_queue = &ble_stream_context->debug_tx_free;
-    ready_queue = &ble_stream_context->debug_tx_ready;
+    free_queue = &radio_manager.queues.ble_stream_context->debug_tx_free;
+    ready_queue = &radio_manager.queues.ble_stream_context->debug_tx_ready;
     capacity = BLE_DEBUG_TX_SLOT_SIZE;
     /* Debug mirroring is best-effort and must never stall its producer. */
     wait_option = TX_NO_WAIT;
@@ -768,8 +1070,8 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
   if (length > capacity)
   {
     posture = tx_interrupt_control(TX_INT_DISABLE);
-    ble_stream_context->stats[stream].tx_dropped_messages++;
-    ble_stream_context->stats[stream].tx_dropped_bytes += length;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_dropped_messages++;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_dropped_bytes += length;
     (void)tx_interrupt_control(posture);
     return TX_SIZE_ERROR;
   }
@@ -778,15 +1080,15 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
   if (result != TX_SUCCESS)
   {
     posture = tx_interrupt_control(TX_INT_DISABLE);
-    ble_stream_context->stats[stream].tx_dropped_messages++;
-    ble_stream_context->stats[stream].tx_dropped_bytes += length;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_dropped_messages++;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_dropped_bytes += length;
     (void)tx_interrupt_control(posture);
     return result;
   }
 
-  if ((ble_connected == 0U) ||
-      (((stream == WIFI_BLE_STREAM_CLI) ? ble_cli_tx_subscribed :
-                                           ble_debug_tx_subscribed) == 0U))
+  if ((radio_manager.shadow.ble_connected == 0U) ||
+      (((stream == WIFI_BLE_STREAM_CLI) ? radio_manager.shadow.ble_cli_tx_subscribed :
+                                           radio_manager.shadow.ble_debug_tx_subscribed) == 0U))
   {
     (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
     return TX_NOT_AVAILABLE;
@@ -795,7 +1097,7 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
   if (stream == WIFI_BLE_STREAM_CLI)
   {
     WifiBle_CliTxSlot_t *tx_slot = (WifiBle_CliTxSlot_t *)slot;
-    tx_slot->generation = ble_session_generation;
+    tx_slot->generation = radio_manager.shadow.ble_session_generation;
     tx_slot->length = (uint16_t)length;
     tx_slot->offset = 0U;
     tx_slot->retries = 0U;
@@ -804,7 +1106,7 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
   else
   {
     WifiBle_DebugTxSlot_t *tx_slot = (WifiBle_DebugTxSlot_t *)slot;
-    tx_slot->generation = ble_session_generation;
+    tx_slot->generation = radio_manager.shadow.ble_session_generation;
     tx_slot->length = (uint16_t)length;
     tx_slot->offset = 0U;
     tx_slot->retries = 0U;
@@ -816,21 +1118,21 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
   {
     (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
     posture = tx_interrupt_control(TX_INT_DISABLE);
-    ble_stream_context->stats[stream].tx_dropped_messages++;
-    ble_stream_context->stats[stream].tx_dropped_bytes += length;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_dropped_messages++;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_dropped_bytes += length;
     (void)tx_interrupt_control(posture);
     return result;
   }
 
   posture = tx_interrupt_control(TX_INT_DISABLE);
-  ble_stream_context->stats[stream].tx_messages++;
-  ble_stream_context->stats[stream].tx_bytes += length;
-  ble_stream_context->stats[stream].tx_queued++;
-  if (ble_stream_context->stats[stream].tx_queued >
-      ble_stream_context->stats[stream].tx_high_water)
+  radio_manager.queues.ble_stream_context->stats[stream].tx_messages++;
+  radio_manager.queues.ble_stream_context->stats[stream].tx_bytes += length;
+  radio_manager.queues.ble_stream_context->stats[stream].tx_queued++;
+  if (radio_manager.queues.ble_stream_context->stats[stream].tx_queued >
+      radio_manager.queues.ble_stream_context->stats[stream].tx_high_water)
   {
-    ble_stream_context->stats[stream].tx_high_water =
-        ble_stream_context->stats[stream].tx_queued;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_high_water =
+        radio_manager.queues.ble_stream_context->stats[stream].tx_queued;
   }
   (void)tx_interrupt_control(posture);
   return TX_SUCCESS;
@@ -863,17 +1165,17 @@ UINT WIFI_BLE_App_StreamRead(WifiBle_Stream_t stream, void *buffer,
   {
     return TX_PTR_ERROR;
   }
-  if ((ble_transport_ready == 0U) || (ble_stream_context == NULL))
+  if ((radio_manager.shadow.ble_transport_ready == 0U) || (radio_manager.queues.ble_stream_context == NULL))
   {
     return TX_NOT_AVAILABLE;
   }
 
   free_queue = (stream == WIFI_BLE_STREAM_CLI) ?
-               &ble_stream_context->cli_rx_free :
-               &ble_stream_context->debug_rx_free;
+               &radio_manager.queues.ble_stream_context->cli_rx_free :
+               &radio_manager.queues.ble_stream_context->debug_rx_free;
   ready_queue = (stream == WIFI_BLE_STREAM_CLI) ?
-                &ble_stream_context->cli_rx_ready :
-                &ble_stream_context->debug_rx_ready;
+                &radio_manager.queues.ble_stream_context->cli_rx_ready :
+                &radio_manager.queues.ble_stream_context->debug_rx_ready;
 
   do
   {
@@ -883,17 +1185,17 @@ UINT WIFI_BLE_App_StreamRead(WifiBle_Stream_t stream, void *buffer,
       return result;
     }
     posture = tx_interrupt_control(TX_INT_DISABLE);
-    if (ble_stream_context->stats[stream].rx_queued != 0U)
+    if (radio_manager.queues.ble_stream_context->stats[stream].rx_queued != 0U)
     {
-      ble_stream_context->stats[stream].rx_queued--;
+      radio_manager.queues.ble_stream_context->stats[stream].rx_queued--;
     }
     (void)tx_interrupt_control(posture);
 
-    if (slot->generation != ble_session_generation)
+    if (slot->generation != radio_manager.shadow.ble_session_generation)
     {
       (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
       posture = tx_interrupt_control(TX_INT_DISABLE);
-      ble_stream_context->stats[stream].stale_drops++;
+      radio_manager.queues.ble_stream_context->stats[stream].stale_drops++;
       (void)tx_interrupt_control(posture);
       slot = NULL;
       wait_option = TX_NO_WAIT;
@@ -927,10 +1229,10 @@ uint32_t WIFI_BLE_App_IsTofImageSubscribed(void)
 {
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   CloudRelay_Status_t cloud_status;
-  uint32_t ble_requested = ((ble_transport_ready != 0U) &&
-      (ble_connected != 0U) && (ble_tof_image_subscribed != 0U)) ? 1U : 0U;
+  uint32_t ble_requested = ((radio_manager.shadow.ble_transport_ready != 0U) &&
+      (radio_manager.shadow.ble_connected != 0U) && (radio_manager.shadow.ble_tof_image_subscribed != 0U)) ? 1U : 0U;
   CloudRelay_GetStatus(&cloud_status);
-  return ((ble_tof_image_context != NULL) &&
+  return ((radio_manager.queues.ble_tof_image_context != NULL) &&
           ((ble_requested != 0U) ||
            ((cloud_status.enabled != 0U) &&
             (cloud_status.paired != 0U)))) ? 1U : 0U;
@@ -969,35 +1271,35 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   }
 
   posture = tx_interrupt_control(TX_INT_DISABLE);
-  if (ble_tof_image_context->state != BLE_TOF_IMAGE_FREE)
+  if (radio_manager.queues.ble_tof_image_context->state != BLE_TOF_IMAGE_FREE)
   {
-    ble_tof_image_context->stats.frames_dropped_busy++;
+    radio_manager.queues.ble_tof_image_context->stats.frames_dropped_busy++;
     (void)tx_interrupt_control(posture);
     return TX_QUEUE_FULL;
   }
-  ble_tof_image_context->state = BLE_TOF_IMAGE_FILLING;
-  ble_tof_image_context->generation = ble_session_generation;
+  radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FILLING;
+  radio_manager.queues.ble_tof_image_context->generation = radio_manager.shadow.ble_session_generation;
   (void)tx_interrupt_control(posture);
 
-  (void)memcpy(ble_tof_image_context->payload, pixels, payload_length);
-  ble_tof_image_context->frame_id = frame_id;
-  ble_tof_image_context->payload_crc32 =
-      ble_crc32(ble_tof_image_context->payload, payload_length);
-  ble_tof_image_context->payload_length = (uint16_t)payload_length;
-  ble_tof_image_context->offset = 0U;
-  ble_tof_image_context->width = width;
-  ble_tof_image_context->height = height;
-  ble_tof_image_context->channel_id = channel_id;
-  ble_tof_image_context->retries = 0U;
+  (void)memcpy(radio_manager.queues.ble_tof_image_context->payload, pixels, payload_length);
+  radio_manager.queues.ble_tof_image_context->frame_id = frame_id;
+  radio_manager.queues.ble_tof_image_context->payload_crc32 =
+      ble_crc32(radio_manager.queues.ble_tof_image_context->payload, payload_length);
+  radio_manager.queues.ble_tof_image_context->payload_length = (uint16_t)payload_length;
+  radio_manager.queues.ble_tof_image_context->offset = 0U;
+  radio_manager.queues.ble_tof_image_context->width = width;
+  radio_manager.queues.ble_tof_image_context->height = height;
+  radio_manager.queues.ble_tof_image_context->channel_id = channel_id;
+  radio_manager.queues.ble_tof_image_context->retries = 0U;
 
   posture = tx_interrupt_control(TX_INT_DISABLE);
-  ble_tof_image_context->stats.frames_submitted++;
-  ble_tof_image_context->stats.last_submitted_frame = frame_id;
-  ble_tof_image_context->state = BLE_TOF_IMAGE_READY;
+  radio_manager.queues.ble_tof_image_context->stats.frames_submitted++;
+  radio_manager.queues.ble_tof_image_context->stats.last_submitted_frame = frame_id;
+  radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_READY;
   (void)tx_interrupt_control(posture);
   (void)CloudRelay_SubmitTofFrame(
-      frame_id, channel_id, ble_tof_image_context->payload, width, height,
-      ble_tof_image_context->payload_crc32);
+      frame_id, channel_id, radio_manager.queues.ble_tof_image_context->payload, width, height,
+      radio_manager.queues.ble_tof_image_context->payload_crc32);
   return TX_SUCCESS;
 #else
   (void)frame_id;
@@ -1040,10 +1342,412 @@ void HAL_GPIO_EXTI_Falling_Callback(uint16_t gpio_pin)
 }
 
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+static UINT wifi_create_pointer_queue(TX_QUEUE *queue, CHAR *name,
+                                      ULONG *storage)
+{
+  return tx_queue_create(queue, name, TX_1_ULONG, storage,
+                         WIFI_CONTROL_SLOT_COUNT * (ULONG)sizeof(ULONG));
+}
+
+static UINT wifi_request_slot_acquire(WifiBle_WifiRequest_t **slot)
+{
+  void *message = NULL;
+  UINT result;
+
+  if (slot == NULL)
+  {
+    return TX_PTR_ERROR;
+  }
+  *slot = NULL;
+  if (radio_manager.queues.wifi_control_context == NULL)
+  {
+    return TX_NOT_AVAILABLE;
+  }
+  result = tx_queue_receive(&radio_manager.queues.wifi_control_context->request_free, &message,
+                            TX_NO_WAIT);
+  if (result == TX_QUEUE_EMPTY)
+  {
+    return TX_QUEUE_FULL;
+  }
+  if (result == TX_SUCCESS)
+  {
+    if (message == NULL)
+    {
+      return TX_QUEUE_ERROR;
+    }
+    *slot = (WifiBle_WifiRequest_t *)message;
+  }
+  return result;
+}
+
+static UINT wifi_request_slot_publish(WifiBle_WifiRequest_t *slot)
+{
+  void *message = slot;
+  UINT result;
+
+  if ((radio_manager.queues.wifi_control_context == NULL) || (slot == NULL))
+  {
+    return TX_PTR_ERROR;
+  }
+  result = tx_queue_send(&radio_manager.queues.wifi_control_context->request_ready, &message,
+                         TX_NO_WAIT);
+  if (result == TX_SUCCESS)
+  {
+    (void)tx_event_flags_set(&radio_manager.queues.wifi_control_context->completion,
+                             WIFI_CONTROL_WORK_FLAG, TX_OR);
+  }
+  return result;
+}
+
+static UINT wifi_request_slot_receive(WifiBle_WifiRequest_t **slot)
+{
+  void *message = NULL;
+  UINT result;
+
+  if (slot == NULL)
+  {
+    return TX_PTR_ERROR;
+  }
+  *slot = NULL;
+  if (radio_manager.queues.wifi_control_context == NULL)
+  {
+    return TX_NOT_AVAILABLE;
+  }
+  result = tx_queue_receive(&radio_manager.queues.wifi_control_context->request_ready, &message,
+                            TX_NO_WAIT);
+  if (result == TX_SUCCESS)
+  {
+    if (message == NULL)
+    {
+      return TX_QUEUE_ERROR;
+    }
+    *slot = (WifiBle_WifiRequest_t *)message;
+  }
+  return result;
+}
+
+static UINT wifi_request_slot_release(WifiBle_WifiRequest_t *slot)
+{
+  void *message = slot;
+
+  if (slot == NULL)
+  {
+    return TX_PTR_ERROR;
+  }
+  (void)memset(slot, 0, sizeof(*slot));
+  if (radio_manager.queues.wifi_control_context == NULL)
+  {
+    return TX_NOT_AVAILABLE;
+  }
+  return tx_queue_send(&radio_manager.queues.wifi_control_context->request_free, &message,
+                       TX_NO_WAIT);
+}
+
+static UINT wifi_result_slot_acquire(WifiBle_WifiResult_t **slot)
+{
+  void *message = NULL;
+  UINT result;
+
+  if (slot == NULL)
+  {
+    return TX_PTR_ERROR;
+  }
+  *slot = NULL;
+  if (radio_manager.queues.wifi_control_context == NULL)
+  {
+    return TX_NOT_AVAILABLE;
+  }
+  result = tx_queue_receive(&radio_manager.queues.wifi_control_context->result_free, &message,
+                            TX_NO_WAIT);
+  if (result == TX_QUEUE_EMPTY)
+  {
+    return TX_QUEUE_FULL;
+  }
+  if (result == TX_SUCCESS)
+  {
+    if (message == NULL)
+    {
+      return TX_QUEUE_ERROR;
+    }
+    *slot = (WifiBle_WifiResult_t *)message;
+  }
+  return result;
+}
+
+static UINT wifi_result_slot_acquire_wait(WifiBle_WifiResult_t **slot)
+{
+  void *message = NULL;
+  UINT result;
+
+  if (slot == NULL)
+  {
+    return TX_PTR_ERROR;
+  }
+  *slot = NULL;
+  if (radio_manager.queues.wifi_control_context == NULL)
+  {
+    return TX_NOT_AVAILABLE;
+  }
+  result = tx_queue_receive(&radio_manager.queues.wifi_control_context->result_free, &message,
+                            TX_WAIT_FOREVER);
+  if (result == TX_SUCCESS)
+  {
+    if (message == NULL)
+    {
+      return TX_QUEUE_ERROR;
+    }
+    *slot = (WifiBle_WifiResult_t *)message;
+  }
+  return result;
+}
+
+static UINT wifi_result_slot_publish(WifiBle_WifiResult_t *slot)
+{
+  void *message = slot;
+
+  if ((radio_manager.queues.wifi_control_context == NULL) || (slot == NULL))
+  {
+    return TX_PTR_ERROR;
+  }
+  return tx_queue_send(&radio_manager.queues.wifi_control_context->result_ready, &message,
+                       TX_NO_WAIT);
+}
+
+static UINT wifi_result_slot_receive(WifiBle_WifiResult_t **slot)
+{
+  void *message = NULL;
+  UINT result;
+
+  if (slot == NULL)
+  {
+    return TX_PTR_ERROR;
+  }
+  *slot = NULL;
+  if (radio_manager.queues.wifi_control_context == NULL)
+  {
+    return TX_NOT_AVAILABLE;
+  }
+  result = tx_queue_receive(&radio_manager.queues.wifi_control_context->result_ready, &message,
+                            TX_NO_WAIT);
+  if (result == TX_SUCCESS)
+  {
+    if (message == NULL)
+    {
+      return TX_QUEUE_ERROR;
+    }
+    *slot = (WifiBle_WifiResult_t *)message;
+  }
+  return result;
+}
+
+static UINT wifi_result_slot_release(WifiBle_WifiResult_t *slot)
+{
+  void *message = slot;
+
+  if (slot == NULL)
+  {
+    return TX_PTR_ERROR;
+  }
+  (void)memset(slot, 0, sizeof(*slot));
+  if (radio_manager.queues.wifi_control_context == NULL)
+  {
+    return TX_NOT_AVAILABLE;
+  }
+  return tx_queue_send(&radio_manager.queues.wifi_control_context->result_free, &message,
+                       TX_NO_WAIT);
+}
+
+static UINT wifi_queue_expect_count(TX_QUEUE *queue, ULONG expected)
+{
+  ULONG count = 0U;
+  UINT result = tx_queue_info_get(queue, TX_NULL, &count, TX_NULL, TX_NULL,
+                                  TX_NULL, TX_NULL);
+
+  if (result != TX_SUCCESS)
+  {
+    return result;
+  }
+  return (count == expected) ? TX_SUCCESS : TX_QUEUE_ERROR;
+}
+
+static uint32_t wifi_memory_is_zero(const void *memory, size_t size)
+{
+  const uint8_t *bytes = (const uint8_t *)memory;
+
+  for (size_t i = 0U; i < size; ++i)
+  {
+    if (bytes[i] != 0U)
+    {
+      return 0U;
+    }
+  }
+  return 1U;
+}
+
+static UINT wifi_control_queue_self_test(void)
+{
+  WifiBle_WifiRequest_t *requests[WIFI_CONTROL_SLOT_COUNT] = {0};
+  WifiBle_WifiResult_t *results[WIFI_CONTROL_SLOT_COUNT] = {0};
+  WifiBle_WifiRequest_t *extra_request = NULL;
+  WifiBle_WifiRequest_t *received_request = NULL;
+  WifiBle_WifiResult_t *extra_result = NULL;
+  WifiBle_WifiResult_t *received_result = NULL;
+  UINT status;
+
+  if ((wifi_queue_expect_count(&radio_manager.queues.wifi_control_context->request_free,
+                               WIFI_CONTROL_SLOT_COUNT) != TX_SUCCESS) ||
+      (wifi_queue_expect_count(&radio_manager.queues.wifi_control_context->request_ready, 0U) !=
+       TX_SUCCESS) ||
+      (wifi_queue_expect_count(&radio_manager.queues.wifi_control_context->result_free,
+                               WIFI_CONTROL_SLOT_COUNT) != TX_SUCCESS) ||
+      (wifi_queue_expect_count(&radio_manager.queues.wifi_control_context->result_ready, 0U) !=
+       TX_SUCCESS))
+  {
+    return TX_QUEUE_ERROR;
+  }
+
+  for (uint32_t i = 0U; i < WIFI_CONTROL_SLOT_COUNT; ++i)
+  {
+    status = wifi_request_slot_acquire(&requests[i]);
+    if ((status != TX_SUCCESS) || (requests[i] == NULL))
+    {
+      return TX_QUEUE_ERROR;
+    }
+    for (uint32_t j = 0U; j < i; ++j)
+    {
+      if (requests[i] == requests[j])
+      {
+        return TX_QUEUE_ERROR;
+      }
+    }
+  }
+  if (wifi_request_slot_acquire(&extra_request) != TX_QUEUE_FULL)
+  {
+    return TX_QUEUE_ERROR;
+  }
+  for (uint32_t i = 0U; i < WIFI_CONTROL_SLOT_COUNT; ++i)
+  {
+    if (wifi_request_slot_publish(requests[i]) != TX_SUCCESS)
+    {
+      return TX_QUEUE_ERROR;
+    }
+  }
+  for (uint32_t i = 0U; i < WIFI_CONTROL_SLOT_COUNT; ++i)
+  {
+    if ((wifi_request_slot_receive(&received_request) != TX_SUCCESS) ||
+        (received_request != requests[i]))
+    {
+      return TX_QUEUE_ERROR;
+    }
+    (void)memset(received_request, 0xA5, sizeof(*received_request));
+    if ((wifi_request_slot_release(received_request) != TX_SUCCESS) ||
+        (wifi_memory_is_zero(received_request, sizeof(*received_request)) ==
+         0U))
+    {
+      return TX_QUEUE_ERROR;
+    }
+  }
+
+  for (uint32_t i = 0U; i < WIFI_CONTROL_SLOT_COUNT; ++i)
+  {
+    status = wifi_result_slot_acquire(&results[i]);
+    if ((status != TX_SUCCESS) || (results[i] == NULL))
+    {
+      return TX_QUEUE_ERROR;
+    }
+    for (uint32_t j = 0U; j < i; ++j)
+    {
+      if (results[i] == results[j])
+      {
+        return TX_QUEUE_ERROR;
+      }
+    }
+  }
+  if (wifi_result_slot_acquire(&extra_result) != TX_QUEUE_FULL)
+  {
+    return TX_QUEUE_ERROR;
+  }
+  for (uint32_t i = 0U; i < WIFI_CONTROL_SLOT_COUNT; ++i)
+  {
+    if (wifi_result_slot_publish(results[i]) != TX_SUCCESS)
+    {
+      return TX_QUEUE_ERROR;
+    }
+  }
+  for (uint32_t i = 0U; i < WIFI_CONTROL_SLOT_COUNT; ++i)
+  {
+    if ((wifi_result_slot_receive(&received_result) != TX_SUCCESS) ||
+        (received_result != results[i]))
+    {
+      return TX_QUEUE_ERROR;
+    }
+    (void)memset(received_result, 0xA5, sizeof(*received_result));
+    if ((wifi_result_slot_release(received_result) != TX_SUCCESS) ||
+        (wifi_memory_is_zero(received_result, sizeof(*received_result)) ==
+         0U))
+    {
+      return TX_QUEUE_ERROR;
+    }
+  }
+
+  if ((wifi_queue_expect_count(&radio_manager.queues.wifi_control_context->request_free,
+                               WIFI_CONTROL_SLOT_COUNT) != TX_SUCCESS) ||
+      (wifi_queue_expect_count(&radio_manager.queues.wifi_control_context->request_ready, 0U) !=
+       TX_SUCCESS) ||
+      (wifi_queue_expect_count(&radio_manager.queues.wifi_control_context->result_free,
+                               WIFI_CONTROL_SLOT_COUNT) != TX_SUCCESS) ||
+      (wifi_queue_expect_count(&radio_manager.queues.wifi_control_context->result_ready, 0U) !=
+       TX_SUCCESS))
+  {
+    return TX_QUEUE_ERROR;
+  }
+  return TX_SUCCESS;
+}
+
+static void wifi_control_rollback(uint32_t queue_mask,
+                                  uint32_t event_created)
+{
+  WifiBle_WifiControlContext_t *context = radio_manager.queues.wifi_control_context;
+
+  if (context == NULL)
+  {
+    return;
+  }
+  if ((queue_mask & WIFI_QUEUE_CREATED_RESULT_READY) != 0U)
+  {
+    (void)tx_queue_delete(&context->result_ready);
+  }
+  if ((queue_mask & WIFI_QUEUE_CREATED_RESULT_FREE) != 0U)
+  {
+    (void)tx_queue_delete(&context->result_free);
+  }
+  if ((queue_mask & WIFI_QUEUE_CREATED_REQUEST_READY) != 0U)
+  {
+    (void)tx_queue_delete(&context->request_ready);
+  }
+  if ((queue_mask & WIFI_QUEUE_CREATED_REQUEST_FREE) != 0U)
+  {
+    (void)tx_queue_delete(&context->request_free);
+  }
+  if (event_created != 0U)
+  {
+    (void)tx_event_flags_delete(&context->completion);
+  }
+  (void)memset(context, 0, sizeof(*context));
+  radio_manager.queues.wifi_control_context = NULL;
+  radio_manager.work.wifi_pending_event_bits = 0U;
+  (void)tx_byte_release(context);
+}
+
 static UINT wifi_control_initialize(void)
 {
   TX_BYTE_POOL *radio_pool = MX_RadioBytePool_Get();
   void *memory = NULL;
+  ULONG available = 0U;
+  ULONG fragments = 0U;
+  ULONG ignored_flags = 0U;
+  uint32_t queue_mask = 0U;
+  uint32_t event_created = 0U;
   UINT result;
 
   if ((radio_pool == NULL) ||
@@ -1054,90 +1758,87 @@ static UINT wifi_control_initialize(void)
     return TX_NO_MEMORY;
   }
 
-  wifi_control_context = (WifiBle_WifiControlContext_t *)memory;
-  (void)memset(wifi_control_context, 0, sizeof(*wifi_control_context));
-  wifi_control_context->status.last_status = (int32_t)W6X_STATUS_OK;
-  result = tx_event_flags_create(&wifi_control_context->completion,
+  radio_manager.queues.wifi_control_context = (WifiBle_WifiControlContext_t *)memory;
+  (void)memset(radio_manager.queues.wifi_control_context, 0, sizeof(*radio_manager.queues.wifi_control_context));
+  radio_manager.queues.wifi_control_context->status.last_status = (int32_t)W6X_STATUS_OK;
+  result = tx_event_flags_create(&radio_manager.queues.wifi_control_context->completion,
                                  "ST67 WiFi control");
   if (result != TX_SUCCESS)
   {
-    (void)tx_byte_release(wifi_control_context);
-    wifi_control_context = NULL;
-    return result;
+    goto fail;
   }
-  return TX_SUCCESS;
-}
+  event_created = 1U;
 
-static UINT wifi_submit_request(WifiBle_WifiControlOperation_t operation,
-                                const char *ssid, const char *password,
-                                uint32_t forget, ULONG wait_option)
-{
-  ULONG ignored_flags = 0U;
-  UINT posture;
-  UINT result;
-
-  if ((wifi_control_context == NULL) ||
-      (wifi_ble_state != WIFI_BLE_STATE_READY))
+  result = wifi_create_pointer_queue(&radio_manager.queues.wifi_control_context->request_free,
+                                     "WiFi request free",
+                                     radio_manager.queues.wifi_control_context->request_free_storage);
+  if (result != TX_SUCCESS)
   {
-    return TX_NOT_AVAILABLE;
+    goto fail;
+  }
+  queue_mask |= WIFI_QUEUE_CREATED_REQUEST_FREE;
+  result = wifi_create_pointer_queue(
+      &radio_manager.queues.wifi_control_context->request_ready, "WiFi request ready",
+      radio_manager.queues.wifi_control_context->request_ready_storage);
+  if (result != TX_SUCCESS)
+  {
+    goto fail;
+  }
+  queue_mask |= WIFI_QUEUE_CREATED_REQUEST_READY;
+  result = wifi_create_pointer_queue(&radio_manager.queues.wifi_control_context->result_free,
+                                     "WiFi result free",
+                                     radio_manager.queues.wifi_control_context->result_free_storage);
+  if (result != TX_SUCCESS)
+  {
+    goto fail;
+  }
+  queue_mask |= WIFI_QUEUE_CREATED_RESULT_FREE;
+  result = wifi_create_pointer_queue(&radio_manager.queues.wifi_control_context->result_ready,
+                                     "WiFi result ready",
+                                     radio_manager.queues.wifi_control_context->result_ready_storage);
+  if (result != TX_SUCCESS)
+  {
+    goto fail;
+  }
+  queue_mask |= WIFI_QUEUE_CREATED_RESULT_READY;
+
+  for (uint32_t i = 0U; i < WIFI_CONTROL_SLOT_COUNT; ++i)
+  {
+    result = wifi_request_slot_release(
+        &radio_manager.queues.wifi_control_context->request_slots[i]);
+    if (result != TX_SUCCESS)
+    {
+      goto fail;
+    }
+  }
+  for (uint32_t i = 0U; i < WIFI_CONTROL_SLOT_COUNT; ++i)
+  {
+    result = wifi_result_slot_release(&radio_manager.queues.wifi_control_context->result_slots[i]);
+    if (result != TX_SUCCESS)
+    {
+      goto fail;
+    }
   }
 
-  (void)tx_event_flags_get(&wifi_control_context->completion,
-                           WIFI_CONTROL_DONE_FLAG, TX_OR_CLEAR,
+  result = wifi_control_queue_self_test();
+  if (result != TX_SUCCESS)
+  {
+    LogError("ST67W6X Wi-Fi queues: self-test FAIL (%u).\r\n", result);
+    goto fail;
+  }
+  (void)tx_event_flags_get(&radio_manager.queues.wifi_control_context->completion,
+                           WIFI_CONTROL_WORK_FLAG, TX_OR_CLEAR,
                            &ignored_flags, TX_NO_WAIT);
-  posture = tx_interrupt_control(TX_INT_DISABLE);
-  if ((wifi_control_context->pending_operation != WIFI_CONTROL_NONE) ||
-      (wifi_control_context->active_operation != WIFI_CONTROL_NONE))
-  {
-    (void)tx_interrupt_control(posture);
-    return TX_NOT_AVAILABLE;
-  }
+  (void)tx_byte_pool_info_get(radio_pool, TX_NULL, &available, &fragments,
+                              TX_NULL, TX_NULL, TX_NULL);
+  LogInfo("ST67W6X Wi-Fi queues: self-test PASS, 4+4 slots, context %lu bytes, radio pool %lu bytes free.\r\n",
+          (unsigned long)sizeof(*radio_manager.queues.wifi_control_context),
+          (unsigned long)available);
+  return TX_SUCCESS;
 
-  (void)memset(wifi_control_context->request_ssid, 0,
-               sizeof(wifi_control_context->request_ssid));
-  (void)memset(wifi_control_context->request_password, 0,
-               sizeof(wifi_control_context->request_password));
-  if (ssid != NULL)
-  {
-    (void)memcpy(wifi_control_context->request_ssid, ssid, strlen(ssid));
-  }
-  if (password != NULL)
-  {
-    (void)memcpy(wifi_control_context->request_password, password,
-                 strlen(password));
-  }
-  wifi_control_context->request_forget = forget;
-  wifi_control_context->status.operation_active = (uint32_t)operation;
-  wifi_control_context->pending_operation = operation;
-  (void)tx_interrupt_control(posture);
-
-  if (wait_option == TX_NO_WAIT)
-  {
-    return TX_SUCCESS;
-  }
-  result = tx_event_flags_get(&wifi_control_context->completion,
-                              WIFI_CONTROL_DONE_FLAG, TX_OR_CLEAR,
-                              &ignored_flags, wait_option);
+fail:
+  wifi_control_rollback(queue_mask, event_created);
   return result;
-}
-
-static void wifi_complete_request(W6X_Status_t status)
-{
-  UINT posture;
-
-  if (wifi_control_context == NULL)
-  {
-    return;
-  }
-  posture = tx_interrupt_control(TX_INT_DISABLE);
-  wifi_control_context->status.last_status = (int32_t)status;
-  wifi_control_context->status.operation_active = WIFI_CONTROL_NONE;
-  wifi_control_context->active_operation = WIFI_CONTROL_NONE;
-  (void)memset(wifi_control_context->request_password, 0,
-               sizeof(wifi_control_context->request_password));
-  (void)tx_interrupt_control(posture);
-  (void)tx_event_flags_set(&wifi_control_context->completion,
-                           WIFI_CONTROL_DONE_FLAG, TX_OR);
 }
 
 static W6X_Status_t wifi_enable_station_dhcp(void)
@@ -1182,135 +1883,272 @@ static void wifi_refresh_status(void)
   W6X_WiFi_StaStateType_e state = W6X_WIFI_STATE_STA_DISCONNECTED;
   W6X_WiFi_Connect_t connection = {0};
   W6X_Status_t status;
+  uint32_t generation;
 
-  if (wifi_control_context == NULL)
+  if (radio_manager.queues.wifi_control_context == NULL)
   {
     return;
   }
+  generation = radio_manager.work.wifi_event_generation;
+  radio_manager.counters.faults.wifi_state_queries++;
+  radio_manager.work.wifi_last_probe_tick = HAL_GetTick();
   status = W6X_WiFi_Station_GetState(&state, &connection);
-  wifi_control_context->status.station_state = (uint32_t)state;
+  radio_manager.work.wifi_last_probe_status = status;
+  if (generation != radio_manager.work.wifi_event_generation)
+  {
+    /* A newer event supersedes the AT response that was in flight. */
+    return;
+  }
   if (status != W6X_STATUS_OK)
   {
-    wifi_control_context->status.last_status = (int32_t)status;
+    radio_manager.shadow.wifi_state_confirmed = 0U;
+    radio_manager.counters.faults.wifi_query_failures++;
+    radio_manager.queues.wifi_control_context->status.last_status = (int32_t)status;
     return;
   }
+  radio_manager.shadow.wifi_state_confirmed = 1U;
+  radio_manager.queues.wifi_control_context->status.station_state = (uint32_t)state;
 
   if ((state == W6X_WIFI_STATE_STA_CONNECTED) ||
       (state == W6X_WIFI_STATE_STA_GOT_IP))
   {
-    wifi_connected = 1U;
-    (void)memset(wifi_control_context->status.ssid, 0,
-                 sizeof(wifi_control_context->status.ssid));
-    (void)memcpy(wifi_control_context->status.ssid, connection.SSID,
-                 sizeof(wifi_control_context->status.ssid) - 1U);
-    (void)memcpy(wifi_control_context->status.ap_mac, connection.MAC,
-                 sizeof(wifi_control_context->status.ap_mac));
-    wifi_control_context->status.channel = connection.Channel;
-    wifi_control_context->status.rssi = connection.Rssi;
+    radio_manager.shadow.wifi_connected = 1U;
+    (void)memset(radio_manager.queues.wifi_control_context->status.ssid, 0,
+                 sizeof(radio_manager.queues.wifi_control_context->status.ssid));
+    (void)memcpy(radio_manager.queues.wifi_control_context->status.ssid, connection.SSID,
+                 sizeof(radio_manager.queues.wifi_control_context->status.ssid) - 1U);
+    (void)memcpy(radio_manager.queues.wifi_control_context->status.ap_mac, connection.MAC,
+                 sizeof(radio_manager.queues.wifi_control_context->status.ap_mac));
+    radio_manager.queues.wifi_control_context->status.channel = connection.Channel;
+    radio_manager.queues.wifi_control_context->status.rssi = connection.Rssi;
   }
   else
   {
-    wifi_connected = 0U;
-    wifi_has_ip = 0U;
-    wifi_control_context->status.ip_valid = 0U;
-    (void)memset(wifi_control_context->status.ssid, 0,
-                 sizeof(wifi_control_context->status.ssid));
-    (void)memset(wifi_control_context->status.ap_mac, 0,
-                 sizeof(wifi_control_context->status.ap_mac));
-    (void)memset(wifi_control_context->status.ip_address, 0,
-                 sizeof(wifi_control_context->status.ip_address));
-    (void)memset(wifi_control_context->status.gateway_address, 0,
-                 sizeof(wifi_control_context->status.gateway_address));
-    (void)memset(wifi_control_context->status.netmask_address, 0,
-                 sizeof(wifi_control_context->status.netmask_address));
+    radio_manager.shadow.wifi_connected = 0U;
+    radio_manager.shadow.wifi_has_ip = 0U;
+    radio_manager.queues.wifi_control_context->status.ip_valid = 0U;
+    (void)memset(radio_manager.queues.wifi_control_context->status.ssid, 0,
+                 sizeof(radio_manager.queues.wifi_control_context->status.ssid));
+    (void)memset(radio_manager.queues.wifi_control_context->status.ap_mac, 0,
+                 sizeof(radio_manager.queues.wifi_control_context->status.ap_mac));
+    (void)memset(radio_manager.queues.wifi_control_context->status.ip_address, 0,
+                 sizeof(radio_manager.queues.wifi_control_context->status.ip_address));
+    (void)memset(radio_manager.queues.wifi_control_context->status.gateway_address, 0,
+                 sizeof(radio_manager.queues.wifi_control_context->status.gateway_address));
+    (void)memset(radio_manager.queues.wifi_control_context->status.netmask_address, 0,
+                 sizeof(radio_manager.queues.wifi_control_context->status.netmask_address));
   }
 
-  if ((state == W6X_WIFI_STATE_STA_GOT_IP) || (wifi_has_ip != 0U))
+  if ((state == W6X_WIFI_STATE_STA_GOT_IP) || (radio_manager.shadow.wifi_has_ip != 0U))
   {
     status = wifi_get_station_ip(
-        wifi_control_context->status.ip_address,
-        wifi_control_context->status.gateway_address,
-        wifi_control_context->status.netmask_address);
-    wifi_control_context->status.ip_valid =
+        radio_manager.queues.wifi_control_context->status.ip_address,
+        radio_manager.queues.wifi_control_context->status.gateway_address,
+        radio_manager.queues.wifi_control_context->status.netmask_address);
+    radio_manager.queues.wifi_control_context->status.ip_valid =
         (status == W6X_STATUS_OK) ? 1U : 0U;
     if (status == W6X_STATUS_OK)
     {
-      wifi_has_ip = 1U;
+      radio_manager.shadow.wifi_has_ip = 1U;
     }
   }
-  wifi_control_context->status.connected = wifi_connected;
-  wifi_control_context->status.has_ip = wifi_has_ip;
+  radio_manager.queues.wifi_control_context->status.connected = radio_manager.shadow.wifi_connected;
+  radio_manager.queues.wifi_control_context->status.has_ip = radio_manager.shadow.wifi_has_ip;
 }
 
-static void wifi_process_pending_request(void)
+static void wifi_execute_request(WifiBle_WifiRequest_t *request,
+                                 WifiBle_WifiResult_t *result)
 {
-  WifiBle_WifiControlOperation_t operation;
+  W6X_Status_t status = W6X_STATUS_ERROR;
+  WifiBle_WifiOperation_t active_operation = WIFI_BLE_WIFI_OPERATION_NONE;
+  ULONG ignored_flags = 0U;
   UINT posture;
-  W6X_Status_t status;
 
-  if (wifi_control_context == NULL)
+  if ((radio_manager.queues.wifi_control_context == NULL) || (request == NULL) || (result == NULL))
   {
     return;
   }
+  (void)memset(result, 0, sizeof(*result));
+  result->operation = request->operation;
+  result->request_id = request->request_id;
+  result->route = request->route;
+
+  if (request->operation == WIFI_BLE_WIFI_OPERATION_SCAN)
+  {
+    active_operation = WIFI_BLE_WIFI_OPERATION_SCAN;
+  }
+  else if (request->operation == WIFI_BLE_WIFI_OPERATION_CONNECT)
+  {
+    active_operation = WIFI_BLE_WIFI_OPERATION_CONNECT;
+  }
+  else if (request->operation == WIFI_BLE_WIFI_OPERATION_DISCONNECT)
+  {
+    active_operation = WIFI_BLE_WIFI_OPERATION_DISCONNECT;
+  }
+
   posture = tx_interrupt_control(TX_INT_DISABLE);
-  operation = wifi_control_context->pending_operation;
-  if (operation == WIFI_CONTROL_NONE)
-  {
-    (void)tx_interrupt_control(posture);
-    return;
-  }
-  wifi_control_context->pending_operation = WIFI_CONTROL_NONE;
-  wifi_control_context->active_operation = operation;
+  radio_manager.queues.wifi_control_context->active_operation = active_operation;
+  radio_manager.queues.wifi_control_context->status.operation_active =
+      (uint32_t)active_operation;
   (void)tx_interrupt_control(posture);
 
-  if (operation == WIFI_CONTROL_SCAN)
+  if (active_operation == WIFI_BLE_WIFI_OPERATION_SCAN)
   {
     W6X_WiFi_Scan_Opts_t options = {0};
+    UINT wait_status;
 
-    wifi_control_context->scan_results.count = 0U;
-    wifi_control_context->scan_results.status = (int32_t)W6X_STATUS_ERROR;
+    (void)tx_event_flags_get(&radio_manager.queues.wifi_control_context->completion,
+                             WIFI_CONTROL_SCAN_DONE_FLAG, TX_OR_CLEAR,
+                             &ignored_flags, TX_NO_WAIT);
+    (void)memset(&radio_manager.queues.wifi_control_context->scan_results, 0,
+                 sizeof(radio_manager.queues.wifi_control_context->scan_results));
+    radio_manager.queues.wifi_control_context->scan_results.status =
+        (int32_t)W6X_STATUS_ERROR;
     options.Scan_type = W6X_WIFI_SCAN_ACTIVE;
     options.MaxCnt = WIFI_BLE_WIFI_SCAN_MAX_APS;
     status = W6X_WiFi_Scan(&options, wifi_scan_callback);
-    if (status != W6X_STATUS_OK)
+    if (status == W6X_STATUS_OK)
     {
-      wifi_control_context->scan_results.status = (int32_t)status;
-      wifi_complete_request(status);
+      wait_status = tx_event_flags_get(&radio_manager.queues.wifi_control_context->completion,
+                                       WIFI_CONTROL_SCAN_DONE_FLAG,
+                                       TX_OR_CLEAR, &ignored_flags,
+                                       WIFI_CONTROL_SCAN_WAIT_TICKS);
+      if (wait_status == TX_SUCCESS)
+      {
+        status = (W6X_Status_t)radio_manager.queues.wifi_control_context->scan_results.status;
+      }
+      else
+      {
+        status = (wait_status == TX_NO_EVENTS) ?
+                 W6X_STATUS_TIMEOUT : W6X_STATUS_ERROR;
+        (void)memset(&radio_manager.queues.wifi_control_context->scan_results, 0,
+                     sizeof(radio_manager.queues.wifi_control_context->scan_results));
+        radio_manager.queues.wifi_control_context->scan_results.status = (int32_t)status;
+      }
     }
-    return;
+    else
+    {
+      radio_manager.queues.wifi_control_context->scan_results.status = (int32_t)status;
+    }
+    result->scan_results = radio_manager.queues.wifi_control_context->scan_results;
   }
-
-  if (operation == WIFI_CONTROL_CONNECT)
+  else if (active_operation == WIFI_BLE_WIFI_OPERATION_CONNECT)
   {
     W6X_WiFi_Connect_Opts_t options = {0};
 
-    (void)memcpy(options.SSID, wifi_control_context->request_ssid,
-                 sizeof(options.SSID));
-    (void)memcpy(options.Password, wifi_control_context->request_password,
+    (void)memcpy(options.SSID, request->ssid, sizeof(options.SSID));
+    (void)memcpy(options.Password, request->password,
                  sizeof(options.Password));
-    (void)memset(wifi_control_context->request_password, 0,
-                 sizeof(wifi_control_context->request_password));
+    /* The stack-local W6X options now own the working copy. Do not retain the
+     * sensitive password in the queued request during the blocking call. */
+    (void)memset(request->password, 0, sizeof(request->password));
     status = W6X_WiFi_Connect(&options);
     (void)memset(&options, 0, sizeof(options));
     wifi_refresh_status();
     if ((status == W6X_STATUS_OK) &&
-        (wifi_control_context->status.ip_valid == 0U))
+        (radio_manager.queues.wifi_control_context->status.ip_valid == 0U))
     {
       status = W6X_STATUS_ERROR;
     }
-    wifi_complete_request(status);
-    return;
   }
-
-  if (operation == WIFI_CONTROL_DISCONNECT)
+  else if (active_operation == WIFI_BLE_WIFI_OPERATION_DISCONNECT)
   {
-    status = W6X_WiFi_Disconnect(wifi_control_context->request_forget);
+    status = W6X_WiFi_Disconnect(request->forget);
     wifi_refresh_status();
-    wifi_complete_request(status);
+  }
+
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  radio_manager.queues.wifi_control_context->status.last_status = (int32_t)status;
+  radio_manager.queues.wifi_control_context->status.operation_active = 0U;
+  radio_manager.queues.wifi_control_context->active_operation = WIFI_BLE_WIFI_OPERATION_NONE;
+  (void)tx_interrupt_control(posture);
+  result->final_status = (int32_t)status;
+  result->wifi_status = radio_manager.queues.wifi_control_context->status;
+}
+
+void WIFI_BLE_App_WifiControlRun(void)
+{
+  ULONG actual_flags = 0U;
+  UINT status;
+
+  while (radio_manager.queues.wifi_control_context == NULL)
+  {
+    tx_thread_sleep(1U);
+  }
+  status = tx_event_flags_get(&radio_manager.queues.wifi_control_context->completion,
+                              WIFI_CONTROL_RADIO_READY_FLAG, TX_AND,
+                              &actual_flags, TX_WAIT_FOREVER);
+  if (status != TX_SUCCESS)
+  {
+    LogError("ST67W6X Wi-Fi control radio-ready wait failed (%u).\r\n",
+             status);
     return;
   }
 
-  wifi_complete_request(W6X_STATUS_ERROR);
+  for (;;)
+  {
+    status = tx_event_flags_get(&radio_manager.queues.wifi_control_context->completion,
+                                WIFI_CONTROL_WORK_FLAG, TX_OR_CLEAR,
+                                &actual_flags, WIFI_HEALTH_PROBE_WAIT_TICKS);
+    if (status == TX_NO_EVENTS)
+    {
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+      if ((radio_manager.shadow.ble_connected != 0U) &&
+          ((HAL_GetTick() - radio_manager.work.ble_last_activity_tick) <
+           BLE_CONNECTED_IDLE_MS))
+      {
+        continue;
+      }
+#endif
+      wifi_refresh_status();
+      continue;
+    }
+    if (status != TX_SUCCESS)
+    {
+      LogError("ST67W6X Wi-Fi control work wait failed (%u).\r\n", status);
+      return;
+    }
+
+    for (;;)
+    {
+      WifiBle_WifiRequest_t *request = NULL;
+      WifiBle_WifiResult_t *result = NULL;
+      UINT release_status;
+
+      status = wifi_request_slot_receive(&request);
+      if (status == TX_QUEUE_EMPTY)
+      {
+        break;
+      }
+      if (status != TX_SUCCESS)
+      {
+        LogError("ST67W6X Wi-Fi request receive failed (%u).\r\n", status);
+        break;
+      }
+
+      status = wifi_result_slot_acquire_wait(&result);
+      if (status != TX_SUCCESS)
+      {
+        LogError("ST67W6X Wi-Fi result acquire failed (%u).\r\n", status);
+        (void)wifi_request_slot_release(request);
+        continue;
+      }
+
+      wifi_execute_request(request, result);
+      release_status = wifi_request_slot_release(request);
+      status = wifi_result_slot_publish(result);
+      if (status != TX_SUCCESS)
+      {
+        (void)wifi_result_slot_release(result);
+        LogError("ST67W6X Wi-Fi result publish failed (%u).\r\n", status);
+      }
+      if (release_status != TX_SUCCESS)
+      {
+        LogError("ST67W6X Wi-Fi request release failed (%u).\r\n",
+                 release_status);
+      }
+    }
+  }
 }
 
 static void wifi_process_pending_events(void)
@@ -1318,8 +2156,8 @@ static void wifi_process_pending_events(void)
   uint32_t events;
   UINT posture = tx_interrupt_control(TX_INT_DISABLE);
 
-  events = wifi_pending_event_bits;
-  wifi_pending_event_bits = 0U;
+  events = radio_manager.work.wifi_pending_event_bits;
+  radio_manager.work.wifi_pending_event_bits = 0U;
   (void)tx_interrupt_control(posture);
   if ((events & WIFI_EVENT_CONNECTED_FLAG) != 0U)
   {
@@ -1333,12 +2171,6 @@ static void wifi_process_pending_events(void)
   {
     LogInfo("ST67W6X Wi-Fi disconnected.\r\n");
   }
-  if ((events != 0U) &&
-      (wifi_control_context != NULL) &&
-      (wifi_control_context->active_operation == WIFI_CONTROL_NONE))
-  {
-    wifi_refresh_status();
-  }
 }
 
 static void wifi_event_callback(W6X_event_id_t event_id, void *event_args)
@@ -1347,21 +2179,23 @@ static void wifi_event_callback(W6X_event_id_t event_id, void *event_args)
 
   (void)event_args;
   posture = tx_interrupt_control(TX_INT_DISABLE);
+  radio_manager.work.wifi_event_generation++;
+  radio_manager.shadow.wifi_state_confirmed = 1U;
   if (event_id == W6X_WIFI_EVT_CONNECTED_ID)
   {
-    wifi_connected = 1U;
-    wifi_pending_event_bits |= WIFI_EVENT_CONNECTED_FLAG;
+    radio_manager.shadow.wifi_connected = 1U;
+    radio_manager.work.wifi_pending_event_bits |= WIFI_EVENT_CONNECTED_FLAG;
   }
   else if (event_id == W6X_WIFI_EVT_GOT_IP_ID)
   {
-    wifi_has_ip = 1U;
-    wifi_pending_event_bits |= WIFI_EVENT_GOT_IP_FLAG;
+    radio_manager.shadow.wifi_has_ip = 1U;
+    radio_manager.work.wifi_pending_event_bits |= WIFI_EVENT_GOT_IP_FLAG;
   }
   else if (event_id == W6X_WIFI_EVT_DISCONNECTED_ID)
   {
-    wifi_connected = 0U;
-    wifi_has_ip = 0U;
-    wifi_pending_event_bits |= WIFI_EVENT_DISCONNECTED_FLAG;
+    radio_manager.shadow.wifi_connected = 0U;
+    radio_manager.shadow.wifi_has_ip = 0U;
+    radio_manager.work.wifi_pending_event_bits |= WIFI_EVENT_DISCONNECTED_FLAG;
   }
   (void)tx_interrupt_control(posture);
 }
@@ -1371,14 +2205,15 @@ static void wifi_scan_callback(int32_t status,
 {
   uint32_t count = 0U;
 
-  if ((wifi_control_context == NULL) ||
-      (wifi_control_context->active_operation != WIFI_CONTROL_SCAN))
+  if ((radio_manager.queues.wifi_control_context == NULL) ||
+      (radio_manager.queues.wifi_control_context->active_operation !=
+       WIFI_BLE_WIFI_OPERATION_SCAN))
   {
     return;
   }
-  (void)memset(&wifi_control_context->scan_results, 0,
-               sizeof(wifi_control_context->scan_results));
-  wifi_control_context->scan_results.status = status;
+  (void)memset(&radio_manager.queues.wifi_control_context->scan_results, 0,
+               sizeof(radio_manager.queues.wifi_control_context->scan_results));
+  radio_manager.queues.wifi_control_context->scan_results.status = status;
   if ((status == (int32_t)W6X_STATUS_OK) &&
       (results != NULL) && (results->AP != NULL))
   {
@@ -1390,7 +2225,7 @@ static void wifi_scan_callback(int32_t status,
     for (uint32_t i = 0U; i < count; ++i)
     {
       WifiBle_WifiAccessPoint_t *destination =
-          &wifi_control_context->scan_results.access_points[i];
+          &radio_manager.queues.wifi_control_context->scan_results.access_points[i];
       (void)memcpy(destination->ssid, results->AP[i].SSID,
                    sizeof(destination->ssid) - 1U);
       (void)memcpy(destination->mac, results->AP[i].MAC,
@@ -1401,8 +2236,15 @@ static void wifi_scan_callback(int32_t status,
       destination->channel = results->AP[i].Channel;
     }
   }
-  wifi_control_context->scan_results.count = count;
-  wifi_complete_request((W6X_Status_t)status);
+  radio_manager.queues.wifi_control_context->scan_results.count = count;
+  (void)tx_event_flags_set(&radio_manager.queues.wifi_control_context->completion,
+                           WIFI_CONTROL_SCAN_DONE_FLAG, TX_OR);
+}
+#endif
+
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 0U)
+void WIFI_BLE_App_WifiControlRun(void)
+{
 }
 #endif
 
@@ -1410,31 +2252,29 @@ static void wifi_scan_callback(int32_t status,
 static void ble_event_callback(W6X_event_id_t event_id, void *event_args)
 {
   W6X_Ble_CbParamData_t *event = (W6X_Ble_CbParamData_t *)event_args;
+  radio_manager.work.ble_last_activity_tick = HAL_GetTick();
 
   if (event_id == W6X_BLE_EVT_CONNECTED_ID)
   {
     if (event != NULL)
     {
-      ble_session_generation++;
-      ble_connected = 1U;
-      ble_advertising = 0U;
-      ble_connection_handle = event->remote_ble_device.conn_handle;
-      ble_connect_pending = 1U;
-      ble_stream_flush_pending = 1U;
+      radio_manager.shadow.ble_session_generation++;
+      radio_manager.work.ble_link_mismatch_count = 0U;
+      radio_manager.work.ble_mode_mismatch_count = 0U;
+      radio_manager.shadow.ble_connected = 1U;
+      radio_manager.shadow.ble_advertising = 0U;
+      radio_manager.shadow.ble_advertising_evidence = WIFI_BLE_ADV_CONNECTION_EVENT;
+      radio_manager.shadow.ble_mode_confirmed = 1U;
+      radio_manager.shadow.ble_link_confirmed = 1U;
+      radio_manager.shadow.ble_connection_handle = event->remote_ble_device.conn_handle;
+      radio_manager.work.ble_connect_pending = 1U;
+      radio_manager.work.ble_stream_flush_pending = 1U;
     }
   }
   else if (event_id == W6X_BLE_EVT_DISCONNECTED_ID)
   {
-    ble_session_generation++;
-    ble_connected = 0U;
-    ble_connect_pending = 0U;
-    ble_connection_handle = 0xFFU;
-    ble_cli_tx_subscribed = 0U;
-    ble_debug_tx_subscribed = 0U;
-    ble_tof_image_subscribed = 0U;
-    ble_mtu = 23U;
-    ble_restart_advertising_pending = 1U;
-    ble_stream_flush_pending = 1U;
+    ble_note_disconnected();
+    radio_manager.shadow.ble_link_confirmed = 1U;
   }
   else if ((event_id == W6X_BLE_EVT_NOTIFICATION_STATUS_ENABLED_ID) ||
            (event_id == W6X_BLE_EVT_NOTIFICATION_STATUS_DISABLED_ID))
@@ -1446,52 +2286,52 @@ static void ble_event_callback(W6X_event_id_t event_id, void *event_args)
       if ((event->service_idx == BLE_CLI_SERVICE_INDEX) &&
           (event->charac_idx == BLE_TX_CHAR_INDEX))
       {
-        ble_cli_tx_subscribed = enabled;
+        radio_manager.shadow.ble_cli_tx_subscribed = enabled;
       }
       else if ((event->service_idx == BLE_DEBUG_SERVICE_INDEX) &&
                (event->charac_idx == BLE_TX_CHAR_INDEX))
       {
-        ble_debug_tx_subscribed = enabled;
+        radio_manager.shadow.ble_debug_tx_subscribed = enabled;
       }
       else if ((event->service_idx == BLE_CLI_SERVICE_INDEX) &&
                (event->charac_idx == BLE_TOF_IMAGE_CHAR_INDEX))
       {
-        ble_tof_image_subscribed = enabled;
+        radio_manager.shadow.ble_tof_image_subscribed = enabled;
       }
     }
   }
   else if ((event_id == W6X_BLE_EVT_MTU_SIZE_ID) && (event != NULL))
   {
-    ble_mtu = event->mtu_size;
+    radio_manager.shadow.ble_mtu = event->mtu_size;
   }
   else if ((event_id == W6X_BLE_EVT_WRITE_ID) && (event != NULL))
   {
-    ble_rx_write_events++;
-    if ((ble_connected == 0U) ||
-        (event->remote_ble_device.conn_handle != ble_connection_handle) ||
+    radio_manager.counters.ble_rx_write_events++;
+    if ((radio_manager.shadow.ble_connected == 0U) ||
+        (event->remote_ble_device.conn_handle != radio_manager.shadow.ble_connection_handle) ||
         (event->charac_idx != BLE_RX_CHAR_INDEX) ||
         (event->available_data_length == 0U) ||
-        (event->available_data_length > sizeof(ble_receive_buffer)))
+        (event->available_data_length > sizeof(radio_manager.queues.ble_receive_buffer)))
     {
-      ble_rx_discarded_bytes += event->available_data_length;
+      radio_manager.counters.ble_rx_discarded_bytes += event->available_data_length;
     }
     else if (event->service_idx == BLE_CLI_SERVICE_INDEX)
     {
-      ble_stream_enqueue_rx(WIFI_BLE_STREAM_CLI, ble_receive_buffer,
+      ble_stream_enqueue_rx(WIFI_BLE_STREAM_CLI, radio_manager.queues.ble_receive_buffer,
                             event->available_data_length);
     }
     else if (event->service_idx == BLE_DEBUG_SERVICE_INDEX)
     {
 #if (BLE_DEBUG_RX_POLICY_ENABLED == 1U)
-      ble_stream_enqueue_rx(WIFI_BLE_STREAM_DEBUG, ble_receive_buffer,
+      ble_stream_enqueue_rx(WIFI_BLE_STREAM_DEBUG, radio_manager.queues.ble_receive_buffer,
                             event->available_data_length);
 #else
       UINT posture = tx_interrupt_control(TX_INT_DISABLE);
-      ble_rx_discarded_bytes += event->available_data_length;
-      if (ble_stream_context != NULL)
+      radio_manager.counters.ble_rx_discarded_bytes += event->available_data_length;
+      if (radio_manager.queues.ble_stream_context != NULL)
       {
-        ble_stream_context->stats[WIFI_BLE_STREAM_DEBUG].rx_dropped_events++;
-        ble_stream_context->stats[WIFI_BLE_STREAM_DEBUG].rx_dropped_bytes +=
+        radio_manager.queues.ble_stream_context->stats[WIFI_BLE_STREAM_DEBUG].rx_dropped_events++;
+        radio_manager.queues.ble_stream_context->stats[WIFI_BLE_STREAM_DEBUG].rx_dropped_bytes +=
             event->available_data_length;
       }
       (void)tx_interrupt_control(posture);
@@ -1499,9 +2339,29 @@ static void ble_event_callback(W6X_event_id_t event_id, void *event_args)
     }
     else
     {
-      ble_rx_discarded_bytes += event->available_data_length;
+      radio_manager.counters.ble_rx_discarded_bytes += event->available_data_length;
     }
   }
+}
+
+static void ble_note_disconnected(void)
+{
+  radio_manager.work.ble_last_activity_tick = HAL_GetTick();
+  radio_manager.shadow.ble_session_generation++;
+  radio_manager.work.ble_link_mismatch_count = 0U;
+  radio_manager.shadow.ble_connected = 0U;
+  radio_manager.shadow.ble_advertising = 0U;
+  radio_manager.shadow.ble_advertising_evidence = WIFI_BLE_ADV_UNKNOWN;
+  radio_manager.work.ble_connect_pending = 0U;
+  radio_manager.shadow.ble_connection_handle = 0xFFU;
+  radio_manager.shadow.ble_cli_tx_subscribed = 0U;
+  radio_manager.shadow.ble_debug_tx_subscribed = 0U;
+  radio_manager.shadow.ble_tof_image_subscribed = 0U;
+  radio_manager.shadow.ble_mtu = 23U;
+  radio_manager.work.ble_restart_advertising_pending = 1U;
+  radio_manager.work.ble_stream_flush_pending = 1U;
+  radio_manager.work.ble_advertising_retry_count = 0U;
+  radio_manager.work.ble_advertising_retry_due_tick = 0U;
 }
 
 static UINT ble_create_pointer_queue(TX_QUEUE *queue, CHAR *name,
@@ -1519,60 +2379,60 @@ static UINT ble_stream_initialize(void)
   ULONG fragments = 0U;
   void *slot;
 
-  ble_radio_pool = MX_RadioBytePool_Get();
-  if ((ble_radio_pool == NULL) ||
-      (tx_byte_allocate(ble_radio_pool, &memory,
+  radio_manager.queues.ble_radio_pool = MX_RadioBytePool_Get();
+  if ((radio_manager.queues.ble_radio_pool == NULL) ||
+      (tx_byte_allocate(radio_manager.queues.ble_radio_pool, &memory,
                         (ULONG)sizeof(WifiBle_StreamContext_t),
                         TX_NO_WAIT) != TX_SUCCESS))
   {
     return TX_POOL_ERROR;
   }
 
-  ble_stream_context = (WifiBle_StreamContext_t *)memory;
-  (void)memset(ble_stream_context, 0, sizeof(*ble_stream_context));
+  radio_manager.queues.ble_stream_context = (WifiBle_StreamContext_t *)memory;
+  (void)memset(radio_manager.queues.ble_stream_context, 0, sizeof(*radio_manager.queues.ble_stream_context));
 
-  if (tx_byte_allocate(ble_radio_pool, &image_memory,
+  if (tx_byte_allocate(radio_manager.queues.ble_radio_pool, &image_memory,
                        (ULONG)sizeof(WifiBle_TofImageContext_t),
                        TX_NO_WAIT) != TX_SUCCESS)
   {
-    (void)tx_byte_release(ble_stream_context);
-    ble_stream_context = NULL;
+    (void)tx_byte_release(radio_manager.queues.ble_stream_context);
+    radio_manager.queues.ble_stream_context = NULL;
     return TX_POOL_ERROR;
   }
-  ble_tof_image_context = (WifiBle_TofImageContext_t *)image_memory;
-  (void)memset(ble_tof_image_context, 0, sizeof(*ble_tof_image_context));
+  radio_manager.queues.ble_tof_image_context = (WifiBle_TofImageContext_t *)image_memory;
+  (void)memset(radio_manager.queues.ble_tof_image_context, 0, sizeof(*radio_manager.queues.ble_tof_image_context));
 
-  if ((ble_create_pointer_queue(&ble_stream_context->cli_rx_free,
+  if ((ble_create_pointer_queue(&radio_manager.queues.ble_stream_context->cli_rx_free,
                                 "BLE CLI RX free",
-                                ble_stream_context->cli_rx_free_storage,
+                                radio_manager.queues.ble_stream_context->cli_rx_free_storage,
                                 BLE_CLI_RX_SLOT_COUNT) != TX_SUCCESS) ||
-      (ble_create_pointer_queue(&ble_stream_context->cli_rx_ready,
+      (ble_create_pointer_queue(&radio_manager.queues.ble_stream_context->cli_rx_ready,
                                 "BLE CLI RX ready",
-                                ble_stream_context->cli_rx_ready_storage,
+                                radio_manager.queues.ble_stream_context->cli_rx_ready_storage,
                                 BLE_CLI_RX_SLOT_COUNT) != TX_SUCCESS) ||
-      (ble_create_pointer_queue(&ble_stream_context->debug_rx_free,
+      (ble_create_pointer_queue(&radio_manager.queues.ble_stream_context->debug_rx_free,
                                 "BLE debug RX free",
-                                ble_stream_context->debug_rx_free_storage,
+                                radio_manager.queues.ble_stream_context->debug_rx_free_storage,
                                 BLE_DEBUG_RX_SLOT_COUNT) != TX_SUCCESS) ||
-      (ble_create_pointer_queue(&ble_stream_context->debug_rx_ready,
+      (ble_create_pointer_queue(&radio_manager.queues.ble_stream_context->debug_rx_ready,
                                 "BLE debug RX ready",
-                                ble_stream_context->debug_rx_ready_storage,
+                                radio_manager.queues.ble_stream_context->debug_rx_ready_storage,
                                 BLE_DEBUG_RX_SLOT_COUNT) != TX_SUCCESS) ||
-      (ble_create_pointer_queue(&ble_stream_context->cli_tx_free,
+      (ble_create_pointer_queue(&radio_manager.queues.ble_stream_context->cli_tx_free,
                                 "BLE CLI TX free",
-                                ble_stream_context->cli_tx_free_storage,
+                                radio_manager.queues.ble_stream_context->cli_tx_free_storage,
                                 BLE_CLI_TX_SLOT_COUNT) != TX_SUCCESS) ||
-      (ble_create_pointer_queue(&ble_stream_context->cli_tx_ready,
+      (ble_create_pointer_queue(&radio_manager.queues.ble_stream_context->cli_tx_ready,
                                 "BLE CLI TX ready",
-                                ble_stream_context->cli_tx_ready_storage,
+                                radio_manager.queues.ble_stream_context->cli_tx_ready_storage,
                                 BLE_CLI_TX_SLOT_COUNT) != TX_SUCCESS) ||
-      (ble_create_pointer_queue(&ble_stream_context->debug_tx_free,
+      (ble_create_pointer_queue(&radio_manager.queues.ble_stream_context->debug_tx_free,
                                 "BLE debug TX free",
-                                ble_stream_context->debug_tx_free_storage,
+                                radio_manager.queues.ble_stream_context->debug_tx_free_storage,
                                 BLE_DEBUG_TX_SLOT_COUNT) != TX_SUCCESS) ||
-      (ble_create_pointer_queue(&ble_stream_context->debug_tx_ready,
+      (ble_create_pointer_queue(&radio_manager.queues.ble_stream_context->debug_tx_ready,
                                 "BLE debug TX ready",
-                                ble_stream_context->debug_tx_ready_storage,
+                                radio_manager.queues.ble_stream_context->debug_tx_ready_storage,
                                 BLE_DEBUG_TX_SLOT_COUNT) != TX_SUCCESS))
   {
     return TX_QUEUE_ERROR;
@@ -1580,8 +2440,8 @@ static UINT ble_stream_initialize(void)
 
   for (uint32_t i = 0U; i < BLE_CLI_RX_SLOT_COUNT; ++i)
   {
-    slot = &ble_stream_context->cli_rx_slots[i];
-    if (tx_queue_send(&ble_stream_context->cli_rx_free, &slot,
+    slot = &radio_manager.queues.ble_stream_context->cli_rx_slots[i];
+    if (tx_queue_send(&radio_manager.queues.ble_stream_context->cli_rx_free, &slot,
                       TX_NO_WAIT) != TX_SUCCESS)
     {
       return TX_QUEUE_ERROR;
@@ -1589,8 +2449,8 @@ static UINT ble_stream_initialize(void)
   }
   for (uint32_t i = 0U; i < BLE_DEBUG_RX_SLOT_COUNT; ++i)
   {
-    slot = &ble_stream_context->debug_rx_slots[i];
-    if (tx_queue_send(&ble_stream_context->debug_rx_free, &slot,
+    slot = &radio_manager.queues.ble_stream_context->debug_rx_slots[i];
+    if (tx_queue_send(&radio_manager.queues.ble_stream_context->debug_rx_free, &slot,
                       TX_NO_WAIT) != TX_SUCCESS)
     {
       return TX_QUEUE_ERROR;
@@ -1598,8 +2458,8 @@ static UINT ble_stream_initialize(void)
   }
   for (uint32_t i = 0U; i < BLE_CLI_TX_SLOT_COUNT; ++i)
   {
-    slot = &ble_stream_context->cli_tx_slots[i];
-    if (tx_queue_send(&ble_stream_context->cli_tx_free, &slot,
+    slot = &radio_manager.queues.ble_stream_context->cli_tx_slots[i];
+    if (tx_queue_send(&radio_manager.queues.ble_stream_context->cli_tx_free, &slot,
                       TX_NO_WAIT) != TX_SUCCESS)
     {
       return TX_QUEUE_ERROR;
@@ -1607,21 +2467,21 @@ static UINT ble_stream_initialize(void)
   }
   for (uint32_t i = 0U; i < BLE_DEBUG_TX_SLOT_COUNT; ++i)
   {
-    slot = &ble_stream_context->debug_tx_slots[i];
-    if (tx_queue_send(&ble_stream_context->debug_tx_free, &slot,
+    slot = &radio_manager.queues.ble_stream_context->debug_tx_slots[i];
+    if (tx_queue_send(&radio_manager.queues.ble_stream_context->debug_tx_free, &slot,
                       TX_NO_WAIT) != TX_SUCCESS)
     {
       return TX_QUEUE_ERROR;
     }
   }
 
-  ble_transport_ready = 1U;
-  if (tx_byte_pool_info_get(ble_radio_pool, TX_NULL, &available, &fragments,
+  radio_manager.shadow.ble_transport_ready = 1U;
+  if (tx_byte_pool_info_get(radio_manager.queues.ble_radio_pool, TX_NULL, &available, &fragments,
                             TX_NULL, TX_NULL, TX_NULL) == TX_SUCCESS)
   {
     LogInfo("ST67W6X BLE streams: %lu-byte queues + %lu-byte ToF frame, radio pool %lu bytes free in %lu fragments.\r\n",
-            (unsigned long)sizeof(*ble_stream_context),
-            (unsigned long)sizeof(*ble_tof_image_context),
+            (unsigned long)sizeof(*radio_manager.queues.ble_stream_context),
+            (unsigned long)sizeof(*radio_manager.queues.ble_tof_image_context),
             (unsigned long)available, (unsigned long)fragments);
   }
   return TX_SUCCESS;
@@ -1635,66 +2495,127 @@ static void ble_stream_enqueue_rx(WifiBle_Stream_t stream,
   WifiBle_RxSlot_t *slot = NULL;
   UINT posture;
 
-  if ((ble_stream_context == NULL) || (data == NULL) ||
+  if ((radio_manager.queues.ble_stream_context == NULL) || (data == NULL) ||
       (stream >= WIFI_BLE_STREAM_COUNT) ||
       (length > BLE_RX_SLOT_PAYLOAD_SIZE))
   {
-    ble_rx_discarded_bytes += length;
+    radio_manager.counters.ble_rx_discarded_bytes += length;
     return;
   }
 
   free_queue = (stream == WIFI_BLE_STREAM_CLI) ?
-               &ble_stream_context->cli_rx_free :
-               &ble_stream_context->debug_rx_free;
+               &radio_manager.queues.ble_stream_context->cli_rx_free :
+               &radio_manager.queues.ble_stream_context->debug_rx_free;
   ready_queue = (stream == WIFI_BLE_STREAM_CLI) ?
-                &ble_stream_context->cli_rx_ready :
-                &ble_stream_context->debug_rx_ready;
+                &radio_manager.queues.ble_stream_context->cli_rx_ready :
+                &radio_manager.queues.ble_stream_context->debug_rx_ready;
 
   if (tx_queue_receive(free_queue, &slot, TX_NO_WAIT) != TX_SUCCESS)
   {
     posture = tx_interrupt_control(TX_INT_DISABLE);
-    ble_rx_discarded_bytes += length;
-    ble_stream_context->stats[stream].rx_dropped_events++;
-    ble_stream_context->stats[stream].rx_dropped_bytes += length;
+    radio_manager.counters.ble_rx_discarded_bytes += length;
+    radio_manager.queues.ble_stream_context->stats[stream].rx_dropped_events++;
+    radio_manager.queues.ble_stream_context->stats[stream].rx_dropped_bytes += length;
     (void)tx_interrupt_control(posture);
     return;
   }
 
-  slot->generation = ble_session_generation;
+  slot->generation = radio_manager.shadow.ble_session_generation;
   slot->length = (uint16_t)length;
   (void)memcpy(slot->data, data, length);
   if (tx_queue_send(ready_queue, &slot, TX_NO_WAIT) != TX_SUCCESS)
   {
     (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
     posture = tx_interrupt_control(TX_INT_DISABLE);
-    ble_rx_discarded_bytes += length;
-    ble_stream_context->stats[stream].rx_dropped_events++;
-    ble_stream_context->stats[stream].rx_dropped_bytes += length;
+    radio_manager.counters.ble_rx_discarded_bytes += length;
+    radio_manager.queues.ble_stream_context->stats[stream].rx_dropped_events++;
+    radio_manager.queues.ble_stream_context->stats[stream].rx_dropped_bytes += length;
     (void)tx_interrupt_control(posture);
     return;
   }
 
   posture = tx_interrupt_control(TX_INT_DISABLE);
-  ble_stream_context->stats[stream].rx_events++;
-  ble_stream_context->stats[stream].rx_bytes += length;
-  ble_stream_context->stats[stream].rx_queued++;
-  if (ble_stream_context->stats[stream].rx_queued >
-      ble_stream_context->stats[stream].rx_high_water)
+  radio_manager.queues.ble_stream_context->stats[stream].rx_events++;
+  radio_manager.queues.ble_stream_context->stats[stream].rx_bytes += length;
+  radio_manager.queues.ble_stream_context->stats[stream].rx_queued++;
+  if (radio_manager.queues.ble_stream_context->stats[stream].rx_queued >
+      radio_manager.queues.ble_stream_context->stats[stream].rx_high_water)
   {
-    ble_stream_context->stats[stream].rx_high_water =
-        ble_stream_context->stats[stream].rx_queued;
+    radio_manager.queues.ble_stream_context->stats[stream].rx_high_water =
+        radio_manager.queues.ble_stream_context->stats[stream].rx_queued;
   }
   (void)tx_interrupt_control(posture);
+  if (stream == WIFI_BLE_STREAM_CLI)
+  {
+    Debug_UART_NcpTracePing("BLE RX queued", data, length);
+  }
 }
 
 static uint32_t ble_att_payload_size(void)
 {
-  uint32_t payload = (ble_mtu > 3U) ? (ble_mtu - 3U) : 20U;
+  uint32_t payload = (radio_manager.shadow.ble_mtu > 3U) ? (radio_manager.shadow.ble_mtu - 3U) : 20U;
   if (payload > W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH)
   {
     payload = W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH;
   }
   return payload;
+}
+
+static void ble_tx_contention_note(WifiBle_TxContentionStatus_t *stats,
+                                   uint32_t *started_at, W6X_Status_t result)
+{
+  uint32_t now = (uint32_t)tx_time_get();
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+
+  if (stats->current_streak == 0U)
+  {
+    *started_at = now;
+  }
+  if (result == W6X_STATUS_BUSY)
+  {
+    stats->busy_count++;
+  }
+  else
+  {
+    stats->timeout_count++;
+  }
+  if (stats->current_streak != UINT32_MAX)
+  {
+    stats->current_streak++;
+  }
+  if (stats->current_streak > stats->peak_streak)
+  {
+    stats->peak_streak = stats->current_streak;
+  }
+  stats->current_duration_ticks = now - *started_at;
+  if (stats->current_duration_ticks > stats->peak_duration_ticks)
+  {
+    stats->peak_duration_ticks = stats->current_duration_ticks;
+  }
+  (void)tx_interrupt_control(posture);
+}
+
+static void ble_tx_contention_finish(WifiBle_TxContentionStatus_t *stats,
+                                     uint32_t *started_at, uint32_t recovered)
+{
+  uint32_t now = (uint32_t)tx_time_get();
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+
+  if (stats->current_streak != 0U)
+  {
+    uint32_t duration = now - *started_at;
+    if (duration > stats->peak_duration_ticks)
+    {
+      stats->peak_duration_ticks = duration;
+    }
+    if (recovered != 0U)
+    {
+      stats->recoveries++;
+    }
+    stats->current_streak = 0U;
+    stats->current_duration_ticks = 0U;
+  }
+  (void)tx_interrupt_control(posture);
 }
 
 static void ble_stream_process_tx(WifiBle_Stream_t stream)
@@ -1713,33 +2634,33 @@ static void ble_stream_process_tx(WifiBle_Stream_t stream)
   W6X_Status_t result;
   UINT posture;
 
-  if ((ble_stream_context == NULL) || (stream >= WIFI_BLE_STREAM_COUNT))
+  if ((radio_manager.queues.ble_stream_context == NULL) || (stream >= WIFI_BLE_STREAM_COUNT))
   {
     return;
   }
 
   subscribed = (stream == WIFI_BLE_STREAM_CLI) ?
-               ble_cli_tx_subscribed : ble_debug_tx_subscribed;
-  if ((ble_connected == 0U) || (subscribed == 0U))
+               radio_manager.shadow.ble_cli_tx_subscribed : radio_manager.shadow.ble_debug_tx_subscribed;
+  if ((radio_manager.shadow.ble_connected == 0U) || (subscribed == 0U))
   {
     ble_stream_drop_tx(stream);
     return;
   }
 
   free_queue = (stream == WIFI_BLE_STREAM_CLI) ?
-               &ble_stream_context->cli_tx_free :
-               &ble_stream_context->debug_tx_free;
+               &radio_manager.queues.ble_stream_context->cli_tx_free :
+               &radio_manager.queues.ble_stream_context->debug_tx_free;
   ready_queue = (stream == WIFI_BLE_STREAM_CLI) ?
-                &ble_stream_context->cli_tx_ready :
-                &ble_stream_context->debug_tx_ready;
-  slot = ble_stream_context->active_tx[stream];
+                &radio_manager.queues.ble_stream_context->cli_tx_ready :
+                &radio_manager.queues.ble_stream_context->debug_tx_ready;
+  slot = radio_manager.queues.ble_stream_context->active_tx[stream];
   if (slot == NULL)
   {
     if (tx_queue_receive(ready_queue, &slot, TX_NO_WAIT) != TX_SUCCESS)
     {
       return;
     }
-    ble_stream_context->active_tx[stream] = slot;
+    radio_manager.queues.ble_stream_context->active_tx[stream] = slot;
   }
 
   if (stream == WIFI_BLE_STREAM_CLI)
@@ -1761,16 +2682,18 @@ static void ble_stream_process_tx(WifiBle_Stream_t stream)
     data = tx_slot->data;
   }
 
-  if (generation != ble_session_generation)
+  if (generation != radio_manager.shadow.ble_session_generation)
   {
-    ble_stream_context->active_tx[stream] = NULL;
+    ble_tx_contention_finish(&radio_manager.queues.ble_stream_context->stats[stream].contention,
+                             &radio_manager.queues.ble_stream_context->contention_start_tick[stream], 0U);
+    radio_manager.queues.ble_stream_context->active_tx[stream] = NULL;
     (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
     posture = tx_interrupt_control(TX_INT_DISABLE);
-    if (ble_stream_context->stats[stream].tx_queued != 0U)
+    if (radio_manager.queues.ble_stream_context->stats[stream].tx_queued != 0U)
     {
-      ble_stream_context->stats[stream].tx_queued--;
+      radio_manager.queues.ble_stream_context->stats[stream].tx_queued--;
     }
-    ble_stream_context->stats[stream].stale_drops++;
+    radio_manager.queues.ble_stream_context->stats[stream].stale_drops++;
     (void)tx_interrupt_control(posture);
     return;
   }
@@ -1780,13 +2703,21 @@ static void ble_stream_process_tx(WifiBle_Stream_t stream)
   {
     fragment = ble_att_payload_size();
   }
-  result = W6X_Ble_ServerNotify((uint8_t)ble_connection_handle,
+  result = W6X_Ble_ServerNotify((uint8_t)radio_manager.shadow.ble_connection_handle,
                                 (stream == WIFI_BLE_STREAM_CLI) ?
                                 BLE_CLI_SERVICE_INDEX : BLE_DEBUG_SERVICE_INDEX,
                                 BLE_TX_CHAR_INDEX, &data[*offset], fragment,
                                 &sent, BLE_NOTIFY_TIMEOUT_MS);
+  if ((result == W6X_STATUS_BUSY) || (result == W6X_STATUS_TIMEOUT))
+  {
+    ble_tx_contention_note(&radio_manager.queues.ble_stream_context->stats[stream].contention,
+                           &radio_manager.queues.ble_stream_context->contention_start_tick[stream], result);
+    return; /* Retain the active slot and offset for the next manager cycle. */
+  }
   if ((result == W6X_STATUS_OK) && (sent != 0U))
   {
+    ble_tx_contention_finish(&radio_manager.queues.ble_stream_context->stats[stream].contention,
+                             &radio_manager.queues.ble_stream_context->contention_start_tick[stream], 1U);
     if (sent > fragment)
     {
       sent = fragment;
@@ -1794,39 +2725,41 @@ static void ble_stream_process_tx(WifiBle_Stream_t stream)
     *offset = (uint16_t)(*offset + sent);
     *retries = 0U;
     posture = tx_interrupt_control(TX_INT_DISABLE);
-    ble_stream_context->stats[stream].tx_sent_bytes += sent;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_sent_bytes += sent;
     (void)tx_interrupt_control(posture);
     if (*offset >= *length)
     {
-      ble_stream_context->active_tx[stream] = NULL;
+      radio_manager.queues.ble_stream_context->active_tx[stream] = NULL;
       (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
       posture = tx_interrupt_control(TX_INT_DISABLE);
-      if (ble_stream_context->stats[stream].tx_queued != 0U)
+      if (radio_manager.queues.ble_stream_context->stats[stream].tx_queued != 0U)
       {
-        ble_stream_context->stats[stream].tx_queued--;
+        radio_manager.queues.ble_stream_context->stats[stream].tx_queued--;
       }
       (void)tx_interrupt_control(posture);
     }
     return;
   }
 
+  ble_tx_contention_finish(&radio_manager.queues.ble_stream_context->stats[stream].contention,
+                           &radio_manager.queues.ble_stream_context->contention_start_tick[stream], 0U);
   (*retries)++;
   posture = tx_interrupt_control(TX_INT_DISABLE);
-  ble_stream_context->stats[stream].tx_retries++;
-  ble_stream_context->stats[stream].tx_errors++;
+  radio_manager.queues.ble_stream_context->stats[stream].tx_retries++;
+  radio_manager.queues.ble_stream_context->stats[stream].tx_errors++;
   (void)tx_interrupt_control(posture);
   if (*retries >= BLE_NOTIFY_MAX_ATTEMPTS)
   {
     uint32_t dropped = (uint32_t)(*length - *offset);
-    ble_stream_context->active_tx[stream] = NULL;
+    radio_manager.queues.ble_stream_context->active_tx[stream] = NULL;
     (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
     posture = tx_interrupt_control(TX_INT_DISABLE);
-    if (ble_stream_context->stats[stream].tx_queued != 0U)
+    if (radio_manager.queues.ble_stream_context->stats[stream].tx_queued != 0U)
     {
-      ble_stream_context->stats[stream].tx_queued--;
+      radio_manager.queues.ble_stream_context->stats[stream].tx_queued--;
     }
-    ble_stream_context->stats[stream].tx_dropped_messages++;
-    ble_stream_context->stats[stream].tx_dropped_bytes += dropped;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_dropped_messages++;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_dropped_bytes += dropped;
     (void)tx_interrupt_control(posture);
   }
 }
@@ -1835,16 +2768,18 @@ static void __attribute__((optimize("Os"))) ble_tof_image_drop_active(void)
 {
   UINT posture;
 
-  if (ble_tof_image_context == NULL)
+  if (radio_manager.queues.ble_tof_image_context == NULL)
   {
     return;
   }
+  ble_tx_contention_finish(&radio_manager.queues.ble_tof_image_context->stats.contention,
+                           &radio_manager.queues.ble_tof_image_context->contention_start_tick, 0U);
   posture = tx_interrupt_control(TX_INT_DISABLE);
-  if ((ble_tof_image_context->state == BLE_TOF_IMAGE_READY) ||
-      (ble_tof_image_context->state == BLE_TOF_IMAGE_ACTIVE))
+  if ((radio_manager.queues.ble_tof_image_context->state == BLE_TOF_IMAGE_READY) ||
+      (radio_manager.queues.ble_tof_image_context->state == BLE_TOF_IMAGE_ACTIVE))
   {
-    ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
-    ble_tof_image_context->stats.frames_aborted++;
+    radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
+    radio_manager.queues.ble_tof_image_context->stats.frames_aborted++;
   }
   (void)tx_interrupt_control(posture);
 }
@@ -1860,24 +2795,24 @@ static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void)
   W6X_Status_t result;
   UINT posture;
 
-  if (ble_tof_image_context == NULL)
+  if (radio_manager.queues.ble_tof_image_context == NULL)
   {
     return;
   }
-  if ((ble_connected == 0U) || (ble_tof_image_subscribed == 0U))
+  if ((radio_manager.shadow.ble_connected == 0U) || (radio_manager.shadow.ble_tof_image_subscribed == 0U))
   {
     ble_tof_image_drop_active();
     return;
   }
-  if (ble_tof_image_context->state == BLE_TOF_IMAGE_READY)
+  if (radio_manager.queues.ble_tof_image_context->state == BLE_TOF_IMAGE_READY)
   {
-    ble_tof_image_context->state = BLE_TOF_IMAGE_ACTIVE;
+    radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_ACTIVE;
   }
-  if (ble_tof_image_context->state != BLE_TOF_IMAGE_ACTIVE)
+  if (radio_manager.queues.ble_tof_image_context->state != BLE_TOF_IMAGE_ACTIVE)
   {
     return;
   }
-  if (ble_tof_image_context->generation != ble_session_generation)
+  if (radio_manager.queues.ble_tof_image_context->generation != radio_manager.shadow.ble_session_generation)
   {
     ble_tof_image_drop_active();
     return;
@@ -1890,18 +2825,18 @@ static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void)
      * self-describing header plus image data. */
     return;
   }
-  chunk_length = (uint32_t)(ble_tof_image_context->payload_length -
-                            ble_tof_image_context->offset);
+  chunk_length = (uint32_t)(radio_manager.queues.ble_tof_image_context->payload_length -
+                            radio_manager.queues.ble_tof_image_context->offset);
   if (chunk_length > (att_payload - WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE))
   {
     chunk_length = att_payload - WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE;
   }
-  if (ble_tof_image_context->offset == 0U)
+  if (radio_manager.queues.ble_tof_image_context->offset == 0U)
   {
     flags |= WIFI_BLE_TOF_FRAGMENT_FLAG_START;
   }
-  if (((uint32_t)ble_tof_image_context->offset + chunk_length) >=
-      ble_tof_image_context->payload_length)
+  if (((uint32_t)radio_manager.queues.ble_tof_image_context->offset + chunk_length) >=
+      radio_manager.queues.ble_tof_image_context->payload_length)
   {
     flags |= WIFI_BLE_TOF_FRAGMENT_FLAG_END;
   }
@@ -1909,52 +2844,62 @@ static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void)
   ble_write_u16(&packet[0], WIFI_BLE_TOF_FRAGMENT_MAGIC);
   packet[2] = WIFI_BLE_TOF_FRAGMENT_VERSION;
   packet[3] = flags;
-  ble_write_u32(&packet[4], ble_tof_image_context->frame_id);
-  ble_write_u16(&packet[8], ble_tof_image_context->offset);
-  ble_write_u16(&packet[10], ble_tof_image_context->payload_length);
-  packet[12] = ble_tof_image_context->width;
-  packet[13] = ble_tof_image_context->height;
-  packet[14] = ble_tof_image_context->channel_id;
+  ble_write_u32(&packet[4], radio_manager.queues.ble_tof_image_context->frame_id);
+  ble_write_u16(&packet[8], radio_manager.queues.ble_tof_image_context->offset);
+  ble_write_u16(&packet[10], radio_manager.queues.ble_tof_image_context->payload_length);
+  packet[12] = radio_manager.queues.ble_tof_image_context->width;
+  packet[13] = radio_manager.queues.ble_tof_image_context->height;
+  packet[14] = radio_manager.queues.ble_tof_image_context->channel_id;
   packet[15] = WIFI_BLE_TOF_PIXEL_FORMAT_FLOAT32_LE;
-  ble_write_u32(&packet[16], ble_tof_image_context->payload_crc32);
+  ble_write_u32(&packet[16], radio_manager.queues.ble_tof_image_context->payload_crc32);
   (void)memcpy(&packet[WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE],
-               &ble_tof_image_context->payload[ble_tof_image_context->offset],
+               &radio_manager.queues.ble_tof_image_context->payload[radio_manager.queues.ble_tof_image_context->offset],
                chunk_length);
   packet_length = WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE + chunk_length;
 
-  result = W6X_Ble_ServerNotify((uint8_t)ble_connection_handle,
+  result = W6X_Ble_ServerNotify((uint8_t)radio_manager.shadow.ble_connection_handle,
                                 BLE_CLI_SERVICE_INDEX,
                                 BLE_TOF_IMAGE_CHAR_INDEX,
                                 packet, packet_length, &sent,
                                 BLE_NOTIFY_TIMEOUT_MS);
+  if ((result == W6X_STATUS_BUSY) || (result == W6X_STATUS_TIMEOUT))
+  {
+    ble_tx_contention_note(&radio_manager.queues.ble_tof_image_context->stats.contention,
+                           &radio_manager.queues.ble_tof_image_context->contention_start_tick, result);
+    return; /* Preserve the frame and offset until the next manager cycle. */
+  }
   if ((result == W6X_STATUS_OK) && (sent == packet_length))
   {
-    ble_tof_image_context->offset =
-        (uint16_t)(ble_tof_image_context->offset + chunk_length);
-    ble_tof_image_context->retries = 0U;
+    ble_tx_contention_finish(&radio_manager.queues.ble_tof_image_context->stats.contention,
+                             &radio_manager.queues.ble_tof_image_context->contention_start_tick, 1U);
+    radio_manager.queues.ble_tof_image_context->offset =
+        (uint16_t)(radio_manager.queues.ble_tof_image_context->offset + chunk_length);
+    radio_manager.queues.ble_tof_image_context->retries = 0U;
     posture = tx_interrupt_control(TX_INT_DISABLE);
-    ble_tof_image_context->stats.fragments_sent++;
-    ble_tof_image_context->stats.bytes_sent += chunk_length;
-    if (ble_tof_image_context->offset >=
-        ble_tof_image_context->payload_length)
+    radio_manager.queues.ble_tof_image_context->stats.fragments_sent++;
+    radio_manager.queues.ble_tof_image_context->stats.bytes_sent += chunk_length;
+    if (radio_manager.queues.ble_tof_image_context->offset >=
+        radio_manager.queues.ble_tof_image_context->payload_length)
     {
-      ble_tof_image_context->stats.frames_sent++;
-      ble_tof_image_context->stats.last_sent_frame =
-          ble_tof_image_context->frame_id;
-      ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
+      radio_manager.queues.ble_tof_image_context->stats.frames_sent++;
+      radio_manager.queues.ble_tof_image_context->stats.last_sent_frame =
+          radio_manager.queues.ble_tof_image_context->frame_id;
+      radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
     }
     (void)tx_interrupt_control(posture);
     return;
   }
 
-  ble_tof_image_context->retries++;
+  ble_tx_contention_finish(&radio_manager.queues.ble_tof_image_context->stats.contention,
+                           &radio_manager.queues.ble_tof_image_context->contention_start_tick, 0U);
+  radio_manager.queues.ble_tof_image_context->retries++;
   posture = tx_interrupt_control(TX_INT_DISABLE);
-  ble_tof_image_context->stats.retries++;
-  ble_tof_image_context->stats.errors++;
-  if (ble_tof_image_context->retries >= BLE_NOTIFY_MAX_ATTEMPTS)
+  radio_manager.queues.ble_tof_image_context->stats.retries++;
+  radio_manager.queues.ble_tof_image_context->stats.errors++;
+  if (radio_manager.queues.ble_tof_image_context->retries >= BLE_NOTIFY_MAX_ATTEMPTS)
   {
-    ble_tof_image_context->stats.frames_aborted++;
-    ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
+    radio_manager.queues.ble_tof_image_context->stats.frames_aborted++;
+    radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
   }
   (void)tx_interrupt_control(posture);
 }
@@ -2009,7 +2954,7 @@ static void ble_purge_queue(TX_QUEUE *ready_queue, TX_QUEUE *free_queue,
       break;
     }
     (void)memcpy(&generation, slot, sizeof(generation));
-    if (generation == ble_session_generation)
+    if (generation == radio_manager.shadow.ble_session_generation)
     {
       (void)tx_queue_send(ready_queue, &slot, TX_NO_WAIT);
     }
@@ -2020,16 +2965,16 @@ static void ble_purge_queue(TX_QUEUE *ready_queue, TX_QUEUE *free_queue,
       posture = tx_interrupt_control(TX_INT_DISABLE);
       if (is_tx != 0U)
       {
-        if (ble_stream_context->stats[stream].tx_queued != 0U)
+        if (radio_manager.queues.ble_stream_context->stats[stream].tx_queued != 0U)
         {
-          ble_stream_context->stats[stream].tx_queued--;
+          radio_manager.queues.ble_stream_context->stats[stream].tx_queued--;
         }
       }
-      else if (ble_stream_context->stats[stream].rx_queued != 0U)
+      else if (radio_manager.queues.ble_stream_context->stats[stream].rx_queued != 0U)
       {
-        ble_stream_context->stats[stream].rx_queued--;
+        radio_manager.queues.ble_stream_context->stats[stream].rx_queued--;
       }
-      ble_stream_context->stats[stream].stale_drops++;
+      radio_manager.queues.ble_stream_context->stats[stream].stale_drops++;
       (void)tx_interrupt_control(posture);
     }
   }
@@ -2037,47 +2982,49 @@ static void ble_purge_queue(TX_QUEUE *ready_queue, TX_QUEUE *free_queue,
 
 static void ble_stream_purge_stale(void)
 {
-  if (ble_stream_context == NULL)
+  if (radio_manager.queues.ble_stream_context == NULL)
   {
     return;
   }
 
-  ble_purge_queue(&ble_stream_context->cli_rx_ready,
-                  &ble_stream_context->cli_rx_free,
+  ble_purge_queue(&radio_manager.queues.ble_stream_context->cli_rx_ready,
+                  &radio_manager.queues.ble_stream_context->cli_rx_free,
                   WIFI_BLE_STREAM_CLI, 0U);
-  ble_purge_queue(&ble_stream_context->debug_rx_ready,
-                  &ble_stream_context->debug_rx_free,
+  ble_purge_queue(&radio_manager.queues.ble_stream_context->debug_rx_ready,
+                  &radio_manager.queues.ble_stream_context->debug_rx_free,
                   WIFI_BLE_STREAM_DEBUG, 0U);
-  ble_purge_queue(&ble_stream_context->cli_tx_ready,
-                  &ble_stream_context->cli_tx_free,
+  ble_purge_queue(&radio_manager.queues.ble_stream_context->cli_tx_ready,
+                  &radio_manager.queues.ble_stream_context->cli_tx_free,
                   WIFI_BLE_STREAM_CLI, 1U);
-  ble_purge_queue(&ble_stream_context->debug_tx_ready,
-                  &ble_stream_context->debug_tx_free,
+  ble_purge_queue(&radio_manager.queues.ble_stream_context->debug_tx_ready,
+                  &radio_manager.queues.ble_stream_context->debug_tx_free,
                   WIFI_BLE_STREAM_DEBUG, 1U);
 
   for (uint32_t i = 0U; i < WIFI_BLE_STREAM_COUNT; ++i)
   {
-    void *slot = ble_stream_context->active_tx[i];
+    void *slot = radio_manager.queues.ble_stream_context->active_tx[i];
     uint32_t generation = 0U;
     if (slot == NULL)
     {
       continue;
     }
     (void)memcpy(&generation, slot, sizeof(generation));
-    if (generation != ble_session_generation)
+    if (generation != radio_manager.shadow.ble_session_generation)
     {
       TX_QUEUE *free_queue = (i == WIFI_BLE_STREAM_CLI) ?
-                             &ble_stream_context->cli_tx_free :
-                             &ble_stream_context->debug_tx_free;
+                             &radio_manager.queues.ble_stream_context->cli_tx_free :
+                             &radio_manager.queues.ble_stream_context->debug_tx_free;
       UINT posture;
-      ble_stream_context->active_tx[i] = NULL;
+      ble_tx_contention_finish(&radio_manager.queues.ble_stream_context->stats[i].contention,
+                               &radio_manager.queues.ble_stream_context->contention_start_tick[i], 0U);
+      radio_manager.queues.ble_stream_context->active_tx[i] = NULL;
       (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
       posture = tx_interrupt_control(TX_INT_DISABLE);
-      if (ble_stream_context->stats[i].tx_queued != 0U)
+      if (radio_manager.queues.ble_stream_context->stats[i].tx_queued != 0U)
       {
-        ble_stream_context->stats[i].tx_queued--;
+        radio_manager.queues.ble_stream_context->stats[i].tx_queued--;
       }
-      ble_stream_context->stats[i].stale_drops++;
+      radio_manager.queues.ble_stream_context->stats[i].stale_drops++;
       (void)tx_interrupt_control(posture);
     }
   }
@@ -2090,18 +3037,20 @@ static void ble_stream_drop_tx(WifiBle_Stream_t stream)
   void *slot;
   UINT posture;
 
-  if ((ble_stream_context == NULL) || (stream >= WIFI_BLE_STREAM_COUNT))
+  if ((radio_manager.queues.ble_stream_context == NULL) || (stream >= WIFI_BLE_STREAM_COUNT))
   {
     return;
   }
+  ble_tx_contention_finish(&radio_manager.queues.ble_stream_context->stats[stream].contention,
+                           &radio_manager.queues.ble_stream_context->contention_start_tick[stream], 0U);
   free_queue = (stream == WIFI_BLE_STREAM_CLI) ?
-               &ble_stream_context->cli_tx_free :
-               &ble_stream_context->debug_tx_free;
+               &radio_manager.queues.ble_stream_context->cli_tx_free :
+               &radio_manager.queues.ble_stream_context->debug_tx_free;
   ready_queue = (stream == WIFI_BLE_STREAM_CLI) ?
-                &ble_stream_context->cli_tx_ready :
-                &ble_stream_context->debug_tx_ready;
+                &radio_manager.queues.ble_stream_context->cli_tx_ready :
+                &radio_manager.queues.ble_stream_context->debug_tx_ready;
 
-  slot = ble_stream_context->active_tx[stream];
+  slot = radio_manager.queues.ble_stream_context->active_tx[stream];
   if (slot != NULL)
   {
     uint32_t dropped;
@@ -2115,15 +3064,15 @@ static void ble_stream_drop_tx(WifiBle_Stream_t stream)
       WifiBle_DebugTxSlot_t *tx_slot = (WifiBle_DebugTxSlot_t *)slot;
       dropped = (uint32_t)(tx_slot->length - tx_slot->offset);
     }
-    ble_stream_context->active_tx[stream] = NULL;
+    radio_manager.queues.ble_stream_context->active_tx[stream] = NULL;
     (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
     posture = tx_interrupt_control(TX_INT_DISABLE);
-    if (ble_stream_context->stats[stream].tx_queued != 0U)
+    if (radio_manager.queues.ble_stream_context->stats[stream].tx_queued != 0U)
     {
-      ble_stream_context->stats[stream].tx_queued--;
+      radio_manager.queues.ble_stream_context->stats[stream].tx_queued--;
     }
-    ble_stream_context->stats[stream].tx_dropped_messages++;
-    ble_stream_context->stats[stream].tx_dropped_bytes += dropped;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_dropped_messages++;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_dropped_bytes += dropped;
     (void)tx_interrupt_control(posture);
   }
   while (tx_queue_receive(ready_queue, &slot, TX_NO_WAIT) == TX_SUCCESS)
@@ -2133,12 +3082,12 @@ static void ble_stream_drop_tx(WifiBle_Stream_t stream)
         ((WifiBle_DebugTxSlot_t *)slot)->length;
     (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
     posture = tx_interrupt_control(TX_INT_DISABLE);
-    if (ble_stream_context->stats[stream].tx_queued != 0U)
+    if (radio_manager.queues.ble_stream_context->stats[stream].tx_queued != 0U)
     {
-      ble_stream_context->stats[stream].tx_queued--;
+      radio_manager.queues.ble_stream_context->stats[stream].tx_queued--;
     }
-    ble_stream_context->stats[stream].tx_dropped_messages++;
-    ble_stream_context->stats[stream].tx_dropped_bytes += dropped;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_dropped_messages++;
+    radio_manager.queues.ble_stream_context->stats[stream].tx_dropped_bytes += dropped;
     (void)tx_interrupt_control(posture);
   }
 }
@@ -2149,9 +3098,9 @@ static W6X_Status_t ble_configure_gatt_server(void)
   uint8_t address[W6X_BLE_BD_ADDR_SIZE] = {0};
   char device_name[W6X_BLE_DEVICE_NAME_SIZE] = {0};
 
-  ble_init_stage = WIFI_BLE_INIT_STAGE_ADDRESS;
+  radio_manager.shadow.ble_init_stage = WIFI_BLE_INIT_STAGE_ADDRESS;
   status = W6X_Ble_GetBDAddress(address);
-  ble_last_status = status;
+  radio_manager.shadow.ble_last_status = status;
   if (status != W6X_STATUS_OK)
   {
     LogError("ST67W6X BLE address read failed: %" PRIi32 "\r\n", status);
@@ -2160,45 +3109,45 @@ static W6X_Status_t ble_configure_gatt_server(void)
 
   (void)snprintf(device_name, sizeof(device_name), "N6-MAINT-%02X%02X",
                  address[4], address[5]);
-  ble_init_stage = WIFI_BLE_INIT_STAGE_DEVICE_NAME;
+  radio_manager.shadow.ble_init_stage = WIFI_BLE_INIT_STAGE_DEVICE_NAME;
   status = W6X_Ble_SetDeviceName(device_name);
-  ble_last_status = status;
+  radio_manager.shadow.ble_last_status = status;
   if (status != W6X_STATUS_OK)
   {
     LogError("ST67W6X BLE device-name setup failed: %" PRIi32 "\r\n", status);
     return status;
   }
-  (void)memcpy(ble_device_name, device_name, sizeof(ble_device_name));
-  (void)memcpy(ble_address, address, sizeof(ble_address));
+  (void)memcpy(radio_manager.shadow.ble_device_name, device_name, sizeof(radio_manager.shadow.ble_device_name));
+  (void)memcpy(radio_manager.shadow.ble_address, address, sizeof(radio_manager.shadow.ble_address));
 
-  ble_init_stage = WIFI_BLE_INIT_STAGE_TX_POWER;
+  radio_manager.shadow.ble_init_stage = WIFI_BLE_INIT_STAGE_TX_POWER;
   status = W6X_Ble_SetTxPower(0U);
-  ble_last_status = status;
+  radio_manager.shadow.ble_last_status = status;
   if (status != W6X_STATUS_OK)
   {
     LogError("ST67W6X BLE TX-power setup failed: %" PRIi32 "\r\n", status);
     return status;
   }
-  ble_init_stage = WIFI_BLE_INIT_STAGE_ADV_DATA;
+  radio_manager.shadow.ble_init_stage = WIFI_BLE_INIT_STAGE_ADV_DATA;
   status = W6X_Ble_SetAdvData(BLE_ADV_DATA);
-  ble_last_status = status;
+  radio_manager.shadow.ble_last_status = status;
   if (status != W6X_STATUS_OK)
   {
     LogError("ST67W6X BLE advertising-data setup failed: %" PRIi32 "\r\n", status);
     return status;
   }
-  ble_init_stage = WIFI_BLE_INIT_STAGE_CLI_SERVICE;
+  radio_manager.shadow.ble_init_stage = WIFI_BLE_INIT_STAGE_CLI_SERVICE;
   status = W6X_Ble_CreateService(BLE_CLI_SERVICE_INDEX,
                                  BLE_CLI_SERVICE_UUID,
                                  W6X_BLE_UUID_TYPE_128);
-  ble_last_status = status;
+  radio_manager.shadow.ble_last_status = status;
   if (status == W6X_STATUS_OK)
   {
-    ble_init_stage = WIFI_BLE_INIT_STAGE_DEBUG_SERVICE;
+    radio_manager.shadow.ble_init_stage = WIFI_BLE_INIT_STAGE_DEBUG_SERVICE;
     status = W6X_Ble_CreateService(BLE_DEBUG_SERVICE_INDEX,
                                    BLE_DEBUG_SERVICE_UUID,
                                    W6X_BLE_UUID_TYPE_128);
-    ble_last_status = status;
+    radio_manager.shadow.ble_last_status = status;
   }
   if (status != W6X_STATUS_OK)
   {
@@ -2206,7 +3155,7 @@ static W6X_Status_t ble_configure_gatt_server(void)
     return status;
   }
 
-  ble_init_stage = WIFI_BLE_INIT_STAGE_CHARACTERISTICS;
+  radio_manager.shadow.ble_init_stage = WIFI_BLE_INIT_STAGE_CHARACTERISTICS;
   for (size_t i = 0U;
        i < (sizeof(ble_characteristics) / sizeof(ble_characteristics[0]));
        ++i)
@@ -2218,7 +3167,7 @@ static W6X_Status_t ble_configure_gatt_server(void)
         W6X_BLE_UUID_TYPE_128,
         ble_characteristics[i].properties,
         ble_characteristics[i].permissions);
-    ble_last_status = status;
+    radio_manager.shadow.ble_last_status = status;
     if (status != W6X_STATUS_OK)
     {
       LogError("ST67W6X BLE %s characteristic creation failed: %" PRIi32 "\r\n",
@@ -2227,9 +3176,9 @@ static W6X_Status_t ble_configure_gatt_server(void)
     }
   }
 
-  ble_init_stage = WIFI_BLE_INIT_STAGE_REGISTER;
+  radio_manager.shadow.ble_init_stage = WIFI_BLE_INIT_STAGE_REGISTER;
   status = W6X_Ble_RegisterCharacteristics();
-  ble_last_status = status;
+  radio_manager.shadow.ble_last_status = status;
   if (status != W6X_STATUS_OK)
   {
     LogError("ST67W6X BLE characteristic registration failed: %" PRIi32 "\r\n", status);
@@ -2238,27 +3187,35 @@ static W6X_Status_t ble_configure_gatt_server(void)
 
   /* Development-stage Just Works capability.  This configures GAP I/O
    * capability but does not authorize firmware installation or XMODEM. */
-  ble_init_stage = WIFI_BLE_INIT_STAGE_SECURITY;
+  radio_manager.shadow.ble_init_stage = WIFI_BLE_INIT_STAGE_SECURITY;
   status = W6X_Ble_SetSecurityParam(W6X_BLE_SEC_IO_NO_INPUT_OUTPUT);
-  ble_last_status = status;
+  radio_manager.shadow.ble_last_status = status;
   if (status != W6X_STATUS_OK)
   {
     LogError("ST67W6X BLE security-parameter setup failed: %" PRIi32 "\r\n", status);
     return status;
   }
 
-  ble_init_stage = WIFI_BLE_INIT_STAGE_ADV_START;
+  radio_manager.shadow.ble_init_stage = WIFI_BLE_INIT_STAGE_ADV_START;
+  radio_manager.counters.faults.advertising_attempts++;
   status = W6X_Ble_AdvStart();
-  ble_last_status = status;
+  radio_manager.shadow.ble_last_status = status;
   if (status != W6X_STATUS_OK)
   {
+    radio_manager.counters.faults.advertising_failures++;
     LogError("ST67W6X BLE advertising start failed: %" PRIi32 "\r\n", status);
     return status;
   }
 
-  ble_gatt_ready = 1U;
-  ble_advertising = 1U;
-  ble_init_stage = WIFI_BLE_INIT_STAGE_READY;
+  radio_manager.shadow.ble_gatt_ready = 1U;
+  radio_manager.shadow.ble_advertising = 1U;
+  radio_manager.shadow.ble_advertising_evidence = WIFI_BLE_ADV_COMMAND_ACK;
+  radio_manager.shadow.ble_mode_confirmed = 1U;
+  radio_manager.shadow.ble_link_confirmed = 1U;
+  radio_manager.work.ble_advertising_retry_count = 0U;
+  radio_manager.work.ble_advertising_retry_due_tick = 0U;
+  radio_manager.work.ble_probe_due_tick = HAL_GetTick() + BLE_HEALTH_PROBE_INTERVAL_MS;
+  radio_manager.shadow.ble_init_stage = WIFI_BLE_INIT_STAGE_READY;
   LogInfo("ST67W6X BLE: %s, CLI/DEBUG UART and ToF image notifications registered.\r\n",
           device_name);
   return W6X_STATUS_OK;
@@ -2266,59 +3223,41 @@ static W6X_Status_t ble_configure_gatt_server(void)
 
 static void ble_process_pending_events(void)
 {
-  if (ble_stream_flush_pending != 0U)
+  if (radio_manager.work.ble_stream_flush_pending != 0U)
   {
-    ble_stream_flush_pending = 0U;
+    radio_manager.work.ble_stream_flush_pending = 0U;
     ble_stream_purge_stale();
   }
 
-  if (ble_disconnect_request != 0U)
+  if (radio_manager.work.ble_disconnect_request != 0U)
   {
     W6X_Status_t status;
-    uint32_t handle = ble_connection_handle;
-    ble_disconnect_request = 0U;
-    if ((ble_connected != 0U) && (handle != 0xFFU))
+    uint32_t handle = radio_manager.shadow.ble_connection_handle;
+    radio_manager.work.ble_disconnect_request = 0U;
+    if ((radio_manager.shadow.ble_connected != 0U) && (handle != 0xFFU))
     {
       status = W6X_Ble_Disconnect(handle);
       if (status != W6X_STATUS_OK)
       {
+        radio_manager.counters.faults.disconnect_failures++;
         LogError("ST67W6X BLE disconnect request failed: %" PRIi32 "\r\n",
                  status);
       }
     }
   }
 
-  if (ble_adv_request != BLE_ADV_REQUEST_NONE)
+  if (radio_manager.work.ble_adv_request != BLE_ADV_REQUEST_NONE)
   {
-    W6X_Status_t status;
-    uint32_t requested_state = ble_adv_request;
-    ble_adv_request = BLE_ADV_REQUEST_NONE;
-    if (ble_connected != 0U)
-    {
-      LogWarn("ST67W6X BLE advertising request ignored while connected.\r\n");
-    }
-    else
-    {
-      status = (requested_state != 0U) ? W6X_Ble_AdvStart() :
-                                        W6X_Ble_AdvStop();
-      if (status == W6X_STATUS_OK)
-      {
-        ble_advertising = requested_state;
-      }
-      else
-      {
-        LogError("ST67W6X BLE advertising request failed: %" PRIi32 "\r\n",
-                 status);
-      }
-    }
+    radio_manager.work.ble_adv_request = BLE_ADV_REQUEST_NONE;
+    radio_manager.work.ble_advertising_retry_due_tick = 0U;
   }
 
-  if (ble_connect_pending != 0U)
+  if (radio_manager.work.ble_connect_pending != 0U)
   {
     W6X_Status_t mtu_status;
     W6X_Status_t conn_status;
-    uint32_t handle = ble_connection_handle;
-    ble_connect_pending = 0U;
+    uint32_t handle = radio_manager.shadow.ble_connection_handle;
+    radio_manager.work.ble_connect_pending = 0U;
 
     LogInfo("ST67W6X BLE connected (handle %" PRIu32 ").\r\n", handle);
     mtu_status = W6X_Ble_ExchangeMTU(handle);
@@ -2335,22 +3274,14 @@ static void ble_process_pending_events(void)
     }
   }
 
-  if (ble_restart_advertising_pending != 0U)
+  if (radio_manager.work.ble_restart_advertising_pending != 0U)
   {
-    W6X_Status_t status;
-    ble_restart_advertising_pending = 0U;
-    LogInfo("ST67W6X BLE disconnected; restarting advertising.\r\n");
-    status = W6X_Ble_AdvStart();
-    if (status == W6X_STATUS_OK)
-    {
-      ble_advertising = 1U;
-    }
-    else
-    {
-      LogError("ST67W6X BLE advertising restart failed: %" PRIi32 "\r\n",
-               status);
-    }
+    radio_manager.work.ble_restart_advertising_pending = 0U;
+    radio_manager.work.ble_advertising_retry_due_tick = 0U;
   }
+
+  ble_recover_subsystem(HAL_GetTick());
+  ble_reconcile_advertising(HAL_GetTick());
 
   /* One ATT fragment per stream and manager cycle is the notification-credit
    * window.  It bounds module call time and prevents the image stream from
@@ -2358,11 +3289,343 @@ static void ble_process_pending_events(void)
   ble_stream_process_tx(WIFI_BLE_STREAM_CLI);
   ble_stream_process_tx(WIFI_BLE_STREAM_DEBUG);
   ble_tof_image_process_tx();
+  ble_probe_shadow(HAL_GetTick());
+}
+
+static uint32_t ble_tick_due(uint32_t now, uint32_t due)
+{
+  return (due == 0U) || ((int32_t)(now - due) >= 0) ? 1U : 0U;
+}
+
+static void ble_reconcile_advertising(uint32_t now)
+{
+  W6X_Status_t status;
+  uint32_t requested;
+  uint32_t generation;
+
+  if ((radio_manager.shadow.ble_gatt_ready == 0U) ||
+      (radio_manager.work.ble_recovery_pending != 0U) ||
+      (radio_manager.shadow.ble_mode_confirmed == 0U) ||
+      (radio_manager.shadow.ble_link_confirmed == 0U))
+  {
+    return;
+  }
+  if (radio_manager.shadow.ble_connected != 0U)
+  {
+    /* A connected peripheral cannot advertise on this single-link profile. */
+    radio_manager.shadow.ble_advertising = 0U;
+    radio_manager.shadow.ble_advertising_evidence =
+        WIFI_BLE_ADV_CONNECTION_EVENT;
+    return;
+  }
+  requested = radio_manager.shadow.ble_advertising_desired;
+  if ((radio_manager.shadow.ble_advertising_evidence ==
+       WIFI_BLE_ADV_COMMAND_ACK) &&
+      (radio_manager.shadow.ble_advertising == requested))
+  {
+    return;
+  }
+  if ((radio_manager.work.ble_advertising_retry_count >=
+       BLE_ADV_MAX_ATTEMPTS) ||
+      (ble_tick_due(now, radio_manager.work.ble_advertising_retry_due_tick) == 0U))
+  {
+    return;
+  }
+
+  radio_manager.counters.faults.advertising_attempts++;
+  generation = radio_manager.shadow.ble_session_generation;
+  status = (requested != 0U) ? W6X_Ble_AdvStart() : W6X_Ble_AdvStop();
+  radio_manager.shadow.ble_last_status = status;
+  if (generation != radio_manager.shadow.ble_session_generation)
+  {
+    /* A newer connection event outranks this command's ACK. */
+    radio_manager.shadow.ble_advertising_evidence =
+        (radio_manager.shadow.ble_connected != 0U) ?
+        WIFI_BLE_ADV_CONNECTION_EVENT : WIFI_BLE_ADV_UNKNOWN;
+    return;
+  }
+  if (status == W6X_STATUS_OK)
+  {
+    radio_manager.shadow.ble_advertising = requested;
+    radio_manager.shadow.ble_advertising_evidence = WIFI_BLE_ADV_COMMAND_ACK;
+    radio_manager.work.ble_advertising_retry_count = 0U;
+    radio_manager.work.ble_advertising_retry_due_tick = 0U;
+  }
+  else
+  {
+    radio_manager.shadow.ble_advertising_evidence = WIFI_BLE_ADV_UNKNOWN;
+    radio_manager.counters.faults.advertising_failures++;
+    radio_manager.work.ble_advertising_retry_count++;
+    radio_manager.work.ble_advertising_retry_due_tick = now +
+        (BLE_ADV_RETRY_BASE_MS <<
+         (radio_manager.work.ble_advertising_retry_count - 1U));
+    if (radio_manager.work.ble_advertising_retry_count >= BLE_ADV_MAX_ATTEMPTS)
+    {
+      radio_manager.counters.faults.advertising_retries_exhausted++;
+    }
+    LogWarn("ST67W6X BLE ADV %s returned %" PRIi32 " (attempt %lu/%u).\r\n",
+            (requested != 0U) ? "start" : "stop", status,
+            (unsigned long)radio_manager.work.ble_advertising_retry_count,
+            BLE_ADV_MAX_ATTEMPTS);
+  }
+}
+
+static void ble_recover_subsystem(uint32_t now)
+{
+  W6X_Status_t status;
+
+  if ((radio_manager.work.ble_recovery_pending == 0U) ||
+      (radio_manager.work.ble_recovery_retry_count >= BLE_RECOVERY_MAX_ATTEMPTS) ||
+      (ble_tick_due(now, radio_manager.work.ble_recovery_due_tick) == 0U))
+  {
+    return;
+  }
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  if ((radio_manager.queues.wifi_control_context != NULL) &&
+      (radio_manager.queues.wifi_control_context->active_operation !=
+       WIFI_BLE_WIFI_OPERATION_NONE))
+  {
+    return;
+  }
+#endif
+  if (radio_manager.shadow.ble_connected != 0U)
+  {
+    return;
+  }
+  radio_manager.counters.faults.ble_recovery_attempts++;
+  status = W6X_Ble_Init(W6X_BLE_MODE_SERVER,
+                        radio_manager.queues.ble_receive_buffer,
+                        sizeof(radio_manager.queues.ble_receive_buffer) - 1U);
+  if (status == W6X_STATUS_OK)
+  {
+    status = ble_configure_gatt_server();
+  }
+  radio_manager.shadow.ble_last_status = status;
+  if (status == W6X_STATUS_OK)
+  {
+    radio_manager.work.ble_recovery_pending = 0U;
+    radio_manager.work.ble_recovery_retry_count = 0U;
+    radio_manager.work.ble_probe_due_tick = HAL_GetTick() +
+        BLE_HEALTH_PROBE_INTERVAL_MS;
+    LogInfo("ST67W6X BLE-only state recovery completed.\r\n");
+  }
+  else
+  {
+    radio_manager.counters.faults.ble_recovery_failures++;
+    radio_manager.work.ble_recovery_retry_count++;
+    radio_manager.work.ble_recovery_due_tick = HAL_GetTick() +
+        BLE_RECOVERY_COOLDOWN_MS;
+    LogError("ST67W6X BLE-only recovery failed: %" PRIi32 " (%lu/%u).\r\n",
+             status,
+             (unsigned long)radio_manager.work.ble_recovery_retry_count,
+             BLE_RECOVERY_MAX_ATTEMPTS);
+  }
+}
+
+static void ble_probe_shadow(uint32_t now)
+{
+  W6X_Status_t status;
+  uint32_t generation;
+  uint32_t queued_tx = 0U;
+  uint32_t stalled_tx = 0U;
+
+  if ((radio_manager.shadow.ble_gatt_ready == 0U) ||
+      (radio_manager.work.ble_recovery_pending != 0U) ||
+      (ble_tick_due(now, radio_manager.work.ble_probe_due_tick) == 0U))
+  {
+    return;
+  }
+
+  if (radio_manager.queues.ble_stream_context != NULL)
+  {
+    for (uint32_t stream = 0U; stream < WIFI_BLE_STREAM_COUNT; stream++)
+    {
+      const WifiBle_StreamStatus_t *stats =
+          &radio_manager.queues.ble_stream_context->stats[stream];
+      queued_tx |= (stats->tx_queued != 0U) ? 1U : 0U;
+      stalled_tx |= (stats->contention.current_duration_ticks >=
+                     BLE_STALLED_TX_PROBE_TICKS) ? 1U : 0U;
+    }
+  }
+  if (radio_manager.queues.ble_tof_image_context != NULL)
+  {
+    queued_tx |= (radio_manager.queues.ble_tof_image_context->state !=
+                  BLE_TOF_IMAGE_FREE) ? 1U : 0U;
+    stalled_tx |= (radio_manager.queues.ble_tof_image_context->stats.contention.current_duration_ticks >=
+                   BLE_STALLED_TX_PROBE_TICKS) ? 1U : 0U;
+  }
+  if (stalled_tx == 0U)
+  {
+    radio_manager.work.ble_tx_stall_reported = 0U;
+  }
+  else if (radio_manager.work.ble_tx_stall_reported == 0U)
+  {
+    struct spi_stat spi_stats = {0};
+    uint32_t cli_streak = 0U;
+    uint32_t cli_queued = 0U;
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    (void)spi_get_stats(&spi_stats);
+    (void)tx_interrupt_control(posture);
+    if (radio_manager.queues.ble_stream_context != NULL)
+    {
+      cli_streak = radio_manager.queues.ble_stream_context->stats[WIFI_BLE_STREAM_CLI].contention.current_streak;
+      cli_queued = radio_manager.queues.ble_stream_context->stats[WIFI_BLE_STREAM_CLI].tx_queued;
+    }
+    radio_manager.work.ble_tx_stall_reported = 1U;
+    LogWarn("ST67W6X BLE TX stalled: CLI streak=%lu queued=%lu; checking NCP link.\r\n",
+            (unsigned long)cli_streak, (unsigned long)cli_queued);
+    LogWarn("ST67W6X SPI snapshot: tx=%lu rx=%lu io=%lu txn_timeout=%lu retry_exhaust=%lu.\r\n",
+            (unsigned long)spi_stats.tx_pkts,
+            (unsigned long)spi_stats.rx_pkts,
+            (unsigned long)spi_stats.io_err,
+            (unsigned long)spi_stats.wait_txn_timeouts,
+            (unsigned long)spi_stats.retry_exhaustions);
+    LogWarn("ST67W6X BLE TX stall pins: RDY=%lu CS=%lu SPI state=%lu error=0x%08lX; probe pending.\r\n",
+            (unsigned long)HAL_GPIO_ReadPin(SPI_RDY_GPIO_Port, SPI_RDY_Pin),
+            (unsigned long)HAL_GPIO_ReadPin(SPI_CS_GPIO_Port, SPI_CS_Pin),
+            (unsigned long)NCP_SPI_HANDLE.State,
+            (unsigned long)NCP_SPI_HANDLE.ErrorCode);
+  }
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  if ((radio_manager.queues.wifi_control_context != NULL) &&
+      (radio_manager.queues.wifi_control_context->active_operation !=
+       WIFI_BLE_WIFI_OPERATION_NONE))
+  {
+    return;
+  }
+#endif
+  if ((radio_manager.shadow.ble_connected != 0U) &&
+      ((now - radio_manager.work.ble_last_activity_tick) <
+       BLE_CONNECTED_IDLE_MS) && (stalled_tx == 0U))
+  {
+    return;
+  }
+  /* A permanently queued notification must not prevent the only AT-based
+   * BLE link probe forever. Keep ordinary traffic protected, but allow one
+   * bounded probe at the normal interval after a sustained TX stall. */
+  if ((queued_tx != 0U) && (stalled_tx == 0U))
+  {
+    return;
+  }
+
+  radio_manager.work.ble_last_probe_tick = now;
+  radio_manager.work.ble_probe_due_tick = now + BLE_HEALTH_PROBE_INTERVAL_MS;
+  generation = radio_manager.shadow.ble_session_generation;
+  if (radio_manager.work.ble_probe_link_next == 0U)
+  {
+    W6X_Ble_Mode_e mode = (W6X_Ble_Mode_e)0;
+    radio_manager.work.ble_probe_link_next = 1U;
+    radio_manager.counters.faults.ble_mode_queries++;
+    status = W6X_Ble_GetInitMode(&mode);
+    if (generation != radio_manager.shadow.ble_session_generation)
+    {
+      /* A connection event superseded this in-flight mode observation. */
+      return;
+    }
+    if (status == W6X_STATUS_OK)
+    {
+      if (mode == W6X_BLE_MODE_SERVER)
+      {
+        radio_manager.work.ble_mode_mismatch_count = 0U;
+        radio_manager.shadow.ble_mode_confirmed = 1U;
+      }
+      else
+      {
+        radio_manager.shadow.ble_mode_confirmed = 0U;
+        if (++radio_manager.work.ble_mode_mismatch_count < 2U)
+        {
+          radio_manager.shadow.ble_advertising_evidence =
+              WIFI_BLE_ADV_UNKNOWN;
+          radio_manager.work.ble_last_probe_status = status;
+          return;
+        }
+        radio_manager.shadow.ble_gatt_ready = 0U;
+        radio_manager.shadow.ble_advertising_evidence = WIFI_BLE_ADV_UNKNOWN;
+        radio_manager.shadow.ble_link_confirmed = 0U;
+        ble_note_disconnected();
+        radio_manager.work.ble_recovery_pending = 1U;
+        radio_manager.work.ble_recovery_retry_count = 0U;
+        radio_manager.work.ble_recovery_due_tick = 0U;
+        LogWarn("ST67W6X BLE mode changed to %u; scheduling BLE-only repair.\r\n",
+                (unsigned int)mode);
+      }
+    }
+    else
+    {
+      radio_manager.shadow.ble_mode_confirmed = 0U;
+    }
+  }
+  else
+  {
+    uint32_t handle = 0xFFU;
+    uint8_t remote_address[WIFI_BLE_ADDRESS_SIZE] = {0};
+    radio_manager.work.ble_probe_link_next = 0U;
+    radio_manager.counters.faults.ble_link_queries++;
+    status = W6X_Ble_GetConn(&handle, remote_address);
+    if ((status == W6X_STATUS_OK) &&
+        (generation == radio_manager.shadow.ble_session_generation))
+    {
+      uint32_t mismatch =
+          ((handle == 0xFFU) != (radio_manager.shadow.ble_connected == 0U)) ||
+          ((handle != 0xFFU) &&
+           (handle != radio_manager.shadow.ble_connection_handle));
+      if (mismatch == 0U)
+      {
+        radio_manager.work.ble_link_mismatch_count = 0U;
+        radio_manager.shadow.ble_link_confirmed = 1U;
+      }
+      else if (++radio_manager.work.ble_link_mismatch_count >= 2U)
+      {
+        radio_manager.counters.faults.ble_link_corrections++;
+        radio_manager.work.ble_link_mismatch_count = 0U;
+        if (handle == 0xFFU)
+        {
+          ble_note_disconnected();
+        }
+        else
+        {
+          radio_manager.shadow.ble_session_generation++;
+          radio_manager.shadow.ble_connected = 1U;
+          radio_manager.shadow.ble_connection_handle = handle;
+          radio_manager.shadow.ble_advertising = 0U;
+          radio_manager.shadow.ble_advertising_evidence =
+              WIFI_BLE_ADV_CONNECTION_EVENT;
+          radio_manager.shadow.ble_cli_tx_subscribed = 0U;
+          radio_manager.shadow.ble_debug_tx_subscribed = 0U;
+          radio_manager.shadow.ble_tof_image_subscribed = 0U;
+          radio_manager.work.ble_stream_flush_pending = 1U;
+          radio_manager.work.ble_connect_pending = 1U;
+        }
+        radio_manager.shadow.ble_link_confirmed = 1U;
+      }
+      else
+      {
+        radio_manager.shadow.ble_link_confirmed = 0U;
+      }
+    }
+    else if (status == W6X_STATUS_OK)
+    {
+      /* A callback updated the link while the AT query was in flight. */
+      return;
+    }
+    else
+    {
+      radio_manager.shadow.ble_link_confirmed = 0U;
+    }
+  }
+  radio_manager.work.ble_last_probe_status = status;
+  if (status != W6X_STATUS_OK)
+  {
+    radio_manager.counters.faults.ble_query_failures++;
+    radio_manager.shadow.ble_advertising_evidence = WIFI_BLE_ADV_UNKNOWN;
+  }
 }
 #endif
 
 static void error_callback(W6X_Status_t status, const char *function_name)
 {
+  radio_manager.counters.faults.driver_error_callbacks++;
+  radio_manager.counters.faults.last_driver_error = status;
   LogError("ST67W6X error in %s: %" PRIi32 "\r\n",
            (function_name != NULL) ? function_name : "?", status);
 }
@@ -2371,6 +3634,8 @@ static void log_output(const char *message)
 {
   if (message != NULL)
   {
+    /* Debug_UART_Write copies into its fixed queue and never waits for the
+     * physical USART once asynchronous logging is initialized. */
     (void)Debug_UART_Write(message, strlen(message));
   }
 }

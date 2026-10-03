@@ -4,10 +4,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "app_features.h"
 #include "tx_api.h"
 
 #define CLOUD_RELAY_HOST \
   "natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net"
+#if (APP_ST67W6X_CLOUD_USE_TLS == 1U)
+#define CLOUD_RELAY_SCHEME "https"
+#else
+#define CLOUD_RELAY_SCHEME "http"
+#endif
 #define CLOUD_RELAY_PAIR_CODE_LENGTH (6U)
 #define CLOUD_RELAY_COMMAND_ID_SIZE  (81U)
 #define CLOUD_RELAY_INPUT_MAX        (1152U)
@@ -68,8 +74,14 @@ UINT CloudRelay_RequestReconnect(void);
 UINT CloudRelay_Unpair(void);
 
 UINT CloudRelay_ReadInput(CloudRelay_Input_t *input);
-UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input);
+/* hold_command prevents a new lease after ACK until this command's completed
+ * output record is accepted by the server. */
+UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input,
+                                  uint32_t hold_command);
 UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary);
+/* Copy one bounded output record atomically, with no wait for queue space. */
+UINT CloudRelay_TryWriteOutput(const void *data, size_t length,
+                               uint32_t binary);
 UINT CloudRelay_CompleteCommand(void);
 
 UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,

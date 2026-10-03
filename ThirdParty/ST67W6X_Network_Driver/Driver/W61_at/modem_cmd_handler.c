@@ -553,7 +553,18 @@ static void cmd_handler_process_rx_buf(struct modem_cmd_handler_data *data)
       }
       else
       {
-        /* Unhandled case */
+        /*
+         * A direct handler owns a length-delimited binary record, so after a
+         * non-retryable parse error there is no reliable boundary at which to
+         * resume inside the current buffer. Drop and scrub it instead of
+         * retrying the same prefix forever in the high-priority modem task.
+         */
+        LogError("drop invalid direct cmd [%s] (ret:%" PRIi32
+                 ", len:%" PRIu32 ")\n",
+                 cmd->cmd, ret, (uint32_t)data->rx_buf_len);
+        (void)memset(data->rx_buf, 0, data->rx_buf_len);
+        data->rx_buf_len = 0U;
+        break;
       }
       continue;
     }
@@ -632,6 +643,17 @@ static void cmd_handler_process(struct modem_cmd_handler *cmd_handler, struct mo
   {
     err = cmd_handler_process_iface_data(data, iface);
     cmd_handler_process_rx_buf(data);
+    if ((err == -ENOMEM) && (data->rx_buf_len == RX_BUF_SIZE))
+    {
+      /* No parser progress is possible: a malformed or oversized AT record
+       * has filled the assembly buffer. Report the fault and resynchronize
+       * instead of spinning forever in the high-priority modem task. */
+      data->rx_assembly_overflows++;
+      LogError("AT assembly buffer full without a complete record (count:%" PRIu32 ")\n",
+               data->rx_assembly_overflows);
+      (void)memset(data->rx_buf, 0, data->rx_buf_len);
+      data->rx_buf_len = 0U;
+    }
   } while (err == 0);
 }
 
@@ -724,6 +746,9 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
 {
   struct modem_cmd_handler_data *data;
   int32_t ret = 0;
+  TickType_t started_at;
+  TickType_t remaining;
+  bool tx_lock_acquired = false;
 
   if ((iface == NULL) || (iface->mdm_write == NULL) ||
       (handler == NULL) || (handler->cmd_handler_data == NULL) ||
@@ -747,9 +772,14 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
   }
 
   data = (struct modem_cmd_handler_data *)(handler->cmd_handler_data);
+  started_at = xTaskGetTickCount();
   if ((flags & MODEM_NO_TX_LOCK) == 0U)
   {
-    (void)xSemaphoreTake(data->sem_tx_lock, portMAX_DELAY);
+    if (xSemaphoreTake(data->sem_tx_lock, timeout) != pdTRUE)
+    {
+      return -ETIMEDOUT;
+    }
+    tx_lock_acquired = true;
   }
 
   if ((flags & MODEM_NO_SET_CMDS) == 0U)
@@ -787,7 +817,11 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
 
   if (sem != NULL)
   {
-    ret = modem_cmd_handler_await(data, sem, timeout);
+    /* The TX-lock wait and command write consume the same operation budget
+     * as the modem response. Unsigned tick subtraction also handles wrap. */
+    TickType_t elapsed = xTaskGetTickCount() - started_at;
+    remaining = (elapsed >= timeout) ? 0U : (timeout - elapsed);
+    ret = modem_cmd_handler_await(data, sem, remaining);
   }
 
   if ((flags & MODEM_NO_UNSET_CMDS) == 0U)
@@ -796,7 +830,7 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
   }
 
 unlock_tx_lock:
-  if ((flags & MODEM_NO_TX_LOCK) == 0U)
+  if (tx_lock_acquired)
   {
     (void)xSemaphoreGive(data->sem_tx_lock);
   }
@@ -928,6 +962,7 @@ int32_t modem_cmd_handler_init(struct modem_cmd_handler *handler,
   handler->cmd_handler_data = data;
   /* Init rx_buf_len */
   data->rx_buf_len = 0U;
+  data->rx_assembly_overflows = 0U;
 
   /* Assign command process implementation to command handler */
   handler->process = cmd_handler_process;

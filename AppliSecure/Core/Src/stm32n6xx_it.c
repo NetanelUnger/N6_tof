@@ -58,7 +58,17 @@
 
 /* USER CODE BEGIN EV */
 
-extern void Secure_FaultTrace(const char *fault_name);
+extern void Secure_FaultTrace(const char *fault_name, uint32_t exc_return);
+
+/* Capture LR before calling C: on exception entry it is EXC_RETURN, whereas
+ * inside Secure_FaultTrace LR would only identify this call site. */
+#define TRACE_SECURE_FAULT(name)                         \
+  do                                                     \
+  {                                                      \
+    uint32_t exc_return;                                  \
+    __asm volatile ("mov %0, lr" : "=r" (exc_return));     \
+    Secure_FaultTrace((name), exc_return);                \
+  } while (0)
 
 /* USER CODE END EV */
 
@@ -87,7 +97,7 @@ void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
 
-  Secure_FaultTrace("HardFault");
+  TRACE_SECURE_FAULT("HardFault");
 
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
@@ -104,7 +114,7 @@ void MemManage_Handler(void)
 {
   /* USER CODE BEGIN MemoryManagement_IRQn 0 */
 
-  Secure_FaultTrace("MemManage");
+  TRACE_SECURE_FAULT("MemManage");
 
   /* USER CODE END MemoryManagement_IRQn 0 */
   while (1)
@@ -121,7 +131,7 @@ void BusFault_Handler(void)
 {
   /* USER CODE BEGIN BusFault_IRQn 0 */
 
-  Secure_FaultTrace("BusFault");
+  TRACE_SECURE_FAULT("BusFault");
 
   /* USER CODE END BusFault_IRQn 0 */
   while (1)
@@ -138,7 +148,7 @@ void UsageFault_Handler(void)
 {
   /* USER CODE BEGIN UsageFault_IRQn 0 */
 
-  Secure_FaultTrace("UsageFault");
+  TRACE_SECURE_FAULT("UsageFault");
 
   /* USER CODE END UsageFault_IRQn 0 */
   while (1)
@@ -155,7 +165,7 @@ void SecureFault_Handler(void)
 {
   /* USER CODE BEGIN SecureFault_IRQn 0 */
 
-  Secure_FaultTrace("SecureFault");
+  TRACE_SECURE_FAULT("SecureFault");
 
   /* USER CODE END SecureFault_IRQn 0 */
   while (1)

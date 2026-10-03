@@ -51,6 +51,15 @@
 #define TX_UPDATE_CONFIRM_PRIORITY     (6U)
 #define TX_DISPLAY_STACK_SIZE          (4U * 1024U)
 #define TX_DISPLAY_PRIORITY            (8U)
+#define TX_DEBUG_UART_STACK_SIZE       (3U * 1024U)
+#define TX_DEBUG_UART_TEST_STACK_SIZE  (3U * 1024U)
+/* The priority-10 ToF processor is intentionally continuously ready and uses
+ * no time slice.  Keep the short UART queue owner above application producers
+ * so interrupt completions cannot be stranded behind CPU-bound processing. */
+#define TX_DEBUG_UART_PRIORITY         (5U)
+#define TX_DEBUG_UART_TEST_PRIORITY    (9U)
+#define TX_WIFI_CONTROL_STACK_SIZE     (6144U)
+#define TX_WIFI_CONTROL_PRIORITY       (11U)
 
 /* USER CODE END PD */
 
@@ -64,11 +73,16 @@ TX_THREAD tx_app_thread;
 /* USER CODE BEGIN PV */
 static TX_THREAD tx_tof_acquisition_thread;
 static TX_THREAD tx_update_confirm_thread;
+static TX_THREAD tx_debug_uart_thread;
+static TX_THREAD tx_debug_uart_test_thread;
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
 static TX_THREAD tx_display_thread;
 #endif
 #if (APP_ST67W6X_ENABLED == 1U)
 static TX_THREAD tx_wifi_ble_thread;
+#endif
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+static TX_THREAD tx_wifi_control_thread;
 #endif
 #if (APP_USB_CLI_ENABLED == 1U)
 static TX_THREAD tx_usb_cli_thread;
@@ -82,11 +96,16 @@ extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
 
 static void ToFAcquisitionThread_Entry(ULONG thread_input);
 static void UpdateConfirmThread_Entry(ULONG thread_input);
+static void DebugUartThread_Entry(ULONG thread_input);
+static void DebugUartTestThread_Entry(ULONG thread_input);
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
 static void DisplayThread_Entry(ULONG thread_input);
 #endif
 #if (APP_ST67W6X_ENABLED == 1U)
 static void WiFiBleThread_Entry(ULONG thread_input);
+#endif
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+static void WiFiControlThread_Entry(ULONG thread_input);
 #endif
 #if (APP_USB_CLI_ENABLED == 1U)
 static void UsbCliThread_Entry(ULONG thread_input);
@@ -105,6 +124,42 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   TX_BYTE_POOL *byte_pool = (TX_BYTE_POOL*)memory_ptr;
 
   /* USER CODE BEGIN App_ThreadX_MEM_POOL */
+  CHAR *debug_uart_stack;
+  CHAR *debug_uart_test_stack;
+
+  if (Debug_UART_AsyncInitialize() != 0)
+  {
+    return TX_QUEUE_ERROR;
+  }
+  if (tx_byte_allocate(byte_pool, (VOID **)&debug_uart_stack,
+                       TX_DEBUG_UART_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
+  {
+    return TX_POOL_ERROR;
+  }
+  if (tx_thread_create(&tx_debug_uart_thread, "Debug UART TX",
+                       DebugUartThread_Entry, 0U, debug_uart_stack,
+                       TX_DEBUG_UART_STACK_SIZE, TX_DEBUG_UART_PRIORITY,
+                       TX_DEBUG_UART_PRIORITY, TX_NO_TIME_SLICE,
+                       TX_AUTO_START) != TX_SUCCESS)
+  {
+    return TX_THREAD_ERROR;
+  }
+  if (tx_byte_allocate(byte_pool, (VOID **)&debug_uart_test_stack,
+                       TX_DEBUG_UART_TEST_STACK_SIZE,
+                       TX_NO_WAIT) != TX_SUCCESS)
+  {
+    return TX_POOL_ERROR;
+  }
+  if (tx_thread_create(&tx_debug_uart_test_thread, "Debug UART test",
+                       DebugUartTestThread_Entry, 0U, debug_uart_test_stack,
+                       TX_DEBUG_UART_TEST_STACK_SIZE,
+                       TX_DEBUG_UART_TEST_PRIORITY,
+                       TX_DEBUG_UART_TEST_PRIORITY, TX_NO_TIME_SLICE,
+                       TX_AUTO_START) != TX_SUCCESS)
+  {
+    return TX_THREAD_ERROR;
+  }
+
   if (TOF_App_Init() != TX_SUCCESS)
   {
     return TX_QUEUE_ERROR;
@@ -221,6 +276,26 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   {
     return TX_THREAD_ERROR;
   }
+
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  if (tx_byte_allocate(radio_pool, (VOID **)&pointer,
+                       TX_WIFI_CONTROL_STACK_SIZE,
+                       TX_NO_WAIT) != TX_SUCCESS)
+  {
+    return TX_POOL_ERROR;
+  }
+
+  if (tx_thread_create(&tx_wifi_control_thread, "ST67 Wi-Fi control",
+                       WiFiControlThread_Entry, 0U, pointer,
+                       TX_WIFI_CONTROL_STACK_SIZE,
+                       TX_WIFI_CONTROL_PRIORITY, TX_WIFI_CONTROL_PRIORITY,
+                       TX_NO_TIME_SLICE, TX_AUTO_START) != TX_SUCCESS)
+  {
+    (void)tx_byte_release(pointer);
+    return TX_THREAD_ERROR;
+  }
+  Debug_UART_Log("RTOS", "Wi-Fi control task created in SRAM4");
+#endif
 #endif
 
 #if (APP_ST67W6X_ENABLED == 0U)
@@ -282,6 +357,18 @@ void MX_ThreadX_Init(void)
 }
 
 /* USER CODE BEGIN 1 */
+static void DebugUartThread_Entry(ULONG thread_input)
+{
+  (void)thread_input;
+  Debug_UART_TaskRun();
+}
+
+static void DebugUartTestThread_Entry(ULONG thread_input)
+{
+  (void)thread_input;
+  Debug_UART_TestTaskRun();
+}
+
 static void ToFAcquisitionThread_Entry(ULONG thread_input)
 {
   (void)thread_input;
@@ -311,6 +398,14 @@ static void WiFiBleThread_Entry(ULONG thread_input)
 {
   (void)thread_input;
   WIFI_BLE_App_Run();
+}
+#endif
+
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+static void WiFiControlThread_Entry(ULONG thread_input)
+{
+  (void)thread_input;
+  WIFI_BLE_App_WifiControlRun();
 }
 #endif
 

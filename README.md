@@ -5,7 +5,9 @@ The guided, resumable ToF rock-paper-scissors pipeline is documented in
 `DATASET STREAM ON|OFF|STATUS` binary CDC protocol, capture/validation/model
 BAT stages, atomic embedded-weight deployment, frame-exact Neural-ART HIL, and
 `VIEW_LIVE.bat`, which atomically swaps complete CRC-validated raw/model frames
-at full stream rate without relying on progressive ANSI terminal rendering, plus
+at full stream rate without relying on progressive ANSI terminal rendering,
+`DUAL_COM_DEBUG.bat`, which captures USB CDC and ST-LINK UART in separate live
+text files while accepting CLI and BLE-probe commands, plus
 `ANALYZE_TRAINING.bat`, which creates an offline Hebrew HTML explanation of
 the dataset, learning curves, confusion matrix, saved-frame Keras/TFLite
 predictions, quantization contract, and current HIL report without modifying
@@ -15,6 +17,41 @@ General host-driven hardware validation tools live in
 [hil_tests/README.md](hil_tests/README.md). The first tool provides an
 interactive BLE scan, selected-device connection, and complete GATT discovery
 report without writing characteristics or changing firmware.
+
+Cloud pairing has user-reported success but no independently captured post-pair
+status or end-to-end ToF image result. The earlier HTTPS/T01 path failed at
+`CIPSTART`; the Azure endpoint sent a 6603-byte TLS record, larger than ST's
+documented 6144-byte T01 fragment limit. That is a strong compatibility
+candidate, not a confirmed NCP error code. The current demonstration RAM build
+instead uses **plaintext HTTP on port 80** to the same Azure host, without TLS
+or the TLS-only SNTP prerequisite. It booted from RAM and displayed the HTTP
+endpoint; the user subsequently reported successful pairing, but a captured
+post-pair status, Cloud CLI/ToF end-to-end HIL, and security validation remain
+open. See the execution history in
+[docs/async-architecture-recovery-plan.md](docs/async-architecture-recovery-plan.md).
+A [draft ST FAE requirement](docs/st67-t01-tls-interoperability-fae.md) records
+the requested T01 TLS interoperability change and acceptance tests. It has not
+been submitted to ST; the measured record-size mismatch remains a strong
+hypothesis rather than an NCP-confirmed root cause.
+
+ToF fault diagnosis is in progress. A prior RAM capture stopped after 1,507
+acquired frames at `DSS map command (-1)`; the exact I3C/HAL substep was not
+captured. The current RAM diagnostic build records command-phase counters in
+`tof status`, detailed blocking-read HAL failures on COM6, and bounds the
+previously unbounded post-TX HAL-state wait. A first sensor-only run passed
+3,785 acquired frames and one Wi-Fi scan without reproducing the fault;
+this is not a ToF recovery fix or Cloud image acceptance. M8.4a/M8.5 remain
+planned pending a characterized failure.
+
+The current demonstration source sets `APP_ST67W6X_CLOUD_USE_TLS=0` in
+`AppliNonSecure/Core/Inc/app_features.h`. It transmits the pairing code,
+bearer token, CLI commands/output, and ToF data without encryption or server
+authentication; `cloud status` and COM6 warn about this. The TLS verification
+flag now defaults to 1 so that a later TLS build is secure by default, but it
+has no effect while HTTP is selected. Restore TLS and verify the certificate
+before any security/customer-readiness claim or use of real secrets on an
+untrusted network. A future signed build would inherit this unsafe HTTP flag
+unless it is deliberately changed.
 
 The self-contained ST67W611M1 NCP update lane is documented in
 [radio_firmware/README_HE.md](radio_firmware/README_HE.md). It bundles the
@@ -55,10 +92,33 @@ Current status:
 | USB CDC XMODEM firmware update | Working for a signed physical CN8 transfer and confirmed trial boot; interruption and deliberate rollback fault-injection tests remain pending |
 | GC9A01 round display | Working from SRAM: the DMA-backed task renders the numbered ToF map and its frame-matched NPU summary; 38/38 submitted frames rendered with zero errors in the latest non-visual HIL check |
 | Rock/paper/scissors Neural-ART | Working on hardware; Stage 11 validates frame-exact results, bit-exact preprocessing, bounded raw-score error, and tolerance-aware decision consistency |
-| ST67 Wi-Fi/BLE/Cloud | SPI/AT identity, BLE maintenance GATT, Wi-Fi station and HTTPS Cloud Relay are enabled. USB, BLE and Cloud share the CLI command table; Wi-Fi connect returns DHCP IPv4, Cloud pairing uses the site's six-digit code, and ToF uses an independent media channel |
+| ST67 Wi-Fi/BLE/Cloud | SPI/AT identity, BLE maintenance GATT and Wi-Fi station are enabled. The current Cloud Relay demonstration uses plaintext HTTP; the user reports pairing success, while captured end-to-end Cloud/ToF validation remains open. USB, BLE and Cloud share the CLI command table; Wi-Fi connect returns DHCP IPv4 and ToF uses an independent media channel |
 | BLE XMODEM firmware update | Implemented over the CLI RX/TX characteristics and reuses the authenticated Secure A/B installer; physical CLI/GATT/ToF transport and repeated reconnect HIL pass, while a complete physical BLE firmware transfer is still pending |
 
 ### 1.1 Latest hardware validation
+
+On 2026-09-25, a browser-driven BLE/Wi-Fi test reported a Secure fault after
+`GOTIP` (`SFAR=0x00000EBC`). This is an open firmware diagnosis, not evidence
+of failed STM32 silicon; a separate Python/WinRT BLE failure has not been
+correlated. The Secure fault reporter now builds with Non-Secure SRAM4 stack
+decoding and prints `EXC_RETURN`, stacked PC/LR/xPSR and fault registers, but
+the diagnostic image has not yet been loaded because ST-LINK communication
+failed initially. After reconnecting the ST-LINK USB cable it was loaded into
+RAM, with external NOR unchanged. Radio/BLE initialized and five minutes of
+idle USB pings passed 1040/1040; a separate ToF DSS-unmap error appeared before
+any Wi-Fi request. The browser Wi-Fi/GOTIP scenario was not reproduced in that
+run, so the PC/root cause and 20-cycle Wi-Fi/BLE acceptance test remain open.
+
+A later long-running Wi-Fi/BLE session exposed a persistent notification
+timeout: 4,138 consecutive BLE CLI TX timeouts, four queued messages, no
+recovery, and a failed Wi-Fi state query. Its COM6 capture began after the
+failure, so the initiating event remains unknown. The BLE link probe was
+found to be suppressed by any queued TX, indefinitely in this failure mode.
+It now permits a bounded probe after sustained TX contention and emits a
+one-time SPI/pin snapshot to COM6. The image was loaded into RAM and the USB
+CLI rebooted, but the fault path has not been physically retested; this is
+not proof that the NCP or SPI transport recovered. No automatic
+whole-NCP reset is enabled while Wi-Fi and Cloud workers share the driver.
 
 On 2026-07-31, the hardened build was programmed into external NOR and every
 programmed region passed STM32CubeProgrammer verification:
@@ -327,6 +387,38 @@ build-verified; the radio mode still requires hardware timing validation.
 | BOOT | PD5 | GPIO output |
 | SPI_RDY | PE9 | Rising/falling EXTI |
 
+The rising `SPI_RDY` interrupt posts `SPI_EVT_TXN_RDY`; host TX posts
+`SPI_EVT_TXN_PENDING`. Both wake the dedicated `spi_xfer_engine` task. That
+task owns CS and the SPI transaction, waits for the SPI DMA completion event,
+then puts the received buffer into the typed RX queue. The modem parser task
+dequeues and interprets the AT data; neither the EXTI nor DMA interrupt parses
+or queues the received payload. The idle SPI worker now waits indefinitely for
+one of those events: it does not read `SPI_RDY` every 20 ms. It still samples
+the pin at initialization and during an active transaction to close handshake
+races. A missed rising edge on an otherwise idle RX-only transaction can now
+leave that transaction pending until another real event occurs; hardware HIL
+must verify this edge-only policy.
+
+The SPI worker queues a pointer to each complete SPI packet, not individual
+DMA bytes. The DMA completion ISR only signals transfer completion because a
+single NCP packet may need separate header and remainder transfers. The modem
+task now takes ownership of each queued packet and retains its pointer plus an
+offset until every byte has entered the AT assembly buffer; a short destination
+read cannot silently discard the packet tail. The assembly buffer holds two
+maximum-size SPI packets and retains incomplete AT records between reads. It
+is fixed storage inside the modem object in application SRAM, not an allocation
+from the 64 KiB radio byte pool; SRAM HIL showed that placing it in the radio
+pool left too little headroom for subsequent NCP traffic.
+If an invalid or oversized record fills it without a parse boundary, the
+parser counts and reports an overflow before resynchronizing. Finite storage
+cannot guarantee zero loss under unlimited input or a malformed length;
+hardware HIL still needs to validate sustained BLE traffic and recovery.
+The SRAM candidate passed USB radio/ToF preflight and three NCP Wi-Fi scans
+(11, 13 and 11 networks) with 3,784 radio-pool bytes remaining and no failed
+BLE state probes. BLE host HIL could not start: Windows WinRT returned E_FAIL
+while creating the GATT device, before any ping was sent. This is not evidence
+that the BLE parser fix passes or fails; see the saved HIL JSON report.
+
 SPI5 remains generated by CubeMX, but when APP_ST67W6X_ENABLED is 0:
 
 - The ST67 task is not created.
@@ -359,18 +451,22 @@ The module's SDA/SCL labels describe a write-only SPI connection here, not
 I2C. Its MISO input is not required. SPI4 is configured as a mode-0,
 transmit-only master at an initial 12.5 Mbit/s. GPDMA1 channel 5 is reserved
 for SPI4 TX. The dedicated priority-8 display task performs the reset and GC9A01
-initialization sequence, clears the panel, and centers `SYSTEM IS LOADING`.
+initialization sequence, fills the panel blue, and centers `SYSTEM IS LOADING`.
+Once the ToF acquisition pipeline is ready, it signals the display task to
+replace that screen with a green `SYSTEM ON` screen. This means sensor-pipeline
+readiness, not Wi-Fi/Cloud readiness. `MAP ON DISPLAY` replaces the idle screen
+with the depth map; `MAP OFF DISPLAY` restores `SYSTEM ON`. Before the first map
+frame, `WAITING` is shown. The `tof status` display line reports the last
+screen successfully submitted through SPI DMA; it cannot prove optical output.
 Commands, clear chunks, and text pixels all use `HAL_SPI_Transmit_DMA`; the task
 waits on ThreadX event flags posted by the SPI completion/error callback, so it
-does not poll while DMA is active. Panel clearing and the 202x14 text bitmap are
-streamed through one shared, cache-cleaned 404-byte DMA row buffer instead of
+does not poll while DMA is active. Panel filling and the centered 14-pixel-high
+text are streamed through one shared, cache-cleaned DMA row buffer instead of
 reserving two large static buffers.
 
-The task is intentionally the only display/SPI owner and suspends after the
-startup screen. The next display phase will add a bounded queue and explicit
-RGB565 buffer-ownership/completion rules at that suspension point. The current
-startup text uses only a tiny private glyph subset and is not intended to be
-the future graphics library.
+The task is intentionally the only display/SPI owner. Idle screens and map
+frames are serialized by its event loop and use one owned frame slot; the tiny
+private glyph subset is not intended to be a general graphics library.
 
 The SPI4 migration has been generated and integrated. After any future Generate
 Code operation, audit the generated GPIO, SPI4, GPDMA1 channel 5, NVIC, and
@@ -554,6 +650,16 @@ The CDC application is split into a control plane and a data plane:
   input from the RX delivery queue, and writes responses through the static
   control-message slots.
 
+For debugger inspection, the mutable application state is grouped under
+`tof_context` (acquisition/processing thread heartbeat, state, queues and
+counters), `cli_context` (broker heartbeat, sessions, pending work and
+counters), `app_usb_context` (USB lifecycle thread, event queue and counters),
+and `usb_cdc_context` (separate RX/TX worker heartbeats, queues, state and
+counters). The large ToF/CDC buffers and Cloud CLI session remain in dedicated
+linker sections as `tof_workspace`, `usb_cdc_workspace` and
+`cli_cloud_storage`; the corresponding root contexts point to them. These
+are debugger-oriented groupings, not extra copies of the payload buffers.
+
 USBX owns the physical bulk-OUT receive loop in callback transmission mode.
 The USBX read callback copies each completed transfer into one static RX slot
 and only posts its pointer to the ingress queue. The RX dispatcher moves valid,
@@ -636,11 +742,12 @@ Available CLI commands:
 | dataset stream on / off / status | Stream N6DF v3 records containing raw 54x42 `uint16` depth and the exact frame-matched 64x50 `uint8` NPU tensor with separate CRCs |
 | RPS on / off / status | Enable, disable, or inspect Neural-ART inference and raw int8 scores |
 | debug off/error/warn/info/debug | Change ST67 log verbosity |
+| debug route | Show USB/BLE/Cloud route generations, session-isolation diagnostic, and routed/stale Wi-Fi result counters |
 | radio hardware / status / info | Inspect the ST67 hardware baseline, manager state, and module identity/versions |
-| wifi scan | Scan and list up to 15 nearby networks with channel, RSSI, security, protocol, and SSID |
-| wifi connect `"SSID"` | Request the password without echo/history, connect, and return the assigned IPv4 address |
+| wifi scan | Submit a routed scan request and return its request ID immediately; the completed result lists up to 15 networks in the same live session |
+| wifi connect `"SSID"` | Request the password without echo/history, submit a routed connect request, and return its request ID immediately; report the final association/IP result to the same live session |
 | wifi status / wifi ip | Show station/link information plus IPv4, gateway, and netmask |
-| wifi disconnect `[forget]` | Disconnect and optionally remove the NCP-stored credentials |
+| wifi disconnect `[forget]` | Submit a routed disconnect/forget request and return its ID immediately; report the final status to the same live session |
 | cloud status / endpoint | Inspect pairing, HTTPS, command/output and ToF relay counters |
 | cloud pair `<code>` | Claim the six-digit code shown by the web app; available through USB or BLE |
 | cloud enable / disable / reconnect / test | Control the HTTPS relay without changing Wi-Fi credentials |
@@ -822,6 +929,29 @@ The x-cube-st67w61 driver was integrated together with:
 - A non-destructive `radio hardware` diagnostic plus Radio-Manager-owned
   scan/connect/disconnect requests and BLE advertising control.
 
+The Radio Manager now owns one `WifiBle_RadioManagerContext_t`: its `shadow`
+records observed NCP/Wi-Fi/BLE state (including link, advertising, MTU and
+notification subscriptions) and the requested advertising policy; `work`
+holds pending commands/events; `counters` holds loop/RX and manager-failure
+diagnostics; and `queues` references the existing bounded BLE, ToF-image and
+Wi-Fi queue contexts in SRAM4. `ble status` shows desired advertising,
+last acknowledged/inferred state, evidence quality and manager failure counts.
+An `OK` from `AT+BLEADVSTART/STOP` is command acceptance, not proof of RF.
+An error or timeout marks ADV evidence `UNKNOWN`; the Radio Manager retries
+at most three times with bounded backoff, then reports exhaustion. Every 15 s
+when BLE/Wi-Fi traffic permits, it alternates `BLEINIT?` and `BLECONN?`;
+mode/link discrepancies require two consecutive observations before the
+local state is corrected. A confirmed lost BLE mode triggers at most
+three BLE-only reinitialization/GATT-registration attempts, without resetting
+the shared NCP or Wi-Fi/Cloud. The ST67 AT contract has no ADV-state query,
+so the only RF-level proof remains an external BLE scan/HIL; the manager never
+labels a command ACK as RF verification. Whole-module reset after persistent
+faults is deliberately deferred because it would invalidate Wi-Fi/Cloud state.
+The Wi-Fi control worker independently refreshes station state every 30 s
+when idle, marks its shadow `UNKNOWN` on query failure, and discards a query
+result superseded by a newer Wi-Fi event. This does not add stored credentials
+or an automatic reconnect policy.
+
 The module and BLE discovery layer are enabled independently from Wi-Fi in
 AppliNonSecure/Core/Inc/app_features.h:
 
@@ -848,24 +978,84 @@ CLI RX is copied into an 8x512-byte bounded queue; CLI TX uses 8x768-byte
 slots. DEBUG TX is an independent best-effort 8x256-byte queue. Every slot
 carries the connection generation, and the Radio Manager fragments TX to
 `MTU-3`, caps retries, and drops stale work after reconnect. BLE has an
-independent 5,272-byte parser/editor/history/output session allocated from SRAM4
+independent 5,176-byte parser/editor/history/output session allocated from SRAM4
 only after the vendor radio initialization reaches READY. The single priority-9
 CLI broker services CDC, BLE and Cloud without sharing partial-line or history state;
 command backends remain serialized. Signed XMODEM enters raw mode only for the
 session that requested it and feeds the same authenticated Secure A/B installer
 as CDC. DEBUG RX remains blocked; every actual CLI command is shared by design.
+Each CLI session now also owns a transport-independent route containing its
+fixed USB, BLE or Cloud transport and a non-zero generation. USB advances the
+generation when its parser session resets at detach; BLE follows the radio
+runtime's existing connect/disconnect generation without a second reset; Cloud
+follows the relay's logical capability epoch (successful pair, explicit
+reconnect/test, or unpair), not each short-lived HTTP socket or backoff retry.
+A saved route is current only while both its transport and generation still
+match, so later asynchronous work can reject replies from an older session.
+`debug route` reports those generations and a startup diagnostic that exercises
+generation advance, stale-route detection, two-session SSID isolation, and
+session-scoped cancel/reset cleanup.
+
+Pending Wi-Fi SSID, hidden password buffer, and password-prompt state are owned
+by the requesting CLI session. Submission, Ctrl-C, prompt failure, transport
+reset/disconnect, and input overflow scrub the complete fixed SSID/password
+arrays. The SSID-bearing `wifi connect` command is not retained in command
+history. One USB, BLE or Cloud prompt therefore cannot overwrite or clear
+another session's credentials. Scan, connect, and disconnect submission are
+asynchronous. `wifi disconnect [forget]` returns a request ID immediately;
+M3.9 now routes the final outcome only to the matching live session. The public Wi-Fi interface now defines fully owned, routed
+request and result value types for the next architecture stage: requests carry
+fixed SSID/password buffers, while results carry independent status and bounded
+scan snapshots. Wi-Fi initialization now owns exactly four slots of each type
+and four fixed `TX_1_ULONG` pointer queues for their free/ready lifecycles. A
+startup self-test exhausts both pools, requires immediate `TX_QUEUE_FULL` on
+the fifth acquire, traverses the ready queues, verifies complete release
+scrubbing, and restores `free=4, ready=0`; initialization rolls back every
+created object and its SRAM4 allocation on failure. The 5,648-byte context is
+within its 6 KiB budget and is 4,576 bytes larger than the previous context,
+projecting 16,480 bytes free from the last 21,056-byte physical radio-pool
+baseline. This is a computed margin pending later runtime observation.
+Two public non-blocking APIs expose the staged path: submit validates and copies
+a routed request into an owned slot while assigning a non-zero monotonic ID,
+and receive copies then releases one complete result snapshot. Both return
+immediately on empty/full queues. `WIFI_BLE_App_WifiControlRun()` now waits for
+radio readiness, drains owned requests, performs every runtime high-level
+scan/connect/disconnect operation, and publishes routed status/scan snapshots,
+including bounded scan timeout and failure results. Connect credentials are
+removed from the queued request before the blocking vendor call and from the
+stack-local vendor options immediately afterward. `WIFI_BLE_App_Run()` only
+signals radio readiness and maintains radio/BLE events; it no longer executes
+high-level Wi-Fi requests. A dedicated priority-11 ThreadX worker now runs this
+loop on a 6 KiB stack allocated from the SRAM4 radio pool. Live SWD inspection
+during a failed connect proved that `W6X_WiFi_Connect` ran on this worker rather
+than the priority-9 Radio Manager; the worker retained 3,936 stack bytes after
+that path. `wifi scan` and the hidden-password `wifi connect` path now create
+zeroed stack requests, copy the active session route, submit them, print the
+request ID, and return to the prompt without waiting. The connect path scrubs
+its complete stack request immediately after submission, and the caller then
+scrubs the complete session-owned SSID/password storage on both acceptance and
+rejection. The CLI now polls at most two completed results per cycle, prints
+final association/DHCP status and bounded scan lists only to the matching
+transport/generation, and counts stale results without leaking them to new
+sessions. It defers result text during XMODEM and hidden password input. The old blocking application APIs remain a
+transitional adapter with no CLI caller; M3.10 removes the adapter.
 The DEBUG mirror is not attached yet. Wi-Fi initializes the station service,
-enables station DHCP, and keeps every W6X control call in the Radio Manager.
-`wifi scan` returns a bounded 15-entry snapshot. `wifi connect "SSID"` accepts
-the password in a second hidden prompt so it is neither echoed nor stored in
-CLI history, waits for association and DHCP, and returns IPv4. The demo
+enables station DHCP, and the dedicated Wi-Fi control worker owns high-level
+scan/connect/disconnect calls. `wifi connect "SSID"` accepts the password in a
+second hidden prompt so it is neither echoed nor stored in CLI history, submits
+the owned request, and returns its request ID immediately. Association/DHCP
+completion is now reported by M3.9 only to the initiating live session. The demo
 intentionally permits credentials, disconnect, reboot, pairing and signed
 update through BLE as well as USB and Cloud.
 
-The Cloud transport connects directly to
-`natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net` over TLS 1.2.
-Before TLS it synchronizes the NCP clock with SNTP, validates the Azure chain
-against DigiCert Global Root G2 and supplies SNI. `cloud pair <code>` exchanges
+The current Cloud demonstration transport connects directly to
+`natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net` over
+plaintext HTTP/1.1 on TCP port 80. It does not install a CA, send TLS options,
+or run the former TLS-only SNTP prerequisite. This avoids the T01/Azure TLS
+interoperability issue but provides **no confidentiality or server identity**.
+The preserved TLS code path uses TLS 1.2, SNTP, SNI and DigiCert Global Root G2
+when `APP_ST67W6X_CLOUD_USE_TLS=1`; it has not passed the Azure endpoint test.
+`cloud pair <code>` exchanges
 the browser's six-digit code for a device capability token, stores a
 CRC-protected record in `n6cloud.cfg` on the NCP filesystem and reconnects
 automatically after reboot. Commands are leased and explicitly acknowledged;
@@ -916,10 +1106,116 @@ contexts, Wi-Fi request/result context, independent CLI session, vendor Wi-Fi
 objects, and single 9,072-byte ToF image snapshot are allocated from the radio pool. The
 linker and build preflight enforce the pool bounds; runtime `ble status` exposes
 remaining radio-pool bytes and image accepted/completed/dropped/error counters.
-The current incremental build preserves 481,520 bytes of C heap, above the
-enforced 360 KiB transform floor. Physical transform startup and radio-pool
-high-water validation remain mandatory. Stage 08 continues to reject
-generated NPU networks that select SRAM4.
+The current M3.8 incremental build preserves 449,792 bytes of C heap, above the
+enforced 360 KiB transform floor. M3.5 RAM HIL reached full radio/Cloud/BLE CLI
+initialization plus a failed connect with 3,188 radio-pool bytes available.
+The first Wi-Fi scan performs the vendor driver's existing lazy allocation of
+20 scan entries (920 bytes plus an 8-byte ThreadX block header), leaving 2,260
+bytes in 30 fragments; a second scan leaves the same value. M3.6 and the
+stack-only M3.7 connect submission add no SRAM4 storage. A fresh M3.7 failed
+connect held the pre-scan pool at 3,188 available bytes before and after the
+operation, but the reserve remains narrow, so later BLE/Cloud and soak gates must
+continue to inspect it. Stage 08 continues to reject generated NPU networks
+that select SRAM4.
+
+M3.7 BLE latency is not yet accepted. Targeted review-fixes now give malformed
+direct records, partial `+BLE:GATTWRITE` numeric fields, and failed raw SPI
+writes bounded forward progress. Two post-fix fresh-RAM 45-second probes passed
+222/222 with p95 148.352 and 152.370 ms; the latter also passed 24/24 concurrent
+USB PONGs at p95 30.6 ms and held the radio/BLE maximum loop gap to 390 ticks.
+An intervening clean run connected but failed to publish the initial BLE prompt
+and logged repeated SPI transaction-ready timeouts before any Wi-Fi request was
+submitted. The Cortex, ToF processing, and radio loop remained alive. The
+targeted SPI handshake recovery is now bounded, but the clean-boot probe must
+be made repeatable before M3.7 or the Milestone 3 gate is closed.
+
+The user explicitly authorized M3.8 while that M3.7 gate remains open. `wifi
+disconnect [forget]` now submits a zeroed, route-tagged request and returns its
+ID immediately; at that checkpoint the final status was deferred to M3.9. One RAM HIL boot accepted
+USB IDs 1/2 and BLE IDs 3/4, answered immediate BLE pings after both disconnect
+variants, and answered 24/24 concurrent USB pings with zero BLE stream drops.
+This verifies the M3.8 CLI path only. The intermittent M3.7 BLE first-reply/SPI
+fault, its 5/5 boot requirement, and the Milestone 3 gate remain open. Because
+M3.9 did not yet drain results at that checkpoint, four submissions required
+a RAM reload. The subsequent M3.9 implementation now releases each received
+result slot: six sequential USB requests yielded six matching results, and a
+concurrent USB/BLE test kept request IDs 7 and 8 on their originating sessions.
+BLE reconnect and USB-close tests counted three stale results without showing
+them in successor sessions. A scan completed during XMODEM but its text appeared
+only after two CAN bytes cancelled the receiver. The M3.7 five-boot BLE gate
+and the Milestone 3 gate remain open; Cloud asynchronous output has not been
+exercised on hardware. The M3.9 follow-up now keeps a Cloud Wi-Fi request bound
+to its leased Relay command until the matching result is queued. It uses one
+nonblocking, bounded Cloud output record with the operation, request ID, final
+status, scan count and IPv4; USB/BLE retain the full scan list.
+The Relay ACK also arms a command hold: the server releases its lease on ACK,
+so the firmware must not poll another command until the pending result and
+completion marker have been accepted. The CLI defers
+result text only for the session in hidden-password or XMODEM mode. Four fixed
+CLI-owned deferred snapshots release the worker's result slots promptly;
+`debug route` reports any deferral overflow. RAM HIL confirmed six sequential
+USB results across the four-slot pool, USB/BLE route isolation, and delivery to
+one transport while the other was at a hidden password prompt. The three old
+caller-facing blocking Wi-Fi APIs and their transitional state were removed in
+M3.10; the worker still uses its bounded internal scan-completion event. Cloud
+hardware verification remains deferred because the tested board reported
+`waiting for Wi-Fi, not paired`. M3.7's five-boot BLE gate and the Milestone 3
+gate remain open; no external NOR write was made.
+
+M4.1 now bounds the generic modem command TX-lock wait by the caller's timeout
+and subtracts elapsed lock/write time from the modem-response wait. Its
+incremental build and RAM load passed. Two concurrent 45-second BLE/Wi-Fi
+probes failed, however: 18/19 and 15/16 replies, with p95 263.543 and
+262.771 ms; concurrent USB pings passed 24/24 in each run. These results do
+not close M4.1 HIL acceptance, M3.7's five-boot gate, or the Milestone 3 gate.
+The manual-lock work of M4.2 had not started at that checkpoint.
+
+M4.2 now bounds both manual common-command TX-lock acquisitions using the
+caller's timeout and returns `W61_STATUS_TIMEOUT` if the lock is unavailable.
+Query/Parse also subtracts lock-wait time from its reply budget. One complete
+45-second RAM BLE probe during a failed Wi-Fi connection passed 221/221 replies
+with zero missing, p95 169.995 ms and no reconnects; USB passed 24/24 parallel
+pings. This does not retroactively pass M4.1's two failed probes or the M3.7
+five-boot gate. The same RAM boot reported a separate ToF sensor-init error
+(-5), so the probe is not a full-system load/soak result.
+
+M4.3 now bounds all three manual BLE AT TX-lock acquisitions to the 2000 ms
+NCP budget and counts lock time in the notification caller's 100 ms budget.
+One full 45-second RAM BLE probe during failed Wi-Fi association passed
+223/223 replies (zero missing, p95 152.095 ms, zero reconnects), alongside
+24/24 USB pings. BLE TX had zero drops but one retry/error; the radio loop
+maximum gap was 50 ticks. A separate ToF fault (-5/-1) remained on that boot.
+This focused probe does not close M4.1's prior failed probes, M3.7's five-boot
+gate, or full-system soak. M4.4 has not started; external NOR was unchanged.
+
+M4.4–M4.5 now bound all remaining manual Wi-Fi, Network and System AT TX-lock
+waits; the driver-wide search finds no `sem_tx_lock` wait using
+`portMAX_DELAY`. M4.6 retains BLE CLI/DEBUG packets and ToF image frames when
+notification returns BUSY or TIMEOUT, retrying on the next Radio Manager
+cycle. `ble status` exposes separate transient counts, streaks, durations and
+recoveries. The final incremental build passed. A RAM contention probe failed
+early with 14/15 BLE replies (one missing) despite zero BLE TX drops and two
+recorded transient timeouts; a repeat on the same boot completed 45 seconds
+with 222/222 replies and zero missing. USB pings passed 24/24 in both runs.
+An earlier boot failed radio initialization, and a later ToF error was also
+observed. These mixed results do not close the Milestone 4 or M3.7 gates;
+Cloud contention and ToF image notification recovery still need hardware
+validation. No external NOR write was made.
+After a final budget-accounting refinement, the rebuilt RAM image completed
+another 45-second Wi-Fi/BLE probe with 222/222 replies, zero missing,
+p95 149.209 ms, three recovered/cleared transient timeout attempts and zero
+BLE TX drops; USB again passed 24/24. The earlier missing reply remains an
+open repeatability failure, so this pass does not close Milestone 4.
+The repeated-boot gate can now be run without manual resets through
+`hil_tests/run_milestone4_gate.py` (see `hil_tests/README.md`). A 2026-09-24
+RAM run on the updated BLE startup banner and guarded W61 RX allocation failed
+the full gate: BLE/USB were 148/162 and 24/24 on boot 1, then 222/222 and
+24/24 on boot 2; ToF entered `DSS unmap command (-1)` on both. Boot 3 could not
+start because the ST-LINK GDB server exited before connection. The raw and
+aggregate reports are in `hil_tests/results/milestone4_gate_rx_guard*.json`.
+The parser now continues measuring after one missing PONG, so this result
+confirms intermittent loss with later BLE recovery. M3.7 and Milestone 4
+repeatability gates remain open.
 
 ### 5.5 Independent ST-LINK UART diagnostics
 
@@ -1004,6 +1300,7 @@ Not every edit outside USER CODE is automatically dangerous. There are three cat
 | AppliSecure/Core/Inc/stm32n6xx_hal_conf.h | Enable XSPI and PKA modules | Secure flash writer and ECDSA verification | High |
 | FSBL and AppliSecure `.project` / `.cproject` | Link shared update, PKA, XSPI, and ExtMem sources and include paths | Build the boot verifier and Secure installer | High: CubeMX/IDE regeneration may remove links |
 | AppliNonSecure/.cproject | Add STM32N6xx_Nucleo BSP include path | Generated `main.h` includes the USB-PD BSP header, but CubeMX omitted its directory | High |
+| AppliNonSecure/USBX/App/app_usbx_device.c | Consolidate generated CDC class parameters and thread control block into `app_usb_context` | One debugger-visible USB lifecycle context | Medium: Generate Code may restore separate generated globals |
 | AppliNonSecure/.cproject | Set Debug C/C++ optimization to `-O3` | Make the 54×42 transform fast enough for the 10 fps pipeline while keeping debug symbols | High: CubeMX/IDE configuration changes can restore `-O0` |
 | AppliNonSecure/.project | Link HAL UART and UART-extended sources | The custom ST-LINK VCP logger uses HAL UART although USART1 is not a generated Non-Secure peripheral | High |
 
@@ -1168,6 +1465,7 @@ In ThreadX, a smaller priority number means a higher scheduling priority.
 | USB CDC RX worker | 9 | 12 KiB | Static BSS | Dispatches callback-filled static RX slots into the application delivery queue |
 | USB CDC TX worker | 9 | 12 KiB | Static BSS | Submits one static TX slot and waits for the USBX completion callback before advancing |
 | ST67 Radio Manager | 9 | 8 KiB | Dedicated SRAM4 radio pool | W6X initialization, BLE GATT/advertising, connection events, and recovery; active |
+| ST67 Wi-Fi control | 11 | 6 KiB | Dedicated SRAM4 radio pool | Waits for radio-ready, owns high-level Wi-Fi scan/connect/disconnect, and publishes routed results |
 | USB debug CLI | 9 | 6 KiB | TX application pool | CDC input, line editing, and commands; runs above the continuously ready ToF processor |
 
 Additional internal ThreadX and USBX tasks may be created by the middleware, such as the ThreadX timer task and USBX class tasks.
@@ -1259,6 +1557,17 @@ already-built binary. No external Flash or firmware version is changed. A
 Reset discards the RAM image and returns to the DEV-boot ROM, so rerun the
 helper after every Reset. To boot the installed persistent image again, return
 `BOOT1` to `1-2` and press Reset.
+
+Before building or opening ST-LINK, the helper checks that the GDB TCP port
+and its two adjacent server ports can be bound. If the default range
+`61234..61236` is occupied or reserved by Windows, it automatically selects
+an available range starting at `61300` and prints the chosen port. An explicit
+`-GdbPort` is honored or rejected with a clear error. Readiness checks require
+the listener to belong to the newly launched server; they never connect a
+test TCP client, which would consume ST-LINK's debugger session. Startup
+failures include stdout/stderr and the paths under `Tools/.n6-debug`, so a
+host port conflict is distinguishable from a target/SWD connection failure.
+Run `Tools/Test-RamDebugStartup.ps1` for hardware-free startup regression checks.
 
 This lane incrementally builds both Secure and Non-Secure; unchanged targets
 remain make no-ops. It loads both local binaries so SAU/RISAF and the
@@ -1392,6 +1701,53 @@ cursor and clear-screen support displays the screens as intended.
 
 Open this terminal before Reset. It is the primary diagnostic channel.
 
+The Non-Secure image also accepts single-key, read-only diagnostics on this
+same ST-LINK UART. No Enter is required (CR/LF is ignored): `?` prints the
+keys; `a` prints one snapshot of Radio, ToF, CLI and USB; lowercase `r`, `t`,
+`c`, `u` prints only the selected mechanism; uppercase `R`, `T`, `C`, `U`
+selects one mechanism for a snapshot every five seconds; `0` stops periodic
+snapshots. Ordinary boot/fault logs continue while a watch is active. Status
+output is produced in the UART diagnostic thread, not the receive interrupt,
+and contains only state, progress and counters (not Wi-Fi credentials or CLI
+payloads). The Radio snapshot distinguishes desired ADV from command-ACK
+evidence; it does not claim RF advertising was observed. `age` values for
+ToF/CLI/Radio are milliseconds; the USB manager event age is in ThreadX ticks
+(100 ticks/second). A USB state snapshot reports `state_snapshot_busy=1` if
+its mutex is occupied instead of blocking the diagnostic thread. This facility
+was exercised from RAM on 2026-09-24 after reconnecting ST-LINK: `a` printed
+all four snapshots, `R` printed Radio immediately and again after five
+seconds, and `0` stopped only the periodic snapshots. No external NOR was
+written. The same RAM session still failed BLE HIL: 117/137 replies during a
+failed Wi-Fi connection and 71/77 replies in a separate idle probe; USB
+passed 24/24 concurrent pings. These failures do not close the M3.7/M4 gates.
+
+Press `n` on the ST-LINK UART to toggle an optional NCP trace; press `n`
+again to turn it off. `?` lists this key. `[NCP]` lines show each SPI/AT
+transport chunk in order, with a sequence number, direction, byte count and
+transport result. They decode AT command names, `OK`/`ERROR`, BLE event names
+and the raw-data prompt into readable English. Arguments and arbitrary data
+are deliberately hidden because they can carry Wi-Fi passwords, cloud tokens
+or firmware bytes. For one-character hexadecimal `debug ping` probes only,
+`[NCP-CLI]` shows the token at five safe checkpoints: NCP direct-event
+parser, BLE RX queue, CLI dequeue, CLI parser, and reply queue. `TX queued`
+means the SPI transport
+accepted the write, not that the NCP or remote BLE client received it.
+The trace uses the existing bounded asynchronous UART queue; high output
+volume can affect timing or drop diagnostic lines, so compare `debug uart`
+drop counters and repeat suspect results with trace disabled. In a RAM test,
+`n` toggled correctly and an idle BLE probe produced 23/28 replies; the 23
+recognized ping inputs appeared at all four CLI checkpoints. This does not
+locate the five absent inputs and does not prove an NCP or CLI-parser fault.
+After adding the NCP direct-event checkpoint, a final five-second RAM smoke
+probe received 12/15 replies. Exactly 12 ping tokens appeared at the direct
+event, BLE queue, CLI dequeue, parser and reply-queue checkpoints; UART
+diagnostics reported zero dropped trace messages. This run therefore does
+not support a failure in the CLI command parser: the three missing pings were
+not observed as complete direct events. It still cannot distinguish a host
+write that never reached the NCP from an NCP event omission or an earlier
+vendor direct-event parsing failure. A separate RAM boot briefly logged a ToF
+`DSS unmap` error; the subsequent run continued acquiring ToF frames.
+
 ### 10.2 USB device CDC on CN8
 
 After successful enumeration, Windows should create a second COM port. It is
@@ -1524,6 +1880,46 @@ when historical context is explicitly required.
     boot chain, Stage 10 loads the exact integrated model into SRAM, Stage 11
     runs HIL against that live SRAM image, and Stage 12 installs the persistent
     update only after the HIL fingerprint passes.
+### Post-GOTIP Secure fault diagnosis (2026-09-25)
+
+A browser BLE Wi-Fi connection reproduced a Secure HardFault after Wi-Fi
+connection. The valid fault address `0x00000EBC` and the actual Non-Secure
+PSP frame mapped PC `0x2413FE8E` to `W61_AT_Common_SetExecute` at
+`w61_at_common.c:492`, called by SNTP. Both vendor Net context pointers were
+NULL: Cloud Relay used the Net API after GOTIP without `W6X_Net_Init()`.
+Radio startup now initializes Net before enabling Cloud processing; failed
+Net initialization disables Cloud without taking Wi-Fi/BLE down. Unpaired
+Cloud also skips its unnecessary post-GOTIP SNTP command. The Secure
+fault trace also checks both Non-Secure stack candidates. Both images build
+and run from SRAM, but 20 successful Wi-Fi/BLE cycles and negative-path HIL
+are still required before this issue can be closed. The separate ToF DSS
+error is not assigned as the cause of this fault.
+
+### Cloud output admission (M5.1, 2026-09-25)
+
+With the user's explicit sequencing exception, Cloud output now uses eight
+fixed 384-byte slots in application SRAM. Each API call admits its complete
+record immediately or returns `TX_QUEUE_FULL`; neither output nor completion
+waits for queue space or sleeps. A one-time startup self-test checks a forced
+full queue, rejection without partial publication, and successful multi-slot
+admission. The Non-Secure build and SRAM boot passed, with 4,472 bytes free
+in the radio pool. This does not close the Milestone 3/4 gates, prove paired
+Cloud delivery, or complete the dedicated Cloud task planned for M5.2–M5.4.
+
+### Cloud TLS credential-list correction (2026-09-25)
+
+A live dual-COM pairing probe reached `W6X_Net_Setsockopt()` but reported
+`Invalid TLS credential` before any HTTP response. The Relay passed a single
+32-bit certificate tag with `optlen=sizeof(tags)` (four bytes), while the ST67
+driver interprets `TLS_SEC_TAG_LIST` as a byte-sized tag list of `optlen`
+entries. It therefore tried tag 7 followed by three zero tags. The caller
+now passes a count of one while keeping 32-bit storage for the vendor API's
+initial 32-bit read. The corrected Non-Secure image builds and runs from SRAM.
+On hardware the credential error disappeared, but the NCP then rejected
+`AT+CIPSTART` before any HTTP response and Cloud remained unpaired. Cloud
+retry attempts still run in the Radio Manager and raised its observed maximum
+loop gap to 7150 ms. Paired delivery and the Milestone 5 gate remain open.
+
 ## 14. The project's golden rule
 
 The IOC describes hardware ownership and the generated skeleton. The hand-written code describes product behavior. After every Generate Code operation, verify that both still agree about pins, TrustZone, interrupts, memory regions, task stacks, middleware callbacks, and feature flags.

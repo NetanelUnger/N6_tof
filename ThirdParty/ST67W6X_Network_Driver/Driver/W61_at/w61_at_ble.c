@@ -764,6 +764,9 @@ W61_Status_t W61_Ble_GetService(W61_Object_t *Obj, W61_Ble_Service_t *ServiceInf
   W61_Status_t ret;
   struct modem *mdm = (struct modem *) &Obj->Modem;
   struct modem_cmd_handler_data *data = (struct modem_cmd_handler_data *)mdm->handler.cmd_handler_data;
+  TickType_t budget = pdMS_TO_TICKS(W61_NCP_TIMEOUT);
+  TickType_t started_at = xTaskGetTickCount();
+  TickType_t elapsed;
   W61_Ble_Service_Info_t service_info =
   {
     .service_index = service_index,
@@ -778,7 +781,16 @@ W61_Status_t W61_Ble_GetService(W61_Object_t *Obj, W61_Ble_Service_t *ServiceInf
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data->sem_tx_lock, portMAX_DELAY);
+  if (xSemaphoreTake(data->sem_tx_lock, budget) != pdPASS)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
+  elapsed = xTaskGetTickCount() - started_at;
+  if (elapsed >= budget)
+  {
+    (void)xSemaphoreGive(data->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
 
   mdm->rx_data = &service_info;
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
@@ -787,7 +799,7 @@ W61_Status_t W61_Ble_GetService(W61_Object_t *Obj, W61_Ble_Service_t *ServiceInf
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)"AT+BLEGATTSSRV?\r\n",
                                       mdm->sem_response,
-                                      W61_NCP_TIMEOUT,
+                                      budget - elapsed,
                                       MODEM_NO_TX_LOCK));
 
   (void)xSemaphoreGive(data->sem_tx_lock);
@@ -832,6 +844,9 @@ W61_Status_t W61_Ble_GetCharacteristic(W61_Object_t *Obj, W61_Ble_Characteristic
   W61_Status_t ret;
   struct modem *mdm = (struct modem *) &Obj->Modem;
   struct modem_cmd_handler_data *data = (struct modem_cmd_handler_data *)mdm->handler.cmd_handler_data;
+  TickType_t budget = pdMS_TO_TICKS(W61_NCP_TIMEOUT);
+  TickType_t started_at = xTaskGetTickCount();
+  TickType_t elapsed;
   W61_Ble_Charac_Info_t charac_info =
   {
     .service_index = service_index,
@@ -848,7 +863,16 @@ W61_Status_t W61_Ble_GetCharacteristic(W61_Object_t *Obj, W61_Ble_Characteristic
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data->sem_tx_lock, portMAX_DELAY);
+  if (xSemaphoreTake(data->sem_tx_lock, budget) != pdPASS)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
+  elapsed = xTaskGetTickCount() - started_at;
+  if (elapsed >= budget)
+  {
+    (void)xSemaphoreGive(data->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
 
   mdm->rx_data = &charac_info;
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
@@ -857,7 +881,7 @@ W61_Status_t W61_Ble_GetCharacteristic(W61_Object_t *Obj, W61_Ble_Characteristic
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)"AT+BLEGATTSCHAR?\r\n",
                                       mdm->sem_response,
-                                      W61_NCP_TIMEOUT,
+                                      budget - elapsed,
                                       MODEM_NO_TX_LOCK));
 
   (void)xSemaphoreGive(data->sem_tx_lock);
@@ -890,11 +914,8 @@ W61_Status_t W61_Ble_ServerSendNotification(W61_Object_t *Obj, uint8_t conn_hand
 
   *SentLen = req_len;
 
-  /* Timeout should let the time to NCP to return SEND:ERROR message */
-  if (Timeout < W61_BLE_TIMEOUT)
-  {
-    Timeout = W61_BLE_TIMEOUT;
-  }
+  /* The notification's caller-supplied budget includes TX-lock acquisition
+   * and every response wait in W61_AT_Common_RequestSendData(). */
   /* The command AT+BLEGATTSNTFY is used to send a notification to the client.
      The parameters are:
      - <service_index>:  Service index
@@ -1265,6 +1286,9 @@ W61_Status_t W61_Ble_SecurityGetBondedDeviceList(W61_Object_t *Obj,
   W61_Status_t ret;
   struct modem *mdm = (struct modem *) &Obj->Modem;
   struct modem_cmd_handler_data *data = (struct modem_cmd_handler_data *)mdm->handler.cmd_handler_data;
+  TickType_t budget = pdMS_TO_TICKS(W61_NCP_TIMEOUT);
+  TickType_t started_at = xTaskGetTickCount();
+  TickType_t elapsed;
 
   struct modem_cmd handlers[] =
   {
@@ -1275,7 +1299,16 @@ W61_Status_t W61_Ble_SecurityGetBondedDeviceList(W61_Object_t *Obj,
   {
     return W61_STATUS_ERROR;
   }
-  (void)xSemaphoreTake(data->sem_tx_lock, portMAX_DELAY);
+  if (xSemaphoreTake(data->sem_tx_lock, budget) != pdPASS)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
+  elapsed = xTaskGetTickCount() - started_at;
+  if (elapsed >= budget)
+  {
+    (void)xSemaphoreGive(data->sem_tx_lock);
+    return W61_STATUS_TIMEOUT;
+  }
 
   mdm->rx_data = RemoteBondedDevices;
   RemoteBondedDevices->Count = 0; /* Initialize the count of bonded devices */
@@ -1286,7 +1319,7 @@ W61_Status_t W61_Ble_SecurityGetBondedDeviceList(W61_Object_t *Obj,
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)"AT+BLESECGETLTKLIST?\r\n",
                                       mdm->sem_response,
-                                      W61_NCP_TIMEOUT,
+                                      budget - elapsed,
                                       MODEM_NO_TX_LOCK));
 
   (void)xSemaphoreGive(data->sem_tx_lock);
@@ -1889,6 +1922,8 @@ static int32_t W61_Ble_Data_Event(uint32_t event_id, struct modem_cmd_handler_da
   W61_Ble_CbParamData_t cb_param_ble_data = {0};
   uint8_t *ptr;
   uint8_t *endptr;
+  uint8_t *field_start;
+  uint8_t *rx_end;
   uint32_t data_len;
   uint16_t rx_data_len;
 
@@ -1898,11 +1933,17 @@ static int32_t W61_Ble_Data_Event(uint32_t event_id, struct modem_cmd_handler_da
     return -EINVAL;
   }
   ptr = &data->rx_buf[len];
+  rx_end = &data->rx_buf[data->rx_buf_len];
   data->rx_buf[data->rx_buf_len] = 0;
 
   /* Connection handle */
+  field_start = ptr;
   cb_param_ble_data.remote_ble_device.conn_handle = strtol((char *)ptr, (char **)&endptr, 10);
-  if ((endptr == ptr) || (*endptr != ','))
+  if (endptr == rx_end)
+  {
+    return -EAGAIN;
+  }
+  if ((endptr == field_start) || (*endptr != ','))
   {
     return -EINVAL;
   }
@@ -1911,16 +1952,26 @@ static int32_t W61_Ble_Data_Event(uint32_t event_id, struct modem_cmd_handler_da
   if ((event_id == W61_BLE_EVT_READ_ID) || (event_id == W61_BLE_EVT_WRITE_ID))
   {
     /* Service index */
+    field_start = endptr;
     cb_param_ble_data.service_idx = strtol((char *)endptr, (char **)&endptr, 10);
-    if ((endptr == ptr) || (*endptr != ','))
+    if (endptr == rx_end)
+    {
+      return -EAGAIN;
+    }
+    if ((endptr == field_start) || (*endptr != ','))
     {
       return -EINVAL;
     }
     endptr++; /* Skip the comma */
 
     /* Characteristic index */
+    field_start = endptr;
     cb_param_ble_data.charac_idx = strtol((char *)endptr, (char **)&endptr, 10);
-    if ((endptr == ptr) || (*endptr != ','))
+    if (endptr == rx_end)
+    {
+      return -EAGAIN;
+    }
+    if ((endptr == field_start) || (*endptr != ','))
     {
       return -EINVAL;
     }
@@ -1929,8 +1980,13 @@ static int32_t W61_Ble_Data_Event(uint32_t event_id, struct modem_cmd_handler_da
   else if (event_id == W61_BLE_EVT_NOTIFICATION_DATA_ID)
   {
     /* Characteristic value handle */
+    field_start = endptr;
     cb_param_ble_data.charac_value_handle = strtol((char *)endptr, (char **)&endptr, 10);
-    if ((endptr == ptr) || (*endptr != ','))
+    if (endptr == rx_end)
+    {
+      return -EAGAIN;
+    }
+    if ((endptr == field_start) || (*endptr != ','))
     {
       return -EINVAL;
     }
@@ -1943,8 +1999,13 @@ static int32_t W61_Ble_Data_Event(uint32_t event_id, struct modem_cmd_handler_da
   }
 
   /* Data length */
+  field_start = endptr;
   data_len = strtol((char *)endptr, (char **)&endptr, 10);
-  if (endptr == ptr)
+  if (endptr == rx_end)
+  {
+    return -EAGAIN;
+  }
+  if (endptr == field_start)
   {
     return -EINVAL;
   }

@@ -129,3 +129,26 @@ python -m compileall -q hil_tests
 
 The self-test does not prove that the PC adapter can scan or that the ST67 can
 advertise. Those are physical HIL results and require the powered board.
+
+## Automated Milestone 3/4 repeated-boot gate
+
+`run_milestone4_gate.py` removes the manual five-boot loop. It reloads the
+current Secure and Non-Secure images into RAM, checks radio/BLE/ToF through
+CN8, runs the 45-second BLE Wi-Fi-contention probe, sends 24 concurrent USB
+pings, records the postflight counters, and repeats until five consecutive
+boots pass or seven total attempts have been used:
+
+```powershell
+.\training\.venv\Scripts\python.exe .\hil_tests\run_milestone4_gate.py
+```
+
+The board must already be in DEV boot (`BOOT0=1-2`, `BOOT1=2-3`). The runner
+never writes external NOR. A missing first prompt remains a failed boot; a
+later diagnostic reconnect is not promoted to PASS. The atomic aggregate is
+`results/milestone4_gate.json`, with a separate raw BLE report per attempt.
+After a missing PONG, the probe resumes with a new token after one second and
+retains the missing reply as a failure. This distinguishes a brief lost GATT
+write from a sustained stall. The runner stops as soon as the remaining
+attempts cannot reach five consecutive passes; transient Dropbox locks on the
+summary file are retried with a finite budget. ToF health is checked separately
+at preflight and postflight, and a ToF failure also fails the full gate.
