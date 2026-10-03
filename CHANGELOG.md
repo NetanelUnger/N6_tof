@@ -15,6 +15,14 @@ explicitly requires historical context.
   errors. Five hardware-free regression checks passed, and the unchanged
   Secure/Non-Secure builds loaded through ThreadX on hardware. External NOR
   and the firmware version were not changed.
+- A subsequent Stage 11 run passed 100 CRC-valid frames, 100 frame-matched NPU
+  results, 100 bit-exact device/Python tensors, 100% class/decision agreement,
+  and maximum raw-score delta 1. Host BLE discovery found N6-MAINT-B8FB and
+  Wi-Fi scanning passed. Observed output rate was 4.10 fps; this is not 10 fps
+  throughput acceptance. The preceding RAM boot reported zeroed component
+  versions and failed radio preflight; another RAM boot reported SDK 2.0.106.
+  That intermittent information/initialization failure remains uncharacterized.
+  The FSBL authenticated the existing confirmed Flash slot A/v5 during handoff.
 
 ### 2026-09-26
 

@@ -1569,6 +1569,15 @@ failures include stdout/stderr and the paths under `Tools/.n6-debug`, so a
 host port conflict is distinguishable from a target/SWD connection failure.
 Run `Tools/Test-RamDebugStartup.ps1` for hardware-free startup regression checks.
 
+On 2026-10-03 the corrected host startup passed RAM loading and Stage 11:
+100 CRC-valid frames, 100 frame-matched NPU results, bit-exact host/device
+tensors, 100% class/decision agreement, maximum raw-score delta 1, and live
+BLE advertisement/Wi-Fi scan checks. The observed output rate was 4.10 fps.
+A preceding RAM boot reported zeroed NCP component versions; another boot
+reported the expected SDK 2.0.106. That intermittent failure remains open.
+The FSBL also authenticated the existing confirmed Flash slot A/version 5;
+this session did not reprogram NOR or validate a fresh external-Flash boot.
+
 This lane incrementally builds both Secure and Non-Secure; unchanged targets
 remain make no-ops. It loads both local binaries so SAU/RISAF and the
 Neural-ART bootstrap can be exercised without a Flash write. Persistent Secure,
