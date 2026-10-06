@@ -2293,7 +2293,9 @@ static void cli_command_cloud(Menu_t *menu, const char *command)
               "Device: %s, workspace: %s, generation %lu\r\n"
               "HTTP: active %lu, last %ld, transport %ld, backoff %lu s\r\n"
               "CLI: input %lu, output %lu, received %lu, acked %lu, sent %lu\r\n"
-              "ToF: sent %lu, dropped %lu; request errors %lu\r\n",
+              "ToF: sent %lu, dropped %lu; request errors %lu\r\n"
+              "Worker: loops %lu, last tick %lu, max step %lu ms\r\n"
+              "Control queue: %lu/4, high water %lu, rejected %lu\r\n",
               cli_cloud_state_name(status.state),
               (status.paired != 0U) ? "paired" : "not paired",
               CLOUD_RELAY_SCHEME,
@@ -2318,7 +2320,13 @@ static void cli_command_cloud(Menu_t *menu, const char *command)
               (unsigned long)status.output_records,
               (unsigned long)status.tof_frames_sent,
               (unsigned long)status.tof_frames_dropped,
-              (unsigned long)status.request_errors);
+              (unsigned long)status.request_errors,
+              (unsigned long)status.worker_loops,
+              (unsigned long)status.worker_last_tick,
+              (unsigned long)status.worker_max_step_ms,
+              (unsigned long)status.control_queued,
+              (unsigned long)status.control_high_water,
+              (unsigned long)status.control_rejected);
   }
   else if ((argc == 2) && (strcmp(argv[1], "endpoint") == 0))
   {
@@ -2334,12 +2342,12 @@ static void cli_command_cloud(Menu_t *menu, const char *command)
   else if ((argc == 2) && (strcmp(argv[1], "enable") == 0))
   {
     cli_print("Cloud Relay: %s.\r\n",
-              (CloudRelay_SetEnabled(1U) == TX_SUCCESS) ? "enabled" : "unavailable");
+              (CloudRelay_SetEnabled(1U) == TX_SUCCESS) ? "enable queued" : "unavailable");
   }
   else if ((argc == 2) && (strcmp(argv[1], "disable") == 0))
   {
     cli_print("Cloud Relay: %s.\r\n",
-              (CloudRelay_SetEnabled(0U) == TX_SUCCESS) ? "disabled" : "unavailable");
+              (CloudRelay_SetEnabled(0U) == TX_SUCCESS) ? "disable queued" : "unavailable");
   }
   else if ((argc == 2) &&
            ((strcmp(argv[1], "reconnect") == 0) ||
@@ -2352,7 +2360,7 @@ static void cli_command_cloud(Menu_t *menu, const char *command)
            (strcmp(argv[2], "yes") == 0))
   {
     cli_print("Cloud unpair: %s.\r\n",
-              (CloudRelay_Unpair() == TX_SUCCESS) ? "local token removed" : "unavailable");
+              (CloudRelay_Unpair() == TX_SUCCESS) ? "queued" : "unavailable");
   }
   else
   {

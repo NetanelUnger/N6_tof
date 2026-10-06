@@ -25,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include "app_console.h"
 #include "app_features.h"
+#include "cloud_relay.h"
 #include "freertos_compat.h"
 #include "debug_cli.h"
 #include "debug_uart.h"
@@ -60,6 +61,11 @@
 #define TX_DEBUG_UART_TEST_PRIORITY    (9U)
 #define TX_WIFI_CONTROL_STACK_SIZE     (6144U)
 #define TX_WIFI_CONTROL_PRIORITY       (11U)
+#define TX_CLOUD_RELAY_STACK_SIZE       (8U * 1024U)
+/* Priority 12 from the original plan can starve behind the continuously-ready
+ * priority-10 ToF processor. Like the CLI/Radio loops, Cloud must outrank it;
+ * Cloud yields on its own event wait and all blocking modem operations. */
+#define TX_CLOUD_RELAY_PRIORITY         (9U)
 
 /* USER CODE END PD */
 
@@ -84,6 +90,13 @@ static TX_THREAD tx_wifi_ble_thread;
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static TX_THREAD tx_wifi_control_thread;
 #endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+static TX_THREAD tx_cloud_relay_thread;
+/* Fixed stack in the existing lower SRAM4 region, outside both byte pools.
+ * Never consume another 8 KiB of the scarce radio packet allocation reserve. */
+static UCHAR cloud_relay_stack[TX_CLOUD_RELAY_STACK_SIZE]
+    __attribute__((section(".app_shared_bss"), aligned(8)));
+#endif
 #if (APP_USB_CLI_ENABLED == 1U)
 static TX_THREAD tx_usb_cli_thread;
 #endif
@@ -106,6 +119,9 @@ static void WiFiBleThread_Entry(ULONG thread_input);
 #endif
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
 static void WiFiControlThread_Entry(ULONG thread_input);
+#endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+static void CloudRelayThread_Entry(ULONG thread_input);
 #endif
 #if (APP_USB_CLI_ENABLED == 1U)
 static void UsbCliThread_Entry(ULONG thread_input);
@@ -296,6 +312,18 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   }
   Debug_UART_Log("RTOS", "Wi-Fi control task created in SRAM4");
 #endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  if (CloudRelay_Prepare() != TX_SUCCESS) return TX_QUEUE_ERROR;
+  if (tx_thread_create(&tx_cloud_relay_thread, "ST67 Cloud Relay",
+                       CloudRelayThread_Entry, 0U, cloud_relay_stack,
+                       sizeof(cloud_relay_stack), TX_CLOUD_RELAY_PRIORITY,
+                       TX_CLOUD_RELAY_PRIORITY, TX_NO_TIME_SLICE,
+                       TX_AUTO_START) != TX_SUCCESS)
+  {
+    return TX_THREAD_ERROR;
+  }
+  Debug_UART_Log("RTOS", "Cloud worker created with fixed SRAM4 stack");
+#endif
 #endif
 
 #if (APP_ST67W6X_ENABLED == 0U)
@@ -406,6 +434,14 @@ static void WiFiControlThread_Entry(ULONG thread_input)
 {
   (void)thread_input;
   WIFI_BLE_App_WifiControlRun();
+}
+#endif
+
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+static void CloudRelayThread_Entry(ULONG thread_input)
+{
+  (void)thread_input;
+  CloudRelay_Run();
 }
 #endif
 

@@ -49,6 +49,12 @@ typedef struct
   int32_t last_http_status;
   int32_t last_transport_status;
   uint32_t backoff_seconds;
+  uint32_t worker_loops;
+  uint32_t worker_last_tick;
+  uint32_t worker_max_step_ms;
+  uint32_t control_queued;
+  uint32_t control_high_water;
+  uint32_t control_rejected;
   char device_id[65];
   char workspace_id[65];
 } CloudRelay_Status_t;
@@ -65,7 +71,11 @@ typedef struct
 } CloudRelay_Input_t;
 
 UINT CloudRelay_Initialize(TX_BYTE_POOL *pool, const char *suggested_device_id);
-void CloudRelay_Process(uint32_t wifi_has_ip);
+/* Prepare fixed synchronization objects before the scheduler starts. */
+UINT CloudRelay_Prepare(void);
+void CloudRelay_Run(void);
+/* Radio Manager publishes readiness only; it never advances Cloud sockets. */
+void CloudRelay_SetNetworkState(uint32_t ready, uint32_t wifi_has_ip);
 void CloudRelay_GetStatus(CloudRelay_Status_t *status);
 
 UINT CloudRelay_RequestPair(const char *code);

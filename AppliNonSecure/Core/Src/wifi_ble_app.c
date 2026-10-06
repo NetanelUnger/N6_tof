@@ -161,7 +161,8 @@ typedef enum
   BLE_TOF_IMAGE_FREE = 0,
   BLE_TOF_IMAGE_FILLING,
   BLE_TOF_IMAGE_READY,
-  BLE_TOF_IMAGE_ACTIVE
+  BLE_TOF_IMAGE_ACTIVE,
+  BLE_TOF_IMAGE_WAIT_CLOUD
 } WifiBle_TofImageState_t;
 
 typedef struct
@@ -570,8 +571,8 @@ void WIFI_BLE_App_Run(void)
 #endif
 
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
-  /* GOTIP makes CloudRelay_Process call SNTP.  The vendor Net API keeps its
-   * W61 object pointer NULL until this explicit initialization completes. */
+  /* The Cloud worker owns SNTP/socket calls after READY. The vendor Net API
+   * keeps its W61 pointer NULL until this initialization completes. */
   status = W6X_Net_Init();
   if (status == W6X_STATUS_OK)
   {
@@ -658,11 +659,10 @@ void WIFI_BLE_App_Run(void)
     wifi_process_pending_events();
 #endif
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
-    /* Run the Cloud uploader before BLE can release the shared ToF frame. */
-    if (cloud_net_ready != 0U)
-    {
-      CloudRelay_Process(radio_manager.shadow.wifi_has_ip);
-    }
+    /* Publish only scalar readiness; DNS/socket/protocol work belongs to the
+     * Cloud worker. Shared ToF payload lifetime uses an explicit Cloud lease. */
+    CloudRelay_SetNetworkState(cloud_net_ready,
+                               radio_manager.shadow.wifi_has_ip);
 #endif
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
     ble_process_pending_events();
@@ -1292,14 +1292,16 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   radio_manager.queues.ble_tof_image_context->channel_id = channel_id;
   radio_manager.queues.ble_tof_image_context->retries = 0U;
 
+  /* Acquire Cloud's lease while the image is still FILLING. Radio must never
+   * be able to release/reuse this payload before the Cloud handoff exists. */
+  (void)CloudRelay_SubmitTofFrame(
+      frame_id, channel_id, radio_manager.queues.ble_tof_image_context->payload, width, height,
+      radio_manager.queues.ble_tof_image_context->payload_crc32);
   posture = tx_interrupt_control(TX_INT_DISABLE);
   radio_manager.queues.ble_tof_image_context->stats.frames_submitted++;
   radio_manager.queues.ble_tof_image_context->stats.last_submitted_frame = frame_id;
   radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_READY;
   (void)tx_interrupt_control(posture);
-  (void)CloudRelay_SubmitTofFrame(
-      frame_id, channel_id, radio_manager.queues.ble_tof_image_context->payload, width, height,
-      radio_manager.queues.ble_tof_image_context->payload_crc32);
   return TX_SUCCESS;
 #else
   (void)frame_id;
@@ -2778,7 +2780,9 @@ static void __attribute__((optimize("Os"))) ble_tof_image_drop_active(void)
   if ((radio_manager.queues.ble_tof_image_context->state == BLE_TOF_IMAGE_READY) ||
       (radio_manager.queues.ble_tof_image_context->state == BLE_TOF_IMAGE_ACTIVE))
   {
-    radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
+    radio_manager.queues.ble_tof_image_context->state =
+        (CloudRelay_IsTofFramePending(radio_manager.queues.ble_tof_image_context->frame_id) != 0U) ?
+            BLE_TOF_IMAGE_WAIT_CLOUD : BLE_TOF_IMAGE_FREE;
     radio_manager.queues.ble_tof_image_context->stats.frames_aborted++;
   }
   (void)tx_interrupt_control(posture);
@@ -2797,6 +2801,14 @@ static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void)
 
   if (radio_manager.queues.ble_tof_image_context == NULL)
   {
+    return;
+  }
+  if (radio_manager.queues.ble_tof_image_context->state == BLE_TOF_IMAGE_WAIT_CLOUD)
+  {
+    if (CloudRelay_IsTofFramePending(radio_manager.queues.ble_tof_image_context->frame_id) == 0U)
+    {
+      radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
+    }
     return;
   }
   if ((radio_manager.shadow.ble_connected == 0U) || (radio_manager.shadow.ble_tof_image_subscribed == 0U))
@@ -2884,7 +2896,9 @@ static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void)
       radio_manager.queues.ble_tof_image_context->stats.frames_sent++;
       radio_manager.queues.ble_tof_image_context->stats.last_sent_frame =
           radio_manager.queues.ble_tof_image_context->frame_id;
-      radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
+      radio_manager.queues.ble_tof_image_context->state =
+          (CloudRelay_IsTofFramePending(radio_manager.queues.ble_tof_image_context->frame_id) != 0U) ?
+              BLE_TOF_IMAGE_WAIT_CLOUD : BLE_TOF_IMAGE_FREE;
     }
     (void)tx_interrupt_control(posture);
     return;
@@ -2899,7 +2913,9 @@ static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void)
   if (radio_manager.queues.ble_tof_image_context->retries >= BLE_NOTIFY_MAX_ATTEMPTS)
   {
     radio_manager.queues.ble_tof_image_context->stats.frames_aborted++;
-    radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
+    radio_manager.queues.ble_tof_image_context->state =
+        (CloudRelay_IsTofFramePending(radio_manager.queues.ble_tof_image_context->frame_id) != 0U) ?
+            BLE_TOF_IMAGE_WAIT_CLOUD : BLE_TOF_IMAGE_FREE;
   }
   (void)tx_interrupt_control(posture);
 }

@@ -413,6 +413,22 @@ If an invalid or oversized record fills it without a parse boundary, the
 parser counts and reports an overflow before resynchronizing. Finite storage
 cannot guarantee zero loss under unlimited input or a malformed length;
 hardware HIL still needs to validate sustained BLE traffic and recovery.
+An experimental master RX automatic-suspension (MASRX) setting passed two
+live-register BLE probes but failed after a fresh RAM boot with SUSP/timeouts
+and lost replies. That configuration experiment was reverted in both IOC and
+the initializer; automatic suspension remains disabled. Generate Code is not
+required for the remaining C-only DMA recovery change.
+The SPI5 abort path also verifies both owned normal-mode DMA channels before
+claiming recovery. It locally deinitializes/reinitializes a stranded channel
+with the HAL's bounded disable wait and restores its SPI parent link. If SPI
+abort fails after DMA cleanup, it resets SPI5 and restores the existing register
+configuration without rerunning the generated MSP initializer on the 768-byte
+worker stack. It does not reset the shared DMA controller or the NCP.
+The 2026-10-04 RAM fault test exercised both recovery paths with zero
+reinitialization failures. Stack fill showed 660/768 bytes used (108 untouched);
+this narrow observed margin is not full-load stack acceptance. BLE still lost
+replies after recovery; initial overrun and full-load validation remain open. No
+memory-pool or stack capacity was increased.
 The SRAM candidate passed USB radio/ToF preflight and three NCP Wi-Fi scans
 (11, 13 and 11 networks) with 3,784 radio-pool bytes remaining and no failed
 BLE state probes. BLE host HIL could not start: Windows WinRT returned E_FAIL
@@ -604,8 +620,9 @@ about 34 KiB, before its callers and exception/FPU context. A 96 KiB stack
 therefore retains generous margin.
 
 The ThreadX application pool is 134 KiB in the current Wi-Fi/Cloud build. Its
-active pool-backed stacks reserve about 124 KiB after adding the 4 KiB display
-task. The USBX parent byte pool is
+active pool-backed stacks reserve 130 KiB, including the display and both UART
+tasks, leaving about 4 KiB before allocator overhead. The Cloud worker's fixed
+8 KiB stack is outside the application and radio pools. The USBX parent byte pool is
 56 KiB: it contains the 32 KiB USBX system arena, the 16 KiB device-control
 stack, allocator bookkeeping, and about 8 KiB of unused parent-pool headroom.
 With the update and static CDC buffers linked, the first-frame transform needs
@@ -1101,7 +1118,9 @@ SRAM2 heap without changing task capacity. The radio build uses a dedicated 64 K
 `0x242D0000..0x242DFFFF` in currently unused SRAM4. Its general SRAM2 pool is
 134 KiB when Wi-Fi services are enabled (151 KiB for a BLE/radio-only build,
 159 KiB with the radio disabled). The fixed startup stacks consume about
-124 KiB, leaving about 10 KiB of application-pool headroom. The BLE stream
+130 KiB, leaving about 4 KiB before application-pool allocator overhead. The
+Cloud worker uses a separate static 8 KiB stack in the same lower-SRAM4 reservation.
+The BLE stream
 contexts, Wi-Fi request/result context, independent CLI session, vendor Wi-Fi
 objects, and single 9,072-byte ToF image snapshot are allocated from the radio pool. The
 linker and build preflight enforce the pool bounds; runtime `ble status` exposes
@@ -1458,17 +1477,28 @@ In ThreadX, a smaller priority number means a higher scheduling priority.
 | Task | Priority | Stack | Pool | Responsibility |
 |---|---:|---:|---|---|
 | USB-PD CAD | 1 | 8 KiB | USB-PD pool | CC attach/detach detection, TCPP0203 VBUS setup, USB notifications |
+| System Timer Thread | 0 | 1 KiB | ThreadX static storage | Executes ThreadX timer callbacks; the ISR-processing define is commented out |
+| Debug UART TX | 5 | 3 KiB | TX application pool | Drains the diagnostic queue through UART interrupts; producers submit without waiting |
+| Debug UART test | 9 | 3 KiB | TX application pool | Periodic heartbeat and diagnostic test commands |
 | Firmware confirmation | 6 | 2 KiB | TX application pool | Sleeps five seconds, commits a TRIAL image, then exits; priority prevents ToF starvation |
 | ToF Acquisition | 7 | 16 KiB | TX application pool | Sensor ownership, PD9 event wait, fully asynchronous I3C DMA sequence, raw-slot publication |
 | ToF Main Thread | 10 | 96 KiB | TX application pool | Raw-frame transform, RPS preprocessing/Neural-ART inference, metadata parsing, ANSI rendering, and raw-slot release |
 | USBX Device App Main Thread | 8 | 16 KiB | USBX pool | USB lifecycle manager: PCD/USBX, CDC callbacks, worker start/stop, error events |
 | USB CDC RX worker | 9 | 12 KiB | Static BSS | Dispatches callback-filled static RX slots into the application delivery queue |
 | USB CDC TX worker | 9 | 12 KiB | Static BSS | Submits one static TX slot and waits for the USBX completion callback before advancing |
+| GC9A01 display | 8 | 4 KiB | TX application pool | Owns display SPI DMA and consumes the latest published frame |
 | ST67 Radio Manager | 9 | 8 KiB | Dedicated SRAM4 radio pool | W6X initialization, BLE GATT/advertising, connection events, and recovery; active |
 | ST67 Wi-Fi control | 11 | 6 KiB | Dedicated SRAM4 radio pool | Waits for radio-ready, owns high-level Wi-Fi scan/connect/disconnect, and publishes routed results |
+| ST67 Cloud Relay | 9 | 8 KiB | Static lower-SRAM4 BSS | Owns runtime HTTP/socket/pairing operations; fixed control queue and shared ToF-buffer lease; RAM HIL pending |
 | USB debug CLI | 9 | 6 KiB | TX application pool | CDC input, line editing, and commands; runs above the continuously ready ToF processor |
 
-Additional internal ThreadX and USBX tasks may be created by the middleware, such as the ThreadX timer task and USBX class tasks.
+USBX also creates separate CDC Bulk-IN and Bulk-OUT callback threads, each at
+priority 8 with an 8 KiB stack in its system arena. The ST67 middleware creates
+its modem-processing and SPI-transfer tasks through the FreeRTOS compatibility
+layer. The `TX_TIMER_PROCESS_IN_ISR` define appears only inside a comment in
+this build. A RAM GDB snapshot on 2026-10-03 confirmed 19 created threads,
+including the priority-0, 1 KiB System Timer Thread and the completed firmware
+confirmation task; 18 had not completed at that checkpoint.
 
 ### 8.1 Byte pools
 
@@ -1477,7 +1507,7 @@ Additional internal ThreadX and USBX tasks may be created by the middleware, suc
 | tx_app_byte_pool | 134 KiB with Wi-Fi enabled; linked in SRAM4 | ToF, CLI, and application stacks/objects |
 | ux_device_app_byte_pool | 56 KiB | 32 KiB USBX system arena, 16 KiB USB Device task stack, bookkeeping, and headroom |
 | usbpd_app_byte_pool | 16 KiB | CAD queue, CAD task, and USB-PD objects |
-| tx_radio_byte_pool | 64 KiB | Radio Manager plus ST SPI/AT compatibility tasks and objects |
+| tx_radio_byte_pool | 64 KiB | Radio/Wi-Fi stacks, ST SPI/AT objects, BLE/Cloud contexts and receive packets |
 
 The CDC data plane does not have a byte pool. Its memory is fixed in BSS:
 
@@ -1493,8 +1523,8 @@ Separate pools help diagnose failures. A PSP address can be matched to a pool to
 The upper 176 KiB of NPU SRAM3 (`0x24244000..0x2426FFFF`) holds the CDC worker
 stacks/slots, RPS preprocessing scratch, and the transient ToF depth frame. The
 current `.npu_shared_bss` uses all 180,224 bytes of that reservation. Moving
-these deterministic large objects out of SRAM2 leaves 375,072 bytes between the
-current `_end` symbol and the reserved MSP stack, above the 360 KiB VL53L9
+these deterministic large objects out of SRAM2 leaves 420,368 bytes between the
+2026-10-04 M5/SPI-recovery build's `_end` symbol and the reserved MSP stack, above the 360 KiB VL53L9
 guard. The generated network uses 17,408
 bytes in SRAM5 for its input/activations and 55,425 bytes in SRAM6 for its
 weight blob; Stage 08 rejects a future network that selects the reserved SRAM3
@@ -1938,6 +1968,33 @@ full queue, rejection without partial publication, and successful multi-slot
 admission. The Non-Secure build and SRAM boot passed, with 4,472 bytes free
 in the radio pool. This does not close the Milestone 3/4 gates, prove paired
 Cloud delivery, or complete the dedicated Cloud task planned for M5.2–M5.4.
+
+### Cloud worker ownership handoff (M5.2–M5.4, 2026-10-03)
+
+The current source moves Cloud DNS/socket/HTTP progression out of Radio Manager
+into one priority-9 worker. Runtime Cloud controls enqueue copied requests into
+four fixed slots; the CLI does not close sockets or perform pairing-file work.
+Event wakeups and a bounded 20 ms wait drive the worker. `cloud status` exposes
+worker loop count/last tick/max step time and control queue high-water/rejections;
+status readers use a cached snapshot without waiting on network work.
+
+The worker uses a fixed 8 KiB stack at `0x242A1800` in the existing lower SRAM4
+region. The application/radio pool sizes remain 134/64 KiB. Priority 12 from
+the original plan was replaced with 9 to avoid starvation behind the continuously
+ready priority-10 ToF processor. The shared ToF image acquires its Cloud lease
+before BLE READY; BLE completion/abort/disconnect waits in WAIT_CLOUD until the
+worker stops reading the payload. No extra frame copy or runtime allocation
+was introduced.
+
+Incremental and clean Non-Secure builds, eight disabled-feature syntax checks
+and the HIL utility self-test passed. RAM startup confirmed the separate worker,
+and an offline stack-fill scan measured 356 of 8192 bytes used. Network stack
+high-water, BLE latency during Cloud failures and simultaneous frame CRC/lifetime
+HIL remain pending. The PC saw the BLE advertisement but two WinRT connection
+attempts failed before GATT discovery, so no BLE latency result was obtained.
+This is an implementation checkpoint,
+not a passed Milestone 5 gate or a fix for the earlier radio-pool starvation and
+ToF permanent-fault findings. No Generate Code is required.
 
 ### Cloud TLS credential-list correction (2026-09-25)
 

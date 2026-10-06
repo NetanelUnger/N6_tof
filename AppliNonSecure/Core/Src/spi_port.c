@@ -22,6 +22,10 @@
 
 static spi_transaction_complete_t transaction_complete_callback;
 static volatile int32_t transaction_failed;
+static uint32_t dma_reinitializations;
+static uint32_t dma_reinitialization_failures;
+static uint32_t spi_reinitializations;
+static uint32_t spi_reinitialization_failures;
 
 void *spi_port_memcpy(void *dest, const void *src, unsigned int len)
 {
@@ -127,6 +131,42 @@ int32_t spi_port_transfer_dma_status(void)
           (NCP_SPI_HANDLE.ErrorCode == HAL_SPI_ERROR_NONE)) ? 0 : -1;
 }
 
+static HAL_StatusTypeDef spi_port_restore_dma(DMA_HandleTypeDef *dma)
+{
+  if ((dma == NULL) || (dma->Init.Mode != DMA_NORMAL))
+  {
+    return HAL_ERROR;
+  }
+  if ((dma->State == HAL_DMA_STATE_READY) &&
+      ((dma->Instance->CCR & DMA_CCR_EN) == 0U))
+  {
+    return HAL_OK;
+  }
+
+  /* SPI error callbacks can wake the owner after only one DMA abort completes.
+   * HAL_SPI_Abort subsequently reports READY even when the other DMA handle is
+   * still ABORT/SUSPEND: it only aborts channels whose SPI DMA-request bit is
+   * set. Those bits were already cleared by the SPI error ISR. Restore only
+   * the two normal-mode channels owned by SPI5, with HAL's bounded disable
+   * waits; never reset the shared DMA controller or the NCP. */
+  void *parent = dma->Parent;
+  HAL_StatusTypeDef status = HAL_DMA_DeInit(dma);
+  if (status == HAL_OK)
+  {
+    status = HAL_DMA_Init(dma);
+    dma->Parent = parent;
+  }
+  if (status == HAL_OK)
+  {
+    dma_reinitializations++;
+  }
+  else
+  {
+    dma_reinitialization_failures++;
+  }
+  return status;
+}
+
 int32_t spi_port_abort(void)
 {
   if (NCP_SPI_HANDLE.State == HAL_SPI_STATE_RESET)
@@ -134,9 +174,31 @@ int32_t spi_port_abort(void)
     return -1;
   }
 
-  if (HAL_SPI_Abort(&NCP_SPI_HANDLE) != HAL_OK)
+  HAL_StatusTypeDef spi_status = HAL_SPI_Abort(&NCP_SPI_HANDLE);
+  /* CS is already deasserted by the sole SPI worker. Quiesce both DMA handles
+   * even if SPI abort failed, and do not claim recovery from SPI state alone. */
+  HAL_StatusTypeDef tx_status = spi_port_restore_dma(NCP_SPI_HANDLE.hdmatx);
+  HAL_StatusTypeDef rx_status = spi_port_restore_dma(NCP_SPI_HANDLE.hdmarx);
+  if ((tx_status != HAL_OK) || (rx_status != HAL_OK))
   {
     return -1;
+  }
+  if (spi_status != HAL_OK)
+  {
+    /* A failed SPI abort can leave residual FIFO/transfer state even after
+     * both DMA handles are clean. Reset this peripheral only after the owned
+     * channels have stopped; the retained packet still belongs to the worker.
+     * Reuse the existing register configuration. Keep the handle READY so
+     * HAL_SPI_Init does not rerun the large generated MSP initializer on the
+     * 768-byte transfer-worker stack; GPIO/IRQ and DMA parent links remain set. */
+    __HAL_RCC_SPI5_FORCE_RESET();
+    __HAL_RCC_SPI5_RELEASE_RESET();
+    if (HAL_SPI_Init(&NCP_SPI_HANDLE) != HAL_OK)
+    {
+      spi_reinitialization_failures++;
+      return -1;
+    }
+    spi_reinitializations++;
   }
   NCP_SPI_HANDLE.ErrorCode = HAL_SPI_ERROR_NONE;
   transaction_failed = 0;

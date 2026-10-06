@@ -31,6 +31,39 @@
 #define CLOUD_BACKOFF_MAX_SECONDS  (60U)
 #define CLOUD_RECORD_MAGIC         (0x434C364EU) /* N6LC */
 #define CLOUD_RECORD_VERSION       (1U)
+#define CLOUD_CONTROL_SLOT_COUNT   (4U)
+#define CLOUD_WAKE_FLAG            (1UL)
+#define CLOUD_WORKER_WAIT_TICKS    ((TX_TIMER_TICKS_PER_SECOND >= 50U) ? \
+                                   (TX_TIMER_TICKS_PER_SECOND / 50U) : 1U)
+
+typedef enum
+{
+  CLOUD_CONTROL_PAIR = 1,
+  CLOUD_CONTROL_ENABLE,
+  CLOUD_CONTROL_RECONNECT,
+  CLOUD_CONTROL_UNPAIR
+} CloudControlKind_t;
+
+typedef struct
+{
+  ULONG kind;
+  ULONG value;
+  char code[8];
+} CloudControlRequest_t;
+
+_Static_assert(sizeof(CloudControlRequest_t) == 4U * sizeof(ULONG),
+               "Cloud control queue must copy exactly four ULONGs");
+
+static TX_EVENT_FLAGS_GROUP cloud_events;
+static TX_QUEUE cloud_control_queue;
+static ULONG cloud_control_storage[CLOUD_CONTROL_SLOT_COUNT * 4U];
+static volatile uint32_t cloud_prepared;
+static volatile uint32_t cloud_initialized;
+static volatile uint32_t cloud_network_ready;
+static volatile uint32_t cloud_wifi_has_ip;
+static uint32_t cloud_control_high_water;
+static uint32_t cloud_control_rejected;
+static CloudRelay_Status_t cloud_status_snapshot;
 
 typedef enum
 {
@@ -178,6 +211,221 @@ static int cloud_base64_decode(const char *source, uint8_t *target,
 static const uint8_t *cloud_find_ci(const uint8_t *haystack, size_t haystack_length,
                                     const char *needle);
 static UINT cloud_output_admission_self_test(void);
+static void cloud_process(uint32_t wifi_has_ip);
+static void cloud_publish_status(void);
+static void cloud_release_tof(void);
+static UINT cloud_submit_control(const CloudControlRequest_t *request);
+static UINT cloud_apply_control(const CloudControlRequest_t *request);
+static UINT cloud_control_queue_self_test(void);
+static UINT cloud_receive_control(CloudControlRequest_t *request);
+
+UINT CloudRelay_Prepare(void)
+{
+  UINT result;
+  if (cloud_prepared != 0U) return TX_SUCCESS;
+  result = tx_event_flags_create(&cloud_events, "N6 cloud wake");
+  if (result != TX_SUCCESS) return result;
+  result = tx_queue_create(&cloud_control_queue, "N6 cloud control", TX_4_ULONG,
+                           cloud_control_storage, sizeof(cloud_control_storage));
+  if (result != TX_SUCCESS)
+  {
+    (void)tx_event_flags_delete(&cloud_events);
+    return result;
+  }
+  result = cloud_control_queue_self_test();
+  if (result != TX_SUCCESS)
+  {
+    (void)tx_queue_delete(&cloud_control_queue);
+    (void)tx_event_flags_delete(&cloud_events);
+    return result;
+  }
+  cloud_prepared = 1U;
+  return TX_SUCCESS;
+}
+
+void CloudRelay_SetNetworkState(uint32_t ready, uint32_t wifi_has_ip)
+{
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  uint32_t changed = ((cloud_network_ready != ready) ||
+                       (cloud_wifi_has_ip != wifi_has_ip)) ? 1U : 0U;
+  cloud_network_ready = ready;
+  cloud_wifi_has_ip = wifi_has_ip;
+  (void)tx_interrupt_control(posture);
+  if ((changed != 0U) && (cloud_prepared != 0U))
+  {
+    (void)tx_event_flags_set(&cloud_events, CLOUD_WAKE_FLAG, TX_OR);
+  }
+}
+
+void CloudRelay_Run(void)
+{
+  CloudControlRequest_t request = {0};
+  uint32_t request_pending = 0U;
+  ULONG flags;
+
+  for (;;)
+  {
+    if (cloud_initialized != 0U)
+    {
+      uint32_t started = HAL_GetTick();
+      if ((request_pending == 0U) &&
+          (cloud_receive_control(&request) == TX_SUCCESS))
+      {
+        request_pending = 1U;
+      }
+      if ((request_pending != 0U) &&
+          (cloud_apply_control(&request) == TX_SUCCESS))
+      {
+        (void)memset(&request, 0, sizeof(request));
+        request_pending = 0U;
+      }
+      cloud_process((cloud_network_ready != 0U) ? cloud_wifi_has_ip : 0U);
+      cloud->status.worker_loops++;
+      cloud->status.worker_last_tick = HAL_GetTick();
+      uint32_t elapsed = cloud->status.worker_last_tick - started;
+      if (elapsed > cloud->status.worker_max_step_ms)
+      {
+        cloud->status.worker_max_step_ms = elapsed;
+      }
+      cloud_publish_status();
+    }
+    /* Wake for owned input/network changes; even an immediately ready event
+     * is followed by a finite wait on the next idle iteration, never a spin. */
+    (void)tx_event_flags_get(&cloud_events, CLOUD_WAKE_FLAG, TX_OR_CLEAR,
+                             &flags, CLOUD_WORKER_WAIT_TICKS);
+  }
+}
+
+static void cloud_publish_status(void)
+{
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  cloud->status.paired = (cloud->pairing.magic == CLOUD_RECORD_MAGIC) ? 1U : 0U;
+  cloud->status.input_ready = cloud->input_ready;
+  cloud->status.output_queued = cloud->output_count;
+  cloud->status.request_active = (cloud->http_kind != CLOUD_HTTP_NONE) ? 1U : 0U;
+  cloud->status.control_queued = cloud_control_queue.tx_queue_enqueued;
+  cloud->status.control_high_water = cloud_control_high_water;
+  cloud->status.control_rejected = cloud_control_rejected;
+  cloud_status_snapshot = cloud->status;
+  (void)tx_interrupt_control(posture);
+}
+
+static UINT cloud_submit_control(const CloudControlRequest_t *request)
+{
+  UINT result;
+  UINT posture;
+  if ((cloud_prepared == 0U) || (cloud_network_ready == 0U) ||
+      (cloud_initialized == 0U))
+  {
+    return TX_NOT_AVAILABLE;
+  }
+  /* Queue publication and high-water sampling form one short operation. */
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  result = tx_queue_send(&cloud_control_queue, (VOID *)request, TX_NO_WAIT);
+  if (result != TX_SUCCESS) cloud_control_rejected++;
+  else if (cloud_control_queue.tx_queue_enqueued > cloud_control_high_water)
+  {
+    cloud_control_high_water = cloud_control_queue.tx_queue_enqueued;
+  }
+  (void)tx_interrupt_control(posture);
+  if (result == TX_SUCCESS)
+  {
+    (void)tx_event_flags_set(&cloud_events, CLOUD_WAKE_FLAG, TX_OR);
+  }
+  return result;
+}
+
+static UINT cloud_receive_control(CloudControlRequest_t *request)
+{
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  ULONG *slot = cloud_control_queue.tx_queue_read;
+  UINT result = tx_queue_receive(&cloud_control_queue, request, TX_NO_WAIT);
+  /* ThreadX copies by value but retains the old ring bytes. Scrub the consumed
+   * pairing code before another producer can reuse that slot. */
+  if (result == TX_SUCCESS) (void)memset(slot, 0, sizeof(*request));
+  (void)tx_interrupt_control(posture);
+  return result;
+}
+
+static UINT cloud_apply_control(const CloudControlRequest_t *request)
+{
+  uint32_t save = 0U;
+  uint32_t delete_file = 0U;
+  /* Only this worker can close/reopen a socket or touch the NCP filesystem.
+   * The gate is never held across those blocking operations. */
+  if ((request->kind == CLOUD_CONTROL_RECONNECT) ||
+      (request->kind == CLOUD_CONTROL_UNPAIR) ||
+      ((request->kind == CLOUD_CONTROL_ENABLE) && (request->value == 0U)))
+  {
+    cloud_close_socket();
+  }
+  if (tx_mutex_get(&cloud->gate, TX_NO_WAIT) != TX_SUCCESS) return TX_NOT_AVAILABLE;
+  switch (request->kind)
+  {
+    case CLOUD_CONTROL_PAIR:
+      (void)memcpy(cloud->pair_code, request->code, sizeof(cloud->pair_code));
+      cloud->pair_pending = 1U;
+      cloud->next_action_tick = HAL_GetTick();
+      break;
+    case CLOUD_CONTROL_ENABLE:
+      cloud->status.enabled = (request->value != 0U) ? 1U : 0U;
+      cloud->pairing.enabled = cloud->status.enabled;
+      save = (cloud->pairing.magic == CLOUD_RECORD_MAGIC) ? 1U : 0U;
+      if (request->value == 0U)
+      {
+        cloud->hold_command = 0U;
+        cloud_release_tof();
+      }
+      else cloud->next_action_tick = HAL_GetTick();
+      break;
+    case CLOUD_CONTROL_RECONNECT:
+      cloud->address_valid = 0U;
+      cloud->backoff_step = 0U;
+      cloud->status.backoff_seconds = 0U;
+      cloud->status.generation++;
+      cloud->hold_command = 0U;
+      cloud_release_tof();
+      cloud->next_action_tick = HAL_GetTick();
+      break;
+    case CLOUD_CONTROL_UNPAIR:
+      cloud_clear_pairing(0U);
+      cloud->pair_pending = 0U;
+      (void)memset(cloud->pair_code, 0, sizeof(cloud->pair_code));
+      cloud->status.generation++;
+      cloud_release_tof();
+      delete_file = 1U;
+      break;
+    default:
+      break;
+  }
+  (void)tx_mutex_put(&cloud->gate);
+  cloud_publish_status();
+  if (save != 0U) (void)cloud_save_pairing();
+  if (delete_file != 0U) (void)W6X_FS_DeleteFile(cloud_pair_file);
+  return TX_SUCCESS;
+}
+
+static UINT cloud_control_queue_self_test(void)
+{
+  CloudControlRequest_t sent = { .kind = CLOUD_CONTROL_PAIR, .code = "000000" };
+  CloudControlRequest_t received;
+  for (ULONG index = 0U; index < CLOUD_CONTROL_SLOT_COUNT; ++index)
+  {
+    sent.value = index;
+    if (tx_queue_send(&cloud_control_queue, &sent, TX_NO_WAIT) != TX_SUCCESS) return TX_NOT_AVAILABLE;
+  }
+  if (tx_queue_send(&cloud_control_queue, &sent, TX_NO_WAIT) != TX_QUEUE_FULL) return TX_NOT_AVAILABLE;
+  (void)memset(&sent, 0, sizeof(sent));
+  for (ULONG index = 0U; index < CLOUD_CONTROL_SLOT_COUNT; ++index)
+  {
+    if ((tx_queue_receive(&cloud_control_queue, &received, TX_NO_WAIT) != TX_SUCCESS) ||
+        (received.kind != CLOUD_CONTROL_PAIR) || (received.value != index) ||
+        (strcmp(received.code, "000000") != 0)) return TX_NOT_AVAILABLE;
+  }
+  (void)memset(&received, 0, sizeof(received));
+  (void)memset(cloud_control_storage, 0, sizeof(cloud_control_storage));
+  return TX_SUCCESS;
+}
 
 UINT CloudRelay_Initialize(TX_BYTE_POOL *pool, const char *suggested_device_id)
 {
@@ -233,16 +481,19 @@ UINT CloudRelay_Initialize(TX_BYTE_POOL *pool, const char *suggested_device_id)
                    sizeof(cloud->status.device_id), "n6-device");
   }
   (void)cloud_load_pairing();
+  cloud_publish_status();
+  cloud_initialized = 1U;
   return TX_SUCCESS;
 }
 
-void CloudRelay_Process(uint32_t wifi_has_ip)
+static void cloud_process(uint32_t wifi_has_ip)
 {
   if (cloud == NULL) return;
 
   if ((cloud->status.enabled == 0U) || (wifi_has_ip == 0U))
   {
     cloud_close_socket();
+    cloud_release_tof();
 #if (APP_ST67W6X_CLOUD_USE_TLS == 1U)
     if (wifi_has_ip == 0U)
     {
@@ -256,7 +507,7 @@ void CloudRelay_Process(uint32_t wifi_has_ip)
   }
 
   /* An unpaired relay has no network work.  In particular, do not issue a
-   * synchronous SNTP command from Radio Manager merely because STA got IP. */
+   * synchronous SNTP command merely because STA got IP. */
   if ((cloud->pair_pending == 0U) &&
       (cloud->pairing.magic != CLOUD_RECORD_MAGIC))
   {
@@ -322,15 +573,10 @@ void CloudRelay_GetStatus(CloudRelay_Status_t *status)
     return;
   }
 
-  (void)tx_mutex_get(&cloud->gate, TX_WAIT_FOREVER);
-  *status = cloud->status;
-  status->paired = (cloud->pairing.magic == CLOUD_RECORD_MAGIC) ? 1U : 0U;
-  status->input_ready = cloud->input_ready;
-  status->output_queued = cloud->output_count;
-  status->request_active = (cloud->http_kind != CLOUD_HTTP_NONE) ? 1U : 0U;
-  (void)snprintf(status->workspace_id, sizeof(status->workspace_id), "%s",
-                 cloud->pairing.workspace_id);
-  (void)tx_mutex_put(&cloud->gate);
+  /* Diagnostics/Radio never wait behind DNS, sockets or filesystem work. */
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  *status = cloud_status_snapshot;
+  (void)tx_interrupt_control(posture);
 }
 
 UINT CloudRelay_RequestPair(const char *code)
@@ -344,55 +590,36 @@ UINT CloudRelay_RequestPair(const char *code)
     if (!isdigit((unsigned char)code[index])) return TX_OPTION_ERROR;
   }
 
-  (void)tx_mutex_get(&cloud->gate, TX_WAIT_FOREVER);
-  (void)memcpy(cloud->pair_code, code, length + 1U);
-  cloud->pair_pending = 1U;
-  cloud->next_action_tick = HAL_GetTick();
-  (void)tx_mutex_put(&cloud->gate);
-  return TX_SUCCESS;
+  CloudControlRequest_t request = { .kind = CLOUD_CONTROL_PAIR };
+  (void)memcpy(request.code, code, length + 1U);
+  UINT result = cloud_submit_control(&request);
+  (void)memset(&request, 0, sizeof(request));
+  return result;
 }
 
 UINT CloudRelay_SetEnabled(uint32_t enabled)
 {
-  if (cloud == NULL) return TX_NOT_AVAILABLE;
-  cloud->status.enabled = (enabled != 0U) ? 1U : 0U;
-  cloud->pairing.enabled = cloud->status.enabled;
-  if (cloud->pairing.magic == CLOUD_RECORD_MAGIC) (void)cloud_save_pairing();
-  if (enabled == 0U)
-  {
-    cloud->hold_command = 0U;
-    cloud_close_socket();
-  }
-  else cloud->next_action_tick = HAL_GetTick();
-  return TX_SUCCESS;
+  CloudControlRequest_t request = { .kind = CLOUD_CONTROL_ENABLE, .value = enabled };
+  return cloud_submit_control(&request);
 }
 
 UINT CloudRelay_RequestReconnect(void)
 {
-  if (cloud == NULL) return TX_NOT_AVAILABLE;
-  cloud_close_socket();
-  cloud->address_valid = 0U;
-  cloud->backoff_step = 0U;
-  cloud->status.backoff_seconds = 0U;
-  cloud->status.generation++;
-  cloud->hold_command = 0U;
-  cloud->next_action_tick = HAL_GetTick();
-  return TX_SUCCESS;
+  CloudControlRequest_t request = { .kind = CLOUD_CONTROL_RECONNECT };
+  return cloud_submit_control(&request);
 }
 
 UINT CloudRelay_Unpair(void)
 {
-  if (cloud == NULL) return TX_NOT_AVAILABLE;
-  cloud_close_socket();
-  cloud_clear_pairing(1U);
-  cloud->status.generation++;
-  return TX_SUCCESS;
+  CloudControlRequest_t request = { .kind = CLOUD_CONTROL_UNPAIR };
+  return cloud_submit_control(&request);
 }
 
 UINT CloudRelay_ReadInput(CloudRelay_Input_t *input)
 {
   if ((cloud == NULL) || (input == NULL)) return TX_PTR_ERROR;
-  (void)tx_mutex_get(&cloud->gate, TX_WAIT_FOREVER);
+  UINT lock_status = tx_mutex_get(&cloud->gate, TX_NO_WAIT);
+  if (lock_status != TX_SUCCESS) return lock_status;
   if ((cloud->input_ready == 0U) || (cloud->input_delivered != 0U))
   {
     (void)tx_mutex_put(&cloud->gate);
@@ -408,26 +635,32 @@ UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input,
                                   uint32_t hold_command)
 {
   if ((cloud == NULL) || (input == NULL)) return TX_PTR_ERROR;
-  (void)tx_mutex_get(&cloud->gate, TX_WAIT_FOREVER);
-  if (cloud->ack_pending != 0U)
+  /* An accepted input must not lose its ACK merely because the lower-priority
+   * frame publisher was preempted while holding the unrelated ToF gate. This
+   * bounded metadata publication never waits and does no network work. */
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  if ((cloud->ack_pending != 0U) || (cloud->input_ready == 0U) ||
+      (cloud->input_delivered == 0U) ||
+      (cloud->input.sequence != input->sequence) ||
+      (strcmp(cloud->input.command_id, input->command_id) != 0))
   {
-    (void)tx_mutex_put(&cloud->gate);
+    (void)tx_interrupt_control(posture);
     return TX_NOT_AVAILABLE;
   }
   if ((hold_command != 0U) &&
       (strcmp(cloud->active_command_id, input->command_id) != 0))
   {
-    (void)tx_mutex_put(&cloud->gate);
+    (void)tx_interrupt_control(posture);
     return TX_NOT_AVAILABLE;
   }
-  (void)snprintf(cloud->ack_command_id, sizeof(cloud->ack_command_id), "%s",
-                 input->command_id);
+  (void)memcpy(cloud->ack_command_id, input->command_id,
+                sizeof(cloud->ack_command_id));
   cloud->ack_sequence = input->sequence;
   cloud->ack_pending = 1U;
   cloud->hold_command = (hold_command != 0U) ? 1U : 0U;
   cloud->input_ready = 0U;
   cloud->input_delivered = 0U;
-  (void)tx_mutex_put(&cloud->gate);
+  (void)tx_interrupt_control(posture);
   return TX_SUCCESS;
 }
 
@@ -588,7 +821,8 @@ UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
   {
     return TX_PTR_ERROR;
   }
-  (void)tx_mutex_get(&cloud->gate, TX_WAIT_FOREVER);
+  UINT lock_status = tx_mutex_get(&cloud->gate, TX_NO_WAIT);
+  if (lock_status != TX_SUCCESS) return lock_status;
   if ((cloud->status.enabled == 0U) ||
       (cloud->pairing.magic != CLOUD_RECORD_MAGIC) ||
       (cloud->tof_pending != 0U))
@@ -597,6 +831,7 @@ UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
     (void)tx_mutex_put(&cloud->gate);
     return TX_NOT_AVAILABLE;
   }
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
   cloud->tof_payload = payload;
   cloud->tof_frame_id = frame_id;
   cloud->tof_payload_crc32 = payload_crc32;
@@ -605,14 +840,27 @@ UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
   cloud->tof_height = height;
   cloud->tof_channel_id = channel_id;
   cloud->tof_pending = 1U;
+  (void)tx_interrupt_control(posture);
   (void)tx_mutex_put(&cloud->gate);
   return TX_SUCCESS;
 }
 
 uint32_t CloudRelay_IsTofFramePending(uint32_t frame_id)
 {
-  return ((cloud != NULL) && (cloud->tof_pending != 0U) &&
-          (cloud->tof_frame_id == frame_id)) ? 1U : 0U;
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  uint32_t pending = ((cloud != NULL) && (cloud->tof_pending != 0U) &&
+                      (cloud->tof_frame_id == frame_id)) ? 1U : 0U;
+  (void)tx_interrupt_control(posture);
+  return pending;
+}
+
+static void cloud_release_tof(void)
+{
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  /* Release last: another thread may immediately reuse the shared buffer. */
+  cloud->tof_payload = NULL;
+  cloud->tof_pending = 0U;
+  (void)tx_interrupt_control(posture);
 }
 
 static uint32_t cloud_crc32(const void *data, size_t length)
@@ -1174,12 +1422,10 @@ static void cloud_start_next_request(void)
                             sizeof(cloud->tof_header), cloud->tof_payload,
                             cloud->tof_payload_length, 1U) == 0)
     {
-      cloud->tof_pending = 0U;
-      cloud->tof_payload = NULL;
+      cloud_release_tof();
       return;
     }
-    cloud->tof_pending = 0U;
-    cloud->tof_payload = NULL;
+    cloud_release_tof();
     cloud->status.tof_frames_dropped++;
     cloud_backoff();
     return;
@@ -1347,7 +1593,7 @@ static int cloud_parse_command(const uint8_t *body, size_t length)
   }
   else return -1;
 
-  (void)tx_mutex_get(&cloud->gate, TX_WAIT_FOREVER);
+  if (tx_mutex_get(&cloud->gate, TX_NO_WAIT) != TX_SUCCESS) return -1;
   if (cloud->input_ready != 0U)
   {
     cloud->status.duplicate_records++;
@@ -1579,7 +1825,10 @@ static const uint8_t *cloud_find_ci(const uint8_t *haystack, size_t haystack_len
 
 UINT CloudRelay_Initialize(TX_BYTE_POOL *pool, const char *suggested_device_id)
 { (void)pool; (void)suggested_device_id; return TX_NOT_AVAILABLE; }
-void CloudRelay_Process(uint32_t wifi_has_ip) { (void)wifi_has_ip; }
+UINT CloudRelay_Prepare(void) { return TX_NOT_AVAILABLE; }
+void CloudRelay_Run(void) { }
+void CloudRelay_SetNetworkState(uint32_t ready, uint32_t wifi_has_ip)
+{ (void)ready; (void)wifi_has_ip; }
 void CloudRelay_GetStatus(CloudRelay_Status_t *status)
 { if (status != NULL) (void)memset(status, 0, sizeof(*status)); }
 UINT CloudRelay_RequestPair(const char *code) { (void)code; return TX_NOT_AVAILABLE; }

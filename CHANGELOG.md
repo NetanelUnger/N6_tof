@@ -4,7 +4,37 @@ This file contains the dated engineering record extracted from `README.md`.
 Do not load it during normal project work; consult it only when a task
 explicitly requires historical context.
 
+### 2026-10-04
+
+- Reloaded the M5 candidate into RAM after user Reset. Idle BLE traffic exposed
+  SPI5 RX overrun, followed by a stranded TX DMA SUSPEND state; sampled memory
+  failure counters were zero and Cloud had not issued requests. SPI abort now
+  cleans both owned DMA channels with bounded local deinit/init and restores
+  SPI5 registers after a failed abort, without rerunning MSP initialization or
+  changing pool/stack sizes. Incremental build passed (452160-byte binary,
+  420368-byte heap). Controlled RAM handle-fault injection exercised both
+  recovery paths with zero reinitialization failures; stack fill measured
+  660/768 used bytes. Recovery alone still lost replies. Enabling SPI5 master RX
+  automatic suspension in a RAM register comparison then passed two fresh
+  MTU-247 connections (300/300 replies) without new SPI errors, but failed after
+  a fresh RAM boot with SUSP/timeouts and reply loss. That configuration change
+  was reverted in IOC/initializer. Initial overrun, boot repeatability and
+  M5.3/M5.4 network HIL remain open. No Generate Code,
+  firmware version change, signing or external-NOR programming was performed.
+
 ### 2026-10-03
+
+- Resumed async architecture M5.2–M5.4: isolated Cloud pump in one priority-9
+  worker with a fixed 8 KiB lower-SRAM4 stack, four copied control slots, event
+  wakeups, non-blocking status/producer paths and explicit shared ToF leases.
+  Radio Manager no longer performs Cloud processing; Cloud controls defer
+  socket/filesystem operations to the worker. Pool sizes and firmware version
+  remain unchanged. Incremental/clean builds and eight disabled-feature syntax
+  checks passed; RAM startup confirmed the worker and offline stack use was
+  356/8192 bytes. Network stack high-water and contention/frame HIL remain
+  pending; PC BLE scan succeeded but WinRT connections failed before GATT.
+  Earlier milestone/fault gates are still open; no Flash programming
+  or Generate Code was performed.
 
 - Diagnosed v7 trial rollback to v5 as a Secure gateway ABI mismatch: the new
   application called `SECURE_SystemCoreClockUpdate` at 0x3400F610, outside the

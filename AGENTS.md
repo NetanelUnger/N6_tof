@@ -267,11 +267,12 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   also reserves a separate 64 KiB ThreadX byte pool at
   `0x242D0000..0x242DFFFF` in SRAM4 and reduces the general application pool
   from 159 KiB to 134 KiB with Wi-Fi enabled (151 KiB for radio/BLE only). The
-  fixed application stacks consume about 124 KiB, leaving about 10 KiB of pool
-  headroom in the Wi-Fi build. The Radio Manager and ST compatibility allocations
-  use this pool. Stage 08 rejects all SRAM4 model placement, the linker asserts
+  fixed application stacks consume 130 KiB, leaving about 4 KiB before allocator
+  overhead in the Wi-Fi build. The Cloud worker's static 8 KiB stack is outside
+  both byte pools. Radio Manager and ST compatibility allocations use the
+  separate radio pool. Stage 08 rejects all SRAM4 model placement, the linker asserts
   the pool bounds, and the build-map preflight validates the address and size.
-  The current Wi-Fi/BLE/Cloud/XMODEM build leaves 481,520 bytes of C heap.
+  The 2026-10-04 M5/SPI-recovery build leaves 420,368 bytes of C heap.
   Both transient 9,072-byte ToF float frames are now in the
   explicitly cleared SRAM3 workspace, which uses its complete 180,224 bytes.
   BLE queues, its CLI session and its additional single 9,072-byte ToF snapshot
@@ -564,9 +565,31 @@ Current task sizing:
 | USB CDC TX worker | 9 | 12 KiB, statically allocated |
 | ST67 Radio Manager | 9 | 8 KiB, active in dedicated SRAM4 pool |
 | ST67 Wi-Fi control | 11 | 6 KiB, active in dedicated SRAM4 pool |
+| ST67 Cloud Relay | 9 | 8 KiB, fixed lower SRAM4 storage outside the byte pools; M5.3/M5.4 RAM HIL pending |
 | USB debug CLI | 9 | 6 KiB |
 
 ## 9. Known ST defects and non-defects
+
+### SPI5 abort recovery contract
+
+SPI5 master RX automatic suspension remains disabled. The 2026-10-04 MASRX
+experiment passed two live-register BLE probes but failed after a fresh boot
+with SUSP/timeouts and lost replies. Its IOC/initializer changes were reverted;
+do not promote the two transient PASS results to configuration acceptance.
+Generate Code is not required for the remaining C-only recovery change.
+
+`spi_port_abort()` must clean both SPI5 normal-mode DMA channels even when
+HAL SPI abort has already cleared the DMA-request bits or returns an error.
+Local DMA deinit/init preserves the parent link. A failed SPI abort may require
+an SPI5 peripheral reset after the channels stop. Reuse the READY handle for
+HAL_SPI_Init; setting it RESET reruns the generated MSP initializer (480-byte
+GCC frame) on the 768-byte SPI worker stack. Do not reset the shared DMA
+controller or NCP to hide this local failure. GDB counters distinguish DMA/SPI
+reinitializations and failures. On 2026-10-04 RAM recovery was exercised with
+zero reinitialization failures and 660/768 observed stack bytes used. The
+108-byte untouched prefix is a narrow measured margin, not worst-case proof.
+SPI RX overrun's precise DMA/bus cause and full-load validation remain open;
+this is not Cloud-contention acceptance or evidence of heap exhaustion.
 
 ### 9.1 Strong bug candidate: 1 KiB CAD stack
 
@@ -742,6 +765,20 @@ stack-local version or split the address phase back into a blocking transfer.
 - Test repeated start/stop before treating detach handling as production-ready.
 
 ## 12. ST67W6X rules
+
+- M5.2–M5.4 source now isolates the Cloud pump in its own priority-9 worker.
+  Radio Manager publishes scalar network readiness; it must never run Cloud
+  DNS/socket/protocol processing. Runtime pair/enable/disable/reconnect/unpair
+  use a four-entry fixed by-value control queue and return admission status;
+  socket close and pairing filesystem operations belong to the worker.
+  Cloud status getters return an atomic cached snapshot without waiting.
+  This handoff builds, but startup, stack high-water, BLE-under-Cloud latency
+  and shared-frame concurrency have not yet passed RAM HIL.
+- The BLE/Cloud ToF snapshot cannot be freed until both consumers finish.
+  Publish the Cloud lease while the image is FILLING, before BLE READY.
+  BLE completion/abort/disconnect uses WAIT_CLOUD while that frame is leased;
+  Cloud releases only after it has stopped reading the payload. Preserve the
+  one-buffer bounded-memory contract; no new frame allocation is needed.
 
 - APP_ST67W6X_ENABLED is 1U for the current attached-shield phase-1 test.
 - APP_ST67W6X_BLE_GATT_ENABLED is 1U; two logical UART services and their

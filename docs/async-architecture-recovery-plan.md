@@ -1,6 +1,8 @@
 # Asynchronous Control-Plane Recovery Plan
 
-Status: `PLANNED`
+Status: `IN_PROGRESS` — resumed 2026-10-03; M5.2 build/source verified,
+M5.3 RAM startup/offline stack verified; M5.4 network/contention HIL pending.
+Earlier gates remain open.
 
 Repository: `C:\Users\netan\Dropbox\DevelopPersonal\N6\project`
 
@@ -936,6 +938,12 @@ Sequencing exception (2026-09-25): the user explicitly authorized proceeding
 to M5.1 with the Milestone 3 and 4 gates and the post-GOTIP 20-cycle HIL gate
 still open. This is not approval of those gates or of M5.2 and later tasks.
 
+Resume instruction (2026-10-03): after reviewing the unfinished plan and the
+Cloud/Radio coupling, the user explicitly asked to continue it. Work resumes
+at M5.2–M5.4 as one runtime ownership handoff. The M3/M4 and post-GOTIP gates
+remain unaccepted; resuming implementation does not turn their failures into
+passes. Do not advance to Milestone 6 before the Milestone 5 gate passes.
+
 ## [x] VERIFIED M5.1 — Make Cloud output admission non-blocking
 
 - Files:
@@ -962,23 +970,33 @@ still open. This is not approval of those gates or of M5.2 and later tasks.
     this self-test returned success on the board. Paired Cloud end-to-end HIL
     remains deferred and is not implied by this admission test.
 
-## [ ] PLANNED M5.2 — Add a dedicated Cloud run loop
+## [x] VERIFIED M5.2 — Add a dedicated Cloud run loop (source/build only)
 
 - Files:
   - `AppliNonSecure/Core/Inc/cloud_relay.h`
   - `AppliNonSecure/Core/Src/cloud_relay.c`
 - Functions:
   - new `CloudRelay_Run()`
-  - existing `CloudRelay_Process()`
+  - private `cloud_process()` (replaces the exported `CloudRelay_Process()`)
 - Change:
   - Own all DNS/TLS/socket/protocol progress in the Cloud task.
   - Use event wakeups or a short bounded periodic wait.
 - Acceptance:
-  - `CloudRelay_Process()` has one caller.
+  - Private `cloud_process()` has one caller, `CloudRelay_Run()`.
 - Verification:
   - Incremental build.
+  - 2026-10-03: incremental and clean Non-Secure build PASS; one source caller
+    confirmed. Cloud commands use a fixed four-entry by-value queue plus event
+    wakeup, with forced-full/copy/FIFO startup checks. Public status reads use a
+    bounded snapshot; producers/controls do not perform network/filesystem work.
+    RAM startup on 2026-10-03 reached the worker after those checks passed.
 
-## [ ] PLANNED M5.3 — Create the Cloud task
+## [~] IN_PROGRESS M5.3 — Create the Cloud task (built; RAM HIL pending)
+
+Current verification substep (2026-10-04): an idle BLE probe exposed SPI5 RX
+overrun followed by a stranded TX DMA SUSPEND state. Restore bounded local DMA
+cleanup and verify recovery before attempting the Cloud-contention gate. Cloud
+network validation remains pending; no later milestone is being started.
 
 - Files:
   - `AppliNonSecure/Core/Src/app_threadx.c`
@@ -987,26 +1005,44 @@ still open. This is not approval of those gates or of M5.2 and later tasks.
   - new `CloudRelayThread_Entry()`
 - Change:
   - Create only when Cloud Relay is enabled.
-  - Initial priority 12 and stack size 8192 bytes.
+  - Priority 9 and stack size 8192 bytes. Priority 12 from the original draft
+    was replaced because the priority-10 ToF processor can remain ready; the
+    existing CLI/Radio scheduling contract already requires outranking it.
+  - Use fixed stack storage in the existing lower SRAM4 `.app_shared_bss`
+    region. Neither the 134 KiB application pool nor the 64 KiB radio pool is
+    enlarged, and no new stack allocation is taken from the radio pool.
   - Wait for radio-ready and handle loss of Wi-Fi IP without busy looping.
 - Acceptance:
   - Cloud processing executes on a distinct task.
 - Verification:
   - Incremental build and stack high-water inspection.
+  - 2026-10-03: build/map PASS; stack at `0x242A1800`, 8192 bytes. SRAM4 section
+    bounds passed. RAM startup and distinct worker execution PASS on 2026-10-03.
+    GDB observed priority 9, 8192-byte stack and a sleeping worker with advancing
+    run/loop counters. Stack-fill scan: 356 bytes used, 7836 untouched, in the
+    offline-only phase. HTTP/pairing/send stack high-water and load tests remain
+    PENDING; M5.3 is not yet fully VERIFIED.
 
-## [ ] PLANNED M5.4 — Remove Cloud processing from the BLE loop
+## [ ] IMPLEMENTED / HIL PENDING M5.4 — Remove Cloud processing from the BLE loop
 
 - Files:
   - `AppliNonSecure/Core/Src/wifi_ble_app.c`
 - Functions:
   - `WIFI_BLE_App_Run()`
 - Change:
-  - Remove `CloudRelay_Process(wifi_has_ip)`.
+  - Replace Cloud processing with scalar network-readiness publication.
   - Leave BLE event processing and bounded BLE TX/RX work only.
+  - Publish the Cloud ToF lease before BLE image READY. On BLE completion,
+    abort, disconnect or generation change, retain the shared snapshot in
+    WAIT_CLOUD until the Cloud worker has finished consuming it. Release on
+    Cloud disable/reconnect/unpair, Wi-Fi loss, and completed/failed payload send.
 - Acceptance:
   - DNS/TLS failure does not increase the Radio/BLE loop gap.
 - Verification:
   - Incremental build and the latency probe during Cloud reconnect failure.
+  - 2026-10-03: incremental/clean build and Cloud-disabled/radio-disabled
+    compilation checks PASS. Connected BLE/Cloud contention, frame CRC/lifetime,
+    Wi-Fi-loss and reconnect HIL are PENDING; M5.4 is not VERIFIED.
 
 ## [ ] PLANNED M5.5 — Bound Cloud state transitions and retries
 
@@ -1963,9 +1999,111 @@ Source review found that the earlier `DSS map command (-1)` could originate from
 `Tools/Build-NonSecureIncremental.ps1` PASS (448904-byte Non-Secure binary, 424240-byte C heap; pre-existing RWX linker warning). `python -m compileall -q hil_tests training/scripts`, `hil_tests/self_test.py` and `git diff --check` PASS. Two `Tools/Debug-NonSecureRam.ps1 -NoBuild -Run` loads reached Non-Secure main/ThreadX; external NOR unchanged. Capture `training/reports/dual_com/tof_diagnostic_20260926/20260926_174943/` shows 3,785 acquired / 1,590 processed / 2,194 intentionally evicted under bounded processing backpressure, no ToF fatal, command-phase counters zero at the sampled `tof status`, and one successful eight-network Wi-Fi scan. This exceeds the prior 1,507-frame failure point but does not reproduce or disprove an intermittent fault. Capture `training/reports/dual_com/tof_diagnostic_20260926/20260926_175651/` is the final CLI-snapshot build: the later sampled `tof status` showed ready with 1,801 acquired / 781 processed, all four new command counters zero, and I3C HAL/start-read failures zero. USB re-enumerated after RAM load. The contemporaneous `wifi status` was STA DISCONNECTED and `cloud status` was waiting for Wi-Fi/not paired, so Wi-Fi association/Cloud/ToF image and transient/persistent fault injection were not tested in this diagnostic step. M8.4a/M8.5 and the ToF image gate remain OPEN; no ST67 driver, CubeMX, external-NOR, commit or push change was made.
 ```
 
+```text
+2026-10-03  M5.2–M5.4 RESUME — SOURCE/BUILD PASS; RAM HIL PENDING
+The user requested continuation after reviewing the 17-thread source diagram and unfinished gates. Implemented one isolated Cloud worker, priority 9, fixed 8 KiB lower-SRAM4 stack. Priority 12 from the draft would be below the continuously-ready priority-10 ToF processor. Cloud control messages copy four ULONGs into four fixed slots; queue-full rejection, FIFO ordering and ownership/copy are checked before scheduler startup, and consumed pairing-code storage is scrubbed. Runtime pair/enable/disable/reconnect/unpair submit without waiting; only the worker closes sockets or saves/deletes pairing. Status snapshots do not acquire another subsystem's mutex. The initial NCP/Cloud initialization remains in Radio startup; the worker waits for completed initialization and scalar network readiness. The Cloud pump is private and has one caller.
+The shared ToF snapshot now has an explicit lease before BLE READY. BLE terminal paths defer release in WAIT_CLOUD while Cloud still consumes the payload. No extra frame copy/buffer or dynamic steady-state allocation was added. Cloud input/output gates use TX_NO_WAIT; input ACK is a bounded metadata publication with command/sequence validation. All this requires concurrency HIL, not just compile acceptance.
+Incremental and clean Non-Secure builds PASS. Final incremental binary: 451712 bytes; C heap: 420848 bytes, above the 368640-byte floor. Linker asserts pass for SRAM3/SRAM4; radio pool remains 65536 bytes. Eight ARM syntax checks passed across Cloud-disabled/radio-disabled modes; HIL utility self-test passed. GCC .su reports CloudRelay_Run 88 bytes, cloud_parse_command 2928 bytes, cloud_start_next_request 1672 bytes, and pairing parse/save 1192 bytes each; these individual frames are not a runtime high-water measurement.
+Requested BOOT0=1-2, BOOT1=2-3 and RESET for RAM loading. No new image has been loaded to the board at this checkpoint. Existing Flash v7, the earlier Radio-pool starvation finding, ToF fatal recovery, M3/M4/post-GOTIP gates, M5.3 high-water and M5.4 latency/frame gates remain OPEN. M5.5 and Milestone 6+ were not started. No CubeMX/Generate Code, firmware version change, package signing, external-NOR write, commit or push.
+```
+
+```text
+2026-10-03  M5 RAM STARTUP — OFFLINE WORKER PASS; NETWORK HIL PENDING
+After the user confirmed BOOT preparation, Debug-NonSecureRam.ps1 -NoBuild -Run reached ThreadX with the locally built Secure and Non-Secure images. No loader external-NOR operation was performed. COM6 records the fixed-stack Cloud worker being created; its prerequisite fixed control-queue full/copy/FIFO self-test therefore passed. COM8 reported Cloud worker loops=3182, max step=0 ms, queue=0/4, Radio/BLE loop max gap=31 ms, radio pool available=4448 bytes/33 fragments, and ToF ready with acquired=671/processed=281 and zero command/I3C errors. The roughly 199-second runtime UART capture reached acquired=1936/processed=810 without a ToF fatal or fault log. This is an offline checkpoint, not a reproduction of Wi-Fi+Cloud+MAP load.
+Attach-only GDB inspection (no reset/load) confirmed a distinct sleeping ST67 Cloud Relay thread at priority 9, stack start=0x242A1800, size=8192, loops advancing to 12031. The 0xEF stack-fill scan found 7836 untouched bytes / 356 observed used bytes in this offline phase; pairing, HTTP and ToF-send peak usage remains unmeasured. The kernel's created-thread list contains 19 entries, including the already-completed firmware-confirmation task, so 18 had not completed. The prior 17-entry diagram omitted the System Timer Thread: TX_TIMER_PROCESS_IN_ISR appears only in a comment. README and diagram are corrected; no scheduler/timer configuration was changed.
+Two bounded PC BLE connection attempts (ordinary, then pair+uncached services; each with auto/public/random address types) saw N6-MAINT-B8FB at 40:82:7B:03:B8:FB in the RF scan, but WinRT returned no BluetoothLEDevice and Bleak raised DeviceNotFound before GATT discovery. Zero pings were sent; no BLE latency PASS is claimed. Saved ble-idle.json and ble-idle-pair.json preserve these failed host attempts. The exact cause of the host connection failure is unproven. Wi-Fi was disconnected and Cloud not paired; requested network/pairing input or a manual USB connection from the user. Both diagnostic ports were released afterward. M5.3 network stack high-water, M5.4 latency/CRC/lease/fault tests and M5.5 remain OPEN.
+Evidence: Tools/.n6-debug/architecture-m5/ram-uart.log, usb-snapshot.json, ble-idle.json, ble-idle-pair.json, ram-startup-summary.json. No firmware-version change, signing, Flash release install, CubeMX generation, commit or push.
+```
+
+```text
+2026-10-04  M5 RAM RELOAD — SPI RECOVERY SUBSTEP; BASELINE GATE STILL OPEN
+The user confirmed RESET with BOOT1=2-3 and authorized RAM loading. Matching
+local Secure/Non-Secure images reached ThreadX. USB showed version 7, Wi-Fi
+disconnected, Cloud unpaired with zero requests, ToF ready and no I3C errors.
+The restricted host environment could scan BLE but could not create the WinRT
+device; the same bounded ping tool with approved host Bluetooth access connected
+immediately. This access comparison does not prove a Windows cache defect.
+
+Initial idle BLE probe: 3/9 replies, followed by persistent SPI errors. GDB
+found SPI READY but TX DMA SUSPEND/EN with BUSY error; SPI transport recoveries
+were counted without clearing the stranded channel. Memory-error counter was
+zero. On the original build a fresh BLE connection passed 75/75, but the next
+connection lost 9/69 replies. A failure-only breakpoint captured first SPI
+ErrorCode=0x4 (RX overrun), before cleanup. Initial overrun cause is unproven;
+this offline reproduction does not establish the earlier Cloud/MAP root cause.
+
+Implemented bounded local cleanup in spi_port_abort: restore both owned
+normal-mode DMA channels/parent links regardless of cleared SPI request bits;
+after a failed SPI abort, reset only SPI5 and restore its registers. Keep the
+handle READY so HAL_SPI_Init does not rerun the generated 480-byte MSP frame
+on the 768-byte transfer-worker stack. No NCP/shared DMA reset or capacity
+increase. DMA-only prototype still failed BLE (23/30) and was not accepted.
+Final incremental build PASS: 452160-byte binary, 420368-byte C heap, unchanged
+version/pools/stacks. One clean run passed 150/150, p95=140 ms, max=156 ms,
+but did not exercise recovery and alone is not acceptance.
+
+RAM handle-fault injection at idle set TX DMA handle SUSPEND, then injected
+HAL_SPI_ERROR_ABORT at the next abort. Both recovery branches were exercised:
+DMA reinitializations=3, SPI reinitializations=9, failures=0; SPI/RX/TX handles
+READY, ErrorCode=0, retry exhaustion=0. BLE 88/100 replies during that test
+failed; a subsequent probe without injection failed 68/83, p95=94 ms among
+received replies. Counters then showed 25 IO errors, 28 transport recoveries,
+4 DMA/18 SPI reinitializations, zero reinitialization failures or memory errors.
+Thus permanent DMA stall recovery is demonstrated locally; reliable BLE and
+initial overrun remain open. SPI stack fill measured 660/768 used, only 108
+untouched bytes; no worst-case stack claim. USB remained usable, Radio/BLE max
+loop gaps=50/51 ms, radio pool=4448 free bytes, ToF acquired=3536/processed=1474,
+all command/I3C failure counters zero. Cloud was still waiting for Wi-Fi/unpaired.
+
+Evidence: Tools/.n6-debug/architecture-m5/20261004_2234/ (initial, reproduce,
+spi-cleanup, spi-peripheral-cleanup, spi-final). Attach-only failure breakpoint
+before HAL overrun cleanup also captured BUSY_TX_RX, ErrorCode=0, SR=0x105A,
+40-byte transfer with both DMA remaining counts zero and completion flags set.
+It confirms latched OVR; it does not identify the transient scheduling/bus cause.
+The associated breakpoint-run latency is perturbed and not a performance gate.
+
+A subsequent RAM-only MASRX comparison changed only the master RX automatic
+suspension configuration while SPI was idle. Two fresh MTU-247 connections
+passed 150/150 each (p95=94/109 ms, max=110/125 ms). From the pre-change snapshot
+through both runs, SPI IO errors=26, recoveries=31 and message timeouts=5 did
+not increase. This motivated a source-build experiment with MASRX enabled
+from boot, rather than accepting a transient live-register result. Incremental
+build passed with the same size/heap. First boot stopped during
+W6X_Ble_GetBDAddress on an SPI RX timeout; second boot reached radio READY but
+failed BLE 78/91 (13 lost replies). A pre-abort timeout snapshot showed
+SR=0x130800 (SUSP), CR1=0x1301, SPI BUSY, both DMA enabled/BUSY with no error,
+RX remaining=19/40 and TX remaining=2/40. No OVR was recorded in this second
+boot, but 14 RX completion timeouts occurred. The MASRX experiment is REJECTED
+for this integration. N6.ioc and main.c were restored exactly to their prior
+configuration; no Generate Code is now needed. ST AN5543's generic flow-control
+guidance does not prove compatibility with this full-duplex driver. Precise
+initial overrun cause remains open. Evidence also includes autosuspend/ and
+autosuspend-startup2/; preserve both failed boots.
+
+The restored configuration rebuilt successfully (same size/heap; git diff for
+N6.ioc and main.c empty). Two further RAM loads, restored-final/ and
+restored-final2/, both hit an SPI RX HAL error during W6X_Init/Get W61 Info and
+left Radio ERROR. At the final snapshot USB/version 7 remained live, ToF was
+ready with acquired=609/processed=256 and zero I3C/command failures. SPI and
+both DMA handles were READY/ErrorCode=0, IO errors=1, transport recoveries=1,
+no memory errors, retries exhausted or completion timeouts. Cloud remained
+uninitialized (loops=0), not paired. This shows local transport cleanup cannot
+make the failed higher-level initialization complete; initial SPI fault remains
+the current blocker. Ports were released, and a full two-USB power cycle was
+requested before the next RAM load. No power-cycle result is yet available.
+The SPI stack binary was subsequently overwritten by the final startup
+inspection and copied to restored-final2/spi-stack.bin; the earlier 660/768
+stack observation remains recorded in the tool transcript, not in that latest
+raw binary. Do not reclassify the overwritten dump as injection-run evidence.
+
+M5.3 remains IN_PROGRESS; M5.4/network stack/CRC/lease gates and earlier gates
+remain OPEN. M5.5 and later milestones not started. No firmware version change,
+signing, external-NOR programming, CubeMX/Generate Code, commit or push.
+```
+
 # Final result record
 
-- Final status: `NOT STARTED`
+- Final status: `IN_PROGRESS` — M5.3 SPI startup/baseline blocker; M5.4 network HIL pending; overall acceptance open
 - Final revision: pending
 - Secure build: pending
 - NonSecure build: pending
