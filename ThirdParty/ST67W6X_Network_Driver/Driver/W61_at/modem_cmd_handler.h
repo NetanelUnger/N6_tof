@@ -184,6 +184,8 @@ struct modem_cmd_handler_data
   size_t rx_buf_len;
   /** A record exceeded the bounded AT assembly buffer without a parse boundary */
   uint32_t rx_assembly_overflows;
+  /** An abandoned raw transaction makes further AT text unsafe until restart. */
+  bool tx_desynchronized;
   /** TX lock */
   SemaphoreHandle_t sem_tx_lock;
   /** Parse lock */

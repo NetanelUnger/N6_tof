@@ -547,6 +547,7 @@ static void I3C_GetErrorSources(I3C_HandleTypeDef *hi3c);
 static void I3C_StateUpdate(I3C_HandleTypeDef *hi3c);
 #if defined(HAL_DMA_MODULE_ENABLED)
 static void I3C_DMAAbort(DMA_HandleTypeDef *hdma);
+static void I3C_DMATryCompleteMultiple(I3C_HandleTypeDef *hi3c);
 static void I3C_DMAControlTransmitCplt(DMA_HandleTypeDef *hdma);
 static void I3C_DMADataTransmitCplt(DMA_HandleTypeDef *hdma);
 static void I3C_DMADataReceiveCplt(DMA_HandleTypeDef *hdma);
@@ -4798,6 +4799,7 @@ HAL_StatusTypeDef HAL_I3C_Ctrl_MultipleTransfer_DMA(I3C_HandleTypeDef   *hi3c, I
       /* Set handle transfer parameters */
       hi3c->ErrorCode     = HAL_I3C_ERROR_NONE;
       hi3c->XferISR       = I3C_Ctrl_Multiple_Xfer_DMA_ISR;
+      hi3c->DmaMultipleFrameComplete = 0U;
       hi3c->pXferData     = pXferData;
       hi3c->RxXferCount   = hi3c->pXferData->RxBuf.Size;
       hi3c->TxXferCount   = hi3c->pXferData->TxBuf.Size;
@@ -8413,70 +8415,59 @@ static HAL_StatusTypeDef I3C_Ctrl_Rx_DMA_ISR(struct __I3C_HandleTypeDef *hi3c, u
   */
 static HAL_StatusTypeDef I3C_Ctrl_Multiple_Xfer_DMA_ISR(struct __I3C_HandleTypeDef *hi3c, uint32_t itMasks)
 {
-  /* Check that an Rx or Tx process is ongoing */
-  if (hi3c->State == HAL_I3C_STATE_BUSY_TX_RX)
+  if ((hi3c->State == HAL_I3C_STATE_BUSY_TX_RX) &&
+      (I3C_CHECK_FLAG(itMasks, I3C_EVR_FCF) != RESET))
   {
-    /* I3C target frame complete event Check */
-    if (I3C_CHECK_FLAG(itMasks, I3C_EVR_FCF) != RESET)
+    LL_I3C_ClearFlag_FC(hi3c->Instance);
+    if (I3C_GET_DMA_REMAIN_DATA(hi3c->hdmacr) == 0U)
     {
-      /* Clear frame complete flag */
-      LL_I3C_ClearFlag_FC(hi3c->Instance);
-
-      if (I3C_GET_DMA_REMAIN_DATA(hi3c->hdmacr) == 0U)
-      {
-        /* Check if all data bytes are received or transmitted */
-        if (I3C_GET_DMA_REMAIN_DATA(hi3c->hdmarx) == 0U)
-        {
-          if (I3C_GET_DMA_REMAIN_DATA(hi3c->hdmatx) == 0U)
-          {
-            /* Disable transfer Tx/Rx process interrupts */
-            I3C_Disable_IRQ(hi3c, I3C_XFER_DMA);
-
-            /* Update handle state parameter */
-            I3C_StateUpdate(hi3c);
-
-            hi3c->ErrorCode = HAL_I3C_ERROR_NONE;
-
-            /* Update the number of remaining data bytes */
-            hi3c->RxXferCount = 0U;
-
-            /* Update the number of remaining data bytes */
-            hi3c->TxXferCount = 0U;
-
-            /* Call controller transmit, receive complete callback to inform upper layer of End of Transfer */
-#if (USE_HAL_I3C_REGISTER_CALLBACKS == 1U)
-            hi3c->CtrlMultipleXferCpltCallback(hi3c);
-#else
-            HAL_I3C_CtrlMultipleXferCpltCallback(hi3c);
-#endif /* USE_HAL_I3C_REGISTER_CALLBACKS == 1U */
-          }
-          else
-          {
-            hi3c->ErrorCode = HAL_I3C_ERROR_SIZE;
-
-            /* Call error treatment function */
-            I3C_ErrorTreatment(hi3c);
-          }
-        }
-        else
-        {
-          hi3c->ErrorCode = HAL_I3C_ERROR_SIZE;
-
-          /* Call error treatment function */
-          I3C_ErrorTreatment(hi3c);
-        }
-      }
-      else
-      {
-        hi3c->ErrorCode = HAL_I3C_ERROR_NONE;
-
-        /* Then Initiate a Start condition */
-        LL_I3C_RequestTransfer(hi3c->Instance);
-      }
+      /* N6: bus STOP/FCF may precede the final DMA memory write. Do not
+       * misreport SIZE or abort a valid frame. The last DMA callback completes
+       * it; the application's existing bounded wait detects a real stall. */
+      hi3c->DmaMultipleFrameComplete = 1U;
+      I3C_DMATryCompleteMultiple(hi3c);
+    }
+    else
+    {
+      LL_I3C_RequestTransfer(hi3c->Instance);
     }
   }
   return HAL_OK;
 }
+
+static void I3C_DMATryCompleteMultiple(I3C_HandleTypeDef *hi3c)
+{
+  uint32_t complete = 0U;
+  uint32_t saved_primask = __get_PRIMASK();
+  __disable_irq();
+  if ((hi3c->State == HAL_I3C_STATE_BUSY_TX_RX) &&
+      (hi3c->ErrorCode == HAL_I3C_ERROR_NONE) &&
+      (hi3c->DmaMultipleFrameComplete != 0U) &&
+      (hi3c->hdmacr->State == HAL_DMA_STATE_READY) &&
+      (hi3c->hdmarx->State == HAL_DMA_STATE_READY) &&
+      (hi3c->hdmatx->State == HAL_DMA_STATE_READY) &&
+      (I3C_GET_DMA_REMAIN_DATA(hi3c->hdmacr) == 0U) &&
+      (I3C_GET_DMA_REMAIN_DATA(hi3c->hdmarx) == 0U) &&
+      (I3C_GET_DMA_REMAIN_DATA(hi3c->hdmatx) == 0U))
+  {
+    hi3c->DmaMultipleFrameComplete = 0U;
+    I3C_Disable_IRQ(hi3c, I3C_XFER_DMA);
+    I3C_StateUpdate(hi3c);
+    hi3c->RxXferCount = 0U;
+    hi3c->TxXferCount = 0U;
+    complete = 1U;
+  }
+  __set_PRIMASK(saved_primask);
+  if (complete != 0U)
+  {
+#if (USE_HAL_I3C_REGISTER_CALLBACKS == 1U)
+    hi3c->CtrlMultipleXferCpltCallback(hi3c);
+#else
+    HAL_I3C_CtrlMultipleXferCpltCallback(hi3c);
+#endif
+  }
+}
+
 #endif /* HAL_DMA_MODULE_ENABLED */
 
 /**
@@ -8530,6 +8521,17 @@ static void I3C_DMAControlTransmitCplt(DMA_HandleTypeDef *hdma)
 
   /* Disable control DMA Request */
   LL_I3C_DisableDMAReq_Control(hi3c->Instance);
+  if ((hi3c->ErrorCode != HAL_I3C_ERROR_NONE) &&
+      (((hi3c->hdmacr != NULL) && (hi3c->hdmacr->XferAbortCallback != NULL)) ||
+       ((hi3c->hdmarx != NULL) && (hi3c->hdmarx->XferAbortCallback != NULL)) ||
+       ((hi3c->hdmatx != NULL) && (hi3c->hdmatx->XferAbortCallback != NULL))))
+  {
+    I3C_DMAAbort(hdma);
+  }
+  else
+  {
+    I3C_DMATryCompleteMultiple(hi3c);
+  }
 }
 
 /**
@@ -8545,6 +8547,17 @@ static void I3C_DMADataTransmitCplt(DMA_HandleTypeDef *hdma)
 
   /* Disable Tx DMA Request */
   LL_I3C_DisableDMAReq_TX(hi3c->Instance);
+  if ((hi3c->ErrorCode != HAL_I3C_ERROR_NONE) &&
+      (((hi3c->hdmacr != NULL) && (hi3c->hdmacr->XferAbortCallback != NULL)) ||
+       ((hi3c->hdmarx != NULL) && (hi3c->hdmarx->XferAbortCallback != NULL)) ||
+       ((hi3c->hdmatx != NULL) && (hi3c->hdmatx->XferAbortCallback != NULL))))
+  {
+    I3C_DMAAbort(hdma);
+  }
+  else
+  {
+    I3C_DMATryCompleteMultiple(hi3c);
+  }
 }
 
 /**
@@ -8560,6 +8573,17 @@ static void I3C_DMADataReceiveCplt(DMA_HandleTypeDef *hdma)
 
   /* Disable Rx DMA Request */
   LL_I3C_DisableDMAReq_RX(hi3c->Instance);
+  if ((hi3c->ErrorCode != HAL_I3C_ERROR_NONE) &&
+      (((hi3c->hdmacr != NULL) && (hi3c->hdmacr->XferAbortCallback != NULL)) ||
+       ((hi3c->hdmarx != NULL) && (hi3c->hdmarx->XferAbortCallback != NULL)) ||
+       ((hi3c->hdmatx != NULL) && (hi3c->hdmatx->XferAbortCallback != NULL))))
+  {
+    I3C_DMAAbort(hdma);
+  }
+  else
+  {
+    I3C_DMATryCompleteMultiple(hi3c);
+  }
 }
 
 /**
@@ -8587,6 +8611,15 @@ static void I3C_DMAAbort(DMA_HandleTypeDef *hdma)
 {
   /* Derogation MISRAC2012-Rule-11.5 */
   I3C_HandleTypeDef *hi3c = (I3C_HandleTypeDef *)(((DMA_HandleTypeDef *)hdma)->Parent);
+
+  /* An abort may finish through normal TC, and channels finish separately.
+   * Keep the buffer/context owned until every started DMA channel is idle. */
+  if (((hi3c->hdmacr != NULL) && (hi3c->hdmacr->State != HAL_DMA_STATE_READY)) ||
+      ((hi3c->hdmarx != NULL) && (hi3c->hdmarx->State != HAL_DMA_STATE_READY)) ||
+      ((hi3c->hdmatx != NULL) && (hi3c->hdmatx->State != HAL_DMA_STATE_READY)))
+  {
+    return;
+  }
 
   /* Reset Tx DMA AbortCpltCallback */
   if (hi3c->hdmatx != NULL)
@@ -9656,6 +9689,7 @@ static void I3C_ErrorTreatment(I3C_HandleTypeDef *hi3c)
 {
   HAL_I3C_StateTypeDef tmpstate = hi3c->State;
   uint32_t dmaabortongoing = 0U;
+  hi3c->DmaMultipleFrameComplete = 0U;
 
   /* Check on the state */
   if (tmpstate == HAL_I3C_STATE_BUSY)
@@ -9720,6 +9754,8 @@ static void I3C_ErrorTreatment(I3C_HandleTypeDef *hi3c)
       {
         /* Set the I3C DMA Abort callback : will lead to call HAL_I3C_AbortCpltCallback()
            at end of DMA abort procedure */
+
+        hi3c->hdmacr->XferAbortCallback = I3C_DMAAbort;
 
         /* DMA abort on going */
         dmaabortongoing = 1U;

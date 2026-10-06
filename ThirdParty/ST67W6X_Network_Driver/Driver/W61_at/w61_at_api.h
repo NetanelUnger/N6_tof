@@ -1180,6 +1180,8 @@ typedef struct modem
   uint16_t *argc;                                         /*!< Argument count pointer */
   char **argv;                                            /*!< Argument values pointer */
   uint16_t rx_data_len;                                   /*!< Length of received data */
+  bool raw_tx_terminal_only;                              /*!< BLE waits for terminal OK/ERROR, not Recv */
+  volatile bool raw_tx_response_received;                 /*!< Raw transaction reached a response boundary */
   void *rx_data;                                          /*!< Pointer to received data */
 } W61_Modem_t;
 

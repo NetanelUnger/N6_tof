@@ -173,9 +173,10 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   session, allocated only after the vendor radio reaches READY. Signed XMODEM
   may enter raw mode on that session and must reuse the Secure A/B installer.
   Stage 11 now disconnects stale BLE clients and explicitly restarts advertising
-  before the external UUID scan. VL53L9 command completion uses a blocking
-  one-byte status read after asynchronous TX with a 100 ms bound; do not revert
-  it to immediate reuse of the single persistent async I3C descriptor.
+  before the external UUID scan. VL53L9 runtime command completion uses a DMA
+  one-byte status read with a persistent destination and a 100 ms command
+  bound. Never reuse the single async descriptor until I3C and every DMA
+  handle are idle, even if the I3C TX event has already been posted.
   The CLI service also owns one Notify-only ToF image characteristic with a
   20-byte frame/offset/dimensions/channel/format/CRC header and a single 9,072-
   byte snapshot. DEBUG RX remains detached. ToF pixels alone use a dedicated
@@ -325,6 +326,8 @@ These require explicit review after every Generate Code:
 | AppliSecure/Core/Src/main.c | Diagnostic trace plus Neural-ART clocks, RIF/RISAF, CACHEAXI, and NPU interrupt ownership |
 | AppliSecure/Core/Inc/partition_stm32n657xx.h | SAU region 1 extends through `0x243FFFFF` so Non-Secure can access SRAM2, NPU SRAM3-6, and CACHEAXI RAM |
 | ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c | The high-priority SPI worker sleeps one tick after each eight-packet continuous burst so a stuck-high SPI_RDY cannot starve ThreadX; re-importing X-CUBE can overwrite it |
+| Drivers/STM32N6xx_HAL_Driver/Inc/stm32n6xx_hal_i3c.h and Src/stm32n6xx_hal_i3c.c | Per-handle frame-complete marker; multiple DMA completion waits for every channel, and TC/abort races finish once. Header layout affects both S/NS builds; preserve on HAL refresh |
+| ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_ble.c, w61_at_common.c, w61_at_api.h, modem_cmd_handler.c/.h | Notification waits for prompt before payload and terminal response afterward; short command writes and unfinished raw transactions fence further AT text until module restart. Preserve on SDK refresh |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pcd.c | Temporary Non-Secure-only USB initialization stage logs |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_ll_usb.c | Temporary Non-Secure-only core-reset register and timeout logs |
 
@@ -576,7 +579,24 @@ SPI5 master RX automatic suspension remains disabled. The 2026-10-04 MASRX
 experiment passed two live-register BLE probes but failed after a fresh boot
 with SUSP/timeouts and lost replies. Its IOC/initializer changes were reverted;
 do not promote the two transient PASS results to configuration acceptance.
-Generate Code is not required for the remaining C-only recovery change.
+Generate Code is not required for the C-only recovery change alone.
+The 2026-10-06 candidate sets GPDMA1 SPI5 RX channel 11 to DMA_HIGH_PRIORITY
+in N6.ioc and its MSP initializer; TX channel 10 stays LOW/HIGH_WEIGHT. Do not
+raise every channel to HIGH. Two fresh MTU-247 RAM probes received 300/300
+pings with ToF active and zero SPI errors/timeouts/recoveries. The source build
+booted normally and passed 100-frame CRC/NPU/bit-exact preprocessing HIL with
+radio scan preflight. Generate Code is REQUIRED/PENDING for the IOC change.
+The ordinary source build also received 150/150 idle BLE replies (p95 141 ms,
+max 172 ms). Later Wi-Fi association and paired Cloud CLI remained live, with
+zero SPI errors/timeouts, but ToF stopped at frame 2687 before Cloud pairing.
+I3C retained HAL_I3C_ERROR_SIZE/BUSY_TX_RX while RX DMA was READY with its
+abort callback still armed; the event wait timed out without an error callback.
+The initial trigger is not established: the preceding GDB halt could affect
+timing. This is not a Cloud image PASS or a ToF recovery fix. Cloud stack
+sentinel high-water was 3504/8192 bytes for this HTTP/CLI phase, excluding ToF
+send validation. The precise competing DMA/bus actor, boot repeatability and
+Cloud/MAP load remain unverified. No clock/port/burst/stack/pool capacity change
+was made. Keep investigating bounded local recovery under the existing plan.
 
 `spi_port_abort()` must clean both SPI5 normal-mode DMA channels even when
 HAL SPI abort has already cleared the DMA-request bits or returns an error.
@@ -774,11 +794,19 @@ stack-local version or split the address phase back into a blocking transfer.
   Cloud status getters return an atomic cached snapshot without waiting.
   This handoff builds, but startup, stack high-water, BLE-under-Cloud latency
   and shared-frame concurrency have not yet passed RAM HIL.
-- The BLE/Cloud ToF snapshot cannot be freed until both consumers finish.
-  Publish the Cloud lease while the image is FILLING, before BLE READY.
-  BLE completion/abort/disconnect uses WAIT_CLOUD while that frame is leased;
-  Cloud releases only after it has stopped reading the payload. Preserve the
-  one-buffer bounded-memory contract; no new frame allocation is needed.
+- User-authorized 2026-10-06 contract: exactly one remote image destination,
+  last request wins (USB, BLE or Cloud). The processing task advances the
+  active route only after all USB MAP slots and the wireless snapshot idle.
+  A requested/active mismatch disables new publications. Cloud-only snapshots
+  enter WAIT_CLOUD directly; BLE-only snapshots enter READY. Release only
+  after the old consumer stops reading, including socket close/cancellation.
+  CLI sessions and the local display remain independent. Do not restore
+  simultaneous BLE+Cloud fanout or add another image buffer for switching.
+- BLE notification protocol is prompt -> payload -> terminal OK/ERROR.
+  Do not wait for an initial OK. Do not release protocol ownership on an
+  incomplete raw transfer and then send another AT command: the modem can
+  consume that command as binary payload. The bounded fail-closed fence must
+  survive ordinary retries; module restart/reinitialization clears it.
 
 - APP_ST67W6X_ENABLED is 1U for the current attached-shield phase-1 test.
 - APP_ST67W6X_BLE_GATT_ENABLED is 1U; two logical UART services and their

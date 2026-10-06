@@ -4,6 +4,46 @@ This file contains the dated engineering record extracted from `README.md`.
 Do not load it during normal project work; consult it only when a task
 explicitly requires historical context.
 
+### 2026-10-06
+
+- Subsequent RAM repair adds last-request-wins exclusive USB/BLE/Cloud image
+  routing with old-owner drain, retaining the existing fixed buffers/tasks.
+  Deferred I3C multiple-DMA completion until frame and DMA completion, and
+  handled TC winning asynchronous abort. A UART-only failure at frame 5103
+  identified blocking command-status TX FIFO overrun/underrun (HAL 0x40);
+  runtime status reads now use DMA with persistent storage and idle-before-
+  reuse guards. Corrected BLE prompt/payload/terminal-response ordering and
+  fenced AT writes after unfinished raw transfers. RAM BLE→USB→BLE HIL passed
+  ten complete BLE frames, twenty USB records and CRC checks, with no BLE
+  images during USB ownership. A further USB capture passed 100 distinct
+  raw/model CRC-valid records; at 630886 ms, 6255 acquisitions had completed
+  with zero command/I3C failures. Build, eight disabled-feature syntax checks,
+  HIL utility self-test and diff checks passed. Cloud images/network soak and
+  CubeMX generation remain pending. No stack/pool enlargement, Flash release,
+  version bump or signing.
+
+- A full power cycle did not prevent the M5 candidate's startup SPI error.
+  Compared SPI5 RX DMA priority in RAM: HIGH for GPDMA1 channel 11, with TX
+  unchanged, received 300/300 BLE pings while ToF ran; SPI error, timeout and
+  recovery counters stayed zero. Updated the IOC/MSP initializer to match;
+  incremental build and normal RAM startup passed. Stage 11 passed 100
+  CRC-valid frames, 100 bit-exact input tensors and frame-matched NPU results,
+  100% decision agreement and maximum raw-score delta 6, plus radio scans.
+  Generate Code is required and pending. One preceding diagnostic boot had
+  ToF initialization error -5 and is not a full-system PASS. DMA contention
+  is supported by the comparison; exact bus actor, boot repeatability and
+  Cloud/MAP acceptance remain open. The source build
+  also passed 150/150 idle BLE replies, p95 141 ms/max 172 ms. Subsequent
+  Wi-Fi association and paired Cloud CLI stayed live with no SPI errors;
+  ToF had stopped before pairing at frame 2687 during a 100-byte status read.
+  I3C HAL size error/BUSY state plus a READY RX DMA with its abort callback
+  still armed explains the missing completion/error event and ensuing fatal
+  loop. A completion/abort race is supported; the initial trigger and debugger
+  timing influence remain unproven. Cloud sent no frames; HTTP/CLI stack
+  high-water observed 3504/8192 bytes. No ToF recovery fix was applied.
+  Pool/stack capacity, firmware version and
+  external NOR were unchanged; no signing, commit or push was performed.
+
 ### 2026-10-04
 
 - Reloaded the M5 candidate into RAM after user Reset. Idle BLE traffic exposed

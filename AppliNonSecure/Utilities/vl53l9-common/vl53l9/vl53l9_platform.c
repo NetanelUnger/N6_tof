@@ -59,6 +59,29 @@ typedef struct {
 
 static vl53l9_async_i3c_context_t g_async_i3c_context;
 
+/* The I3C frame-complete IRQ can precede a DMA channel's completion IRQ.
+ * A posted TX event therefore does not by itself release this context. Only
+ * the acquisition owner calls these APIs; wait before touching any descriptor. */
+static int vl53l9_async_wait_idle(vl53l9_device_t *p_device) {
+    I3C_HandleTypeDef *bus = (I3C_HandleTypeDef *)p_device->bus;
+    uint32_t started_at = HAL_GetTick();
+    if (bus == NULL) return VL53L9_ERROR_PLATFORM;
+    do {
+        if (((bus->State == HAL_I3C_STATE_READY) ||
+             (bus->State == HAL_I3C_STATE_LISTEN)) &&
+            ((bus->hdmacr == NULL) || (bus->hdmacr->State == HAL_DMA_STATE_READY)) &&
+            ((bus->hdmatx == NULL) || (bus->hdmatx->State == HAL_DMA_STATE_READY)) &&
+            ((bus->hdmarx == NULL) || (bus->hdmarx->State == HAL_DMA_STATE_READY))) {
+            __DMB();
+            return VL53L9_ERROR_NONE;
+        }
+        tx_thread_sleep(1U);
+    } while ((uint32_t)(HAL_GetTick() - started_at) <
+             VL53L9_PLATFORM_I3C_READ_STATE_TIMEOUT_MS);
+    Debug_UART_Log("I3C", "async context still owned after DMA completion wait");
+    return VL53L9_ERROR_TIMEOUT;
+}
+
 // private function prototypes
 static int _i3c_read(void *const p_dev, I3C_PrivateTypeDef *aPrivateDescriptor, I3C_XferTypeDef *aContextBuffers);
 static int _i3c_read_async(void *const p_dev, I3C_PrivateTypeDef *aPrivateDescriptor, I3C_XferTypeDef *aContextBuffers);
@@ -96,6 +119,9 @@ int vl53l9_read_async(void *const p_dev, uint16_t address, volatile uint8_t *p_v
     if ((p_dev == NULL) || (p_values == NULL) || (size == 0U)) {
         return VL53L9_ERROR_PLATFORM;
     }
+
+    int idle_result = vl53l9_async_wait_idle(p_device);
+    if (idle_result != 0) return idle_result;
 
     g_async_i3c_context.register_address[0] = (uint8_t)((address >> 8) & 0xFFU);
     g_async_i3c_context.register_address[1] = (uint8_t)(address & 0xFFU);
@@ -298,6 +324,9 @@ int vl53l9_write8_async(void *const p_dev, uint16_t address, uint8_t value) {
     if (p_dev == NULL) {
         return VL53L9_ERROR_PLATFORM;
     }
+
+    int idle_result = vl53l9_async_wait_idle(p_device);
+    if (idle_result != 0) return idle_result;
 
     g_async_i3c_context.write_buffer[0] = (uint8_t)((address >> 8) & 0xFFU);
     g_async_i3c_context.write_buffer[1] = (uint8_t)(address & 0xFFU);

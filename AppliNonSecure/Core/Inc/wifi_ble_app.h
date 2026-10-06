@@ -288,6 +288,7 @@ UINT WIFI_BLE_App_StreamRead(WifiBle_Stream_t stream, void *buffer,
                              ULONG capacity, ULONG *actual_length,
                              ULONG wait_option);
 uint32_t WIFI_BLE_App_IsTofImageSubscribed(void);
+uint32_t WIFI_BLE_App_IsTofImageIdle(void);
 UINT WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
                                   const float *pixels, uint8_t width,
                                   uint8_t height);

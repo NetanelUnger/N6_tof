@@ -24,6 +24,7 @@
 #include "npu_shared_memory.h"
 #include "rps_ai.h"
 #include "app_console.h"
+#include "usb_cdc_transport.h"
 #include "app_features.h"
 #include "debug_uart.h"
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
@@ -35,6 +36,70 @@
 #include "tof_image_processing.h"
 #include "tx_api.h"
 #include "ux_device_cdc_acm.h"
+
+static volatile TOF_StreamDestination_t tof_stream_requested;
+static volatile TOF_StreamDestination_t tof_stream_active;
+static volatile uint32_t tof_stream_switches;
+static volatile uint32_t tof_stream_drain_frames;
+
+void TOF_App_RequestStream(TOF_StreamDestination_t destination)
+{
+    if (destination > TOF_STREAM_CLOUD) return;
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    tof_stream_requested = destination;
+    (void)tx_interrupt_control(posture);
+}
+
+void TOF_App_ReleaseStream(TOF_StreamDestination_t destination)
+{
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    if (tof_stream_requested == destination) tof_stream_requested = TOF_STREAM_NONE;
+    (void)tx_interrupt_control(posture);
+}
+
+TOF_StreamDestination_t TOF_App_GetStreamDestination(void)
+{
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    TOF_StreamDestination_t destination = (tof_stream_requested == tof_stream_active) ?
+        tof_stream_active : TOF_STREAM_NONE;
+    (void)tx_interrupt_control(posture);
+    return destination;
+}
+
+const char *TOF_App_StreamName(TOF_StreamDestination_t destination)
+{
+    switch (destination)
+    {
+        case TOF_STREAM_USB: return "USB";
+        case TOF_STREAM_BLE: return "BLE";
+        case TOF_STREAM_CLOUD: return "CLOUD";
+        default: return "NONE";
+    }
+}
+
+/* Sole producer advances ownership only at a frame boundary. During drain,
+ * no producer publishes. Queued/reserved/in-flight USB slots and the single
+ * wireless snapshot remain owned until their existing consumers release. */
+static void tof_stream_route_step(void)
+{
+    if (tof_stream_requested == tof_stream_active) return;
+    if (USB_CDC_Transport_AreMapBuffersIdle() == 0U)
+    {
+        ++tof_stream_drain_frames;
+        return;
+    }
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+    if (WIFI_BLE_App_IsTofImageIdle() == 0U)
+    {
+        ++tof_stream_drain_frames;
+        return;
+    }
+#endif
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    tof_stream_active = tof_stream_requested;
+    ++tof_stream_switches;
+    (void)tx_interrupt_control(posture);
+}
 #include "vl53l9.h"
 #include "vl53l9_device.h"
 #include "vl53l9_interface.h"
@@ -151,6 +216,9 @@ typedef struct
 } TOF_Context_t;
 
 static TOF_Context_t tof_context;
+/* Persistent DMA destination: even an error/timeout cannot leave DMA holding
+ * a pointer into the acquisition task's expired stack frame. */
+static uint8_t tof_command_status __attribute__((aligned(4)));
 
 typedef struct
 {
@@ -601,12 +669,15 @@ void TOF_App_Process(void)
             tof_fatal("processing ready queue receive", (int)queue_status);
         }
         raw_frame = (TOF_RawFrame_t *)ready_message;
+        tof_stream_route_step();
         uint32_t ble_image_requested = 0U;
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
         ble_image_requested = WIFI_BLE_App_IsTofImageSubscribed();
 #endif
         TOF_App_Channel_t map_channel =
-            ((tof_context.state.map_enabled != 0U) || (ble_image_requested != 0U)) ?
+            (((tof_context.state.map_enabled != 0U) &&
+              (TOF_App_GetStreamDestination() == TOF_STREAM_USB)) ||
+             (ble_image_requested != 0U)) ?
             tof_select_next_map_channel() : TOF_APP_CHANNEL_NONE;
         const TOF_ChannelDescriptor_t *map_descriptor =
             tof_get_channel_descriptor(map_channel);
@@ -807,7 +878,10 @@ void TOF_App_SetMapEnabled(uint32_t enabled)
     if (enabled != 0U)
     {
         tof_context.state.dataset_stream_enabled = 0U;
+        TOF_App_RequestStream(TOF_STREAM_USB);
     }
+    else if (tof_context.state.dataset_stream_enabled == 0U)
+        TOF_App_ReleaseStream(TOF_STREAM_USB);
 }
 
 uint32_t TOF_App_ToggleMapChannel(TOF_App_Channel_t channel)
@@ -857,7 +931,10 @@ void TOF_App_SetDatasetStreamEnabled(uint32_t enabled)
     {
         /* ANSI maps and binary records must never share the CDC byte stream. */
         tof_context.state.map_enabled = 0U;
+        TOF_App_RequestStream(TOF_STREAM_USB);
     }
+    else if (tof_context.state.map_enabled == 0U)
+        TOF_App_ReleaseStream(TOF_STREAM_USB);
 }
 
 void TOF_App_SetPaused(uint32_t paused)
@@ -883,6 +960,10 @@ void TOF_App_GetStatus(TOF_App_Status_t *status)
     status->map_channel_mask = tof_context.state.map_channel_mask;
     status->map_active_channel = tof_context.state.map_active_channel;
     status->dataset_stream_enabled = tof_context.state.dataset_stream_enabled;
+    status->stream_requested = tof_stream_requested;
+    status->stream_active = tof_stream_active;
+    status->stream_switches = tof_stream_switches;
+    status->stream_drain_frames = tof_stream_drain_frames;
     status->paused = tof_context.state.paused;
     status->width = tof_context.state.width;
     status->height = tof_context.state.height;
@@ -1056,21 +1137,32 @@ static int tof_wait_command_complete(vl53l9_device_t *sensor,
                                      uint32_t timeout_ms)
 {
     uint32_t started_at = HAL_GetTick();
-    uint8_t command_status = UINT8_MAX;
+    tof_command_status = UINT8_MAX;
 
     do
     {
-        /* The command payload uses DMA, but polling its one-byte status with
-         * the blocking helper prevents the shared async descriptor/context
-         * from being overwritten immediately after the TX completion event. */
-        int ret = vl53l9_frame_command_status_read(sensor, &command_status);
+        /* Runtime register-address TX must also use DMA: polling the I3C TX
+         * FIFO can underrun when the SPI/USB IRQs preempt it. The platform
+         * releases the persistent descriptor only after all DMA engines idle. */
+        (void)platform_acknowledge_event(PLATFORM_I3C_DMA_RX_EVT);
+        (void)platform_acknowledge_event(PLATFORM_I3C_ERROR_EVT);
+        int ret = vl53l9_frame_command_status_start_async(sensor,
+                                                          &tof_command_status);
+        if (ret == 0)
+        {
+            uint32_t elapsed = HAL_GetTick() - started_at;
+            uint32_t remaining = (elapsed < timeout_ms) ? timeout_ms - elapsed : 0U;
+            ret = platform_wait_for_event(PLATFORM_I3C_DMA_RX_EVT, remaining);
+            (void)platform_acknowledge_event(PLATFORM_I3C_DMA_RX_EVT);
+            if (ret != 0) tof_log_platform_failure(PLATFORM_I3C_DMA_RX_EVT, ret);
+        }
         if (ret != 0)
         {
             ++tof_context.counters.command_status_read_failures;
             Debug_UART_Log("TOF", "command status read failed: result=%d", ret);
             return ret;
         }
-        if (command_status == 0U)
+        if (tof_command_status == 0U)
         {
             return VL53L9_ERROR_NONE;
         }
@@ -1080,7 +1172,7 @@ static int tof_wait_command_complete(vl53l9_device_t *sensor,
 
     ++tof_context.counters.command_status_timeouts;
     Debug_UART_Log("TOF", "command status timeout: last=0x%02X budget_ms=%lu",
-                   (unsigned int)command_status, (unsigned long)timeout_ms);
+                   (unsigned int)tof_command_status, (unsigned long)timeout_ms);
     return VL53L9_ERROR_TIMEOUT;
 }
 
@@ -1340,7 +1432,9 @@ tof_render_frame(const TOF_App_ChannelFrame_t *map_frame,
     tof_context.counters.minimum_mm = valid_min;
     tof_context.counters.maximum_mm = valid_max;
 
-    if ((tof_context.state.map_enabled == 0U) || (App_Console_IsReady() == UX_FALSE))
+    if ((tof_context.state.map_enabled == 0U) ||
+        (TOF_App_GetStreamDestination() != TOF_STREAM_USB) ||
+        (App_Console_IsReady() == UX_FALSE))
     {
         return;
     }
@@ -1614,6 +1708,7 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
     uint32_t model_payload_crc;
 
     if ((tof_context.state.dataset_stream_enabled == 0U) ||
+        (TOF_App_GetStreamDestination() != TOF_STREAM_USB) ||
         (App_Console_IsReady() == UX_FALSE))
     {
         return;

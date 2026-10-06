@@ -130,6 +130,23 @@ python -m compileall -q hil_tests
 The self-test does not prove that the PC adapter can scan or that the ST67 can
 advertise. Those are physical HIL results and require the powered board.
 
+## Exclusive image-route gate
+
+With the repaired firmware already running, a free BLE link and CN8 port:
+
+```powershell
+.\training\.venv\Scripts\python.exe .\hil_tests\run_image_route_gate.py
+```
+
+The gate subscribes to CLI and ToF, receives complete CRC-valid BLE images,
+requests USB N6DF records while leaving the BLE subscription enabled, and
+requires BLE image fragments to stop during USB ownership. A BLE `MAP ON`
+then reclaims the image destination and must deliver CRC-valid frames again.
+It records route/status evidence and failures in `results/image-route-gate.json`,
+stops subscriptions/dataset streaming, and disconnects BLE afterward. It never
+loads RAM or writes Flash. Cloud needs a separate paired-workspace test; this
+gate does not claim Cloud delivery, long-run stability or fault-injection proof.
+
 ## Automated Milestone 3/4 repeated-boot gate
 
 `run_milestone4_gate.py` removes the manual five-boot loop. It reloads the

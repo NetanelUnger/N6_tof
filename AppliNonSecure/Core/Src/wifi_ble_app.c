@@ -7,6 +7,7 @@
 #include "app_features.h"
 #include "bsp_conf.h"
 #include "cloud_relay.h"
+#include "tof_app.h"
 #include "debug_uart.h"
 #include "logging.h"
 #include "main.h"
@@ -1232,12 +1233,24 @@ uint32_t WIFI_BLE_App_IsTofImageSubscribed(void)
   uint32_t ble_requested = ((radio_manager.shadow.ble_transport_ready != 0U) &&
       (radio_manager.shadow.ble_connected != 0U) && (radio_manager.shadow.ble_tof_image_subscribed != 0U)) ? 1U : 0U;
   CloudRelay_GetStatus(&cloud_status);
+  TOF_StreamDestination_t destination = TOF_App_GetStreamDestination();
   return ((radio_manager.queues.ble_tof_image_context != NULL) &&
-          ((ble_requested != 0U) ||
-           ((cloud_status.enabled != 0U) &&
+          (((destination == TOF_STREAM_BLE) && (ble_requested != 0U)) ||
+           ((destination == TOF_STREAM_CLOUD) &&
+            (cloud_status.enabled != 0U) &&
             (cloud_status.paired != 0U)))) ? 1U : 0U;
 #else
   return 0U;
+#endif
+}
+
+uint32_t WIFI_BLE_App_IsTofImageIdle(void)
+{
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  return ((radio_manager.queues.ble_tof_image_context == NULL) ||
+          (radio_manager.queues.ble_tof_image_context->state == BLE_TOF_IMAGE_FREE)) ? 1U : 0U;
+#else
+  return 1U;
 #endif
 }
 
@@ -1292,15 +1305,29 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   radio_manager.queues.ble_tof_image_context->channel_id = channel_id;
   radio_manager.queues.ble_tof_image_context->retries = 0U;
 
-  /* Acquire Cloud's lease while the image is still FILLING. Radio must never
-   * be able to release/reuse this payload before the Cloud handoff exists. */
-  (void)CloudRelay_SubmitTofFrame(
-      frame_id, channel_id, radio_manager.queues.ble_tof_image_context->payload, width, height,
-      radio_manager.queues.ble_tof_image_context->payload_crc32);
+  /* The processing task cannot change active owner inside this publication.
+   * A Cloud frame goes directly to WAIT_CLOUD, never BLE READY. Admission
+   * failure releases immediately; there is no second-destination fallback. */
+  TOF_StreamDestination_t destination = TOF_App_GetStreamDestination();
+  UINT admitted = TX_SUCCESS;
+  if (destination == TOF_STREAM_CLOUD)
+  {
+    admitted = CloudRelay_SubmitTofFrame(
+        frame_id, channel_id, radio_manager.queues.ble_tof_image_context->payload,
+        width, height, radio_manager.queues.ble_tof_image_context->payload_crc32);
+  }
   posture = tx_interrupt_control(TX_INT_DISABLE);
+  if ((admitted != TX_SUCCESS) ||
+      ((destination != TOF_STREAM_BLE) && (destination != TOF_STREAM_CLOUD)))
+  {
+    radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE;
+    (void)tx_interrupt_control(posture);
+    return TX_NOT_AVAILABLE;
+  }
   radio_manager.queues.ble_tof_image_context->stats.frames_submitted++;
   radio_manager.queues.ble_tof_image_context->stats.last_submitted_frame = frame_id;
-  radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_READY;
+  radio_manager.queues.ble_tof_image_context->state =
+      (destination == TOF_STREAM_CLOUD) ? BLE_TOF_IMAGE_WAIT_CLOUD : BLE_TOF_IMAGE_READY;
   (void)tx_interrupt_control(posture);
   return TX_SUCCESS;
 #else
@@ -2299,6 +2326,8 @@ static void ble_event_callback(W6X_event_id_t event_id, void *event_args)
                (event->charac_idx == BLE_TOF_IMAGE_CHAR_INDEX))
       {
         radio_manager.shadow.ble_tof_image_subscribed = enabled;
+        if (enabled != 0U) TOF_App_RequestStream(TOF_STREAM_BLE);
+        else TOF_App_ReleaseStream(TOF_STREAM_BLE);
       }
     }
   }
@@ -2359,6 +2388,7 @@ static void ble_note_disconnected(void)
   radio_manager.shadow.ble_cli_tx_subscribed = 0U;
   radio_manager.shadow.ble_debug_tx_subscribed = 0U;
   radio_manager.shadow.ble_tof_image_subscribed = 0U;
+  TOF_App_ReleaseStream(TOF_STREAM_BLE);
   radio_manager.shadow.ble_mtu = 23U;
   radio_manager.work.ble_restart_advertising_pending = 1U;
   radio_manager.work.ble_stream_flush_pending = 1U;
@@ -2811,7 +2841,9 @@ static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void)
     }
     return;
   }
-  if ((radio_manager.shadow.ble_connected == 0U) || (radio_manager.shadow.ble_tof_image_subscribed == 0U))
+  if ((radio_manager.shadow.ble_connected == 0U) ||
+      (radio_manager.shadow.ble_tof_image_subscribed == 0U) ||
+      (TOF_App_GetStreamDestination() != TOF_STREAM_BLE))
   {
     ble_tof_image_drop_active();
     return;

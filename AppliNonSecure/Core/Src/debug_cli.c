@@ -1526,8 +1526,15 @@ static void cli_command_map(Menu_t *menu, const char *command)
   {
     if (cli_active_session->route.transport == APP_TRANSPORT_BLE)
     {
+      TOF_App_RequestStream(TOF_STREAM_BLE);
       (void)Menu_Reply(menu,
-                       "BLE ToF images use the dedicated Notify characteristic; subscribe to it to receive complete CRC-checked frames.");
+                       "Map destination: BLE. Subscribe to the ToF Notify characteristic for CRC-checked frames; previous image destination drains first.");
+      return;
+    }
+    if (cli_active_session->route.transport == APP_TRANSPORT_CLOUD)
+    {
+      TOF_App_RequestStream(TOF_STREAM_CLOUD);
+      (void)Menu_Reply(menu, "Map destination: CLOUD; previous image destination drains first.");
       return;
     }
     (void)Menu_Reply(menu,
@@ -1539,8 +1546,15 @@ static void cli_command_map(Menu_t *menu, const char *command)
   {
     if (cli_active_session->route.transport == APP_TRANSPORT_BLE)
     {
+      TOF_App_ReleaseStream(TOF_STREAM_BLE);
       (void)Menu_Reply(menu,
                        "Disable the BLE ToF image CCCD to stop the wireless map stream.");
+      return;
+    }
+    if (cli_active_session->route.transport == APP_TRANSPORT_CLOUD)
+    {
+      TOF_App_ReleaseStream(TOF_STREAM_CLOUD);
+      (void)Menu_Reply(menu, "Cloud map stopped; CLI remains active.");
       return;
     }
     TOF_App_SetMapEnabled(0U);
@@ -3099,6 +3113,11 @@ static void cli_show_tof_status(void)
   platform_get_diagnostics(&i3c);
   TOF_App_GetMapProcessingConfig(&processing);
   filter = TOF_ImageProcessing_GetDescriptor(processing.selected_filter);
+  cli_print("Image destination: requested %s, active %s, switches %" PRIu32
+            ", drain frames %" PRIu32 "\r\n",
+            TOF_App_StreamName(status.stream_requested),
+            TOF_App_StreamName(status.stream_active),
+            status.stream_switches, status.stream_drain_frames);
   cli_print("ToF state: %s\r\n"
             "Resolution: %" PRIu32 "x%" PRIu32 "\r\n"
             "Frame: %" PRIu32 ", rate: %" PRIu32 ".%" PRIu32 " fps\r\n"

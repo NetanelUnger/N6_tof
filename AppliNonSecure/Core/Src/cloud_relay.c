@@ -7,6 +7,7 @@
 
 #include "app_features.h"
 #include "debug_uart.h"
+#include "tof_app.h"
 #include "firmware_build_version.h"
 #include "main.h"
 #include "w6x_api.h"
@@ -306,6 +307,12 @@ static void cloud_publish_status(void)
   cloud->status.control_queued = cloud_control_queue.tx_queue_enqueued;
   cloud->status.control_high_water = cloud_control_high_water;
   cloud->status.control_rejected = cloud_control_rejected;
+  if ((cloud->status.paired != 0U) && (cloud->status.enabled != 0U))
+  {
+    if ((cloud_status_snapshot.paired == 0U) || (cloud_status_snapshot.enabled == 0U))
+      TOF_App_RequestStream(TOF_STREAM_CLOUD);
+  }
+  else TOF_App_ReleaseStream(TOF_STREAM_CLOUD);
   cloud_status_snapshot = cloud->status;
   (void)tx_interrupt_control(posture);
 }
@@ -489,6 +496,16 @@ UINT CloudRelay_Initialize(TX_BYTE_POOL *pool, const char *suggested_device_id)
 static void cloud_process(uint32_t wifi_has_ip)
 {
   if (cloud == NULL) return;
+
+  if ((cloud->tof_pending != 0U) &&
+      (TOF_App_GetStreamDestination() != TOF_STREAM_CLOUD))
+  {
+    /* Only this worker may cancel a payload read and release its lease.
+     * Close before release if the old image request is already in flight. */
+    if (cloud->http_kind == CLOUD_HTTP_TOF) cloud_close_socket();
+    cloud_release_tof();
+    ++cloud->status.tof_frames_dropped;
+  }
 
   if ((cloud->status.enabled == 0U) || (wifi_has_ip == 0U))
   {

@@ -590,6 +590,7 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
   int32_t ret;
   int32_t bytes_consumed_by_the_bus = 0;
   int32_t bytes_to_send;
+  bool raw_announced = false;
   TickType_t lock_budget = pdMS_TO_TICKS(timeout_ms);
   TickType_t started_at = xTaskGetTickCount();
   TickType_t elapsed;
@@ -615,6 +616,15 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
   /*reset mdm->sem_tx_read */
   (void)xSemaphoreTake(mdm->sem_tx_ready, 0);
 
+  if (mdm->handler_data.tx_desynchronized)
+  {
+    ret = -EIO;
+    goto out;
+  }
+  mdm->raw_tx_terminal_only = !check_resp;
+  mdm->raw_tx_response_received = false;
+  raw_announced = true;
+
   ret = modem_cmd_send_ext(&mdm->iface, &mdm->handler,
                            cmds, ARRAY_SIZE(cmds), p_cmd, mdm->sem_response,
                            check_resp ? remaining : 0U, /* If check_resp is false don't wait for OK */
@@ -628,6 +638,7 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
   /* Reset semaphore that will be released by "Recv " */
   /*reset mdm->sem_response */
   (void)xSemaphoreTake(mdm->sem_response, 0);
+  mdm->raw_tx_response_received = false;
 
   /* Set rx_data_len to be checked during "Recv " event */
   mdm->rx_data_len = len;
@@ -698,6 +709,16 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
   }
 
 out:
+  /* Releasing the mutex does not cancel the NCP's raw-data mode. Keep all
+   * subsequent command text off the bus if this transaction has no response
+   * boundary. Only module restart/reinitialization clears the fence. */
+  if (raw_announced && (ret < 0) && !mdm->raw_tx_response_received &&
+      !mdm->handler_data.tx_desynchronized)
+  {
+    mdm->handler_data.tx_desynchronized = true;
+    Debug_UART_Log("ST67", "raw TX response missing; AT traffic fenced until module restart");
+  }
+  mdm->raw_tx_terminal_only = false;
   (void)modem_cmd_handler_update_cmds(&mdm->handler_data,
                                       NULL, 0U, false);
   (void)xSemaphoreGive(mdm->handler_data.sem_tx_lock);
@@ -933,7 +954,11 @@ MODEM_CMD_DEFINE(on_cmd_recv)
     (void)modem_cmd_handler_set_error(data, -EIO);
   }
 
-  (void)xSemaphoreGive(mdm->sem_response);
+  if (!mdm->raw_tx_terminal_only)
+  {
+    mdm->raw_tx_response_received = true;
+    (void)xSemaphoreGive(mdm->sem_response);
+  }
 
   return 0;
 }
@@ -945,6 +970,7 @@ MODEM_CMD_DEFINE(on_cmd_ok)
 
   (void)modem_cmd_handler_set_error(data, 0);
 
+  mdm->raw_tx_response_received = true;
   (void)xSemaphoreGive(mdm->sem_response);
 
   return 0;
@@ -957,6 +983,7 @@ MODEM_CMD_DEFINE(on_cmd_error)
 
   (void)modem_cmd_handler_set_error(data, -EIO);
 
+  mdm->raw_tx_response_received = true;
   (void)xSemaphoreGive(mdm->sem_response);
 
   return 0;

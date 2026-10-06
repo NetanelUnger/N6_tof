@@ -934,7 +934,10 @@ W61_Status_t W61_Ble_ServerSendNotification(W61_Object_t *Obj, uint8_t conn_hand
   {
     (void)snprintf(&cmd[ret_len], W61_CMDRSP_STRING_SIZE - ret_len, "\r\n");
   }
-  ret = W61_AT_Common_RequestSendData(Obj, (uint8_t *)cmd, pdata, req_len, Timeout, true);
+  /* BLE notification responds with '>' first, then OK after its payload.
+   * Waiting for an initial OK leaves the NCP expecting raw data and consumes
+   * the next AT command as notification bytes. */
+  ret = W61_AT_Common_RequestSendData(Obj, (uint8_t *)cmd, pdata, req_len, Timeout, false);
 
   if (ret != W61_STATUS_OK)
   {

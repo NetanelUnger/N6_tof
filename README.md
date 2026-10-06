@@ -18,8 +18,25 @@ General host-driven hardware validation tools live in
 interactive BLE scan, selected-device connection, and complete GATT discovery
 report without writing characteristics or changing firmware.
 
-Cloud pairing has user-reported success but no independently captured post-pair
-status or end-to-end ToF image result. The earlier HTTPS/T01 path failed at
+The 2026-10-06 RAM repair uses one image destination: USB, BLE or Cloud.
+The last `MAP ON`, USB dataset request, BLE ToF subscription, or Cloud pairing/
+enable request wins. `tof status` shows requested/active destinations and drain
+counters. Before changing the active destination, the ToF producer stops new
+publications and waits for the old USB slots/wireless snapshot to be released.
+CLI traffic remains available on all transports; the local SPI display is
+independent. Turning the current destination off does not resume an older one.
+RAM HIL received ten complete CRC-valid BLE frames across BLE→USB→BLE, twenty
+CRC-valid USB records, and no BLE images during USB ownership. A further USB
+capture passed 100 distinct raw/model CRC-valid frames. At 630886 ms, ToF was
+ready with 6255 acquisitions and zero command/I3C failures, beyond the prior
+5103-frame failure. Cloud image delivery and long-run acceptance remain open:
+the current RAM image is disconnected from Wi-Fi and unpaired.
+
+Cloud pairing and CLI traffic were independently captured on 2026-10-06:
+paired HTTP polling, two received/acked commands, eight output sends and no
+request errors. End-to-end ToF image acceptance is still open: the sensor
+had already stopped before pairing in that run, and no frame was submitted.
+The earlier HTTPS/T01 path failed at
 `CIPSTART`; the Azure endpoint sent a 6603-byte TLS record, larger than ST's
 documented 6144-byte T01 fragment limit. That is a strong compatibility
 candidate, not a confirmed NCP error code. The current demonstration RAM build
@@ -40,8 +57,28 @@ captured. The current RAM diagnostic build records command-phase counters in
 `tof status`, detailed blocking-read HAL failures on COM6, and bounds the
 previously unbounded post-TX HAL-state wait. A first sensor-only run passed
 3,785 acquired frames and one Wi-Fi scan without reproducing the fault;
-this is not a ToF recovery fix or Cloud image acceptance. M8.4a/M8.5 remain
-planned pending a characterized failure.
+this is not a ToF recovery fix or Cloud image acceptance. On 2026-10-06,
+acquisition stopped at frame 2687 during the 100-byte status DMA read.
+Attach-only inspection found HAL_I3C_ERROR_SIZE, I3C BUSY_TX_RX, RX DMA READY
+with an unconsumed abort callback/suspend request, and one event timeout with
+no application error callback. This supports a completion/abort race; the
+initial size-error trigger is unproven, and the preceding debugger halt may
+have influenced timing. The existing fatal loop stops acquisition permanently.
+The current repair defers multiple-transfer completion until I3C frame
+completion AND all DMA channels finish, and reconciles DMA completion winning
+an abort race. A later UART-only run characterized a separate blocking
+register-address TX failure at frame 5103: HAL error `0x40` (FIFO overrun/
+underrun), with no debugger halt. Runtime command-status reads now use DMA
+and a persistent one-byte destination; the shared descriptor is not reused
+until I3C and all DMA handles are idle. Initialization retains the blocking
+vendor path. Full local sensor recovery under M8.4a/M8.5 remains planned.
+
+The BLE repair corrects notification ordering: wait for `>` before raw data,
+then the terminal `OK`; there is no initial `OK`. Earlier host captures
+contained AT command text on the image characteristic. An unfinished raw
+transaction now fences further AT command writes until module restart, rather
+than feeding the next command into that payload. These repairs add no task,
+stack/pool enlargement, or second image snapshot.
 
 The current demonstration source sets `APP_ST67W6X_CLOUD_USE_TLS=0` in
 `AppliNonSecure/Core/Inc/app_features.h`. It transmits the pairing code,
@@ -417,7 +454,23 @@ An experimental master RX automatic-suspension (MASRX) setting passed two
 live-register BLE probes but failed after a fresh RAM boot with SUSP/timeouts
 and lost replies. That configuration experiment was reverted in both IOC and
 the initializer; automatic suspension remains disabled. Generate Code is not
-required for the remaining C-only DMA recovery change.
+required for the C-only DMA recovery change alone.
+The 2026-10-06 SPI5 RX-DMA candidate gives GPDMA1 channel 11 HIGH priority;
+TX channel 10 remains LOW/HIGH_WEIGHT. RX/TX previously had the same priority.
+A power cycle did not prevent baseline SPI overrun. A RAM-only RX-priority
+comparison then received 300/300 BLE pings with ToF active and no SPI errors,
+timeouts or recoveries. The matching IOC/MSP build booted normally and passed
+100-frame CRC/NPU/preprocessing HIL plus BLE/Wi-Fi scan preflight. This supports
+RX DMA arbitration as a cause of the observed overrun, without identifying the
+specific competing bus transfer or accepting Cloud/MAP load or boot endurance.
+The ordinary source build also passed 150/150 BLE idle replies (p95 141 ms,
+max 172 ms). Wi-Fi association and paired Cloud CLI remained live after the
+later ToF failure, with SPI error/timeout counters zero. Cloud stack sentinel
+inspection observed 3504/8192 bytes used in this HTTP/CLI phase; ToF-send peak
+usage and the Cloud frame/lease gate remain unmeasured.
+`N6.ioc` is updated; CubeMX Generate Code is REQUIRED/PENDING for this DMA
+configuration change. Review managed deviations afterward. Stack/pool sizes,
+SPI clock/ports/bursts and master RX automatic suspension were not changed.
 The SPI5 abort path also verifies both owned normal-mode DMA channels before
 claiming recovery. It locally deinitializes/reinitializes a stranded channel
 with the HAL's bounded disable wait and restores its SPI parent link. If SPI
@@ -1981,10 +2034,11 @@ status readers use a cached snapshot without waiting on network work.
 The worker uses a fixed 8 KiB stack at `0x242A1800` in the existing lower SRAM4
 region. The application/radio pool sizes remain 134/64 KiB. Priority 12 from
 the original plan was replaced with 9 to avoid starvation behind the continuously
-ready priority-10 ToF processor. The shared ToF image acquires its Cloud lease
-before BLE READY; BLE completion/abort/disconnect waits in WAIT_CLOUD until the
-worker stops reading the payload. No extra frame copy or runtime allocation
-was introduced.
+ready priority-10 ToF processor. The shared ToF image now has exactly one
+network consumer under the last-request-wins route contract above. Cloud
+admission occurs while FILLING and enters WAIT_CLOUD directly; it never enters
+BLE READY. Route changes stop/cancel the old consumer before another frame
+can be published. No extra frame copy or runtime allocation was introduced.
 
 Incremental and clean Non-Secure builds, eight disabled-feature syntax checks
 and the HIL utility self-test passed. RAM startup confirmed the separate worker,

@@ -782,6 +782,12 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
     tx_lock_acquired = true;
   }
 
+  if (data->tx_desynchronized)
+  {
+    ret = -EIO;
+    goto unlock_tx_lock;
+  }
+
   if ((flags & MODEM_NO_SET_CMDS) == 0U)
   {
     ret = modem_cmd_handler_update_cmds(data, handler_cmds,
@@ -812,10 +818,21 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
     (void)xSemaphoreTake(sem, 0); /* Reset semaphore (binary) */
   }
 
-  (void)iface->mdm_write(iface, buf, strlen((char *)buf));
-  (void)iface->mdm_write(iface, (uint8_t const *)data->eol, data->eol_len);
+  size_t command_len = strlen((char *)buf);
+  if (iface->mdm_write(iface, buf, command_len) != (int32_t)command_len)
+  {
+    data->tx_desynchronized = true;
+    ret = -EIO;
+  }
+  else if ((data->eol_len > 0U) &&
+           (iface->mdm_write(iface, (uint8_t const *)data->eol,
+                             data->eol_len) != (int32_t)data->eol_len))
+  {
+    data->tx_desynchronized = true;
+    ret = -EIO;
+  }
 
-  if (sem != NULL)
+  if ((ret == 0) && (sem != NULL))
   {
     /* The TX-lock wait and command write consume the same operation budget
      * as the modem response. Unsigned tick subtraction also handles wrap. */
@@ -963,6 +980,7 @@ int32_t modem_cmd_handler_init(struct modem_cmd_handler *handler,
   /* Init rx_buf_len */
   data->rx_buf_len = 0U;
   data->rx_assembly_overflows = 0U;
+  data->tx_desynchronized = false;
 
   /* Assign command process implementation to command handler */
   handler->process = cmd_handler_process;

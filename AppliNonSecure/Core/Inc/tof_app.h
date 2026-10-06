@@ -24,6 +24,14 @@ typedef enum
     TOF_APP_STATE_ERROR
 } TOF_App_State_t;
 
+typedef enum
+{
+    TOF_STREAM_NONE = 0,
+    TOF_STREAM_USB,
+    TOF_STREAM_BLE,
+    TOF_STREAM_CLOUD
+} TOF_StreamDestination_t;
+
 /* Educational map channels.  The numeric values deliberately match the
  * single-key selections accepted while MAP ON is active. */
 typedef enum
@@ -61,6 +69,10 @@ typedef struct
     uint32_t map_channel_mask;
     TOF_App_Channel_t map_active_channel;
     uint32_t dataset_stream_enabled;
+    TOF_StreamDestination_t stream_requested;
+    TOF_StreamDestination_t stream_active;
+    uint32_t stream_switches;
+    uint32_t stream_drain_frames;
     uint32_t paused;
     uint32_t width;
     uint32_t height;
@@ -88,6 +100,12 @@ UINT TOF_App_Init(void);
 void TOF_App_Acquire(void);
 void TOF_App_Process(void);
 void TOF_App_SetMapEnabled(uint32_t enabled);
+/* Last explicit request wins. A previous frame drains before the new owner
+ * can publish. Release only affects the matching destination; no fallback. */
+void TOF_App_RequestStream(TOF_StreamDestination_t destination);
+void TOF_App_ReleaseStream(TOF_StreamDestination_t destination);
+TOF_StreamDestination_t TOF_App_GetStreamDestination(void);
+const char *TOF_App_StreamName(TOF_StreamDestination_t destination);
 uint32_t TOF_App_ToggleMapChannel(TOF_App_Channel_t channel);
 uint32_t TOF_App_GetMapChannelMask(void);
 const char *TOF_App_GetChannelName(TOF_App_Channel_t channel);

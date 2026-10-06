@@ -450,6 +450,8 @@ typedef struct __I3C_HandleTypeDef
   uint32_t                   TxXferCount;                         /*!< I3C counter indicating the remaining
                                                                        data bytes to transmit                    */
 
+  __IO uint32_t              DmaMultipleFrameComplete;             /*!< N6: bus frame ended; wait for DMA drain */
+
 #if defined(HAL_DMA_MODULE_ENABLED)
   DMA_HandleTypeDef          *hdmacr;                             /*!< I3C control DMA handle parameters         */
 

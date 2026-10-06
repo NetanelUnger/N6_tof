@@ -993,10 +993,49 @@ passes. Do not advance to Milestone 6 before the Milestone 5 gate passes.
 
 ## [~] IN_PROGRESS M5.3 — Create the Cloud task (built; RAM HIL pending)
 
-Current verification substep (2026-10-04): an idle BLE probe exposed SPI5 RX
-overrun followed by a stranded TX DMA SUSPEND state. Restore bounded local DMA
-cleanup and verify recovery before attempting the Cloud-contention gate. Cloud
-network validation remains pending; no later milestone is being started.
+Current verification substep (2026-10-06): the SPI5 RX-priority IOC/MSP candidate
+passed ordinary RAM boot, 100-frame sensor/NPU HIL and 150/150 idle BLE replies.
+Generate Code was requested and remains pending. Wi-Fi and paired Cloud CLI
+stayed live, but ToF stopped at frame 2687 before pairing, with a HAL I3C size
+error and stranded RX abort completion. Preserve the fault evidence and
+characterize the initial trigger before the Cloud frame/lease gate. The earlier
+debugger halt may have influenced timing. No later milestone is being started.
+
+User-authorized scope extension (2026-10-06): repair the characterized I3C
+completion/abort race and implement last-request-wins exclusive image routing
+across USB, BLE and Cloud, retaining fixed buffers and draining the previous
+owner before starting the next. Verify actual CRC-valid images on each route
+and switching without concurrent image sends. This remains the single M5.3
+IN_PROGRESS verification/remediation substep; it does not accept later gates.
+
+Repair checkpoint: normal RAM build/load passed with 455768-byte NS image and
+416728-byte C heap (minimum 368640). I3C multiple-transfer completion waits for
+FCF and every DMA completion; abort handles TC winning the suspend request.
+The next UART-only run failed at frame 5103 in blocking register-address TX
+with HAL 0x40 (FIFO overrun/underrun), without debugger interference. Runtime
+command status now uses DMA, a persistent byte, and idle-before-descriptor-
+reuse checks. BLE notification capture independently exposed AT text being
+consumed as image data: the driver incorrectly waited for initial OK before
+the prompt. Corrected to prompt/payload/terminal response, and unfinished raw
+transfers fence subsequent AT writes until module restart.
+
+Exclusive-route RAM HIL passed BLE→USB→BLE: 5+5 complete CRC-valid BLE images,
+20 USB dataset records with independent raw/model CRCs, no BLE images during
+USB ownership, and zero BLE image retries/errors. An earlier host gate failed
+its final BLE request because it had not enabled CLI Notify; its first five
+BLE images and USB phase passed, and it is retained as a failed full gate.
+Evidence: Tools/.n6-debug/architecture-m5/20261006_repair[2]/. Added reusable
+hil_tests/run_image_route_gate.py; full current-script run, Cloud image proof,
+soak and Generate Code still pending. Further current-image USB capture passed
+100 distinct raw/model CRC-valid records. Final offline snapshot at 630886 ms:
+ToF ready, acquired 6255, zero command/I3C failures, Radio/BLE maximum gaps
+50/43 ms. Eight disabled-feature syntax checks, utility self-test, Python
+compilation/help and diff checks passed. USB session-close UART captures still
+include control-TX callback timeout/slot-drop diagnostics; do not claim every
+CDC lifecycle counter is zero or accept the old Milestone 4 gate. The active
+RAM image is Wi-Fi disconnected and Cloud unpaired; the user was asked to
+connect/pair and confirm the actual browser image. No Cloud ToF frame was
+sent in this offline run. No later milestone was accepted.
 
 - Files:
   - `AppliNonSecure/Core/Src/app_threadx.c`
@@ -1032,9 +1071,10 @@ network validation remains pending; no later milestone is being started.
 - Change:
   - Replace Cloud processing with scalar network-readiness publication.
   - Leave BLE event processing and bounded BLE TX/RX work only.
-  - Publish the Cloud ToF lease before BLE image READY. On BLE completion,
-    abort, disconnect or generation change, retain the shared snapshot in
-    WAIT_CLOUD until the Cloud worker has finished consuming it. Release on
+  - Superseded by the user's 2026-10-06 exclusive-route requirement: publish
+    the Cloud lease while FILLING and enter WAIT_CLOUD directly. BLE READY
+    belongs only to BLE. On destination change, stop old publications and
+    cancel/drain the old consumer before reusing the snapshot. Release on
     Cloud disable/reconnect/unpair, Wi-Fi loss, and completed/failed payload send.
 - Acceptance:
   - DNS/TLS failure does not increase the Radio/BLE loop gap.
@@ -2101,9 +2141,100 @@ remain OPEN. M5.5 and later milestones not started. No firmware version change,
 signing, external-NOR programming, CubeMX/Generate Code, commit or push.
 ```
 
+```text
+2026-10-06  M5 SPI BASELINE — RX DMA PRIORITY CANDIDATE; GENERATION/NETWORK OPEN
+User confirmed the requested full two-USB power cycle, BOOT0=1-2/BOOT1=2-3.
+Loaded the retained matching Secure/Non-Secure RAM images. The original
+configuration again failed at SPI RX completion during W6X_Init/Get W61 Info;
+power cycling did not establish a remedy. Git was initially clean at eca5b7e.
+
+A diagnostic RAM loader used the same FSBL handoff and stopped only on an
+overrun error branch. That baseline boot reached READY, but a BLE probe exposed
+OVR again: SPI BUSY_TX_RX, SR=0x105A, both DMA completion flags set, no prior
+IO/memory errors or recoveries. Its 47/52 BLE replies are affected by the
+breakpoint and are not a latency gate. Startup intermittency remains open.
+
+Changed only SPI5 RX DMA arbitration priority in RAM before scheduler startup:
+channel 11 Init.Priority/CCR PRIO HIGH (0xC00000), TX LOW/HIGH_WEIGHT (0x800000).
+First trial boot reached Radio READY but ToF failed sensor init -5; preserve it
+as a failed system boot, not evidence that RX priority caused the sensor fault.
+Second trial boot reached both READY and passed two fresh MTU-247 connections:
+150/150 pings each, p95=141/140 ms, max=157/156 ms. GDB afterward showed SPI,
+RX and TX READY/ErrorCode=0; zero IO/header/memory errors, all timeout counters
+zero, transport recoveries/retry exhaustion zero, no reinitializations. USB
+preflight showed ToF advancing, all I3C/command failure counters zero, radio
+pool free=4448 bytes, Radio/BLE max gaps=40/40 ms. Cloud waiting for Wi-Fi,
+unpaired, loops advancing, max step=1 ms. No pairing/HTTP load was tested.
+
+Prepared the matching N6.ioc GPDMA1.PRIORITY_GPDMACH11 and MSP initializer.
+Incremental Non-Secure build PASS: 452160-byte binary/420368-byte heap; same
+fixed stack/pool sizes, SPI frequency/ports/bursts and disabled MASRX setting.
+Ordinary Debug-NonSecureRam load (no runtime priority patch) reached radio and
+ToF READY. Stage 11 on this source build PASS: 100 CRC-valid distinct frames,
+100 frame-matched NPU results and bit-exact Python tensors, 100% class/decision
+agreement, max raw-score delta 6, 100 non-empty and 14 distinct model inputs. Effective
+output was 3.99 fps; 150/250 sensor IDs were skipped by bounded processing, not
+CRC corruption or 10-fps throughput acceptance. Radio SDK 2.0.106, host BLE RF
+scan and Wi-Fi station query/scan passed. Three AdvStart status-2 retries were
+logged during radio preflight despite the RF scan; do not claim all vendor
+control errors vanished. The source build received 150/150 idle BLE replies,
+p95=141 ms/max=172 ms. Post-HIL attach found zero SPI IO/header/memory errors,
+timeouts/recoveries/reinitializations and READY SPI/RX/TX handles.
+
+The user then connected Wi-Fi over BLE and paired Cloud. At tick 276502,
+USB had already observed ToF ERROR/frame 2687 while Cloud was still unpaired.
+After pairing, Cloud received/acked two CLI commands and sent eight outputs,
+last HTTP 204, zero request errors. Radio/BLE loop gaps=50/51 ms; BLE remained
+connected; transport SPI counters stayed zero. No image was submitted or held:
+image state FREE, submitted=0, Cloud pending=0, sent/dropped=0. No proof of a
+Cloud frame-send or lease failure. MAP ON controls the terminal map flag;
+enabled/paired Cloud independently requests images through
+WIFI_BLE_App_IsTofImageSubscribed(). Opening the USB inspection session disables
+the global terminal map flag, so the observed 'map off' is not evidence that
+the user's Cloud command failed.
+
+Post-fault attach-only evidence: I3C BUSY_TX_RX/ErrorCode=0x100000
+(HAL_I3C_ERROR_SIZE), CR=0, EVR=3, IER=0, no active descriptor pointer;
+persistent async context was register 0x0028, 2-byte address + 100-byte read.
+All three DMA handles READY/error=0/remaining=0; RX CCR=0x7D04 retained
+SUSP/SUSPIE, CSR=1 (IDLE, no suspension completion), XferAbortCallback still
+I3C_DMAAbort, RX destination advanced by all 100 bytes. Platform recorded
+8063 RX/8063 TX completions, one wait timeout (TX_NO_EVENTS=7), zero post/clear
+failures and zero error callbacks. HAL's multiple-transfer ISR reports SIZE
+if frame complete precedes final RX/TX DMA count zero; its error treatment
+defers notification to an async DMA abort callback. This retained state
+supports an RX completion/abort race that strands upper-layer notification.
+It does not prove what caused the initial size mismatch. The first fatal
+event was outside the 240-second UART capture, and preceding GDB attachment
+may have affected timing. Do not attribute this to MAP ON/Cloud or promote
+DMA-priority contention to a confirmed ToF root cause. tof_fatal() then
+permanently sleeps/logs instead of acquiring new frames, explaining no map.
+No ToF recovery or HAL mutation was performed. Cloud sentinel scan observed
+4688 untouched / 3504 used bytes of its fixed 8192-byte stack after pairing/
+HTTP/CLI; no stack contents or auth fields were saved. ToF-send peak remains
+unmeasured. Follow-up USB PONG and advancing Cloud/Radio loops confirmed live
+transport after attachment. UART capture closed; no reset/disconnect performed.
+
+This comparison supports insufficient RX DMA arbitration priority as a cause
+of the reproduced overrun; the exact competing bus transfer is not identified.
+ST AN5593 describes GPDMA arbitration and SPI FIFO service requirements. The
+earlier Radio-pool starvation and ToF fatal findings are not closed by this
+offline baseline. M3/M4/M5.3/M5.4 acceptance and M5.5+ remain open.
+Generate Code is REQUIRED/PENDING per AGENTS section 3; source candidate is
+built/RAM-testable, but regenerated output and boot endurance remain unverified.
+Evidence: Tools/.n6-debug/architecture-m5/20261006_power_cycle/ (initial,
+baseline-overrun.log, rx-high, rx-high2, source-build, post-tof-fault). The latter
+contains inspect_i3c2.log, inspect_routes.log, inspect_stack.log and USB/UART
+snapshots. Two exploratory GDB scripts ended on unavailable pointer/Python
+operations; subsequent successful detach and USB liveness checks retained the
+fault without reset. Prior Stage 11 report
+was copied before overwrite; new report/log copied into source-build. No
+Flash programming, firmware-version change, signing, commit or push.
+```
+
 # Final result record
 
-- Final status: `IN_PROGRESS` — M5.3 SPI startup/baseline blocker; M5.4 network HIL pending; overall acceptance open
+- Final status: `IN_PROGRESS` — M5.3 IOC generation/boot endurance and ToF fault characterization; M5.4 frame/lease HIL pending; overall acceptance open
 - Final revision: pending
 - Secure build: pending
 - NonSecure build: pending

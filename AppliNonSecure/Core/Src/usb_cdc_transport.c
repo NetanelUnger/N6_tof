@@ -690,6 +690,20 @@ UINT USB_CDC_Transport_Receive(void *buffer, ULONG requested_length,
   return TX_SUCCESS;
 }
 
+UINT USB_CDC_Transport_AreMapBuffersIdle(void)
+{
+  UINT idle = 1U;
+  TX_INTERRUPT_SAVE_AREA
+  TX_DISABLE
+  for (UINT i = 0U; i < USB_CDC_TX_QUEUE_DEPTH; ++i)
+  {
+    if ((usb_cdc_tx_slots[i].kind == USB_CDC_TX_MAP) &&
+        (usb_cdc_tx_slots[i].state != USB_CDC_SLOT_FREE)) idle = 0U;
+  }
+  TX_RESTORE
+  return idle;
+}
+
 void USB_CDC_Transport_GetStatus(USB_CDC_TransportStatus_t *status)
 {
   CHAR *name;

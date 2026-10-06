@@ -88,6 +88,7 @@ UINT USB_CDC_Transport_Receive(void *buffer, ULONG requested_length,
                                ULONG *actual_length, ULONG wait_option);
 
 void USB_CDC_Transport_GetStatus(USB_CDC_TransportStatus_t *status);
+UINT USB_CDC_Transport_AreMapBuffersIdle(void);
 
 /* Atomically return and clear rare-event flags. Counters in GetStatus retain
  * the full history; flags merely wake concise, thread-context diagnostics. */
