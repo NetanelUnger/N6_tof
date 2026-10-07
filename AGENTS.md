@@ -327,7 +327,7 @@ These require explicit review after every Generate Code:
 | AppliSecure/Core/Inc/partition_stm32n657xx.h | SAU region 1 extends through `0x243FFFFF` so Non-Secure can access SRAM2, NPU SRAM3-6, and CACHEAXI RAM |
 | ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c | The high-priority SPI worker sleeps one tick after each eight-packet continuous burst so a stuck-high SPI_RDY cannot starve ThreadX; re-importing X-CUBE can overwrite it |
 | Drivers/STM32N6xx_HAL_Driver/Inc/stm32n6xx_hal_i3c.h and Src/stm32n6xx_hal_i3c.c | Per-handle frame-complete marker; multiple DMA completion waits for every channel, and TC/abort races finish once. Header layout affects both S/NS builds; preserve on HAL refresh |
-| ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_ble.c, w61_at_common.c, w61_at_api.h, modem_cmd_handler.c/.h | Notification waits for prompt before payload and terminal response afterward; short command writes and unfinished raw transactions fence further AT text until module restart. Preserve on SDK refresh |
+| ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_ble.c, w61_at_common.c/.h, w61_at_api.h, modem_cmd_handler.c/.h | Notification waits for prompt before payload and terminal response afterward; immediate AT-lock admission returns BUSY before announcing raw data, preserving the admitted execution budget. Short command writes and unfinished raw transactions fence further AT text until module restart. Preserve on SDK refresh |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_pcd.c | Temporary Non-Secure-only USB initialization stage logs |
 | Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_ll_usb.c | Temporary Non-Secure-only core-reset register and timeout logs |
 
@@ -792,8 +792,9 @@ stack-local version or split the address phase back into a blocking transfer.
   use a four-entry fixed by-value control queue and return admission status;
   socket close and pairing filesystem operations belong to the worker.
   Cloud status getters return an atomic cached snapshot without waiting.
-  This handoff builds, but startup, stack high-water, BLE-under-Cloud latency
-  and shared-frame concurrency have not yet passed RAM HIL.
+  RAM startup and connected Cloud browser images/exclusive BLE/USB handovers
+  passed on 2026-10-06. Full network stack high-water, BLE-under-Cloud failure
+  latency and endurance gates remain open; do not accept Milestone 5 globally.
 - User-authorized 2026-10-06 contract: exactly one remote image destination,
   last request wins (USB, BLE or Cloud). The processing task advances the
   active route only after all USB MAP slots and the wireless snapshot idle.
@@ -803,6 +804,10 @@ stack-local version or split the address phase back into a blocking transfer.
   CLI sessions and the local display remain independent. Do not restore
   simultaneous BLE+Cloud fanout or add another image buffer for switching.
 - BLE notification protocol is prompt -> payload -> terminal OK/ERROR.
+  Notification AT admission must be nonblocking: return BUSY before any raw
+  announcement when the mutex is held. The existing pump retains its pending
+  fragment and retries; do not consume the execution deadline waiting for a
+  Cloud/Wi-Fi AT owner or increase buffers to hide contention.
   Do not wait for an initial OK. Do not release protocol ownership on an
   incomplete raw transfer and then send another AT command: the modem can
   consume that command as binary payload. The bounded fail-closed fence must

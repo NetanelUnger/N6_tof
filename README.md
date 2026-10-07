@@ -25,26 +25,39 @@ counters. Before changing the active destination, the ToF producer stops new
 publications and waits for the old USB slots/wireless snapshot to be released.
 CLI traffic remains available on all transports; the local SPI display is
 independent. Turning the current destination off does not resume an older one.
-RAM HIL received ten complete CRC-valid BLE frames across BLE→USB→BLE, twenty
-CRC-valid USB records, and no BLE images during USB ownership. A further USB
-capture passed 100 distinct raw/model CRC-valid frames. At 630886 ms, ToF was
-ready with 6255 acquisitions and zero command/I3C failures, beyond the prior
-5103-frame failure. Cloud image delivery and long-run acceptance remain open:
-the current RAM image is disconnected from Wi-Fi and unpaired.
+Connected RAM HIL passed Cloud→BLE→USB→BLE→Cloud: twenty complete CRC-valid
+BLE frames, twenty-five USB records with header/raw/model CRCs, no BLE images
+during USB ownership, and no additional accepted Cloud images while BLE/USB
+owned the route. The actual Cloud page rendered advancing 54×42 images before
+and after the handovers. The first connected gate failed after AT-lock waiting
+consumed the BLE notification deadline; notification admission now returns
+BUSY immediately when another AT owner is active, retaining the fragment for
+retry without announcing raw data. An admitted transfer keeps its execution
+budget. The raw-transaction fence remains enforced. No buffer/stack/pool grew.
+Build passed: NS binary 456632 bytes, C heap 415864 bytes (minimum 368640).
+A prior offline USB capture passed 100 distinct raw/model CRC-valid records
+and reached 6255 acquisitions with zero command/I3C failures. Network soak,
+failure-latency/stack gates and CubeMX generation remain open. The tested
+candidate is running in RAM with Wi-Fi and Cloud connected; Flash is unchanged.
 
-Cloud pairing and CLI traffic were independently captured on 2026-10-06:
-paired HTTP polling, two received/acked commands, eight output sends and no
-request errors. End-to-end ToF image acceptance is still open: the sensor
-had already stopped before pairing in that run, and no frame was submitted.
+Release-preflight update: the user requested version 8 in Flash. Its package
+build/sign passed, but Stage 11 stopped at Wi-Fi-scan preflight (timeout then
+error even after disabling Cloud); other AT queries failed while sensor/USB
+remained live. This is an additional open radio fault, not a completed release.
+Cloud is currently disabled. Fresh RAM startup and matching HIL are pending
+physical BOOT selection; no v8 bytes have been installed in Flash.
+
+Cloud pairing, CLI commands and actual ToF browser rendering were captured on
+2026-10-06; see the connected image-route checkpoint above. An earlier paired
+capture had no images because the sensor had already stopped before pairing.
 The earlier HTTPS/T01 path failed at
 `CIPSTART`; the Azure endpoint sent a 6603-byte TLS record, larger than ST's
 documented 6144-byte T01 fragment limit. That is a strong compatibility
 candidate, not a confirmed NCP error code. The current demonstration RAM build
 instead uses **plaintext HTTP on port 80** to the same Azure host, without TLS
 or the TLS-only SNTP prerequisite. It booted from RAM and displayed the HTTP
-endpoint; the user subsequently reported successful pairing, but a captured
-post-pair status, Cloud CLI/ToF end-to-end HIL, and security validation remain
-open. See the execution history in
+endpoint; subsequent connected RAM HIL verified pairing, Cloud CLI and ToF
+images. Security validation remains open. See the execution history in
 [docs/async-architecture-recovery-plan.md](docs/async-architecture-recovery-plan.md).
 A [draft ST FAE requirement](docs/st67-t01-tls-interoperability-fae.md) records
 the requested T01 TLS interoperability change and acceptance tests. It has not
@@ -129,7 +142,7 @@ Current status:
 | USB CDC XMODEM firmware update | Working for a signed physical CN8 transfer and confirmed trial boot; interruption and deliberate rollback fault-injection tests remain pending |
 | GC9A01 round display | Working from SRAM: the DMA-backed task renders the numbered ToF map and its frame-matched NPU summary; 38/38 submitted frames rendered with zero errors in the latest non-visual HIL check |
 | Rock/paper/scissors Neural-ART | Working on hardware; Stage 11 validates frame-exact results, bit-exact preprocessing, bounded raw-score error, and tolerance-aware decision consistency |
-| ST67 Wi-Fi/BLE/Cloud | SPI/AT identity, BLE maintenance GATT and Wi-Fi station are enabled. The current Cloud Relay demonstration uses plaintext HTTP; the user reports pairing success, while captured end-to-end Cloud/ToF validation remains open. USB, BLE and Cloud share the CLI command table; Wi-Fi connect returns DHCP IPv4 and ToF uses an independent media channel |
+| ST67 Wi-Fi/BLE/Cloud | Connected RAM HIL verified Cloud browser images and exclusive BLE/USB handovers. The demonstration relay uses plaintext HTTP. USB, BLE and Cloud share the CLI command table; Wi-Fi connect returns DHCP IPv4 and ToF uses an independent media channel. Endurance/failure-latency gates remain open |
 | BLE XMODEM firmware update | Implemented over the CLI RX/TX characteristics and reuses the authenticated Secure A/B installer; physical CLI/GATT/ToF transport and repeated reconnect HIL pass, while a complete physical BLE firmware transfer is still pending |
 
 ### 1.1 Latest hardware validation

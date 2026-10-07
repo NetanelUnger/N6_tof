@@ -583,14 +583,15 @@ W61_Status_t W61_AT_Common_Query_Parse(W61_Object_t *Obj, char *p_cmd, char *p_r
   return ret;
 }
 
-W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, uint8_t *pdata, uint32_t len,
-                                           uint32_t timeout_ms, bool check_resp)
+static W61_Status_t request_send_data(W61_Object_t *Obj, uint8_t *p_cmd, uint8_t *pdata, uint32_t len,
+                                      uint32_t timeout_ms, bool check_resp, bool try_lock)
 {
   struct modem *mdm = (struct modem *) &Obj->Modem;
   int32_t ret;
   int32_t bytes_consumed_by_the_bus = 0;
   int32_t bytes_to_send;
   bool raw_announced = false;
+  uint32_t raw_phase = 0U;
   TickType_t lock_budget = pdMS_TO_TICKS(timeout_ms);
   TickType_t started_at = xTaskGetTickCount();
   TickType_t elapsed;
@@ -602,9 +603,9 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
     MODEM_CMD("Recv ", on_cmd_recv, 1U, " "),
   };
 
-  if (xSemaphoreTake(mdm->handler_data.sem_tx_lock, lock_budget) != pdPASS)
+  if (xSemaphoreTake(mdm->handler_data.sem_tx_lock, try_lock ? 0U : lock_budget) != pdPASS)
   {
-    return W61_STATUS_TIMEOUT;
+    return try_lock ? W61_STATUS_BUSY : W61_STATUS_TIMEOUT;
   }
   elapsed = xTaskGetTickCount() - started_at;
   if (elapsed >= lock_budget)
@@ -624,6 +625,7 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
   mdm->raw_tx_terminal_only = !check_resp;
   mdm->raw_tx_response_received = false;
   raw_announced = true;
+  raw_phase = 1U; /* Command */
 
   ret = modem_cmd_send_ext(&mdm->iface, &mdm->handler,
                            cmds, ARRAY_SIZE(cmds), p_cmd, mdm->sem_response,
@@ -644,6 +646,7 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
   mdm->rx_data_len = len;
 
   /* Wait for '>' */
+  raw_phase = 2U; /* Prompt */
   elapsed = xTaskGetTickCount() - started_at;
   if (elapsed >= lock_budget)
   {
@@ -664,6 +667,7 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
 
   while (bytes_consumed_by_the_bus < len)
   {
+    raw_phase = 3U; /* Payload */
     int32_t bytes_written;
 
     if ((xTaskGetTickCount() - started_at) >= lock_budget)
@@ -689,6 +693,7 @@ W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, ui
   }
 
   /* Wait for "Recv " */
+  raw_phase = 4U; /* Response */
   elapsed = xTaskGetTickCount() - started_at;
   if (elapsed >= lock_budget)
   {
@@ -716,7 +721,9 @@ out:
       !mdm->handler_data.tx_desynchronized)
   {
     mdm->handler_data.tx_desynchronized = true;
-    Debug_UART_Log("ST67", "raw TX response missing; AT traffic fenced until module restart");
+    Debug_UART_Log("ST67", "raw TX response missing; AT traffic fenced until module restart (phase=%lu bytes=%ld/%lu ticks=%lu)",
+                   (unsigned long)raw_phase, (long)bytes_consumed_by_the_bus,
+                   (unsigned long)len, (unsigned long)(xTaskGetTickCount() - started_at));
   }
   mdm->raw_tx_terminal_only = false;
   (void)modem_cmd_handler_update_cmds(&mdm->handler_data,
@@ -724,6 +731,18 @@ out:
   (void)xSemaphoreGive(mdm->handler_data.sem_tx_lock);
 
   return W61_Status(ret);
+}
+
+W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, uint8_t *pdata, uint32_t len,
+                                           uint32_t timeout_ms, bool check_resp)
+{
+  return request_send_data(Obj, p_cmd, pdata, len, timeout_ms, check_resp, false);
+}
+
+W61_Status_t W61_AT_Common_TrySendData(W61_Object_t *Obj, uint8_t *p_cmd, uint8_t *pdata, uint32_t len,
+                                     uint32_t timeout_ms, bool check_resp)
+{
+  return request_send_data(Obj, p_cmd, pdata, len, timeout_ms, check_resp, true);
 }
 
 void W61_AT_RemoveStrQuotes(char *inbuf)

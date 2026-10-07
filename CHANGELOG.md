@@ -6,6 +6,31 @@ explicitly requires historical context.
 
 ### 2026-10-06
 
+- The user requested persistent installation of the latest tested candidate.
+  Selected release version 8, exactly one above installed/source version 7.
+  Incremental build/sign/package PASS: 457920-byte v8 .n6fw; PackageOnly kept
+  source version 7 and did not write the board. FSBL/Secure installed hashes
+  match local builds. New Stage 11 preflight failed Wi-Fi scan (timeout 3
+  under Cloud load, then error 2 with Cloud disabled); no frame/NPU comparison
+  ran. Other AT queries also failed while ToF/USB continued. Preserve both
+  failures; fresh RAM startup/HIL and physical BOOT selection are pending.
+  XMODEM installation/boot verification have not started. Earlier architecture
+  endurance/failure-latency and CubeMX-generation gates remain open.
+
+- Connected RAM follow-up verified actual advancing Cloud browser images and
+  Cloud→BLE→USB→BLE→Cloud ownership. The first connected gate exposed BLE
+  notification deadlines consumed by waiting for the shared AT mutex; it is
+  retained as a failure. BLE now tries admission without waiting and retains
+  its fragment on BUSY, leaving the full execution budget once admitted.
+  Raw-response fencing remains enforced with phase/byte/tick diagnostics.
+  Build PASS: NS 456632 bytes, C heap 415864 bytes, unchanged fixed capacities.
+  Repeat connected gate PASS: 20 complete BLE images, 25 USB header/raw/model
+  CRC-valid records, no BLE traffic during USB ownership, Cloud image counter
+  fixed at 88 throughout BLE/USB. Cloud images resumed afterward; ToF command/
+  I3C counters and BLE image timeout/CRC/error counters stayed zero. No Flash,
+  signing, version change or commit. Network endurance, worst-case stack,
+  failure-latency and prior CubeMX-generation gates remain open.
+
 - Subsequent RAM repair adds last-request-wins exclusive USB/BLE/Cloud image
   routing with old-owner drain, retaining the existing fixed buffers/tasks.
   Deferred I3C multiple-DMA completion until frame and DMA completion, and

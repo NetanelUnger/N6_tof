@@ -191,6 +191,11 @@ W61_Status_t W61_AT_Common_Query_Parse(W61_Object_t *Obj, char *p_cmd, char *p_r
 W61_Status_t W61_AT_Common_RequestSendData(W61_Object_t *Obj, uint8_t *p_cmd, uint8_t *pdata, uint32_t len,
                                            uint32_t timeout_ms, bool check_resp);
 
+/* Notification admission: return BUSY without announcing raw data when the
+ * AT owner is occupied. Once admitted, keep the complete execution budget. */
+W61_Status_t W61_AT_Common_TrySendData(W61_Object_t *Obj, uint8_t *p_cmd, uint8_t *pdata, uint32_t len,
+                                     uint32_t timeout_ms, bool check_resp);
+
 /**
   * @brief Remove the double quotes at the beginning and the end of the string
   * @param inbuf: input string

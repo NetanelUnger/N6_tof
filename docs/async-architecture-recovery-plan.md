@@ -1,7 +1,8 @@
 # Asynchronous Control-Plane Recovery Plan
 
 Status: `IN_PROGRESS` — resumed 2026-10-03; M5.2 build/source verified,
-M5.3 RAM startup/offline stack verified; M5.4 network/contention HIL pending.
+M5.3 RAM startup and exclusive Cloud/BLE/USB image HIL verified; network
+stack high-water, failure latency, endurance and IOC generation remain pending.
 Earlier gates remain open.
 
 Repository: `C:\Users\netan\Dropbox\DevelopPersonal\N6\project`
@@ -1036,6 +1037,32 @@ CDC lifecycle counter is zero or accept the old Milestone 4 gate. The active
 RAM image is Wi-Fi disconnected and Cloud unpaired; the user was asked to
 connect/pair and confirm the actual browser image. No Cloud ToF frame was
 sent in this offline run. No later milestone was accepted.
+
+Connected follow-up (2026-10-06, same authorized substep): actual Cloud UI
+rendered advancing 54×42 frames after Wi-Fi association and pairing. The first
+Cloud→BLE→USB→BLE gate failed in the last BLE phase after notification timeouts
+and a raw-response fence; healthy ToF/USB continued. Source inspection found
+the 100 ms notification deadline included waiting behind a Cloud AT owner.
+Notification admission now uses an immediate mutex attempt and returns BUSY
+before announcing raw data; the existing pump retains its fragment for retry.
+Once admitted, it has the execution budget. The fail-closed raw-response fence
+is retained and logs only phase/byte/tick metadata. No capacity was increased.
+
+Incremental NS build and normal RAM load PASS: 456632-byte binary, 415864-byte
+C heap (minimum 368640). Connected --cloud gate PASS: 10+10 complete BLE
+images, 25 USB header/raw/model CRC-valid records, no BLE image traffic during
+USB ownership, Cloud accepted-image counter unchanged at 88 during BLE/USB.
+Cloud MAP ON afterward resumed browser images (frame 4039, CRC 3A6EA5E7 in
+saved viewport proof). Postflight: ToF READY, zero command/I3C failures,
+Radio/BLE max gaps 50/43 ms, BLE image timeouts/errors 0; BUSY admissions 117
+are deferred work, not lost fragments. Two aborted images/one interrupted
+host frame remain recorded during handover, not claimed as zero cancellation.
+Evidence: Tools/.n6-debug/architecture-m5/20261006_cloud_verify/ (first failure)
+and 20261006_cloud_repair/ (load, UART, gate, postflight, cloud-final-image.jpg).
+Pairing was re-established after RAM reload; automatic post-reset restoration
+was not demonstrated. Network endurance, failure-latency, worst-case stack,
+IOC Generate Code and previous milestone gates remain open. RAM only, no
+version change/signing/Flash/commit/push. M5.3 stays IN_PROGRESS.
 
 - Files:
   - `AppliNonSecure/Core/Src/app_threadx.c`
@@ -2232,7 +2259,46 @@ was copied before overwrite; new report/log copied into source-build. No
 Flash programming, firmware-version change, signing, commit or push.
 ```
 
+```text
+2026-10-06  CONNECTED IMAGE-ROUTE REPAIR — RAM PASS, GLOBAL GATES OPEN
+User authorized direct Wi-Fi association and site pairing/testing. Actual
+browser Cloud images rendered before and after Cloud→BLE→USB→BLE handovers.
+First connected run failed after raw-response fencing; retained in
+Tools/.n6-debug/architecture-m5/20261006_cloud_verify/. BLE AT-lock admission
+now returns BUSY immediately before raw announcement; the existing pump keeps
+its fragment and retries. Full execution budget is retained upon admission,
+with fail-closed raw-response fencing and safe phase/byte/tick diagnostics.
+NS incremental build and ordinary RAM load PASS: 456632 bytes, heap 415864
+bytes; unchanged capacities/version. --cloud HIL PASS: 20 BLE complete images,
+25 USB records, all CRCs valid, no BLE image fragments while USB owns route,
+Cloud accepted images fixed at 88 during BLE/USB. One interrupted BLE frame
+and two cancelled images remain recorded at handover. Browser MAP ON resumed
+Cloud; saved viewport proof frame 4039/CRC 3A6EA5E7. Final USB snapshot at
+527516 ms: ToF READY/acquired 5218, zero command/I3C failures, Cloud accepted
+468/dropped 0/request errors 0, Radio/BLE max gaps 50/43 ms, BLE disconnected
+and advertising. HIL utility self-test, compileall/help and diff check PASS.
+Evidence: Tools/.n6-debug/architecture-m5/20261006_cloud_repair/.
+Pairing was re-established after RAM reload; persistent restore unverified.
+No Flash/signing/version change/commit/push. IOC generation, network soak,
+worst-case stack/failure latency and earlier gates remain OPEN; M5.3 remains
+the sole IN_PROGRESS substep. Cloud browser tab retained as the live result.
+```
+
 # Final result record
+
+Release request checkpoint (2026-10-06): user authorized persistent version 8.
+Installed FSBL/Secure hash guard passed. Recorded the successful direct RAM
+loader in Stage 10 with the current fingerprint and image hash; prior Stage
+10 record was backed up. Stage 11 failed Wi-Fi scan preflight with timeout 3
+under connected Cloud load, and error 2 after Cloud disable. No current-run
+frame/NPU comparison took place. Retained failures and UART evidence in
+Tools/.n6-debug/architecture-m5/20261006_flash_v8/. Sensor/USB remain live,
+but other AT queries fail; exact cause is uncharacterized. PackageOnly v8
+build/sign PASS (457920 bytes; SHA256 in package-summary.json), source header
+restored to 7, no Flash writes. Requested BOOT0=1-2/BOOT1=2-3 without manual
+RESET for a fresh RAM load and HIL. This supersedes the initial request to
+switch BOOT1 to 1-2. Fresh HIL, subsequent BOOT1=1-2 transfer and confirmed
+Flash boot remain outstanding. M5.3 and prior gates stay open.
 
 - Final status: `IN_PROGRESS` — M5.3 IOC generation/boot endurance and ToF fault characterization; M5.4 frame/lease HIL pending; overall acceptance open
 - Final revision: pending

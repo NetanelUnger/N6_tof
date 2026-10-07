@@ -1,13 +1,15 @@
 """Physical CRC/ownership gate: BLE -> USB dataset -> BLE, without reset/Flash.
 
-Requires an otherwise free BLE link and CN8 port. Cloud is tested separately
-with a paired workspace; this gate makes no Cloud acceptance claim.
+Requires an otherwise free BLE link and CN8 port. With --cloud, an already
+paired Cloud image stream must be running; its accepted-frame counter must
+stop while BLE/USB own the destination. Browser rendering is checked separately.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -48,8 +50,19 @@ async def run(args: argparse.Namespace) -> dict:
                 raise TimeoutError("BLE did not deliver enough complete CRC-valid frames")
             await asyncio.sleep(0.05)
 
+    async def cloud_count(label):
+        reply = await asyncio.to_thread(usb.command, "cloud status")
+        result[label] = reply
+        match = re.search(r"ToF: sent (\d+)", reply)
+        assert match and ", paired," in reply, "Cloud must remain paired"
+        return int(match.group(1))
+
     try:
         usb = await asyncio.to_thread(UsbCli, find_cn8(args.port))
+        if args.cloud:
+            assert await cloud_count("cloud_initial") > 0, "No accepted Cloud image yet"
+            route = await asyncio.to_thread(usb.command, "tof status")
+            assert "requested CLOUD, active CLOUD" in route, route
         await inspector.scan(6)
         await inspector.connect(args.device)
         client = inspector.require_connection()
@@ -60,6 +73,8 @@ async def run(args: argparse.Namespace) -> dict:
         await wait_frames(args.ble_frames)
         result["before"] = await asyncio.to_thread(usb.command, "tof status")
         assert "requested BLE, active BLE" in result["before"], result["before"]
+        if args.cloud:
+            cloud_stopped = await cloud_count("cloud_during_ble")
         print("BLE frames and CRC: PASS", flush=True)
 
         usb.serial.write(b"dataset stream on\r")
@@ -85,6 +100,8 @@ async def run(args: argparse.Namespace) -> dict:
         await asyncio.sleep(0.5)
         usb.serial.reset_input_buffer()
         result["middle"] = await asyncio.to_thread(usb.command, "tof status")
+        if args.cloud:
+            assert await cloud_count("cloud_after_usb") == cloud_stopped, "Cloud images continued during BLE/USB ownership"
         await client.write_gatt_char(N6_STREAM_UUIDS["cli"]["rx"], b"map on\r", response=True)
         await wait_frames(args.ble_frames)
         result["after"] = await asyncio.to_thread(usb.command, "tof status")
@@ -92,6 +109,10 @@ async def run(args: argparse.Namespace) -> dict:
         assert "ToF state: ready" in result["after"], result["after"]
         assert assembler.crc_errors == 0, "BLE frame CRC failure"
         assert invalid_headers == 0, "Non-image bytes appeared on the ToF characteristic"
+        if args.cloud:
+            assert await cloud_count("cloud_after_ble") == cloud_stopped, "Cloud images continued during BLE ownership"
+            result["cloud_tested"] = True
+            print("Cloud accepted-image counter stopped during BLE/USB ownership: PASS", flush=True)
         result["passed"] = True
         print("PASS: BLE -> USB -> BLE; complete frames, exclusive image destination", flush=True)
     except Exception as exc:
@@ -128,6 +149,8 @@ async def run(args: argparse.Namespace) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port")
+    parser.add_argument("--cloud", action="store_true",
+                        help="Require a live paired Cloud image stream and verify it stops during BLE/USB ownership")
     parser.add_argument("--device", default="n6")
     parser.add_argument("--ble-frames", type=int, default=10)
     parser.add_argument("--usb-frames", type=int, default=25)

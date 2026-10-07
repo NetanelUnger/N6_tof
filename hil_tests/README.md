@@ -144,8 +144,13 @@ requires BLE image fragments to stop during USB ownership. A BLE `MAP ON`
 then reclaims the image destination and must deliver CRC-valid frames again.
 It records route/status evidence and failures in `results/image-route-gate.json`,
 stops subscriptions/dataset streaming, and disconnects BLE afterward. It never
-loads RAM or writes Flash. Cloud needs a separate paired-workspace test; this
-gate does not claim Cloud delivery, long-run stability or fault-injection proof.
+loads RAM or writes Flash. Add `--cloud` with an already paired, actively
+sending Cloud image stream to assert that its accepted-image counter stops
+through both BLE phases and the USB phase. Verify actual browser rendering
+and resumption with a Cloud `MAP ON` separately. On 2026-10-06 this connected
+gate passed 10+10 BLE images and 25 USB records; the live Cloud page rendered
+advancing images before and afterward. This is not long-run stability or
+fault-injection proof.
 
 ## Automated Milestone 3/4 repeated-boot gate
 
