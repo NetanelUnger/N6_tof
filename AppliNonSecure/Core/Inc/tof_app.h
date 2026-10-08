@@ -21,7 +21,8 @@ typedef enum
     TOF_APP_STATE_STARTING = 0,
     TOF_APP_STATE_READY,
     TOF_APP_STATE_PAUSED,
-    TOF_APP_STATE_ERROR
+    TOF_APP_STATE_ERROR,
+    TOF_APP_STATE_RECOVERING
 } TOF_App_State_t;
 
 typedef enum
@@ -86,6 +87,15 @@ typedef struct
     uint32_t command_tx_wait_failures;
     uint32_t command_status_read_failures;
     uint32_t command_status_timeouts;
+    uint32_t desired_revision;
+    uint32_t recovery_attempts;
+    uint32_t recovery_successes;
+    uint32_t recovery_failures;
+    uint32_t recovery_consecutive_attempts;
+    uint32_t recovery_generation;
+    uint32_t recovery_last_tick;
+    const char *recovery_stage;
+    int recovery_error;
     uint32_t minimum_mm;
     uint32_t maximum_mm;
     uint32_t dataset_frames_submitted;

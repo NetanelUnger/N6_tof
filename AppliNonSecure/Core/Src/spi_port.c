@@ -13,12 +13,7 @@
 
 #define SYSTICK_LOAD   (*(volatile uint32_t *)0xE000E014UL)
 #define SYSTICK_VALUE  (*(volatile uint32_t *)0xE000E018UL)
-#define MICROSECOND_TO_TICK(us) ((us) * (SystemCoreClock >> 20U))
-#define WAIT_FROM(start, count) do {                    \
-  int32_t end = (start) - (int32_t)(count);             \
-  if (end < 0) { end += (int32_t)SYSTICK_LOAD; }        \
-  while ((int32_t)SYSTICK_VALUE > end) { }              \
-} while (0)
+#define MICROSECOND_TO_TICK(us) ((us) * ((SystemCoreClock + 999999U) / 1000000U))
 
 static spi_transaction_complete_t transaction_complete_callback;
 static volatile int32_t transaction_failed;
@@ -26,6 +21,26 @@ static uint32_t dma_reinitializations;
 static uint32_t dma_reinitialization_failures;
 static uint32_t spi_reinitializations;
 static uint32_t spi_reinitialization_failures;
+static uint32_t cs_hold_timer_fallbacks;
+
+static void spi_port_wait_cs_hold(uint32_t start, uint32_t count)
+{
+  uint32_t period = SYSTICK_LOAD + 1U;
+  /* Compare elapsed down-counter ticks, including reload. The old absolute
+   * endpoint comparison could require sampling VAL == 0 and spin for seconds
+   * when the endpoint was zero. Missing zero must never prolong the hold. */
+  for (uint32_t remaining = count + 64U; remaining != 0U; --remaining)
+  {
+    uint32_t current = SYSTICK_VALUE;
+    uint32_t elapsed = (start >= current) ?
+        start - current : start + period - current;
+    if (elapsed >= count) return;
+  }
+  /* A stopped/reconfigured SysTick cannot strand the SPI owner. At least one
+   * volatile read per core-cycle budget supplies a conservative software
+   * minimum hold even when the timer is unavailable; no IRQ masking needed. */
+  cs_hold_timer_fallbacks++;
+}
 
 void *spi_port_memcpy(void *dest, const void *src, unsigned int len)
 {
@@ -212,16 +227,16 @@ int32_t spi_port_is_ready(void)
 
 int32_t spi_port_set_cs(int32_t state)
 {
-  static int32_t last_falling_tick;
+  static uint32_t last_falling_tick;
   if (state == 1)
   {
-    WAIT_FROM(last_falling_tick, MICROSECOND_TO_TICK(2U));
+    spi_port_wait_cs_hold(last_falling_tick, MICROSECOND_TO_TICK(2U));
     HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_SET);
   }
   else
   {
     HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);
-    last_falling_tick = (int32_t)SYSTICK_VALUE;
+    last_falling_tick = SYSTICK_VALUE;
   }
   return 0;
 }

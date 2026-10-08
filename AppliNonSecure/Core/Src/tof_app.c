@@ -37,30 +37,48 @@
 #include "tx_api.h"
 #include "ux_device_cdc_acm.h"
 
-static volatile TOF_StreamDestination_t tof_stream_requested;
+/* Commands describe intent. Sensor/DMA recovery must never overwrite this
+ * snapshot: a command received during recovery supersedes the older request. */
+typedef struct
+{
+    uint32_t map_enabled;
+    uint32_t map_channel_mask;
+    uint32_t dataset_stream_enabled;
+    uint32_t paused;
+    TOF_StreamDestination_t destination;
+    TOF_ImageProcessingConfig_t processing_config;
+    uint32_t revision;
+} TOF_DesiredState_t;
+static volatile TOF_DesiredState_t tof_desired;
+static volatile uint32_t tof_publication_blocked;
 static volatile TOF_StreamDestination_t tof_stream_active;
 static volatile uint32_t tof_stream_switches;
 static volatile uint32_t tof_stream_drain_frames;
 
 void TOF_App_RequestStream(TOF_StreamDestination_t destination)
 {
-    if (destination > TOF_STREAM_CLOUD) return;
+    if ((destination < TOF_STREAM_NONE) || (destination > TOF_STREAM_CLOUD)) return;
     UINT posture = tx_interrupt_control(TX_INT_DISABLE);
-    tof_stream_requested = destination;
+    tof_desired.destination = destination;
+    ++tof_desired.revision;
     (void)tx_interrupt_control(posture);
 }
 
 void TOF_App_ReleaseStream(TOF_StreamDestination_t destination)
 {
     UINT posture = tx_interrupt_control(TX_INT_DISABLE);
-    if (tof_stream_requested == destination) tof_stream_requested = TOF_STREAM_NONE;
+    if (tof_desired.destination == destination) {
+        tof_desired.destination = TOF_STREAM_NONE;
+        ++tof_desired.revision;
+    }
     (void)tx_interrupt_control(posture);
 }
 
 TOF_StreamDestination_t TOF_App_GetStreamDestination(void)
 {
     UINT posture = tx_interrupt_control(TX_INT_DISABLE);
-    TOF_StreamDestination_t destination = (tof_stream_requested == tof_stream_active) ?
+    TOF_StreamDestination_t destination = ((tof_publication_blocked == 0U) &&
+        (tof_desired.destination == tof_stream_active)) ?
         tof_stream_active : TOF_STREAM_NONE;
     (void)tx_interrupt_control(posture);
     return destination;
@@ -82,7 +100,7 @@ const char *TOF_App_StreamName(TOF_StreamDestination_t destination)
  * wireless snapshot remain owned until their existing consumers release. */
 static void tof_stream_route_step(void)
 {
-    if (tof_stream_requested == tof_stream_active) return;
+    if (tof_desired.destination == tof_stream_active) return;
     if (USB_CDC_Transport_AreMapBuffersIdle() == 0U)
     {
         ++tof_stream_drain_frames;
@@ -96,7 +114,7 @@ static void tof_stream_route_step(void)
     }
 #endif
     UINT posture = tx_interrupt_control(TX_INT_DISABLE);
-    tof_stream_active = tof_stream_requested;
+    tof_stream_active = tof_desired.destination;
     ++tof_stream_switches;
     (void)tx_interrupt_control(posture);
 }
@@ -120,6 +138,8 @@ static void tof_stream_route_step(void)
 #define TOF_TERMINAL_BUFFER_SIZE   (48U * 1024U)
 #define TOF_RAW_BUFFER_SIZE        (14842U)
 #define TOF_RAW_SLOT_COUNT         (3U)
+#define TOF_RECOVERY_MAX_ATTEMPTS  (3U)
+#define TOF_RECOVERY_HEALTHY_FRAMES (30U)
 #define TOF_DEPTH_WIDTH            (54U)
 #define TOF_DEPTH_HEIGHT           (42U)
 #define TOF_DEPTH_PIXEL_COUNT      (TOF_DEPTH_WIDTH * TOF_DEPTH_HEIGHT)
@@ -134,6 +154,7 @@ static void tof_stream_route_step(void)
 typedef struct
 {
     uint32_t id;
+    uint32_t generation;
     uint8_t data[TOF_RAW_BUFFER_SIZE] __attribute__((aligned(32)));
 } TOF_RawFrame_t;
 
@@ -182,16 +203,25 @@ typedef struct
         uint8_t depth_height;
         volatile uint32_t pipeline_initialized;
         volatile TOF_App_State_t state;
-        volatile uint32_t map_enabled;
-        volatile uint32_t map_channel_mask;
         volatile TOF_App_Channel_t map_active_channel;
         TOF_App_Channel_t map_next_channel;
-        volatile uint32_t dataset_stream_enabled;
-        volatile uint32_t paused;
         volatile uint32_t width;
         volatile uint32_t height;
-        TOF_ImageProcessingConfig_t processing_config;
     } state;
+    struct
+    {
+        volatile uint32_t requested;
+        volatile uint32_t awaiting_frame;
+        volatile uint32_t generation;
+        volatile uint32_t attempts;
+        volatile uint32_t successes;
+        volatile uint32_t failures;
+        volatile uint32_t consecutive_attempts;
+        uint32_t healthy_frames;
+        volatile uint32_t last_tick;
+        const char *volatile stage;
+        volatile int error;
+    } recovery;
     struct
     {
         volatile uint32_t frame_counter;
@@ -256,6 +286,9 @@ static const uint8_t depth_palette[] = {
 };
 
 static void tof_fatal(const char *stage, int error);
+static void tof_request_recovery(const char *stage, int error);
+static uint32_t tof_recover(vl53l9_device_t *sensor, TOF_RawFrame_t *held_frame);
+static void tof_note_complete_acquisition(void);
 static void tof_log(const char *format, ...);
 static int tof_configure_transform(transform_t *transform,
                                    const uint8_t *calibration,
@@ -299,6 +332,7 @@ static RPS_AI_ViewSelection_t tof_rps_view_selection(
     TOF_ImageFilter_t filter);
 static TOF_RawFrame_t *tof_acquire_raw_frame(void);
 static void tof_release_raw_frame(TOF_RawFrame_t *frame);
+static uint32_t tof_frame_is_current(const TOF_RawFrame_t *frame);
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
 static void tof_display_frame_release(void *context);
 #endif
@@ -322,11 +356,13 @@ UINT TOF_App_Init(void)
     }
 
     tof_context.buffers.workspace = &tof_workspace;
-    tof_context.state.map_channel_mask = 1UL;
+    tof_desired.map_channel_mask = 1UL;
     tof_context.state.map_active_channel = TOF_APP_CHANNEL_DEPTH;
     tof_context.state.map_next_channel = TOF_APP_CHANNEL_DEPTH;
 
-    TOF_ImageProcessing_InitConfig(&tof_context.state.processing_config);
+    TOF_ImageProcessingConfig_t processing;
+    TOF_ImageProcessing_InitConfig(&processing);
+    tof_desired.processing_config = processing;
 
     if (platform_event_init() != 0)
     {
@@ -368,6 +404,7 @@ void TOF_App_Acquire(void)
     int ret;
     TOF_RawFrame_t *raw_frame;
     uint32_t first_frame_diagnostic = 1U;
+    uint32_t ranging = 0U;
     vl53l9_device_t *sensor = &device[TOF_DEVICE_ID];
     vl53l9_profile_t profile = g_ranging_profiles[TOF_USECASE];
 
@@ -439,7 +476,8 @@ void TOF_App_Acquire(void)
     }
 
     (void)platform_acknowledge_event(PLATFORM_GPIO_IT_EVT);
-    ret = vl53l9_start(sensor);
+    ranging = (tof_desired.paused == 0U) ? 1U : 0U;
+    ret = (ranging != 0U) ? vl53l9_start(sensor) : 0;
     if (ret != 0)
     {
         tof_fatal("stream start", ret);
@@ -470,28 +508,56 @@ void TOF_App_Acquire(void)
 
     for (;;)
     {
+        raw_frame = NULL;
+        if (tof_context.state.state == TOF_APP_STATE_ERROR) {
+            tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND);
+            continue; /* Software/queue faults are not repaired by sensor reset. */
+        }
+        if (tof_context.recovery.requested != 0U) goto recover_frame;
         tof_context.acquisition_thread.cycles++;
         tof_context.acquisition_thread.last_tick = HAL_GetTick();
-        while (tof_context.state.paused != 0U)
+        if (tof_desired.paused != 0U)
         {
-            ret = vl53l9_stop(sensor);
-            if (ret != 0)
+            if (ranging != 0U)
             {
-                tof_fatal("stream pause", ret);
+                ret = vl53l9_stop(sensor);
+                if (ret != 0)
+                {
+                    tof_request_recovery("stream pause", ret);
+                    goto recover_frame;
+                }
+                ranging = 0U;
             }
             tof_context.state.state = TOF_APP_STATE_PAUSED;
-            while (tof_context.state.paused != 0U)
+            if (tof_context.recovery.awaiting_frame != 0U) {
+                tof_context.recovery.awaiting_frame = 0U;
+                ++tof_context.recovery.successes;
+                tof_publication_blocked = 0U;
+                Debug_UART_Log("TOF", "RECOVERY complete: newer desired PAUSED applied (revision=%lu)",
+                               (unsigned long)tof_desired.revision);
+            }
+            while ((tof_desired.paused != 0U) &&
+                   (tof_context.recovery.requested == 0U) &&
+                   (tof_context.state.state != TOF_APP_STATE_ERROR))
             {
                 tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 20U);
             }
+            if (tof_context.recovery.requested != 0U) goto recover_frame;
+            if (tof_context.state.state == TOF_APP_STATE_ERROR) continue;
+        }
+        if (ranging == 0U)
+        {
             (void)platform_acknowledge_event(PLATFORM_GPIO_IT_EVT);
             ret = vl53l9_start(sensor);
             if (ret != 0)
             {
-                tof_fatal("stream resume", ret);
+                tof_request_recovery("stream resume", ret);
+                goto recover_frame;
             }
+            ranging = 1U;
         }
-        tof_context.state.state = TOF_APP_STATE_READY;
+        if (tof_context.recovery.awaiting_frame == 0U)
+            tof_context.state.state = TOF_APP_STATE_READY;
 
         if (first_frame_diagnostic != 0U)
         {
@@ -503,7 +569,8 @@ void TOF_App_Acquire(void)
         if (ret != 0)
         {
             tof_log_platform_failure(PLATFORM_GPIO_IT_EVT, ret);
-            tof_fatal("sensor interrupt timeout", ret);
+            tof_request_recovery("sensor interrupt timeout", ret);
+            goto recover_frame;
         }
         (void)platform_acknowledge_event(PLATFORM_GPIO_IT_EVT);
 
@@ -536,14 +603,14 @@ void TOF_App_Acquire(void)
             sensor, raw_frame->data, tof_context.state.raw_buffer_size);
         if (ret != 0)
         {
-            tof_release_raw_frame(raw_frame);
-            tof_fatal("frame main DMA start", ret);
+            tof_request_recovery("frame main DMA start", ret);
+            goto recover_frame;
         }
         ret = tof_wait_i3c_event(PLATFORM_I3C_DMA_RX_EVT);
         if (ret != 0)
         {
-            tof_release_raw_frame(raw_frame);
-            tof_fatal("frame main DMA completion", ret);
+            tof_request_recovery("frame main DMA completion", ret);
+            goto recover_frame;
         }
 
         ret = tof_start_command_and_wait(sensor,
@@ -551,8 +618,8 @@ void TOF_App_Acquire(void)
                                          TOF_COMMAND_TIMEOUT_MS);
         if (ret != 0)
         {
-            tof_release_raw_frame(raw_frame);
-            tof_fatal("DSS map command", ret);
+            tof_request_recovery("DSS map command", ret);
+            goto recover_frame;
         }
 
         (void)platform_acknowledge_event(PLATFORM_I3C_DMA_RX_EVT);
@@ -561,14 +628,14 @@ void TOF_App_Acquire(void)
             sensor, raw_frame->data, tof_context.state.raw_buffer_size);
         if (ret != 0)
         {
-            tof_release_raw_frame(raw_frame);
-            tof_fatal("DSS DMA start", ret);
+            tof_request_recovery("DSS DMA start", ret);
+            goto recover_frame;
         }
         ret = tof_wait_i3c_event(PLATFORM_I3C_DMA_RX_EVT);
         if (ret != 0)
         {
-            tof_release_raw_frame(raw_frame);
-            tof_fatal("DSS DMA completion", ret);
+            tof_request_recovery("DSS DMA completion", ret);
+            goto recover_frame;
         }
 
         ret = tof_start_command_and_wait(sensor,
@@ -576,8 +643,8 @@ void TOF_App_Acquire(void)
                                          TOF_COMMAND_TIMEOUT_MS);
         if (ret != 0)
         {
-            tof_release_raw_frame(raw_frame);
-            tof_fatal("DSS unmap command", ret);
+            tof_request_recovery("DSS unmap command", ret);
+            goto recover_frame;
         }
 
         (void)platform_acknowledge_event(PLATFORM_I3C_DMA_RX_EVT);
@@ -586,14 +653,14 @@ void TOF_App_Acquire(void)
             sensor, raw_frame->data, tof_context.state.raw_buffer_size);
         if (ret != 0)
         {
-            tof_release_raw_frame(raw_frame);
-            tof_fatal("status DMA start", ret);
+            tof_request_recovery("status DMA start", ret);
+            goto recover_frame;
         }
         ret = tof_wait_i3c_event(PLATFORM_I3C_DMA_RX_EVT);
         if (ret != 0)
         {
-            tof_release_raw_frame(raw_frame);
-            tof_fatal("status DMA completion", ret);
+            tof_request_recovery("status DMA completion", ret);
+            goto recover_frame;
         }
 
         ret = tof_start_command_and_wait(sensor,
@@ -601,11 +668,14 @@ void TOF_App_Acquire(void)
                                          TOF_COMMAND_TIMEOUT_MS);
         if (ret != 0)
         {
-            tof_release_raw_frame(raw_frame);
-            tof_fatal("frame acknowledge command", ret);
+            tof_request_recovery("frame acknowledge command", ret);
+            goto recover_frame;
         }
 
+        raw_frame->generation = tof_context.recovery.generation;
+        if (tof_context.recovery.requested != 0U) goto recover_frame;
         ++tof_context.counters.acquired_frames;
+        tof_note_complete_acquisition();
         ULONG ready_message = (ULONG)raw_frame;
         UINT queue_status = tx_queue_send(&tof_context.buffers.ready_queue, &ready_message,
                                           TX_NO_WAIT);
@@ -622,6 +692,11 @@ void TOF_App_Acquire(void)
                            (unsigned long)raw_frame->id);
             first_frame_diagnostic = 0U;
         }
+        continue;
+
+recover_frame:
+        ranging = tof_recover(sensor, raw_frame);
+        first_frame_diagnostic = 1U;
     }
 }
 
@@ -669,13 +744,18 @@ void TOF_App_Process(void)
             tof_fatal("processing ready queue receive", (int)queue_status);
         }
         raw_frame = (TOF_RawFrame_t *)ready_message;
+        if (tof_frame_is_current(raw_frame) == 0U) {
+            ++tof_context.counters.dropped_frames;
+            tof_release_raw_frame(raw_frame);
+            continue;
+        }
         tof_stream_route_step();
         uint32_t ble_image_requested = 0U;
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
         ble_image_requested = WIFI_BLE_App_IsTofImageSubscribed();
 #endif
         TOF_App_Channel_t map_channel =
-            (((tof_context.state.map_enabled != 0U) &&
+            (((tof_desired.map_enabled != 0U) &&
               (TOF_App_GetStreamDestination() == TOF_STREAM_USB)) ||
              (ble_image_requested != 0U)) ?
             tof_select_next_map_channel() : TOF_APP_CHANNEL_NONE;
@@ -762,10 +842,19 @@ void TOF_App_Process(void)
                                        tof_context.state.raw_buffer_size, &frame);
         if (ret != 0)
         {
+            if (tof_frame_is_current(raw_frame) != 0U)
+                tof_request_recovery("frame parse", ret);
             tof_release_raw_frame(raw_frame);
-            tof_fatal("frame parse", ret);
+            continue;
         }
 
+        /* Recovery can begin while this complete old frame is being transformed.
+         * Calibration/transform are retained, but do not publish across epochs. */
+        if (tof_frame_is_current(raw_frame) == 0U) {
+            ++tof_context.counters.dropped_frames;
+            tof_release_raw_frame(raw_frame);
+            continue;
+        }
         uint32_t now = HAL_GetTick();
         uint32_t elapsed_ms = now - previous_tick;
         TOF_ImageProcessingConfig_t processing;
@@ -791,6 +880,11 @@ void TOF_App_Process(void)
                                  frame.p_metadata->frame_counter);
         RPS_AI_GetStatus(&rps_status);
         (void)RPS_AI_GetImageView(&processing_view);
+        if (tof_frame_is_current(raw_frame) == 0U) {
+            ++tof_context.counters.dropped_frames;
+            tof_release_raw_frame(raw_frame);
+            continue;
+        }
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
         /* Publish the exact transformed channel before the shared auxiliary
          * workspace can be reused by depth filtering.  The radio layer takes
@@ -806,7 +900,7 @@ void TOF_App_Process(void)
 #endif
         /* When an auxiliary map is selected, render it before this shared
          * workspace is reused for the SPI display's depth filter below. */
-        if ((tof_context.state.map_enabled != 0U) &&
+        if ((tof_desired.map_enabled != 0U) &&
             (map_channel == TOF_APP_CHANNEL_DEPTH) &&
             (processing.selected_filter != TOF_IMAGE_FILTER_NONE) &&
             (tof_filter_is_rps_view(processing.selected_filter) == 0U))
@@ -874,14 +968,17 @@ void TOF_App_Process(void)
 
 void TOF_App_SetMapEnabled(uint32_t enabled)
 {
-    tof_context.state.map_enabled = (enabled != 0U) ? 1U : 0U;
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    tof_desired.map_enabled = (enabled != 0U) ? 1U : 0U;
+    ++tof_desired.revision;
     if (enabled != 0U)
     {
-        tof_context.state.dataset_stream_enabled = 0U;
+        tof_desired.dataset_stream_enabled = 0U;
         TOF_App_RequestStream(TOF_STREAM_USB);
     }
-    else if (tof_context.state.dataset_stream_enabled == 0U)
+    else if (tof_desired.dataset_stream_enabled == 0U)
         TOF_App_ReleaseStream(TOF_STREAM_USB);
+    (void)tx_interrupt_control(posture);
 }
 
 uint32_t TOF_App_ToggleMapChannel(TOF_App_Channel_t channel)
@@ -892,19 +989,20 @@ uint32_t TOF_App_ToggleMapChannel(TOF_App_Channel_t channel)
     if ((channel < TOF_APP_CHANNEL_DEPTH) ||
         (channel > TOF_APP_CHANNEL_COUNT))
     {
-        return tof_context.state.map_channel_mask;
+        return tof_desired.map_channel_mask;
     }
 
     TX_DISABLE
-    tof_context.state.map_channel_mask ^= 1UL << ((uint32_t)channel - 1U);
-    mask = tof_context.state.map_channel_mask;
+    tof_desired.map_channel_mask ^= 1UL << ((uint32_t)channel - 1U);
+    ++tof_desired.revision;
+    mask = tof_desired.map_channel_mask;
     TX_RESTORE
     return mask;
 }
 
 uint32_t TOF_App_GetMapChannelMask(void)
 {
-    return tof_context.state.map_channel_mask;
+    return tof_desired.map_channel_mask;
 }
 
 const char *TOF_App_GetChannelName(TOF_App_Channel_t channel)
@@ -926,20 +1024,26 @@ const char *TOF_App_GetChannelDescription(TOF_App_Channel_t channel)
 
 void TOF_App_SetDatasetStreamEnabled(uint32_t enabled)
 {
-    tof_context.state.dataset_stream_enabled = (enabled != 0U) ? 1U : 0U;
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    tof_desired.dataset_stream_enabled = (enabled != 0U) ? 1U : 0U;
+    ++tof_desired.revision;
     if (enabled != 0U)
     {
         /* ANSI maps and binary records must never share the CDC byte stream. */
-        tof_context.state.map_enabled = 0U;
+        tof_desired.map_enabled = 0U;
         TOF_App_RequestStream(TOF_STREAM_USB);
     }
-    else if (tof_context.state.map_enabled == 0U)
+    else if (tof_desired.map_enabled == 0U)
         TOF_App_ReleaseStream(TOF_STREAM_USB);
+    (void)tx_interrupt_control(posture);
 }
 
 void TOF_App_SetPaused(uint32_t paused)
 {
-    tof_context.state.paused = (paused != 0U) ? 1U : 0U;
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    tof_desired.paused = (paused != 0U) ? 1U : 0U;
+    ++tof_desired.revision;
+    (void)tx_interrupt_control(posture);
 }
 
 void TOF_App_GetStatus(TOF_App_Status_t *status)
@@ -949,6 +1053,7 @@ void TOF_App_GetStatus(TOF_App_Status_t *status)
         return;
     }
 
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
     status->state = tof_context.state.state;
     status->acquisition_started = tof_context.acquisition_thread.started;
     status->acquisition_cycles = tof_context.acquisition_thread.cycles;
@@ -956,15 +1061,15 @@ void TOF_App_GetStatus(TOF_App_Status_t *status)
     status->processing_started = tof_context.processing_thread.started;
     status->processing_cycles = tof_context.processing_thread.cycles;
     status->processing_last_tick = tof_context.processing_thread.last_tick;
-    status->map_enabled = tof_context.state.map_enabled;
-    status->map_channel_mask = tof_context.state.map_channel_mask;
+    status->map_enabled = tof_desired.map_enabled;
+    status->map_channel_mask = tof_desired.map_channel_mask;
     status->map_active_channel = tof_context.state.map_active_channel;
-    status->dataset_stream_enabled = tof_context.state.dataset_stream_enabled;
-    status->stream_requested = tof_stream_requested;
+    status->dataset_stream_enabled = tof_desired.dataset_stream_enabled;
+    status->stream_requested = tof_desired.destination;
     status->stream_active = tof_stream_active;
     status->stream_switches = tof_stream_switches;
     status->stream_drain_frames = tof_stream_drain_frames;
-    status->paused = tof_context.state.paused;
+    status->paused = tof_desired.paused;
     status->width = tof_context.state.width;
     status->height = tof_context.state.height;
     status->frame_counter = tof_context.counters.frame_counter;
@@ -977,6 +1082,15 @@ void TOF_App_GetStatus(TOF_App_Status_t *status)
     status->command_tx_wait_failures = tof_context.counters.command_tx_wait_failures;
     status->command_status_read_failures = tof_context.counters.command_status_read_failures;
     status->command_status_timeouts = tof_context.counters.command_status_timeouts;
+    status->desired_revision = tof_desired.revision;
+    status->recovery_attempts = tof_context.recovery.attempts;
+    status->recovery_successes = tof_context.recovery.successes;
+    status->recovery_failures = tof_context.recovery.failures;
+    status->recovery_consecutive_attempts = tof_context.recovery.consecutive_attempts;
+    status->recovery_generation = tof_context.recovery.generation;
+    status->recovery_last_tick = tof_context.recovery.last_tick;
+    status->recovery_stage = tof_context.recovery.stage;
+    status->recovery_error = tof_context.recovery.error;
     status->minimum_mm = tof_context.counters.minimum_mm;
     status->maximum_mm = tof_context.counters.maximum_mm;
     status->dataset_frames_submitted = tof_context.counters.dataset_frames_submitted;
@@ -985,6 +1099,7 @@ void TOF_App_GetStatus(TOF_App_Status_t *status)
     status->dataset_last_crc32 = tof_context.counters.dataset_last_crc32;
     status->error_code = tof_context.counters.error_code;
     status->error_stage = tof_context.counters.error_stage;
+    (void)tx_interrupt_control(posture);
 }
 
 TOF_ImageProcessingStatus_t TOF_App_SelectMapFilter(
@@ -1002,7 +1117,8 @@ TOF_ImageProcessingStatus_t TOF_App_SelectMapFilter(
     }
 
     TX_DISABLE
-    tof_context.state.processing_config = updated;
+    tof_desired.processing_config = updated;
+    ++tof_desired.revision;
     TX_RESTORE
     return TOF_IMAGE_PROCESSING_OK;
 }
@@ -1023,7 +1139,8 @@ TOF_ImageProcessingStatus_t TOF_App_SetMapFilterParameter(
     }
 
     TX_DISABLE
-    tof_context.state.processing_config = updated;
+    tof_desired.processing_config = updated;
+    ++tof_desired.revision;
     TX_RESTORE
     return TOF_IMAGE_PROCESSING_OK;
 }
@@ -1038,7 +1155,7 @@ void TOF_App_GetMapProcessingConfig(TOF_ImageProcessingConfig_t *config)
     }
 
     TX_DISABLE
-    *config = tof_context.state.processing_config;
+    *config = tof_desired.processing_config;
     TX_RESTORE
 }
 
@@ -1052,6 +1169,16 @@ static TOF_RawFrame_t *tof_acquire_raw_frame(void)
         return (TOF_RawFrame_t *)frame_message;
     }
     return NULL;
+}
+
+static uint32_t tof_frame_is_current(const TOF_RawFrame_t *frame)
+{
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    uint32_t current = ((tof_context.state.state != TOF_APP_STATE_ERROR) &&
+                        (tof_publication_blocked == 0U) &&
+                        (frame->generation == tof_context.recovery.generation));
+    (void)tx_interrupt_control(posture);
+    return current;
 }
 
 static void tof_release_raw_frame(TOF_RawFrame_t *frame)
@@ -1320,7 +1447,7 @@ static const TOF_ChannelDescriptor_t *tof_get_channel_descriptor(
 
 static TOF_App_Channel_t tof_select_next_map_channel(void)
 {
-    uint32_t mask = tof_context.state.map_channel_mask;
+    uint32_t mask = tof_desired.map_channel_mask;
     TOF_App_Channel_t candidate = tof_context.state.map_next_channel;
 
     for (uint32_t attempt = 0U; attempt < TOF_APP_CHANNEL_COUNT; ++attempt)
@@ -1432,7 +1559,7 @@ tof_render_frame(const TOF_App_ChannelFrame_t *map_frame,
     tof_context.counters.minimum_mm = valid_min;
     tof_context.counters.maximum_mm = valid_max;
 
-    if ((tof_context.state.map_enabled == 0U) ||
+    if ((tof_desired.map_enabled == 0U) ||
         (TOF_App_GetStreamDestination() != TOF_STREAM_USB) ||
         (App_Console_IsReady() == UX_FALSE))
     {
@@ -1465,7 +1592,7 @@ tof_render_frame(const TOF_App_ChannelFrame_t *map_frame,
     pos = append_text(pos, (channel_descriptor != NULL) ?
                            channel_descriptor->display_name : "NONE");
     pos = append_text(pos, "  enabled [");
-    pos = append_channel_mask(pos, tof_context.state.map_channel_mask);
+    pos = append_channel_mask(pos, tof_desired.map_channel_mask);
     pos = append_text(pos, "]  depth ");
     pos = append_u32(pos, valid_min);
     pos = append_text(pos, "..");
@@ -1707,7 +1834,7 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
     uint32_t payload_crc;
     uint32_t model_payload_crc;
 
-    if ((tof_context.state.dataset_stream_enabled == 0U) ||
+    if ((tof_desired.dataset_stream_enabled == 0U) ||
         (TOF_App_GetStreamDestination() != TOF_STREAM_USB) ||
         (App_Console_IsReady() == UX_FALSE))
     {
@@ -1981,11 +2108,155 @@ static void tof_log(const char *format, ...)
     }
 }
 
+static void tof_note_complete_acquisition(void)
+{
+    if (tof_context.recovery.awaiting_frame != 0U) {
+        tof_context.recovery.awaiting_frame = 0U;
+        ++tof_context.recovery.successes;
+        tof_publication_blocked = 0U;
+        tof_context.state.state = TOF_APP_STATE_READY;
+        Debug_UART_Log("TOF", "RECOVERY complete: first fresh frame, generation=%lu desired revision=%lu destination=%s",
+                       (unsigned long)tof_context.recovery.generation,
+                       (unsigned long)tof_desired.revision,
+                       TOF_App_StreamName(tof_desired.destination));
+    }
+    if (++tof_context.recovery.healthy_frames >= TOF_RECOVERY_HEALTHY_FRAMES) {
+        tof_context.recovery.consecutive_attempts = 0U;
+        tof_context.recovery.healthy_frames = TOF_RECOVERY_HEALTHY_FRAMES;
+    }
+}
+
+static void tof_request_recovery(const char *stage, int error)
+{
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    if ((tof_context.recovery.requested == 0U) &&
+        (tof_context.state.state != TOF_APP_STATE_ERROR))
+    {
+        tof_context.counters.error_stage = stage;
+        tof_context.counters.error_code = error;
+        tof_context.recovery.requested = 1U;
+        tof_context.state.state = TOF_APP_STATE_RECOVERING;
+        tof_publication_blocked = 1U;
+    }
+    (void)tx_interrupt_control(posture);
+}
+
+static uint32_t tof_recover(vl53l9_device_t *sensor, TOF_RawFrame_t *held_frame)
+{
+    TOF_DesiredState_t desired;
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    desired = tof_desired;
+    tof_context.recovery.requested = 0U;
+    ++tof_context.recovery.generation;
+    (void)tx_interrupt_control(posture);
+    tof_context.recovery.healthy_frames = 0U;
+    if (tof_context.recovery.awaiting_frame != 0U) {
+        ++tof_context.recovery.failures;
+        tof_context.recovery.awaiting_frame = 0U;
+    }
+    Debug_UART_Log("TOF", "FAULT detected at '%s', error=%d; RECOVERY starting from desired state: revision=%lu paused=%lu map=%lu dataset=%lu channels=0x%02lX destination=%s filter=%u",
+                   tof_context.counters.error_stage, tof_context.counters.error_code,
+                   (unsigned long)desired.revision, (unsigned long)desired.paused,
+                   (unsigned long)desired.map_enabled,
+                   (unsigned long)desired.dataset_stream_enabled,
+                   (unsigned long)desired.map_channel_mask,
+                   TOF_App_StreamName(desired.destination),
+                   (unsigned)desired.processing_config.selected_filter);
+
+    while (tof_context.recovery.consecutive_attempts < TOF_RECOVERY_MAX_ATTEMPTS)
+    {
+        int ret;
+        uint32_t ranging = 0U;
+        const char *stage = "I3C/DMA reset";
+        ++tof_context.recovery.attempts;
+        ++tof_context.recovery.consecutive_attempts;
+        tof_context.recovery.last_tick = HAL_GetTick();
+        Debug_UART_Log("TOF", "RECOVERY attempt %lu/%u: reset I3C1/DMA, then XSHUT and sensor profile",
+                       (unsigned long)tof_context.recovery.consecutive_attempts,
+                       (unsigned)TOF_RECOVERY_MAX_ATTEMPTS);
+        ret = platform_recover_i3c();
+        if (ret == 0)
+        {
+            /* Only now is a timed-out DMA destination safe to reuse. Never
+             * reseed the pool: processing/display may still own other slots. */
+            if (held_frame != NULL) {
+                tof_release_raw_frame(held_frame);
+                held_frame = NULL;
+            }
+            ULONG message;
+            UINT status;
+            while ((status = tx_queue_receive(&tof_context.buffers.ready_queue,
+                                              &message, TX_NO_WAIT)) == TX_SUCCESS) {
+                ++tof_context.counters.dropped_frames;
+                tof_release_raw_frame((TOF_RawFrame_t *)message);
+            }
+            if (status != TX_QUEUE_EMPTY) {
+                tof_log_queue_failure("recovery ready queue drain", status, NULL);
+                tof_fatal("recovery ready queue drain", (int)status);
+            }
+            stage = "XSHUT reset";
+            ret = platform_power_reset(TOF_DEVICE_ID);
+        }
+        if (ret == 0) {
+            stage = "I3C dynamic address";
+            ret = platform_assign_dynamic_address();
+        }
+        if (ret == 0) {
+            stage = "sensor init";
+            ret = vl53l9_init(sensor);
+        }
+        if (ret == 0) {
+            vl53l9_profile_t profile = g_ranging_profiles[TOF_USECASE];
+            profile.frame_period_us = 1000000U / TOF_TARGET_FPS;
+            profile.sync = VL53L9_SYNC_AUTONOMOUS;
+            stage = "ranging profile";
+            ret = vl53l9_utils_set_profile(sensor, &profile);
+        }
+        /* This is the same physical sensor, calibration and transform.
+         * Retain the transform and its lazy first-frame allocations; do not
+         * initialize/reallocate it while processing finishes an old frame. */
+        if (ret == 0) {
+            posture = tx_interrupt_control(TX_INT_DISABLE);
+            ranging = (tof_desired.paused == 0U) ? 1U : 0U;
+            (void)tx_interrupt_control(posture);
+            (void)platform_acknowledge_event(PLATFORM_GPIO_IT_EVT);
+            stage = "stream start";
+            if (ranging != 0U) ret = vl53l9_start(sensor);
+        }
+        tof_context.recovery.stage = stage;
+        tof_context.recovery.error = ret;
+        if (ret == 0) {
+            tof_context.state.state = (ranging != 0U) ?
+                TOF_APP_STATE_RECOVERING : TOF_APP_STATE_PAUSED;
+            tof_context.recovery.awaiting_frame = ranging;
+            if (ranging == 0U) {
+                ++tof_context.recovery.successes;
+                tof_publication_blocked = 0U;
+                Debug_UART_Log("TOF", "RECOVERY complete: sensor configured, desired PAUSED preserved (revision=%lu)",
+                               (unsigned long)tof_desired.revision);
+            } else {
+                Debug_UART_Log("TOF", "RECOVERY reinitialized; waiting for first fresh complete frame (desired revision=%lu)",
+                               (unsigned long)tof_desired.revision);
+            }
+            return ranging;
+        }
+        ++tof_context.recovery.failures;
+        Debug_UART_Log("TOF", "RECOVERY attempt failed at '%s', error=%d", stage, ret);
+        tx_thread_sleep((TX_TIMER_TICKS_PER_SECOND + 4U) / 5U);
+    }
+    /* Keep any unquiesced DMA slot quarantined and the desired state intact.
+     * An absent/broken sensor must not reset USB, the radio or the MCU. */
+    tof_fatal("sensor recovery exhausted", (tof_context.recovery.error != 0) ?
+              tof_context.recovery.error : tof_context.counters.error_code);
+    return 0U;
+}
+
 static void tof_fatal(const char *stage, int error)
 {
     tof_context.counters.error_stage = stage;
     tof_context.counters.error_code = error;
     tof_context.state.state = TOF_APP_STATE_ERROR;
+    tof_publication_blocked = 1U;
     Debug_UART_Log("TOF", "FATAL at '%s', error=%d", stage, error);
 
     for (;;)

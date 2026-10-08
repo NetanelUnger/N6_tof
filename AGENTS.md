@@ -26,6 +26,22 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- The 2026-10-07 Cloud OTA recovery candidate adds `inputSequence` to binary
+  output slots and a bounded output-drain callback before Cloud update reset
+  (one-second grace plus at most 30 seconds). USB/BLE keep their original reset
+  timing. Do not resize queues/stacks or change the Secure A/B installer for
+  this fix. `hil_tests/test_firmware_update_drain.py` runs the actual updater/
+  XMODEM parser with mocked Secure/HAL boundaries. The deployed browser/server
+  retries timed-out blocks, deduplicates re-broadcast output and cancels cleanly.
+  Two partial hardware uploads passed cancellation and lost-ACK recovery; one
+  also recovered from an ST67 SPI RX HAL error. On 2026-10-08, BOOT1 was confirmed
+  at 1-2 and fixed v8 was installed/boot-confirmed via USB. Full Cloud v8-to-v9
+  then passed: 452 blocks, EOT ACK, automatic Flash boot and USB version 9 plus
+  Secure boot confirmation; zero sender timeouts. The board/source now use v9.
+  Wi-Fi/pairing were manually restored after reset; fresh Cloud frames and CLI
+  version 9 were verified. This OTA PASS does not close Stage 11/ToF endurance
+  or BLE gates. See `docs/cloud-update-20261007.md` before continuing.
+
 - FSBL, Secure, and Non-Secure boot from external NOR.
 - The ST-LINK diagnostic UART works on USART1, PE5/PE6, at 115200 baud.
 - The VL53L9CX initializes and returns complete 54×42 frames.
@@ -611,6 +627,16 @@ zero reinitialization failures and 660/768 observed stack bytes used. The
 SPI RX overrun's precise DMA/bus cause and full-load validation remain open;
 this is not Cloud-contention acceptance or evidence of heap exhaustion.
 
+The 2026-10-08 board-local `spi_port.c` CS-low interval wait compares elapsed
+SysTick ticks modulo LOAD+1 and has a bounded software fallback. Do not restore
+the vendor WAIT_FROM absolute-endpoint loop: when its computed endpoint is
+zero, it requires sampling VAL==0 and can starve the SPI worker. Non-reset raw
+CPU inspection observed that zero-endpoint loop during loss of USB/UART
+responses; this does not establish the initiating cause of the separate SPI
+RX HAL error. `hil_tests/test_spi_cs_hold.py` checks skipped-zero reload,
+normal/reloaded intervals and frozen/disabled timers against the actual wait
+function. The microsecond conversion rounds up using SystemCoreClock/1e6.
+
 ### 9.1 Strong bug candidate: 1 KiB CAD stack
 
 The official STM32Cube FW_N6 V1.4.0 USB CDC example uses a 1024-byte CAD stack.
@@ -652,6 +678,22 @@ stack-local version or split the address phase back into a blocking transfer.
 - The H563 VL53L9 demo requiring a port to N657 is expected.
 
 ## 10. ToF rules
+
+- The 2026-10-07 candidate keeps map/dataset, selected channels/processing,
+  pause and exclusive destination in `TOF_DesiredState_t`. Recovery must not
+  replay a stale copy over a newer command. Only acquisition may reset I3C1,
+  DMA 0/1/2 and XSHUT. Retain failed DMA destinations until reset succeeds;
+  never flush/reseed processing/display-owned raw slots. Reject old raw
+  generations. Three attempts are capped until thirty complete healthy
+  acquisitions; running success requires a fresh complete acquisition.
+  Native C fault/state tests and signing passed. SRAM XSHUT injection restored
+  USB/Cloud intent and a fresh frame in 310--381 ms: 40 CRC-valid USB records
+  and 20 further accepted Cloud frames. An uninjected Cloud-phase fault also
+  recovered. BLE delivered 15 further CRC-valid images after non-halting
+  injection, then an AT prompt failure fenced the radio; retain all failed
+  BLE reports and do not claim BLE acceptance. Physical persistent-fault and
+  newer-command tests, current-candidate Stage 11/image-route and endurance
+  remain open. See docs/tof-desired-state-recovery.md.
 
 - Do not change the transform pipeline without testing a complete frame and metadata.
 - Preserve timeouts so a missing sensor cannot block the complete system forever.

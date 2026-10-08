@@ -89,6 +89,7 @@ UINT CloudRelay_ReadInput(CloudRelay_Input_t *input);
 UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input,
                                   uint32_t hold_command);
 UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary);
+uint32_t CloudRelay_IsOutputDrained(void);
 /* Copy one bounded output record atomically, with no wait for queue space. */
 UINT CloudRelay_TryWriteOutput(const void *data, size_t length,
                                uint32_t binary);

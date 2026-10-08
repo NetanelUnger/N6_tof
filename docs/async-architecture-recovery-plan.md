@@ -2310,3 +2310,59 @@ Flash boot remain outstanding. M5.3 and prior gates stay open.
 - Debug UART dropped messages: pending
 - Unexpected resets: pending
 - Open risks: pending
+
+
+### 2026-10-07 — requested ToF desired-state recovery candidate
+
+User authorized local ToF fault recovery. Acquisition now owns bounded I3C1/DMA
+channel 0/1/2/XSHUT reinitialization while explicit in-RAM desired state retains
+pause, map/dataset, selected channels/processing and the exclusive destination.
+New commands supersede earlier intent during recovery. A failed DMA destination
+stays quarantined until reset succeeds; ready old generations are drained and
+processing/display-owned slots are never reseeded. Running success requires a
+fresh complete acquisition; paused recovery retains standby. Three attempts are
+capped until thirty healthy acquired frames replenish the budget. Initial boot,
+transform resource and ThreadX object faults remain fatal.
+
+Ten native tests compile actual C functions with injected HAL/queue boundaries
+and pass state preservation, latest-request precedence, retry/exhaustion,
+quarantined/no-double-released slots, first-frame confirmation, thirty-frame
+replenishment and stale-generation rejection. Non-Secure build and package-only
+v8 signing passed. Physical fault injection, matching Stage 11 and exclusive
+image-route HIL are pending BOOT0=1-2/BOOT1=2-3 and RESET confirmation. The new
+v8 package supersedes the prior candidate and its earlier HIL cannot be reused.
+M8.4a/M8.5 and overall recovery/endurance acceptance remain OPEN. No CubeMX
+Generate Code, external-NOR write, commit or push. See
+`docs/tof-desired-state-recovery.md` for exact behavior and test limits.
+
+### 2026-10-07 — connected ToF recovery checks after DEV-boot preparation
+
+Local Secure/Non-Secure SRAM loading reached ThreadX; Flash remains unchanged.
+Physical XSHUT-low injection induced actual runtime I3C failures. USB retained
+dataset/depth/Median intent and received 40 subsequent CRC-valid N6DF v3 records
+with no raw-queue failures; fresh acquisition returned in 371 ms. Later
+CubeProgrammer HotPlug injection did not halt/reset the MCU. BLE retained
+amplitude/Median intent and delivered 15 further complete CRC-valid images,
+but lost the AT raw prompt about 16 s later and fenced. Its full twenty-frame
+and route gate failed. Preserve first-boot baseline and GDB-injection BLE
+failures too; neither M3.7 nor BLE endurance is accepted.
+
+On a fresh Wi-Fi/paired Cloud RAM boot, an uninjected frame-acknowledge fault
+recovered in 310 ms. Two deliberate non-halting faults then recovered in
+356/380 ms. The final Cloud gate compared lifetime-counter deltas correctly:
+one additional attempt/success/generation, zero added failures, twenty more
+accepted Cloud frames, CLOUD/mask 0x04/Median retained, Wi-Fi GOT IP and USB
+PONG. Actual isolated browser UI showed LIVE Ambient 54x42 with advancing IDs
+and changing CRCs. The first Cloud report is retained as a failed assertion
+because it incorrectly required counters=1 despite the earlier real fault.
+The final Cloud boot recorded attempts=3, successes=3, failures=0 and healthy
+frames replenished the consecutive budget. Logs/reports are retained under
+`Tools/.n6-debug/tof-recovery-20261007/`; exact results and limits are in
+`docs/tof-desired-state-recovery.md`.
+
+Targeted USB/Cloud local recovery is demonstrated. Physical sustained-fault
+exhaustion/new-command-during-reset, complete image-route HIL, current-candidate
+moving-hand Stage 11 and long endurance remain OPEN. The BLE AT fault's cause
+and initial I3C SIZE error's cause are not established. No new thread, buffer,
+stack/pool capacity, scheduler or radio reset was added. Package-only v8 remains
+uninstalled; do not reuse the earlier Stage 11 for this changed candidate.

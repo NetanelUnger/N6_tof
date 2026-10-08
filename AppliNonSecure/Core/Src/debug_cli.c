@@ -2403,6 +2403,16 @@ static void cli_command_reboot(Menu_t *menu, const char *command)
   }
 }
 
+static uint32_t cli_update_drained(void *context)
+{
+  (void)context;
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  return CloudRelay_IsOutputDrained();
+#else
+  return 1U;
+#endif
+}
+
 static void cli_command_firmware_update(Menu_t *menu, const char *command)
 {
   (void)command;
@@ -2419,7 +2429,9 @@ static void cli_command_firmware_update(Menu_t *menu, const char *command)
       (cli_update_session->route.transport == APP_TRANSPORT_CLOUD) ? "Cloud CLI" :
       "USB CDC";
   if (Firmware_Update_Start(
-          cli_update_write, cli_update_session, transport_name) != 0)
+          cli_update_write, cli_update_session, transport_name,
+          (cli_update_session->route.transport == APP_TRANSPORT_CLOUD) ?
+            cli_update_drained : NULL) != 0)
   {
     cli_update_session = NULL;
     (void)Menu_Reply(menu, "Unable to start firmware update mode.");
@@ -3134,10 +3146,20 @@ static void cli_show_tof_status(void)
             TOF_App_GetChannelName(status.map_active_channel),
             (filter != NULL) ? filter->display_name : "Off",
             (status.paused != 0U) ? "paused" : "running");
+  cli_print("Desired state revision: %" PRIu32 "\r\n"
+            "Recovery: attempts %" PRIu32 ", successes %" PRIu32
+            ", failures %" PRIu32 ", budget %" PRIu32 "/3, generation %" PRIu32
+            ", last tick %" PRIu32 ", stage %s (%d)\r\n",
+            status.desired_revision, status.recovery_attempts,
+            status.recovery_successes, status.recovery_failures,
+            status.recovery_consecutive_attempts, status.recovery_generation,
+            status.recovery_last_tick,
+            (status.recovery_stage != NULL) ? status.recovery_stage : "none",
+            status.recovery_error);
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
   cli_show_display_status();
 #endif
-  if (status.state == TOF_APP_STATE_ERROR)
+  if (status.error_stage != NULL)
   {
     cli_print("Last error: %s (%d)\r\n",
               (status.error_stage != NULL) ? status.error_stage : "unknown",
@@ -3324,6 +3346,7 @@ static const char *cli_tof_state_name(TOF_App_State_t state)
     case TOF_APP_STATE_READY: return "ready";
     case TOF_APP_STATE_PAUSED: return "paused";
     case TOF_APP_STATE_ERROR: return "error";
+    case TOF_APP_STATE_RECOVERING: return "recovering";
     default: return "unknown";
   }
 }

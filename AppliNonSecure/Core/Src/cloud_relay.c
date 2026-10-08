@@ -93,6 +93,7 @@ typedef struct
   uint16_t length;
   uint8_t binary;
   uint8_t completed;
+  uint32_t input_sequence;
   uint8_t data[CLOUD_OUTPUT_SLOT_SIZE];
 } CloudOutputSlot_t;
 
@@ -717,6 +718,7 @@ UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary)
     (void)memset(slot, 0, sizeof(*slot));
     slot->length = (uint16_t)chunk;
     slot->binary = (binary != 0U) ? 1U : 0U;
+    slot->input_sequence = cloud->input.sequence;
     (void)memcpy(slot->data, bytes, chunk);
     tail = (tail + 1U) % CLOUD_OUTPUT_SLOT_COUNT;
     bytes += chunk;
@@ -739,6 +741,16 @@ UINT CloudRelay_TryWriteOutput(const void *data, size_t length,
     return TX_SIZE_ERROR;
   }
   return CloudRelay_WriteOutput(data, length, binary);
+}
+
+uint32_t CloudRelay_IsOutputDrained(void)
+{
+  if (cloud == NULL) return 0U;
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  uint32_t drained = ((cloud->output_count == 0U) &&
+                      (cloud->ack_pending == 0U)) ? 1U : 0U;
+  (void)tx_interrupt_control(posture);
+  return drained;
 }
 
 UINT CloudRelay_CompleteCommand(void)
@@ -1219,17 +1231,29 @@ static void cloud_finish_request(void)
   CloudHttpKind_t kind = cloud->http_kind;
   uint8_t *body = NULL;
   size_t body_length = 0U;
+  uint32_t response_length = cloud->response_length;
   int status = 0;
   int parsed = cloud_decode_response(&status, &body, &body_length);
   cloud_close_socket();
   cloud->status.request_active = 0U;
   if (parsed != 0)
   {
+    Debug_UART_Log("CLOUD-OTA", "HTTP response parse failed: kind=%lu bytes=%lu",
+                   (unsigned long)kind, (unsigned long)response_length);
     cloud->status.last_transport_status = -22;
     cloud_backoff();
     return;
   }
   cloud->status.last_http_status = status;
+  if ((kind == CLOUD_HTTP_ACK) || (kind == CLOUD_HTTP_OUTPUT) ||
+      ((kind == CLOUD_HTTP_POLL) && (status != 204)))
+  {
+    Debug_UART_Log("CLOUD-OTA", "HTTP complete: kind=%lu status=%d input-seq=%lu output-seq=%lu queued=%lu",
+                   (unsigned long)kind, status,
+                   (unsigned long)cloud->ack_sequence,
+                   (unsigned long)cloud->output_sequence,
+                   (unsigned long)cloud->output_count);
+  }
   cloud->backoff_step = 0U;
   cloud->status.backoff_seconds = 0U;
   cloud->status.last_transport_status = 0;
@@ -1299,6 +1323,12 @@ static void cloud_finish_request(void)
       if (status == 202)
       {
         CloudOutputSlot_t *slot = &cloud->output[cloud->output_head];
+        if ((slot->binary != 0U) && (slot->length == 1U))
+        {
+          Debug_UART_Log("CLOUD-OTA", "control delivered: output-seq=%lu byte=0x%02X",
+                         (unsigned long)cloud->output_sequence,
+                         (unsigned int)slot->data[0]);
+        }
         uint32_t completed = slot->completed;
         UINT posture;
         cloud->output_sequence++;
@@ -1387,10 +1417,11 @@ static void cloud_start_next_request(void)
         return;
       }
       length = snprintf(body, sizeof(body),
-                        "{\"kind\":\"binary\",\"sequence\":%lu,"
+                        "{\"kind\":\"binary\",\"sequence\":%lu,\"inputSequence\":%lu,"
                         "\"dataBase64\":\"%s\",\"offset\":0,"
                         "\"crc32\":\"%08lx\",\"completed\":%s}",
-                        (unsigned long)cloud->output_sequence, encoded,
+                        (unsigned long)cloud->output_sequence,
+                        (unsigned long)slot->input_sequence, encoded,
                         (unsigned long)cloud_crc32(slot->data, slot->length),
                         (slot->completed != 0U) ? "true" : "false");
     }
@@ -1621,6 +1652,13 @@ static int cloud_parse_command(const uint8_t *body, size_t length)
   cloud->input_ready = 1U;
   cloud->input_delivered = 0U;
   (void)tx_mutex_put(&cloud->gate);
+  if (input.binary != 0U)
+  {
+    Debug_UART_Log("CLOUD-OTA", "binary received: seq=%lu offset=%lu bytes=%lu first=0x%02X completed=%lu",
+                   (unsigned long)input.sequence, (unsigned long)input.offset,
+                   (unsigned long)input.length, (unsigned int)input.data[0],
+                   (unsigned long)input.completed);
+  }
   return 0;
 }
 
@@ -1858,6 +1896,7 @@ UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input,
 { (void)input; (void)hold_command; return TX_NOT_AVAILABLE; }
 UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary)
 { (void)data; (void)length; (void)binary; return TX_NOT_AVAILABLE; }
+uint32_t CloudRelay_IsOutputDrained(void) { return 1U; }
 UINT CloudRelay_TryWriteOutput(const void *data, size_t length,
                                uint32_t binary)
 { (void)data; (void)length; (void)binary; return TX_NOT_AVAILABLE; }

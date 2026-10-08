@@ -126,7 +126,8 @@ int platform_set_device_address(uint8_t id, uint8_t address) {
 int platform_assign_dynamic_address() {
 
     HAL_StatusTypeDef status;
-    uint64_t payload;
+    uint64_t payload = 0U;
+    uint32_t assignments = 0U;
 
     // set i3c bus frequency to 1 MHz before dynamic address assignment
     hi3c1.Init.CtrlBusCharacteristic.SCLPPLowDuration = 0x7c;
@@ -140,9 +141,13 @@ int platform_assign_dynamic_address() {
     do {
         status = HAL_I3C_Ctrl_DynAddrAssign(&hi3c1, &payload, I3C_RSTDAA_THEN_ENTDAA, 5000);
         if (status == HAL_BUSY) {
-            HAL_I3C_Ctrl_SetDynAddr(&hi3c1, 0x52 & 0x7F);
+            if ((++assignments > NB_DEVICES) ||
+                (HAL_I3C_Ctrl_SetDynAddr(&hi3c1, 0x52 & 0x7F) != HAL_OK)) {
+                return -1;
+            }
         }
     } while (status == HAL_BUSY);
+    if (status != HAL_OK) return -1;
 
     // Restore the 12 MHz timings generated for the STM32N657 I3C kernel clock.
     hi3c1.Init.CtrlBusCharacteristic.SCLPPLowDuration = 0x07;
@@ -162,9 +167,67 @@ int platform_assign_dynamic_address() {
     DeviceConf.CtrlStopTransfer = DISABLE;
 
     if (HAL_I3C_Ctrl_ConfigBusDevices(&hi3c1, &DeviceConf, 1U) != HAL_OK) {
-        Error_Handler();
+        return -1;
     }
 
+    return 0;
+}
+
+int platform_recover_i3c(void) {
+    DMA_HandleTypeDef *dma[] = { hi3c1.hdmacr, hi3c1.hdmatx, hi3c1.hdmarx };
+    const IRQn_Type irqs[] = { I3C1_EV_IRQn, I3C1_ER_IRQn,
+                              GPDMA1_Channel0_IRQn, GPDMA1_Channel2_IRQn,
+                              GPDMA1_Channel1_IRQn };
+    I3C_InitTypeDef init = hi3c1.Init;
+    I3C_FifoConfTypeDef fifo = { 0 };
+    I3C_CtrlConfTypeDef ctrl = { 0 };
+    int failed = 0;
+
+    /* Keep other GPDMA channels, SPI5 and EXTI9 live. Mask the old callbacks
+     * before removing I3C requests; no late completion may complete a new frame. */
+    for (uint32_t i = 0U; i < 5U; ++i) HAL_NVIC_DisableIRQ(irqs[i]);
+    hi3c1.Instance->IER = 0U;
+    __HAL_RCC_I3C1_FORCE_RESET();
+    __HAL_RCC_I3C1_RELEASE_RESET();
+    __DSB();
+    for (uint32_t i = 0U; i < 3U; ++i) {
+        /* DeInit performs a bounded channel suspend/reset, even when the HAL
+         * state says READY with an unfinished abort callback. */
+        if ((dma[i] == NULL) || (HAL_DMA_DeInit(dma[i]) != HAL_OK)) failed = 1;
+    }
+    if (failed != 0) return -1; /* Caller must retain the old raw slot. */
+    for (uint32_t i = 0U; i < 3U; ++i) {
+        if (HAL_DMA_Init(dma[i]) != HAL_OK) return -1;
+        dma[i]->Parent = &hi3c1;
+    }
+
+    /* Pins/clocks/MSP configuration remain valid. Avoid invoking generated
+     * MSP functions that call Error_Handler on an initialization failure. */
+    memset(&hi3c1, 0, sizeof(hi3c1));
+    hi3c1.Instance = I3C1;
+    hi3c1.Init = init;
+    hi3c1.Mode = HAL_I3C_MODE_CONTROLLER;
+    hi3c1.State = HAL_I3C_STATE_READY;
+    hi3c1.hdmacr = dma[0];
+    hi3c1.hdmatx = dma[1];
+    hi3c1.hdmarx = dma[2];
+    if (HAL_I3C_Init(&hi3c1) != HAL_OK) return -1;
+    fifo.RxFifoThreshold = HAL_I3C_RXFIFO_THRESHOLD_1_4;
+    fifo.TxFifoThreshold = HAL_I3C_TXFIFO_THRESHOLD_1_4;
+    fifo.ControlFifo = HAL_I3C_CONTROLFIFO_DISABLE;
+    fifo.StatusFifo = HAL_I3C_STATUSFIFO_DISABLE;
+    if ((HAL_I3C_SetConfigFifo(&hi3c1, &fifo) != HAL_OK) ||
+        (HAL_I3C_Ctrl_Config(&hi3c1, &ctrl) != HAL_OK)) return -1;
+
+    /* Diagnostics are cumulative; only transaction events are cleared. */
+    (void)platform_acknowledge_event(PLATFORM_I3C_DMA_RX_EVT);
+    (void)platform_acknowledge_event(PLATFORM_I3C_DMA_TX_EVT);
+    (void)platform_acknowledge_event(PLATFORM_I3C_ERROR_EVT);
+    (void)platform_acknowledge_event(PLATFORM_GPIO_IT_EVT);
+    for (uint32_t i = 0U; i < 5U; ++i) {
+        HAL_NVIC_ClearPendingIRQ(irqs[i]);
+        HAL_NVIC_EnableIRQ(irqs[i]);
+    }
     return 0;
 }
 

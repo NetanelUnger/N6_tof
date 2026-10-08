@@ -10,6 +10,7 @@
 #include "xmodem_receiver.h"
 
 #define UPDATE_REBOOT_DELAY_MS       (1000U)
+#define UPDATE_REBOOT_DRAIN_LIMIT_MS (30000U)
 
 static XMODEM_Receiver_t update_xmodem;
 static FW_UpdateManifest_t update_manifest;
@@ -26,6 +27,8 @@ static uint32_t update_crc_requests;
 static uint32_t update_wait_reported;
 static uint32_t update_progress_reported;
 static Firmware_Update_Write_t update_write;
+static Firmware_Update_Drained_t update_drained;
+static uint32_t update_drain_wait_reported;
 static void *update_write_context;
 static const char *update_transport_name;
 
@@ -229,7 +232,8 @@ static void update_fail(const char *message)
 
 int32_t Firmware_Update_Start(Firmware_Update_Write_t write,
                               void *write_context,
-                              const char *transport_name)
+                              const char *transport_name,
+                              Firmware_Update_Drained_t drained)
 {
   static const char instructions[] =
       "\r\nSigned firmware update mode.\r\n"
@@ -243,6 +247,8 @@ int32_t Firmware_Update_Start(Firmware_Update_Write_t write,
   }
 
   update_write = write;
+  update_drained = drained;
+  update_drain_wait_reported = 0U;
   update_write_context = write_context;
   update_transport_name = (transport_name != NULL) ? transport_name : "unknown";
 
@@ -339,10 +345,25 @@ void Firmware_Update_Poll(uint32_t now_ms)
     Debug_UART_Log("UPDATE", "candidate committed; reset scheduled");
   }
 
-  if ((update_reboot_at != 0U) &&
+  if ((update_success != 0U) && (update_result_reported != 0U) &&
       ((int32_t)(now_ms - update_reboot_at) >= 0))
   {
-    NVIC_SystemReset();
+    if ((update_drained == NULL) ||
+        (update_drained(update_write_context) != 0U))
+    {
+      Debug_UART_Log("UPDATE", "transport drained; resetting into committed candidate");
+      NVIC_SystemReset();
+    }
+    else if ((uint32_t)(now_ms - update_reboot_at) >= UPDATE_REBOOT_DRAIN_LIMIT_MS)
+    {
+      Debug_UART_Log("UPDATE", "transport drain deadline expired; resetting committed candidate");
+      NVIC_SystemReset();
+    }
+    else if (update_drain_wait_reported == 0U)
+    {
+      update_drain_wait_reported = 1U;
+      Debug_UART_Log("UPDATE", "waiting for final ACK/result delivery before reset");
+    }
   }
 }
 

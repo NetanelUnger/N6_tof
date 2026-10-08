@@ -18,6 +18,42 @@ General host-driven hardware validation tools live in
 interactive BLE scan, selected-device connection, and complete GATT discovery
 report without writing characteristics or changing firmware.
 
+The 2026-10-07 ToF recovery candidate preserves explicit in-RAM desired state:
+pause, map/dataset mode, image channels, processing and the exclusive destination.
+Runtime sensor/I3C faults now trigger acquisition-owned I3C/DMA and XSHUT
+reinitialization, with three bounded attempts and diagnostic logs. The failed
+DMA slot is retained until reset succeeds; queued old generations are discarded
+without reseeding processing/display-owned buffers. Running recovery is confirmed
+only after a fresh complete acquisition; paused recovery keeps ranging off.
+Thirty healthy frames replenish the retry budget. See
+[docs/tof-desired-state-recovery.md](docs/tof-desired-state-recovery.md) for the
+policy, native regression checks and hardware acceptance requirements. Build,
+signing and ten native C fault/state tests pass. Physical SRAM sensor-reset
+injection restored the selected USB/Cloud settings and fresh frames in 310--381 ms;
+USB received 40 CRC-valid records and Cloud accepted another 20 frames. A real
+uninjected Cloud-phase fault also recovered. BLE resumed 15 complete CRC-valid
+images after a non-halting injection, then lost an AT prompt; BLE acceptance,
+physical persistent-fault/new-command tests, frame-exact Stage 11 and endurance
+remain open. This change is now included in the confirmed v9 Flash application;
+the Cloud OTA evidence below does not close those separate acceptance gates.
+
+The subsequent user-run Cloud v8 upload is not an installation PASS: the browser
+timed out and live inspection found 450 of 451 blocks received, update still
+active, no finalization and no reset scheduled. Inactive-slot payload writes
+occurred; the active version was not verified as v8. See
+[docs/cloud-update-20261007.md](docs/cloud-update-20261007.md) for evidence and
+the sender's timeout/retry limitation.
+
+The authorized OTA follow-up has a deployed browser/server retry fix,
+correlated control metadata and a bounded Cloud output-drain barrier before
+reset. Two partial uploads recovered from lost ACK/transient SPI errors. On
+2026-10-08, the SysTick-zero CS-wait boundary was corrected, fixed v8 installed
+via USB, and full Cloud v8-to-v9 verified: 452 blocks, EOT ACK, automatic Flash
+boot, USB version 9 and Secure confirmation. The Cloud transfer took 352.898 s
+from first block to EOT ACK, with zero sender timeouts. Wi-Fi/pairing needed
+manual restoration; Cloud CLI/version and fresh ToF frames then worked.
+See the same diagnostic report for evidence and the separate open acceptance gates.
+
 The 2026-10-06 RAM repair uses one image destination: USB, BLE or Cloud.
 The last `MAP ON`, USB dataset request, BLE ToF subscription, or Cloud pairing/
 enable request wins. `tof status` shows requested/active destinations and drain
@@ -76,7 +112,7 @@ Attach-only inspection found HAL_I3C_ERROR_SIZE, I3C BUSY_TX_RX, RX DMA READY
 with an unconsumed abort callback/suspend request, and one event timeout with
 no application error callback. This supports a completion/abort race; the
 initial size-error trigger is unproven, and the preceding debugger halt may
-have influenced timing. The existing fatal loop stops acquisition permanently.
+have influenced timing. The earlier fatal loop stopped acquisition permanently.
 The current repair defers multiple-transfer completion until I3C frame
 completion AND all DMA channels finish, and reconciles DMA completion winning
 an abort race. A later UART-only run characterized a separate blocking
@@ -84,7 +120,8 @@ register-address TX failure at frame 5103: HAL error `0x40` (FIFO overrun/
 underrun), with no debugger halt. Runtime command-status reads now use DMA
 and a persistent one-byte destination; the shared descriptor is not reused
 until I3C and all DMA handles are idle. Initialization retains the blocking
-vendor path. Full local sensor recovery under M8.4a/M8.5 remains planned.
+vendor path. The 2026-10-07 candidate implements bounded local sensor recovery;
+physical acceptance under M8.4a/M8.5 remains pending.
 
 The BLE repair corrects notification ordering: wait for `>` before raw data,
 then the terminal `OK`; there is no initial `OK`. Earlier host captures

@@ -814,6 +814,16 @@ static void Debug_UART_PrintSnapshot(uint32_t component)
                    (unsigned long)tof.maximum_mm,
                    (unsigned long)tof.paused, tof.error_code,
                    (tof.error_stage != NULL) ? tof.error_stage : "none");
+    Debug_UART_Log("WATCH-TOF", "desired=%lu destination=%s recovery=%lu/%lu/%lu budget=%lu/3 generation=%lu stage=%s error=%d",
+                   (unsigned long)tof.desired_revision,
+                   TOF_App_StreamName(tof.stream_requested),
+                   (unsigned long)tof.recovery_attempts,
+                   (unsigned long)tof.recovery_successes,
+                   (unsigned long)tof.recovery_failures,
+                   (unsigned long)tof.recovery_consecutive_attempts,
+                   (unsigned long)tof.recovery_generation,
+                   (tof.recovery_stage != NULL) ? tof.recovery_stage : "none",
+                   tof.recovery_error);
   }
   if ((component == 'c') || (component == 'a'))
   {

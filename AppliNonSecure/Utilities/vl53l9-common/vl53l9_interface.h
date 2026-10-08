@@ -138,6 +138,9 @@ int platform_get_version(platform_version_t *version);
 int platform_power_reset(uint8_t id);
 int platform_power_enable(uint8_t id);
 int platform_power_disable(uint8_t id);
+/* Acquisition-owner only. Stops/reset only I3C1 and its three DMA channels.
+ * Success proves the previous DMA destination is no longer referenced. */
+int platform_recover_i3c(void);
 int platform_set_device_address(uint8_t id, uint8_t address);
 int platform_assign_dynamic_address(void);
 int platform_assign_dynamic_address_multisensor(void);

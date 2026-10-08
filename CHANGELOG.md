@@ -4,6 +4,55 @@ This file contains the dated engineering record extracted from `README.md`.
 Do not load it during normal project work; consult it only when a task
 explicitly requires historical context.
 
+### 2026-10-08
+
+- Fixed the board-local SPI CS-low interval's SysTick-zero endpoint wait using
+  elapsed modulo-LOAD+1 timing and a bounded software fallback. Five actual-C
+  boundary tests passed; the compiled CS function remains an 8-byte frame.
+- Installed/boot-confirmed fixed v8 via USB, then completed physical Cloud OTA
+  v8-to-v9: 462176 bytes, 452 blocks, EOT ACK and automatic confirmed Flash boot.
+  USB and Cloud CLI verified version 9. The transfer took 352.898 s with zero
+  sender timeouts; final ACK/result/marker delivery preceded reset. Wi-Fi/pairing
+  were restored manually and fresh Cloud images verified. Source version is 9.
+  Existing Stage 11, endurance and BLE gates remain open.
+
+### 2026-10-07
+
+- Authorized Cloud OTA follow-up: deployed bounded timeout retries, output replay
+  deduplication, N6UP preflight, cancellation and progress capped before EOT ACK.
+  Firmware candidate tags controls with input sequence and waits for Cloud
+  output drain before reset (bounded); USB/BLE reset timing is unchanged. Eight
+  sender, five native updater cases and local/Azure relay smoke tests passed.
+  Partial physical uploads recovered from a deliberately lost ACK and an actual
+  transient SPI RX HAL error, then cancelled without reset. Fixed v8 is signed,
+  not installed; full Flash/Cloud acceptance awaits physical BOOT1 confirmation.
+
+- User-run Cloud v8 upload stopped with a browser XMODEM timeout after 450 of
+  451 blocks. Live inspection found updater active, success=0 and no reset
+  scheduled; inactive-slot bytes were written but finalization/trial boot were
+  not established. This is not a Cloud OTA PASS. Recorded the sender's lack of
+  block retry/cancellation on timeout in `docs/cloud-update-20261007.md`.
+
+- ToF runtime faults now request acquisition-owned I3C1/DMA/XSHUT recovery
+  from an explicit preserved desired state (pause, channels, processing,
+  map/dataset and exclusive destination). Commands during recovery supersede
+  older intent. Failed DMA slots stay quarantined until reset succeeds;
+  stale raw generations are rejected without reseeding owned slots.
+- Three attempts are allowed; thirty healthy acquisitions replenish the budget.
+  Fresh complete acquisition confirms running recovery, and paused recovery
+  does not start ranging. Status/UART expose recovery phases/counters and the
+  original error. Software/queue and initial-boot faults remain fatal.
+- Ten native tests of actual C functions passed with mocked HAL/ThreadX
+  fault boundaries; NS build and package-only v8 signing passed. Connected
+  SRAM XSHUT injection restored USB/Cloud settings and fresh frames in
+  310--381 ms; USB received 40 CRC-valid records and Cloud accepted 20 further
+  frames. One uninjected Cloud-phase fault also recovered automatically.
+  BLE resumed 15 CRC-valid images after non-halting injection, then lost an
+  AT prompt and fenced; its complete gate failed. Physical persistent-fault/
+  newer-command tests, Stage 11, image-route and endurance remain open.
+  The v8 package now contains this newer candidate; Flash was not modified.
+  No CubeMX Generate Code is required.
+
 ### 2026-10-06
 
 - The user requested persistent installation of the latest tested candidate.
