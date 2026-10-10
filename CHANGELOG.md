@@ -4,7 +4,128 @@ This file contains the dated engineering record extracted from `README.md`.
 Do not load it during normal project work; consult it only when a task
 explicitly requires historical context.
 
+### 2026-10-10
+
+- Completed explicitly authorized live Cloud verification. Reproduced SPI RX
+  allocation failure on two boots; bounded Cloud sends to512 bytes, preserving
+  TCP byte order and existing request budget without capacity growth. Fixed
+  updater-only completion condition that incorrectly retired async Cloud Wi-Fi.
+  Eight new actual-C cases and feature16 pass. Exact final RAM139/139 BLE replies,
+  Cloud6/6 command completions with async scan,414 CRC-valid received frames;
+  reconnect return1406/4218 ms. Zero allocation/RX-TX loss; UART416/416 and12
+  public service pairs. Package478688/NS477392/heap394712; Flash/header9, UI local.
+  Earlier failed checkpoints and full latency/endurance gates remain open.
+
+- Implemented tasks1–2: read-only radio service status, existing-slot bounded
+  BLE/Cloud CLI reply ownership, retained RX remainder and explicit final/error
+  records. Browser waits for matching completion; no ordinary semantic retry.
+  Native29 +two audits/feature16 and browser6/XMODEM8 pass. Exact RAM149/149
+  ordinary finals +39 CRC BLE frames, two Wi-Fi cycles, p95 187/max2797 ms; no
+  RX/TX drops. Initial451/451 +102 frames retained. Live Cloud initially awaited
+  token approval (resolved by the follow-up above); UI unpublished; failed gates retained. RAM10 package478624,
+  NS477328/heap394776; Flash/header9. Tasks3–4 not started.
+
+- Debugged wait-state reports: reproduced END-before-PENDING preemption; retain
+  PENDING as a timeout snapshot and add explicit DNS fenced outcome. No protocol
+  or capacity change.10 actual-C checks plus audit and16 feature compiles pass.
+  Four concurrent BLE/USB/Cloud reconnects restored actual frames; final409/409
+  BLE, p95 203/max2672 ms. UART14 pairs, zero drops. Full latency/backpressure
+  remain open. RAMv10 package471744/NS470464/heap401688; external Flash/header9.
+
+### 2026-10-09
+
+- User-requested wait-state UART diagnostics: paired DNS/Wi-Fi/late-BLE start/end
+  reasons, elapsed milliseconds and result/fence/cancel. Existing pending report
+  retained; formatting outside critical sections and SPI, existing async UART.
+  Native diagnostic/notification regression and16 feature checks pass. Target10
+  pairs across2 RAM boots; final2 reconnects restored actual Cloud images.
+  Signed-only v10 package471584, NS470296, heap401848; RAM10/Flash9, capacities
+  unchanged. CLI/service-state backpressure and prior failed full gates OPEN.
+
+- Following full power cycle: bounded read-only DNS terminal drain with safe
+  callback lifetime, deferred status refresh and BLE association guard. Target
+  CIPSEND false fence traced to epoch cancellation before writing; record actual
+  raw bus attempts, retaining genuine fences. Six warm reconnects restored
+  actual Cloud frames in1.1--5.0 s across12 reconnects; exclusive20 BLE/25 USB/20
+  BLE CRC route PASS. Trace-on BLE FAILED621/622, p95 312/max9188 ms; trace-off
+  FAILED614/615, p95 297/max9219 ms. Quiescent sockets retired, pool unchanged;
+  full gates open, DNS shared-AT latency/CLI slot backpressure unresolved.
+  Native/feature checks pass; signed-only v10 package471008, NS469704, heap402424,
+  Flash/source9 and capacities unchanged. Exact candidate/evidence documented.
+
+- RAM asynchronous candidate: complete BLE/USB replies and CRC frames across
+  three reassociations, but BLE p95 1469 ms FAILED; Cloud warm return FAILED
+  after DNS's 4500 ms scoped timeout. Retain evidence and protective fence.
+  Corrected expected async notification BUSY diagnostics; native regression
+  and 16 feature compiles pass, rebuilt signed-only v10 package 470240 bytes.
+  Warm reload hit ToF initial-address failure; clean power cycle requested.
+  Flash/tracked version stays 9. No capacity changes or Generate Code needed.
+
 ### 2026-10-08
+
+- User-prioritized candidate: one Radio-owned asynchronous notification with
+  existing event wake, unchanged 100 ms submission budget and separate bounded
+  terminal drain. Stale session/route results cannot consume new slots; real
+  fences remain. Cloud epochs, verified CLOSING retirement, receive-buffer
+  configuration reuse and owner-specific end-to-end request waits added.
+  New production-C checks and 16 feature builds pass. Signed-only v10 package
+  470112 bytes; target HIL pending physical RAM preparation, Flash/source v9.
+  No Generate Code, capacity enlargement, commit or hardware installation.
+
+- M5.3: removed the vendor Wi-Fi CONNECTED callback's 100 ms shared-parser
+  sleep. Preserve settling at bounded AT admission; BLE returns BUSY before
+  writes, including a raced precheck. Native admission/raw checks and a
+  three-reassociation BLE/USB/CRC probe passed. Retain earlier late SEND OK
+  fencing and failed Cloud receive-buffer setup after reconnects; full gate
+  stays open. SPI diagnostics now capture scalars only after an initial
+  formatted trace overflowed the 768-byte worker stack. RAM only; Flash v9.
+  A final exclusive-route repeat also failed after 12 CRC-valid BLE frames;
+  its raw terminal timeout preserves the fence and keeps the route gate open.
+
+- M5.3: moved runtime BLE control into existing Wi-Fi worker through one
+  generation/revision-checked mailbox and shared event; no capacity increase.
+  Connected Cloud toggles and exclusive CRC image route passed. Forced Wi-Fi
+  reconnect lost 84 BLE replies after a missing raw prompt retained AT fence;
+  USB/Radio stayed responsive, allocations zero. Full gate remains FAILED;
+  reconnect/prompt cause and safe recovery remain open. Flash/source v9.
+
+- Reconciled the task-plan status table, Milestone 5 checklist and partial ToF
+  recovery status with retained physical PASS/FAIL evidence. Audited next M5.3
+  shared-AT health/control blocking: BLE queries can wait 2000 ms; Cloud DNS can
+  wait 20000 ms before the HTTP receive deadline starts. Recorded scope and
+  acceptance without changing firmware or accepting failed latency gates.
+
+- Full-cycle RAM validation completed ten successful scans during 120 actual
+  Cloud images and three bounded Cloud off/on transitions, with zero allocation
+  failures and confirmed scratch release. BLE still fenced: redacted traces
+  found initial OK/prompt/Recv/SEND OK, incompatible with the driver's response
+  ownership. Corrected raw phases/terminal handlers and fast rejection; sixteen
+  actual-C raw checks passed. First target repeat delivered 33 CRC-valid images
+  and 138/138 replies. Signed-only v10: 463968 bytes; Flash/source remains v9.
+  Scan-related response pauses and global/endurance gates remain open.
+  Trace-off combined 101 CRC-valid images/367 replies still failed p95 (391 ms).
+  Two route repeats passed; the first callback-silence FAIL remains retained.
+  Final Cloud enable missed 20 s after FS/DNS timeouts then resumed without
+  reset; Radio/BLE max 2020 ms, zero allocation failures and no AT fence.
+
+- Diagnostic RAM reproduced RX `TX_NO_MEMORY`: 1560 requested / 916 available;
+  retained full-MTU TX plus a duplicate 920-byte scan list, with empty SPI queues.
+  A cleanup-only physical attempt exposed pre-lock allocation overlap. Moved
+  scan scratch into budgeted AT ownership through result delivery, released
+  borrowed results after copying and initialized callback status before dispatch.
+  Sixteen actual-C ownership/deadline checks passed; revised signed-only v10 is
+  463296 bytes. No Flash/capacity change. Hardware acceptance awaits power cycle:
+  the latest warm RAM restart failed initial ToF I3C assignment with zero images,
+  and its scan timeout/zero allocation count must not be treated as PASS.
+
+- Investigated installed Flash v9 under BLE images/CLI, USB pings, Cloud
+  polling and Wi-Fi scan. Targeted CRC/route and no-loss latency probes passed,
+  while two runs reproduced 3.1--3.4 s BLE response pauses around scanning.
+  Recorded bounded non-halting stack observations; later Cloud disable/enable
+  reproduced SPI RX allocation failure and a raw-response AT fence. Prepared
+  notification-BUSY classification, scan AT-lock timing and scalar allocation
+  failure diagnostics; package-only v10 signed, RAM HIL pending, Flash remains
+  v9. No queue/stack/pool or IOC change. See docs/radio-stability-20261008.md.
 
 - Fixed the board-local SPI CS-low interval's SysTick-zero endpoint wait using
   elapsed modulo-LOAD+1 timing and a bounded software fallback. Five actual-C

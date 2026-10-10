@@ -105,6 +105,7 @@ static int32_t modem_iface_spi_read(struct modem_iface *iface,
   * @return 0 on success, negative value on error
  */
 MODEM_CMD_DECLARE(on_cmd_query);
+MODEM_CMD_DECLARE(on_cmd_dns_query);
 
 /**
   * @brief  Callback function to handle "OK" events
@@ -316,6 +317,9 @@ int32_t W61_AT_ModemInit(W61_Object_t *Obj)
   mdm->spi_rx_pending_len = 0U;
   mdm->spi_rx_pending_offset = 0U;
 
+  mdm->notify_phase = 0U;
+  mdm->notify_owner = NULL;
+
   /* Cmd handler */
   const struct modem_cmd_handler_config cmd_handler_config =
   {
@@ -476,6 +480,9 @@ W61_Status_t W61_Status(int32_t ret)
     case -ETIMEDOUT:
       status = W61_STATUS_TIMEOUT;
       break;
+    case -EBUSY:
+      status = W61_STATUS_BUSY;
+      break;
     case -EIO:
       status = W61_STATUS_IO_ERROR;
       break;
@@ -535,9 +542,13 @@ W61_Status_t W61_AT_Common_Query_Parse(W61_Object_t *Obj, char *p_cmd, char *p_r
   struct modem *mdm = (struct modem *) &Obj->Modem;
   struct modem_cmd_handler_data *data = (struct modem_cmd_handler_data *)mdm->handler.cmd_handler_data;
   W61_Status_t ret;
-  TickType_t lock_budget = pdMS_TO_TICKS(timeout_ms);
+  TickType_t lock_budget = modem_cmd_handler_budget(data, pdMS_TO_TICKS(timeout_ms));
   TickType_t started_at = xTaskGetTickCount();
   TickType_t remaining;
+  TickType_t admitted_at;
+  bool trace_ble = (strcmp(p_cmd, "AT+BLEINIT?\r\n") == 0) ||
+                   (strcmp(p_cmd, "AT+BLECONN?\r\n") == 0);
+  bool dns_query = (strcmp(p_resp, "+CIPDOMAIN:") == 0);
 
   if (data == NULL)
   {
@@ -545,9 +556,13 @@ W61_Status_t W61_AT_Common_Query_Parse(W61_Object_t *Obj, char *p_cmd, char *p_r
   }
   if (xSemaphoreTake(data->sem_tx_lock, lock_budget) != pdPASS)
   {
+    if (trace_ble)
+      Debug_UART_Log("ST67", "BLE query AT admission timeout: wait_ticks=%lu held_ticks=0",
+                     (unsigned long)(xTaskGetTickCount() - started_at));
     return W61_STATUS_TIMEOUT;
   }
-  remaining = xTaskGetTickCount() - started_at;
+  admitted_at = xTaskGetTickCount();
+  remaining = admitted_at - started_at;
   remaining = (remaining >= lock_budget) ? 0U :
               (lock_budget - remaining);
   if (remaining == 0U)
@@ -559,6 +574,7 @@ W61_Status_t W61_AT_Common_Query_Parse(W61_Object_t *Obj, char *p_cmd, char *p_r
   mdm->rx_data = p_cmd;
   mdm->argc = argc;
   mdm->argv = argv;
+  mdm->dns_query_live = dns_query;
 
   struct modem_cmd handlers[] = {{
       .cmd = p_resp,
@@ -571,15 +587,35 @@ W61_Status_t W61_AT_Common_Query_Parse(W61_Object_t *Obj, char *p_cmd, char *p_r
     }
   };
 
+  /* This descriptor outlives a scoped DNS timeout. Its callback serializes
+   * pointer retirement with copying the bounded single address response. */
+  static const struct modem_cmd dns_handler = {
+    .cmd = "+CIPDOMAIN:", .cmd_len = 11U, .func = on_cmd_dns_query,
+    .arg_count_min = 1U, .arg_count_max = CONFIG_MODEM_CMD_HANDLER_MAX_PARAM_COUNT,
+    .delim = ",:", .direct = false,
+  };
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
                                       &mdm->handler,
-                                      handlers,
+                                      dns_query ? &dns_handler : handlers,
                                       ARRAY_SIZE(handlers),
                                       (const uint8_t *)p_cmd,
                                       mdm->sem_response,
                                       remaining,
                                       MODEM_NO_TX_LOCK));
+  TickType_t held_ticks = xTaskGetTickCount() - admitted_at;
+  if (dns_query)
+  {
+    taskENTER_CRITICAL();
+    mdm->dns_query_live = false;
+    mdm->rx_data = NULL;
+    mdm->argc = NULL;
+    mdm->argv = NULL;
+    taskEXIT_CRITICAL();
+  }
   (void)xSemaphoreGive(data->sem_tx_lock);
+  if (trace_ble)
+    Debug_UART_Log("ST67", "BLE query AT completed: wait_ticks=%lu held_ticks=%lu result=%ld",
+                   (unsigned long)(admitted_at - started_at), (unsigned long)held_ticks, (long)ret);
   return ret;
 }
 
@@ -592,7 +628,7 @@ static W61_Status_t request_send_data(W61_Object_t *Obj, uint8_t *p_cmd, uint8_t
   int32_t bytes_to_send;
   bool raw_announced = false;
   uint32_t raw_phase = 0U;
-  TickType_t lock_budget = pdMS_TO_TICKS(timeout_ms);
+  TickType_t lock_budget = modem_cmd_handler_budget(&mdm->handler_data, pdMS_TO_TICKS(timeout_ms));
   TickType_t started_at = xTaskGetTickCount();
   TickType_t elapsed;
   TickType_t remaining;
@@ -601,6 +637,8 @@ static W61_Status_t request_send_data(W61_Object_t *Obj, uint8_t *p_cmd, uint8_t
   {
     MODEM_CMD_DIRECT(">", on_cmd_tx_ready),
     MODEM_CMD("Recv ", on_cmd_recv, 1U, " "),
+    MODEM_CMD("SEND OK", on_cmd_ok, 0U, ""),
+    MODEM_CMD("SEND FAIL", on_cmd_error, 0U, ""),
   };
 
   if (xSemaphoreTake(mdm->handler_data.sem_tx_lock, try_lock ? 0U : lock_budget) != pdPASS)
@@ -622,28 +660,61 @@ static W61_Status_t request_send_data(W61_Object_t *Obj, uint8_t *p_cmd, uint8_t
     ret = -EIO;
     goto out;
   }
+  ret = modem_cmd_handler_wait_tx_ready(&mdm->handler_data, remaining, try_lock);
+  if (ret < 0)
+  {
+    goto out;
+  }
+  elapsed = xTaskGetTickCount() - started_at;
+  if (elapsed >= lock_budget)
+  {
+    ret = -ETIMEDOUT;
+    goto out;
+  }
+  remaining = lock_budget - elapsed;
   mdm->raw_tx_terminal_only = !check_resp;
   mdm->raw_tx_response_received = false;
-  raw_announced = true;
+  mdm->raw_tx_payload_started = false;
+  /* Initialize response ownership before the command reaches the bus. The
+   * parser can report a fast rejection before modem_cmd_send_ext returns. */
+  (void)xSemaphoreTake(mdm->sem_response, 0);
+  mdm->rx_data_len = len;
+  mdm->handler_data.raw_command_attempted = false;
   raw_phase = 1U; /* Command */
 
   ret = modem_cmd_send_ext(&mdm->iface, &mdm->handler,
-                           cmds, ARRAY_SIZE(cmds), p_cmd, mdm->sem_response,
+                           cmds, check_resp ? 2U : ARRAY_SIZE(cmds), p_cmd, mdm->sem_response,
                            check_resp ? remaining : 0U, /* If check_resp is false don't wait for OK */
-                           MODEM_NO_TX_LOCK | MODEM_NO_UNSET_CMDS);
+                           MODEM_NO_TX_LOCK | MODEM_NO_UNSET_CMDS | MODEM_TX_ADMISSION_NOWAIT | MODEM_TX_TRACK_RAW_WRITE);
+  /* A network epoch can change while this owner waits behind CWQAP. The
+   * scoped command then returns TIMEOUT before writing CIPSEND. Only an
+   * actual bus attempt can leave ambiguous raw ownership; return codes alone
+   * do not prove whether the NCP received the announcement. */
+  raw_announced = mdm->handler_data.raw_command_attempted;
   if (ret < 0)
   {
+    /* Association can publish a new quiet interval after the precheck.
+     * NOWAIT's EBUSY guarantees no command byte was written: no raw fence. */
+    if (ret == -EBUSY)
+    {
+      raw_announced = false;
+    }
     SYS_LOG_DEBUG("Failed to send command\n");
     goto out;
   }
 
-  /* Reset semaphore that will be released by "Recv " */
-  /*reset mdm->sem_response */
-  (void)xSemaphoreTake(mdm->sem_response, 0);
-  mdm->raw_tx_response_received = false;
-
-  /* Set rx_data_len to be checked during "Recv " event */
-  mdm->rx_data_len = len;
+  if (check_resp)
+  {
+    /* Only this flow has consumed an initial command OK. BLE's optional
+     * initial OK is ignored by its callback until payload submission. */
+    (void)xSemaphoreTake(mdm->sem_response, 0);
+    mdm->raw_tx_response_received = false;
+  }
+  else if (mdm->raw_tx_response_received)
+  {
+    ret = modem_cmd_handler_get_error(&mdm->handler_data);
+    goto out;
+  }
 
   /* Wait for '>' */
   raw_phase = 2U; /* Prompt */
@@ -664,7 +735,17 @@ static W61_Status_t request_send_data(W61_Object_t *Obj, uint8_t *p_cmd, uint8_t
     ret = -ETIMEDOUT;
     goto out;
   }
+  if (mdm->raw_tx_terminal_only && mdm->raw_tx_response_received)
+  {
+    /* A terminal rejection wakes this wait too. It closes the command; no
+     * payload may be written merely because the wake semaphore was given. */
+    ret = modem_cmd_handler_get_error(&mdm->handler_data);
+    goto out;
+  }
 
+  /* Publish the payload phase before writing: its terminal reply may arrive
+   * before the bus write returns. The initial OK must not satisfy this wait. */
+  mdm->raw_tx_payload_started = true;
   while (bytes_consumed_by_the_bus < len)
   {
     raw_phase = 3U; /* Payload */
@@ -726,6 +807,7 @@ out:
                    (unsigned long)len, (unsigned long)(xTaskGetTickCount() - started_at));
   }
   mdm->raw_tx_terminal_only = false;
+  mdm->raw_tx_payload_started = false;
   (void)modem_cmd_handler_update_cmds(&mdm->handler_data,
                                       NULL, 0U, false);
   (void)xSemaphoreGive(mdm->handler_data.sem_tx_lock);
@@ -743,6 +825,182 @@ W61_Status_t W61_AT_Common_TrySendData(W61_Object_t *Obj, uint8_t *p_cmd, uint8_
                                      uint32_t timeout_ms, bool check_resp)
 {
   return request_send_data(Obj, p_cmd, pdata, len, timeout_ms, check_resp, true);
+}
+
+/* An admitted notification remains owned across Radio cycles. The original
+ * execution budget bounds prompt/payload submission. Only a fully copied
+ * payload may enter a separate, read-only terminal drain (never retransmit).
+ * This is not a raw fence: if drain expires, the permanent fence is installed
+ * and no late response or ordinary retry is allowed to clear it. */
+MODEM_CMD_DEFINE(on_notify_terminal_ok)
+{
+  struct modem *mdm = (struct modem *)data->user_data;
+  if ((mdm->notify_phase == 0U) || !mdm->raw_tx_payload_started || !mdm->notify_recv_seen)
+    return 0;
+  mdm->raw_tx_response_received = true;
+  (void)xSemaphoreGive(mdm->sem_response);
+  if (mdm->notify_wake != NULL) mdm->notify_wake();
+  return 0;
+}
+
+static W61_Status_t notify_finish(struct modem *mdm, int32_t result, bool fence)
+{
+  if (mdm->notify_late && !mdm->notify_finish_pending)
+    Debug_UART_Log("RADIO-WAIT", "END reason=BLE_TERMINAL elapsed_ms=%lu result=%ld fenced=%u cancelled=%u",
+                   (unsigned long)(xTaskGetTickCount() - mdm->notify_started) * portTICK_PERIOD_MS,
+                   (long)result, (unsigned)(fence || mdm->handler_data.tx_desynchronized),
+                   (unsigned)mdm->notify_cancelled);
+  mdm->notify_finish_pending = true;
+  mdm->notify_result = result;
+  if (fence)
+  {
+    mdm->handler_data.tx_desynchronized = true;
+    Debug_UART_Log("ST67", "notify unresolved; AT fenced (phase=%lu bytes=%lu/%lu)",
+                   (unsigned long)mdm->notify_phase, (unsigned long)mdm->notify_written,
+                   (unsigned long)mdm->notify_length);
+  }
+  /* Do not unregister a callback that the parser is still executing. Radio
+   * retries retirement next cycle instead of waiting behind the parser. */
+  if (xSemaphoreTake(mdm->handler_data.sem_parse_lock, 0U) != pdPASS) return W61_STATUS_BUSY;
+  (void)modem_cmd_handler_update_cmds(&mdm->handler_data, NULL, 0U, false);
+  mdm->raw_tx_terminal_only = false;
+  mdm->raw_tx_payload_started = false;
+  mdm->notify_phase = 0U;
+  mdm->notify_owner = NULL;
+  (void)xSemaphoreGive(mdm->handler_data.sem_parse_lock);
+  (void)xSemaphoreGive(mdm->handler_data.sem_tx_lock);
+  return W61_Status(result);
+}
+
+W61_Status_t W61_AT_Common_NotifyBegin(W61_Object_t *Obj, uint8_t *command,
+                                       uint32_t length, uint32_t timeout_ms)
+{
+  struct modem *mdm = &Obj->Modem;
+  static const struct modem_cmd handlers[] = {
+    MODEM_CMD_DIRECT(">", on_cmd_tx_ready),
+    MODEM_CMD("Recv ", on_cmd_recv, 1U, " "),
+    MODEM_CMD("SEND OK", on_notify_terminal_ok, 0U, ""),
+    MODEM_CMD("SEND FAIL", on_cmd_error, 0U, ""),
+  };
+  if ((length == 0U) || (pdMS_TO_TICKS(timeout_ms) == 0U)) return W61_STATUS_ERROR;
+  /* Avoid recursive mutex acquisition even by the same Radio task. */
+  if (mdm->notify_phase != 0U) return W61_STATUS_BUSY;
+  if (xSemaphoreTake(mdm->handler_data.sem_tx_lock, 0U) != pdPASS) return W61_STATUS_BUSY;
+  if (mdm->handler_data.tx_desynchronized)
+  {
+    (void)xSemaphoreGive(mdm->handler_data.sem_tx_lock);
+    return W61_STATUS_IO_ERROR;
+  }
+  int32_t ret = modem_cmd_handler_wait_tx_ready(&mdm->handler_data, 0U, true);
+  if (ret < 0)
+  {
+    (void)xSemaphoreGive(mdm->handler_data.sem_tx_lock);
+    return W61_Status(ret);
+  }
+  if (xSemaphoreTake(mdm->handler_data.sem_parse_lock, 0U) != pdPASS)
+  {
+    (void)xSemaphoreGive(mdm->handler_data.sem_tx_lock);
+    return W61_STATUS_BUSY;
+  }
+  (void)xSemaphoreTake(mdm->sem_tx_ready, 0U);
+  (void)xSemaphoreTake(mdm->sem_response, 0U);
+  mdm->raw_tx_terminal_only = true;
+  mdm->raw_tx_response_received = false;
+  mdm->raw_tx_payload_started = false;
+  mdm->rx_data_len = length;
+  mdm->notify_length = length;
+  mdm->notify_written = 0U;
+  mdm->notify_started = xTaskGetTickCount();
+  mdm->notify_budget = pdMS_TO_TICKS(timeout_ms);
+  mdm->notify_late = false;
+  mdm->notify_cancelled = false;
+  mdm->notify_recv_seen = false;
+  mdm->notify_finish_pending = false;
+  mdm->notify_owner = xTaskGetCurrentTaskHandle();
+  mdm->notify_phase = 2U;
+  ret = modem_cmd_send_ext(&mdm->iface, &mdm->handler, handlers, ARRAY_SIZE(handlers),
+                           command, mdm->sem_response, 0U,
+                           MODEM_NO_TX_LOCK | MODEM_NO_UNSET_CMDS | MODEM_TX_ADMISSION_NOWAIT);
+  if (ret < 0)
+  {
+    W61_Status_t result = notify_finish(mdm, ret, ret != -EBUSY);
+    (void)xSemaphoreGive(mdm->handler_data.sem_parse_lock);
+    return result;
+  }
+  (void)xSemaphoreGive(mdm->handler_data.sem_parse_lock);
+  return W61_STATUS_OK; /* Admitted, not delivered. */
+}
+
+W61_Status_t W61_AT_Common_NotifyPoll(W61_Object_t *Obj, const uint8_t *payload,
+                                      uint32_t length, uint32_t *sent)
+{
+  struct modem *mdm = &Obj->Modem;
+  *sent = 0U;
+  if ((mdm->notify_phase == 0U) || (mdm->notify_owner != xTaskGetCurrentTaskHandle()))
+    return W61_STATUS_ERROR;
+  if (mdm->notify_finish_pending)
+  {
+    W61_Status_t result = notify_finish(mdm, mdm->notify_result, false);
+    if ((result == W61_STATUS_OK) && !mdm->notify_cancelled) *sent = mdm->notify_length;
+    return result;
+  }
+  TickType_t elapsed = xTaskGetTickCount() - mdm->notify_started;
+  if (mdm->raw_tx_response_received)
+  {
+    int32_t ret = modem_cmd_handler_get_error(&mdm->handler_data);
+    /* ERROR before prompt is a definite rejection. A success can retire only
+     * after all bytes were copied into bus-owned storage. */
+    if ((ret == 0) && (mdm->notify_written != mdm->notify_length))
+      return notify_finish(mdm, -EIO, true);
+    W61_Status_t result = notify_finish(mdm, ret, false);
+    if ((result == W61_STATUS_OK) && !mdm->notify_cancelled) *sent = mdm->notify_length;
+    return result;
+  }
+  if (elapsed >= mdm->notify_budget)
+  {
+    if (mdm->notify_written != mdm->notify_length)
+      return notify_finish(mdm, -ETIMEDOUT, true);
+    if (!mdm->notify_late)
+    {
+      mdm->notify_late = true;
+      Debug_UART_Log("RADIO-WAIT", "START reason=BLE_TERMINAL elapsed_ms=%lu drain_limit_ms=1000",
+                     (unsigned long)elapsed * portTICK_PERIOD_MS);
+    }
+    if (elapsed >= mdm->notify_budget + pdMS_TO_TICKS(1000U))
+      return notify_finish(mdm, -ETIMEDOUT, true);
+    return W61_STATUS_BUSY;
+  }
+  if (mdm->notify_phase == 2U)
+  {
+    if (xSemaphoreTake(mdm->sem_tx_ready, 0U) != pdPASS) return W61_STATUS_BUSY;
+    mdm->notify_phase = 3U;
+  }
+  if (mdm->notify_phase == 3U)
+  {
+    if ((payload == NULL) || (length != mdm->notify_length))
+      return notify_finish(mdm, -EINVAL, true);
+    mdm->raw_tx_payload_started = true;
+    uint32_t remaining = length - mdm->notify_written;
+    int32_t written = modem_cmd_send_data_nolock(&mdm->iface,
+                                                  &payload[mdm->notify_written], remaining);
+    if (written == -EBUSY) return W61_STATUS_BUSY; /* Zero bytes queued. */
+    if ((written <= 0) || ((uint32_t)written > remaining))
+      return notify_finish(mdm, -EIO, true);
+    mdm->notify_written += (uint32_t)written;
+    if (mdm->notify_written == length) mdm->notify_phase = 4U;
+  }
+  return W61_STATUS_BUSY;
+}
+
+W61_Status_t W61_AT_Common_NotifyCancel(W61_Object_t *Obj)
+{
+  struct modem *mdm = &Obj->Modem;
+  if (mdm->notify_phase == 0U) return W61_STATUS_OK;
+  if (mdm->notify_owner != xTaskGetCurrentTaskHandle()) return W61_STATUS_ERROR;
+  mdm->notify_cancelled = true;
+  if ((mdm->notify_written == mdm->notify_length) || mdm->raw_tx_response_received)
+    return W61_STATUS_BUSY; /* No buffer references remain; drain stale result. */
+  return notify_finish(mdm, -EIO, true); /* Cannot safely complete a cancelled partial payload. */
 }
 
 void W61_AT_RemoveStrQuotes(char *inbuf)
@@ -861,7 +1119,14 @@ static int32_t modem_iface_spi_write(struct modem_iface *iface,
     return 0;
   }
   AT_LOG_HOST_OUT((uint8_t *)buf, size);
-  result = BusIo_SPI_SendData(SPI_MSG_CTRL_TRAFFIC_AT_CMD, (uint8_t *)buf, size, IO_SEND_TIMEOUT);
+  struct modem *mdm = CONTAINER_OF(iface, struct modem, iface);
+  bool notification = (mdm->notify_phase != 0U) &&
+                      (mdm->notify_owner == xTaskGetCurrentTaskHandle());
+  result = BusIo_SPI_SendData(SPI_MSG_CTRL_TRAFFIC_AT_CMD, (uint8_t *)buf, size,
+                              notification ? 0U : (uint32_t)(modem_cmd_handler_budget(
+                                  &mdm->handler_data, pdMS_TO_TICKS(IO_SEND_TIMEOUT)) * portTICK_PERIOD_MS));
+  /* DATA mode copies/enqueues atomically; these errors queue zero bytes. */
+  if (notification && ((result == -3) || (result == -5))) result = -EBUSY;
   Debug_UART_NcpTrace("TX queued", buf, size, result);
   return result;
 }
@@ -948,12 +1213,15 @@ MODEM_CMD_DIRECT_DEFINE(on_cmd_tx_ready)
   struct modem *mdm = (struct modem *) data->user_data;
 
   (void)xSemaphoreGive(mdm->sem_tx_ready);
+  if ((mdm->notify_phase != 0U) && (mdm->notify_wake != NULL)) mdm->notify_wake();
   return len;
 }
 
 MODEM_CMD_DEFINE(on_cmd_recv)
 {
   struct modem *mdm = (struct modem *) data->user_data;
+  if ((mdm->notify_phase != 0U) && mdm->notify_recv_seen) return 0;
+  mdm->notify_recv_seen = true;
   int32_t recv_len = 0;
   if (argc > 0U)
   {
@@ -982,16 +1250,39 @@ MODEM_CMD_DEFINE(on_cmd_recv)
   return 0;
 }
 
+MODEM_CMD_DEFINE(on_cmd_dns_query)
+{
+  struct modem *mdm = (struct modem *)data->user_data;
+  int32_t result = 0;
+  taskENTER_CRITICAL();
+  if (mdm->dns_query_live && !data->dns_drain_active)
+    result = on_cmd_query(data, len, argv, argc);
+  taskEXIT_CRITICAL();
+  return result;
+}
+
 /* Handler: OK */
 MODEM_CMD_DEFINE(on_cmd_ok)
 {
   struct modem *mdm = (struct modem *) data->user_data;
 
-  (void)modem_cmd_handler_set_error(data, 0);
+  if (mdm->notify_phase != 0U) return 0; /* Only correlated Recv + SEND OK completes this SDK flow. */
+
+  if (mdm->raw_tx_terminal_only && (!mdm->raw_tx_payload_started ||
+      ((mdm->notify_phase != 0U) && !mdm->notify_recv_seen)))
+  {
+    /* Firmware may acknowledge BLEGATTSNTFY with OK before its raw prompt.
+     * That acknowledgement neither ends raw ownership nor wakes the sender. */
+    return 0;
+  }
+  if (!mdm->raw_tx_terminal_only)
+  {
+    (void)modem_cmd_handler_set_error(data, 0);
+  }
 
   mdm->raw_tx_response_received = true;
   (void)xSemaphoreGive(mdm->sem_response);
-
+  modem_cmd_handler_dns_drain_complete(data);
   return 0;
 }
 
@@ -1004,6 +1295,12 @@ MODEM_CMD_DEFINE(on_cmd_error)
 
   mdm->raw_tx_response_received = true;
   (void)xSemaphoreGive(mdm->sem_response);
+  if (mdm->raw_tx_terminal_only)
+  {
+    (void)xSemaphoreGive(mdm->sem_tx_ready);
+  }
+  if ((mdm->notify_phase != 0U) && (mdm->notify_wake != NULL)) mdm->notify_wake();
+  modem_cmd_handler_dns_drain_complete(data);
 
   return 0;
 }

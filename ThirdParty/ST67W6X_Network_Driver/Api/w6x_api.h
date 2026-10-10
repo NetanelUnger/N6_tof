@@ -788,6 +788,11 @@ int32_t W6X_Net_Bind(int32_t sock, const struct sockaddr *addr, socklen_t addrle
   */
 int32_t W6X_Net_Connect(int32_t sock, const struct sockaddr *addr, socklen_t addrlen);
 
+/* Only this worker's nested AT waits share the request deadline. Epoch changes
+ * reject new commands at boundaries; an in-flight command retains its reply. */
+void W6X_Net_RequestScopeBegin(uint32_t timeout_ms, const volatile uint32_t *generation, uint32_t expected);
+void W6X_Net_RequestScopeEnd(void);
+
 /**
   * @brief  Listen for incoming connections on a socket
   * @param  sock: Socket ID to listen on
@@ -1417,6 +1422,14 @@ W6X_Status_t W6X_Ble_RemoteCharDiscovery(uint8_t conn_handle, uint8_t service_in
   */
 W6X_Status_t W6X_Ble_ServerNotify(uint8_t conn_handle, uint8_t service_index, uint8_t char_index,
                                   void *data, uint32_t req_len, uint32_t *sent_data_len, uint32_t timeout);
+
+/* Single-owner SDK 2.0.106 extension. Begin OK only admits; Poll BUSY retains
+ * ownership. No data pointer survives Poll. Same task begins/polls/cancels. */
+W6X_Status_t W6X_Ble_ServerNotifyBegin(uint8_t conn_handle, uint8_t service_index,
+                                       uint8_t char_index, uint32_t length, uint32_t timeout);
+W6X_Status_t W6X_Ble_ServerNotifyPoll(const void *data, uint32_t length, uint32_t *sent);
+W6X_Status_t W6X_Ble_ServerNotifyCancel(void);
+void W6X_Ble_ServerNotifySetWakeCallback(void (*wake)(void));
 
 /**
   * @brief  Indicate the Characteristic Value from the Server to a Client (maximum

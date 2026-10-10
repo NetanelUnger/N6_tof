@@ -18,6 +18,130 @@ General host-driven hardware validation tools live in
 interactive BLE scan, selected-device connection, and complete GATT discovery
 report without writing characteristics or changing firmware.
 
+The current RAM candidate adds public radio availability and bounded BLE/Cloud
+CLI reply ownership using existing TX storage, with explicit completion/failure
+and independent USB diagnostics. Browser wait/unknown handling is built locally,
+not published. Native29 +two audits,16 feature compiles and browser6 +XMODEM8 pass.
+Initial451/451 then exact final149/149 ordinary replies,102 then39 received CRC BLE
+frames, two Wi-Fi cycles per candidate; final p95 187/max2797 ms. No RX/TX drops.
+User approved saved-token use and live Cloud acceptance now passes after two
+focused fixes:512-byte Cloud send slices preserve SPI RX headroom; ordinary
+end-of-line cannot prematurely complete asynchronous Wi-Fi work. Final139/139 BLE
+replies,414 received CRC-valid Cloud frames and6/6 matching Cloud completions;
+two reconnects restore three frames in1.4/4.2 seconds after IP. No radio allocation
+failure or RX/TX drop. Full latency/endurance remain open (Cloud max9.9 seconds
+in the final command sample).37 actual-C +two audits and feature16 pass.
+RAMv10 package478688/NS477392/heap394712; Flash/header9. Test Cloud polling disabled
+after HIL; Wi-Fi retained, BLE advertising, all test handles released.
+See [contract and evidence](docs/cli-service-backpressure.md). Tasks3–4 not started.
+
+The preceding RAM candidate adds paired debug-UART wait diagnostics for DNS,
+Wi-Fi connect/disconnect and late BLE terminal drain. Debugging preserved PENDING
+as a timeout snapshot across parser preemption; DNS END explicitly reports a
+fenced outcome even without a terminal error.10 native cases plus audit and16
+feature checks pass. Follow-up trace-off UART14 pairs/four reconnects restore
+actual Cloud images; final409/409 BLE replies, p95 203/max2672 ms. Long pauses,
+CLI backpressure, service availability and full latency acceptance remain open.
+Package471744, NS470464, heap401688; no capacity increase; RAMv10, Flash/sourcev9.
+
+The preceding 2026-10-09 cancellation candidate restored Cloud images through twelve warm
+Wi-Fi reconnects in 1.1--5.0 seconds. DNS uses a bounded read-only terminal
+drain with retired caller pointers; Wi-Fi status refresh defers and retries.
+Raw sends now distinguish cancellation before CIPSEND from an unanswered
+transmitted command, preventing a confirmed false shared-AT fence. Genuine
+fences remain. Exclusive 20 BLE ->25 USB ->20 BLE CRC routing passes; combined
+trace-on BLE FAILS (621/622, p95 312 ms); trace-off also FAILS (614/615,
+p95 297/max9219 ms). Quiescent sockets retire, no retained allocation growth
+observed. Full milestones remain open. Signed-only v10 package
+471008 bytes, NS 469704, C heap 402424; no capacity increase. Flash/source v9.
+See [current evidence and remaining checks](docs/radio-transaction-cloud-recovery.md).
+
+The earlier user-prioritized candidate gives Radio one asynchronous notification
+transaction, signalled through the existing event group. The original 100 ms
+submission budget remains; fully copied payloads may drain their final reply
+for another bounded 1000 ms while retaining AT ownership. Real missing-response
+fences remain fail-closed. Cloud now invalidates stale connection epochs,
+retains failed-close descriptors, confirms remote retirement and matching NCP
+receive-buffer configuration, and applies the 4500 ms request budget before
+DNS/open/send. Native checks and 16 feature compilations pass. First RAM HIL
+delivered 381/381 BLE replies, 115/115 USB and 92 CRC images, Radio gap 22 ms;
+BLE p95 1469 ms FAILED. Cloud received 170 images, then warm reconnect FAILED
+at a scoped DNS timeout. Expected async notification BUSY logging was repaired;
+corrected image testing awaits a clean power cycle after ToF address failure.
+Signed-only v10 package is 470240 bytes, NS 468960, C heap 403200;
+no task/queue/stack/pool capacity grew. Flash/source remains v9.
+See [implementation and remaining checks](docs/radio-transaction-cloud-recovery.md).
+
+The earlier M5.3 RAM candidate moves runtime BLE control to the existing Wi-Fi worker,
+using one by-value mailbox and the existing wake event. Session generation and
+advertising revision reject stale results; no stack, queue or pool increase.
+Native ownership and feature-mode checks pass. Connected Cloud toggles passed
+532/532 BLE replies (p95 203 ms), 94/94 USB replies and Radio gap 50 ms; exclusive
+CRC image routing passed. Forced Wi-Fi reconnect still FAILED: 84 missing BLE
+replies after a missing raw prompt retained the protective AT fence. Radio stayed
+responsive (max 120 ms), USB 108/108 (p95 16 ms), allocations zero. Full M5.3/M5.4
+acceptance remains open; next investigate reconnect/raw-prompt failure and safe
+recovery. See [task plan](docs/async-architecture-recovery-plan.md) and
+[retained evidence](docs/radio-stability-20261008.md). Flash/tracked version is 9.
+
+The following association repair preserves the vendor's 100 ms settling period
+at new AT-command admission instead of sleeping in the shared RX parser. BLE
+defers with BUSY before writing; guarded-admission races do not falsely fence
+AT. Native admission/raw checks pass. The latest three-cycle, trace-off target
+probe received 694/694 BLE replies, 112/112 USB replies and 155 CRC-valid images;
+Radio gap was at most 60 ms. BLE maximum response was 2125 ms despite p95 156 ms.
+An earlier late-terminal failure remains recorded, and Cloud did not resume
+after repeated reconnects: the NCP rejected receive-buffer setup. Full acceptance
+stays open. A subsequent exclusive-route repeat failed after 12 CRC-valid BLE
+images with another missing terminal response, even without reassociation.
+The tested 464824-byte candidate runs in RAM; Flash remains v9.
+
+The 2026-10-08 Flash-v9 radio investigation passed targeted BLE CLI and
+exclusive image-route probes. Five-minute and repeated ninety-second combined
+probes received every PONG and CRC-valid images, but reproduced 3.1--3.4 second
+BLE response pauses around Wi-Fi scanning. A source-built, package-only v10
+diagnostic candidate distinguishes expected notification BUSY from real errors
+and measures scan AT-lock waiting/ownership. After
+the probes, a Cloud disable/enable transition reproduced full-MTU SPI RX
+allocation failures followed by a missing raw response and protective AT fence.
+The candidate also retains failure-time radio-pool metadata for `radio status`;
+packet ownership/budget is now the first investigation priority. See
+[docs/radio-stability-20261008.md](docs/radio-stability-20261008.md) for evidence,
+stack observations and the remaining gates. Flash/tracked version remains 9.
+
+The subsequent diagnostic RAM run captured the exact failure: a 1560-byte RX
+allocation returned ThreadX `TX_NO_MEMORY`, with 916 bytes available. Non-halting
+SWD reads found a retained 1528-byte TX packet, empty SPI queues and a still-owned
+920-byte Wi-Fi scan list. A cleanup-only candidate reproduced the race because
+scan scratch was allocated before waiting for the raw sender's AT mutex.
+The revised candidate admits the scan before allocating, retains admission
+through terminal response/result delivery, and releases borrowed scan scratch
+after the application copies it. Following a full power cycle, ten scans each
+returned fresh results while Cloud received 120 additional images; three bounded
+Cloud disable/enable transitions restored actual reception. Allocation failures
+remained zero, and non-halting metadata confirmed scan scratch was released.
+The earlier warm restart with no ToF frames remains a failed validation attempt.
+
+Redacted target traces also found a separate BLE response mismatch: this NCP
+returns initial OK, prompt, Recv and SEND OK. The driver confused initial OK
+with payload completion and did not recognize SEND OK. The raw sender now owns
+the entire sequence, preserves fast rejection, supports the earlier payload-OK
+variant, and fences genuinely unfinished transfers. Sixteen scan and sixteen
+raw-send actual-C checks pass. Initial hardware verification received 33 CRC-valid
+BLE images and all 138 command replies; a roughly three-second scan pause still
+remains. Trace-off combined two minutes delivered 101 CRC-valid images and
+367/367 replies, but p95 391 ms failed the 250 ms latency gate; maximum was
+3594 ms. Signed-only v10 is 463968 bytes; RAM is under test and Flash/tracked
+version remains 9. No queue, stack, pool, timeout or IOC capacity increased.
+The final Cloud re-enable exceeded its 20-second image-return bound after FS/
+DNS timeouts and later recovered without reset. Radio/BLE maximum grew to
+2020 ms; this additional failure remains open despite the targeted fixes.
+The [current task plan](docs/async-architecture-recovery-plan.md) now separates
+verified focused repairs from failed overall gates. The next M5.3 work item is
+removing synchronous shared-AT waits from BLE health/control. M5.5 must also
+cover opening DNS/socket/send in the total request budget; the existing HTTP
+receive deadline begins afterward. These are source-audited open items.
+
 The 2026-10-07 ToF recovery candidate preserves explicit in-RAM desired state:
 pause, map/dataset mode, image channels, processing and the exclusive destination.
 Runtime sensor/I3C faults now trigger acquisition-owned I3C/DMA and XSHUT

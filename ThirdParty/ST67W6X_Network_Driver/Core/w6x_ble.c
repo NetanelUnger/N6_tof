@@ -23,6 +23,8 @@
 #include "w61_at_api.h"    /* Prototypes of the functions called by this file */
 #include "w6x_internal.h"
 #include "w61_io.h"        /* Prototypes of the BUS functions to be registered */
+#include "w61_at_common.h"
+#include <stdio.h>
 
 /* Global variables ----------------------------------------------------------*/
 /* Private typedef -----------------------------------------------------------*/
@@ -582,6 +584,36 @@ W6X_Status_t W6X_Ble_ServerNotify(uint8_t conn_handle, uint8_t service_index, ui
   /* Send a notification */
   return TranslateErrorStatus(W61_Ble_ServerSendNotification(W6X_Ble_drv_obj, conn_handle, service_index, char_index,
                                                              (uint8_t *)data, req_len, sent_data_len, timeout));
+}
+
+W6X_Status_t W6X_Ble_ServerNotifyBegin(uint8_t conn_handle, uint8_t service_index,
+                                       uint8_t char_index, uint32_t length, uint32_t timeout)
+{
+  NULL_ASSERT(W6X_Ble_drv_obj, W6X_Ble_Uninit_str);
+  char command[80];
+  /* This asynchronous extension is contracted to installed SDK 2.0.106. */
+  if ((length == 0U) || (length > W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH)) return W6X_STATUS_ERROR;
+  (void)snprintf(command, sizeof(command), "AT+BLEGATTSNTFY=%u,%u,%lu,%u\r\n",
+                 service_index, char_index, (unsigned long)length, conn_handle);
+  return TranslateErrorStatus(W61_AT_Common_NotifyBegin(W6X_Ble_drv_obj,
+                                                        (uint8_t *)command, length, timeout));
+}
+
+W6X_Status_t W6X_Ble_ServerNotifyPoll(const void *data, uint32_t length, uint32_t *sent)
+{
+  NULL_ASSERT(W6X_Ble_drv_obj, W6X_Ble_Uninit_str);
+  return TranslateErrorStatus(W61_AT_Common_NotifyPoll(W6X_Ble_drv_obj, data, length, sent));
+}
+
+void W6X_Ble_ServerNotifySetWakeCallback(void (*wake)(void))
+{
+  if (W6X_Ble_drv_obj != NULL) W6X_Ble_drv_obj->Modem.notify_wake = wake;
+}
+
+W6X_Status_t W6X_Ble_ServerNotifyCancel(void)
+{
+  NULL_ASSERT(W6X_Ble_drv_obj, W6X_Ble_Uninit_str);
+  return TranslateErrorStatus(W61_AT_Common_NotifyCancel(W6X_Ble_drv_obj));
 }
 
 W6X_Status_t W6X_Ble_ServerIndicate(uint8_t conn_handle, uint8_t service_index, uint8_t char_index,

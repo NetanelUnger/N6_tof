@@ -26,6 +26,7 @@
 #include "w6x_internal.h"
 #include "w61_io.h"        /* Prototypes of the BUS functions to be registered */
 #include "common_parser.h" /* Common Parser functions */
+#include "debug_uart.h"
 
 /* Global variables ----------------------------------------------------------*/
 /* Private typedef -----------------------------------------------------------*/
@@ -64,6 +65,7 @@ typedef struct
   uint8_t IsConnected;              /*!< Set to 1 if socket is a connection and not a server */
   uint8_t Client;                   /*!< Set to 1 if connection was made as client */
   uint8_t Number;                   /*!< Connection number */
+  uint8_t OpenAttempted;            /*!< CIPSTART may have reached the NCP even before its callback */
   uint32_t RemoteIP[4];             /*!< IP address of device */
   uint8_t TcpNoDelay;               /*!< BSD Socket option TCP_NODELAY */
   char *Ca_Cert;                    /*!< CA certificate */
@@ -924,6 +926,28 @@ int32_t W6X_Net_Socket(int32_t family, int32_t type, int32_t proto)
   return ret; /* No available socket */
 }
 
+void W6X_Net_RequestScopeBegin(uint32_t timeout_ms, const volatile uint32_t *generation, uint32_t expected)
+{
+  if (W6X_Net_drv_obj == NULL) return;
+  struct modem_cmd_handler_data *data = &W6X_Net_drv_obj->Modem.handler_data;
+  data->budget_started = xTaskGetTickCount();
+  data->budget_ticks = pdMS_TO_TICKS(timeout_ms);
+  data->budget_generation = generation;
+  data->budget_expected = expected;
+  data->budget_owner = xTaskGetCurrentTaskHandle();
+}
+
+void W6X_Net_RequestScopeEnd(void)
+{
+  if (W6X_Net_drv_obj == NULL) return;
+  struct modem_cmd_handler_data *data = &W6X_Net_drv_obj->Modem.handler_data;
+  if (data->budget_owner == xTaskGetCurrentTaskHandle())
+  {
+    data->budget_owner = NULL;
+    data->budget_generation = NULL;
+  }
+}
+
 int32_t W6X_Net_Close(int32_t sock)
 {
   W61_Net_Connection_t conn;
@@ -939,7 +963,8 @@ int32_t W6X_Net_Close(int32_t sock)
   /* A failed Connect leaves the local socket ALLOCATED. There is no NCP
    * connection to stop, but its slot and copied TLS credentials must be
    * released. Otherwise each failed Cloud retry consumes a socket. */
-  if (p_net_ctx->Sockets[sock].Status == W6X_NET_SOCKET_ALLOCATED)
+  if ((p_net_ctx->Sockets[sock].Status == W6X_NET_SOCKET_ALLOCATED) &&
+      (p_net_ctx->Sockets[sock].OpenAttempted == 0U))
   {
     if (p_net_ctx->Sockets[sock].Ca_Cert != NULL)
       vPortFree(p_net_ctx->Sockets[sock].Ca_Cert);
@@ -957,22 +982,38 @@ int32_t W6X_Net_Close(int32_t sock)
   }
 
   /* Check if the socket is used */
-  if (p_net_ctx->Sockets[sock].Status == W6X_NET_SOCKET_CONNECTED)
+  if ((p_net_ctx->Sockets[sock].Status == W6X_NET_SOCKET_CONNECTED) ||
+      (p_net_ctx->Sockets[sock].Status == W6X_NET_SOCKET_CLOSING) ||
+      ((p_net_ctx->Sockets[sock].Status == W6X_NET_SOCKET_ALLOCATED) &&
+       (p_net_ctx->Sockets[sock].OpenAttempted != 0U)))
   {
     conn.Number = p_net_ctx->Sockets[sock].Number;
+    if (conn.Number >= W61_NET_MAX_CONNECTIONS) return -1;
     /* Set the socket status to closing to terminate remaining process */
     p_net_ctx->Sockets[sock].Status = W6X_NET_SOCKET_CLOSING;
 
     /* Stop the connection */
-    if (p_net_ctx->Connection[p_net_ctx->Sockets[sock].Number].SocketConnected == 1U)
+    if ((p_net_ctx->Connection[conn.Number].SocketConnected == 1U) ||
+        (p_net_ctx->Sockets[sock].OpenAttempted != 0U))
     {
       taskENTER_CRITICAL();
       p_net_ctx->Connection[p_net_ctx->Sockets[sock].Number].DataAvailableSize = 0;
       taskEXIT_CRITICAL();
-      if (W61_Net_StopClientConnection(W6X_Net_drv_obj, &conn) != W61_STATUS_OK)
+      W61_Status_t close_status = W61_Net_StopClientConnection(W6X_Net_drv_obj, &conn);
+      if (p_net_ctx->Sockets[sock].Status == W6X_NET_SOCKET_RESET) return 0;
+      /* Retain identity until CLOSED or a successful state query confirms
+       * absence. ERROR alone (including already-closed) is not that proof. */
+      uint8_t number = conn.Number;
+      if ((W61_Net_GetSocketInformation(W6X_Net_drv_obj, number, &conn) != W61_STATUS_OK) ||
+          (conn.RemoteIP[0] != '\0'))
       {
+        (void)close_status;
         return ret;
       }
+      conn.Number = number;
+      p_net_ctx->Connection[conn.Number].SocketConnected = 0U;
+      p_net_ctx->Connection[conn.Number].DataAvailableSize = 0U;
+      W6X_Net_Clean_Socket(conn.Number);
     }
     else
     {
@@ -1058,6 +1099,25 @@ int32_t W6X_Net_Bind(int32_t sock, const struct sockaddr *addr, socklen_t addrle
   p_net_ctx->Sockets[sock].Status = W6X_NET_SOCKET_BIND; /* Set the socket status to bind */
 
   return 0;
+}
+
+static int32_t W6X_Net_ConfigureReceiveBuffer(int32_t sock)
+{
+  uint32_t existing = 0U;
+  uint8_t number = p_net_ctx->Sockets[sock].Number;
+  uint32_t requested = p_net_ctx->Sockets[sock].RecvBuffSize;
+  W61_Status_t query = W61_Net_GetReceiveBufferLen(W6X_Net_drv_obj, number, &existing);
+  if ((query == W61_STATUS_BUSY) || (query == W61_STATUS_TIMEOUT))
+    return W6X_Net_TranslateErrorStatus(query);
+  if ((query == W61_STATUS_OK) && (existing == requested)) return 0;
+  int32_t ret = W6X_Net_TranslateErrorStatus(W61_Net_SetReceiveBufferLen(W6X_Net_drv_obj, number, requested));
+  if ((ret != 0) && (ret != -2))
+  {
+    Debug_UART_Log("CLOUD", "receive configuration rejected: fd=%ld ncp=%u requested=%lu existing=%lu query=%u result=%ld",
+                   (long)sock, number, (unsigned long)requested, (unsigned long)existing,
+                   (unsigned)query, (long)ret);
+  }
+  return ret;
 }
 
 int32_t W6X_Net_Connect(int32_t sock, const struct sockaddr *addr, socklen_t addrlen)
@@ -1285,9 +1345,10 @@ int32_t W6X_Net_Connect(int32_t sock, const struct sockaddr *addr, socklen_t add
     return ret;
   }
 
-  /* Set the Net Receive buffer length */
-  ret = W6X_Net_TranslateErrorStatus(W61_Net_SetReceiveBufferLen(W6X_Net_drv_obj, p_net_ctx->Sockets[sock].Number,
-                                                                 p_net_ctx->Sockets[sock].RecvBuffSize));
+  /* Receive buffers belong to NCP connection IDs, not to our rotating BSD
+   * descriptors. Reuse a confirmed matching configuration rather than
+   * repeatedly requesting NCP allocation for every short HTTP connection. */
+  ret = W6X_Net_ConfigureReceiveBuffer(sock);
   if (ret != 0)
   {
     if (ret != -2) /* BUSY */
@@ -1298,6 +1359,7 @@ int32_t W6X_Net_Connect(int32_t sock, const struct sockaddr *addr, socklen_t add
   }
 
   /* Start the connection */
+  p_net_ctx->Sockets[sock].OpenAttempted = 1U;
   ret = W6X_Net_TranslateErrorStatus(W61_Net_StartClientConnection(W6X_Net_drv_obj, &conn));
   if (ret != 0)
   {
@@ -1315,7 +1377,7 @@ int32_t W6X_Net_Connect(int32_t sock, const struct sockaddr *addr, socklen_t add
     if (p_net_ctx->Connection[conn_to_use].SocketConnected == 0U) /* To check if semaphore if needed */
     {
       NET_LOG_ERROR("Could not connect\n");
-      return ret;
+      return -1;
     }
   }
 
@@ -2415,10 +2477,10 @@ static int32_t W6X_Net_Wait_Pull_Data(int32_t sock, int32_t connection_id, void 
     if ((p_net_ctx->Connection[connection_id].SocketConnected == 1U) ||
         (p_net_ctx->Connection[connection_id].DataAvailableSize > 0U))
     {
-      if (p_net_ctx->Connection[connection_id].DataAvailable != NULL)
+        if (p_net_ctx->Connection[connection_id].DataAvailable != NULL)
       {
         sem_taken = xSemaphoreTake(p_net_ctx->Connection[connection_id].DataAvailable,
-                                   (TickType_t)(100));
+            modem_cmd_handler_budget(&W6X_Net_drv_obj->Modem.handler_data, (TickType_t)100));
       }
     }
     cpt++;
@@ -2436,7 +2498,8 @@ static int32_t W6X_Net_Wait_Pull_Data(int32_t sock, int32_t connection_id, void 
     {
       /* In TCP, wait another +IPD for maximum 3 ms to maximize data available to fetch */
       /* In UDP, wait more +IPDs for maximum 3 ms to maximize data available to fetch */
-      BaseType_t sem_status = xSemaphoreTake(p_net_ctx->Connection[connection_id].DataAvailable, (TickType_t) 3);
+      BaseType_t sem_status = xSemaphoreTake(p_net_ctx->Connection[connection_id].DataAvailable,
+          modem_cmd_handler_budget(&W6X_Net_drv_obj->Modem.handler_data, (TickType_t)3));
       if ((sem_status == pdFAIL) || (p_net_ctx->Sockets[sock].Protocol == W6X_NET_TCP_PROTOCOL))
       {
         break;
@@ -2589,44 +2652,32 @@ static const char *inet_ntop6(const uint8_t src[16], char *dst, size_t size)
 
 static void W6X_Net_Clean_Socket(int32_t sock)
 {
+  if ((sock < 0) || (sock >= W61_NET_MAX_CONNECTIONS)) return;
   for (uint8_t i = 0; i < (W61_NET_MAX_CONNECTIONS + 1U); i++)
   {
-    if (p_net_ctx->Sockets[i].Number == sock)
+    void *credentials[5] = {0};
+    bool retired = false;
+    /* CLOSED callback and owner-side confirmed close may race. Detach once
+     * before returning storage to the allocator; never free live pointers
+     * that a preempting callback could free again. */
+    taskENTER_CRITICAL();
+    if ((p_net_ctx->Sockets[i].Number == sock) &&
+        (p_net_ctx->Connection[sock].DataAvailableSize == 0U))
     {
-      if (p_net_ctx->Connection[sock].DataAvailableSize == 0U)
-      {
-        if (p_net_ctx->Connection[p_net_ctx->Sockets[sock].Number].DataAvailable != NULL)
-        {
-          (void)xSemaphoreTake(p_net_ctx->Connection[sock].DataAvailable, (TickType_t)0);
-        }
-
-        /* Free credentials that were allocated */
-        if (p_net_ctx->Sockets[i].Ca_Cert != NULL)
-        {
-          vPortFree(p_net_ctx->Sockets[i].Ca_Cert);
-        }
-        if (p_net_ctx->Sockets[i].Private_Key != NULL)
-        {
-          vPortFree(p_net_ctx->Sockets[i].Private_Key);
-        }
-        if (p_net_ctx->Sockets[i].Certificate != NULL)
-        {
-          vPortFree(p_net_ctx->Sockets[i].Certificate);
-        }
-        if (p_net_ctx->Sockets[i].PSK != NULL)
-        {
-          vPortFree(p_net_ctx->Sockets[i].PSK);
-        }
-        if (p_net_ctx->Sockets[i].PSK_Identity != NULL)
-        {
-          vPortFree(p_net_ctx->Sockets[i].PSK_Identity);
-        }
-
-        (void)memset(&p_net_ctx->Sockets[i], 0, sizeof(W6X_Net_Socket_t)); /* Erase the socket context */
-        /* Set the socket number to an invalid value */
-        p_net_ctx->Sockets[i].Number = W61_NET_MAX_CONNECTIONS + 1U;
-      }
+      credentials[0] = p_net_ctx->Sockets[i].Ca_Cert;
+      credentials[1] = p_net_ctx->Sockets[i].Private_Key;
+      credentials[2] = p_net_ctx->Sockets[i].Certificate;
+      credentials[3] = p_net_ctx->Sockets[i].PSK;
+      credentials[4] = p_net_ctx->Sockets[i].PSK_Identity;
+      (void)memset(&p_net_ctx->Sockets[i], 0, sizeof(W6X_Net_Socket_t));
+      p_net_ctx->Sockets[i].Number = W61_NET_MAX_CONNECTIONS + 1U;
+      retired = true;
     }
+    taskEXIT_CRITICAL();
+    if (retired && (p_net_ctx->Connection[sock].DataAvailable != NULL))
+      (void)xSemaphoreTake(p_net_ctx->Connection[sock].DataAvailable, (TickType_t)0);
+    for (uint32_t index = 0U; index < 5U; ++index)
+      if (credentials[index] != NULL) vPortFree(credentials[index]);
   }
 }
 /** @} */

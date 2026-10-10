@@ -125,6 +125,9 @@ static volatile uint32_t debug_uart_watch_component;
 static ULONG debug_uart_watch_last_tick;
 static volatile uint32_t debug_uart_ncp_trace_enabled;
 static volatile uint32_t debug_uart_ncp_trace_sequence;
+static volatile uint32_t debug_uart_ncp_terminal_spi_tick;
+static volatile uint32_t debug_uart_ncp_terminal_spi_sequence;
+static uint32_t debug_uart_ncp_terminal_reported_sequence;
 
 static void Debug_UART_ArmRx(void);
 
@@ -1225,6 +1228,14 @@ static const char *Debug_UART_NcpMeaning(const char *verb)
 /* Deliberately print only protocol verbs, fixed replies and event names. AT
  * arguments may contain Wi-Fi passwords, cloud tokens or arbitrary GATT data.
  * Each bus chunk gets a sequence number even when the NCP splits a line. */
+void Debug_UART_NcpTerminalObservedAtSpi(void)
+{
+  /* The SPI owner has a 768-byte stack. Never format or enqueue a UART
+   * record here: retain just timestamp/sequence before publishing RX. */
+  __atomic_store_n(&debug_uart_ncp_terminal_spi_tick, HAL_GetTick(), __ATOMIC_RELAXED);
+  (void)__atomic_add_fetch(&debug_uart_ncp_terminal_spi_sequence, 1U, __ATOMIC_RELEASE);
+}
+
 void Debug_UART_NcpTrace(const char *direction, const uint8_t *data,
                          size_t length, int32_t transport_result)
 {
@@ -1234,6 +1245,7 @@ void Debug_UART_NcpTrace(const char *direction, const uint8_t *data,
   size_t start = 0U;
   size_t count = 0U;
   uint32_t sequence;
+  uint32_t terminal_reply = 0U;
 
   if ((Debug_UART_NcpTraceEnabled() == 0U) || (data == NULL) ||
       (length == 0U) || (direction == NULL))
@@ -1285,6 +1297,23 @@ void Debug_UART_NcpTrace(const char *direction, const uint8_t *data,
   {
     meaning = "ready for raw data";
   }
+  else if ((length - start >= 7U) &&
+           (memcmp(&data[start], "SEND OK", 7U) == 0))
+  {
+    meaning = "SEND OK (payload accepted)";
+    terminal_reply = 1U;
+  }
+  else if ((length - start >= 9U) &&
+           (memcmp(&data[start], "SEND FAIL", 9U) == 0))
+  {
+    meaning = "SEND FAIL (payload rejected)";
+    terminal_reply = 1U;
+  }
+  else if ((length - start >= 5U) &&
+           (memcmp(&data[start], "Recv ", 5U) == 0))
+  {
+    meaning = "Recv (payload length acknowledgement)";
+  }
   else if ((start < length) && (data[start] == '+'))
   {
     while ((start < length) && (count < sizeof(verb) - 1U))
@@ -1317,7 +1346,18 @@ void Debug_UART_NcpTrace(const char *direction, const uint8_t *data,
   {
     description = Debug_UART_NcpMeaning(verb);
   }
-  if (description != NULL)
+  uint32_t terminal_sequence = __atomic_load_n(&debug_uart_ncp_terminal_spi_sequence, __ATOMIC_ACQUIRE);
+  if (terminal_reply && (strcmp(direction, "RX read") == 0) &&
+      (terminal_sequence != debug_uart_ncp_terminal_reported_sequence))
+  {
+    uint32_t spi_tick = __atomic_load_n(&debug_uart_ncp_terminal_spi_tick, __ATOMIC_RELAXED);
+    debug_uart_ncp_terminal_reported_sequence = terminal_sequence;
+    Debug_UART_Log("NCP", "#%lu %s %s (%lu bytes, transport=%ld, spi_tick=%lu parser_age_ms=%lu)",
+                   (unsigned long)sequence, direction, meaning,
+                   (unsigned long)length, (long)transport_result,
+                   (unsigned long)spi_tick, (unsigned long)(HAL_GetTick() - spi_tick));
+  }
+  else if (description != NULL)
   {
     Debug_UART_Log("NCP", "#%lu %s %s: %s (%lu bytes, transport=%ld)",
                    (unsigned long)sequence, direction, meaning, description,

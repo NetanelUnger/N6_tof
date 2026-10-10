@@ -1006,6 +1006,7 @@ W61_Status_t W61_Net_PullDataFromSocket(W61_Object_t *Obj, uint8_t Socket, uint3
   {
     return W61_STATUS_ERROR;
   }
+  Timeout = (uint32_t)(modem_cmd_handler_budget(data, pdMS_TO_TICKS(Timeout)) * portTICK_PERIOD_MS);
   remaining = W61_AT_Common_TakeTxLockBudget(data->sem_tx_lock, Timeout, &started_at);
   if (remaining == 0U)
   {
@@ -1229,13 +1230,15 @@ W61_Status_t W61_Net_GetSocketInformation(W61_Object_t *Obj, uint8_t Socket, W61
   {
     return W61_STATUS_ERROR;
   }
-  remaining = W61_AT_Common_TakeTxLockBudget(data->sem_tx_lock, W61_NET_TIMEOUT, &started_at);
+  uint32_t request_timeout = (uint32_t)(modem_cmd_handler_budget(data,
+      pdMS_TO_TICKS(W61_NET_TIMEOUT)) * portTICK_PERIOD_MS);
+  remaining = W61_AT_Common_TakeTxLockBudget(data->sem_tx_lock, request_timeout, &started_at);
   if (remaining == 0U)
   {
     return W61_STATUS_TIMEOUT;
   }
 
-  remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_NET_TIMEOUT);
+  remaining = W61_AT_Common_RemainingTxBudget(started_at, request_timeout);
   if (remaining == 0U)
   {
     (void)xSemaphoreGive(data->sem_tx_lock);

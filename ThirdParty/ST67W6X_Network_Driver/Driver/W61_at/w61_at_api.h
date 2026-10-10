@@ -626,6 +626,8 @@ typedef struct
 
 /**
   * @brief  Wi-Fi scan result callback
+  * @note   The result and AP list are borrowed only for the synchronous callback.
+  *         Copy needed entries before returning; the parser releases the list.
   */
 typedef void(* W61_WiFi_Scan_Result_cb_t)(int32_t status, W61_WiFi_Scan_Result_t *entry);
 
@@ -1163,6 +1165,7 @@ typedef int32_t (*W61_AT_Event_data_cb_t)(uint32_t event_id, struct modem_cmd_ha
   */
 typedef struct modem
 {
+  bool dns_query_live; /* Static DNS callback accesses caller storage only while true. */
   TaskHandle_t modem_task_handle;                         /*!< Modem task handle */
   struct modem_cmd_handler handler;                       /*!< Modem command handler */
   struct modem_cmd_handler_data handler_data;             /*!< Modem command handler data */
@@ -1180,8 +1183,21 @@ typedef struct modem
   uint16_t *argc;                                         /*!< Argument count pointer */
   char **argv;                                            /*!< Argument values pointer */
   uint16_t rx_data_len;                                   /*!< Length of received data */
-  bool raw_tx_terminal_only;                              /*!< BLE waits for terminal OK/ERROR, not Recv */
+  bool raw_tx_terminal_only;                              /*!< BLE waits for payload OK/SEND OK/ERROR, not initial OK/Recv */
   volatile bool raw_tx_response_received;                 /*!< Raw transaction reached a response boundary */
+  volatile bool raw_tx_payload_started;                   /*!< Distinguish initial BLE OK from payload completion */
+  uint32_t notify_phase;                                 /*!< Single Radio-owned asynchronous transaction; zero is idle */
+  uint32_t notify_length;
+  uint32_t notify_written;
+  TickType_t notify_started;
+  TickType_t notify_budget;
+  bool notify_late;
+  bool notify_cancelled;
+  bool notify_recv_seen;
+  TaskHandle_t notify_owner;
+  bool notify_finish_pending;
+  int32_t notify_result;
+  void (*notify_wake)(void);
   void *rx_data;                                          /*!< Pointer to received data */
 } W61_Modem_t;
 

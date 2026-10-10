@@ -333,6 +333,9 @@ W6X_Status_t W6X_WiFi_Scan(W6X_WiFi_Scan_Opts_t *opts, W6X_WiFi_Scan_Result_cb_t
   }
 
   /* Start the scan */
+  /* SCAN_DONE can be dispatched while W61_WiFi_Scan still owns admission.
+   * Never report the previous request's failure to this scan's callback. */
+  W6X_WiFi_drv_obj->WifiCtx.scan_status = W6X_STATUS_OK;
   ret = TranslateErrorStatus(W61_WiFi_Scan(W6X_WiFi_drv_obj));
   if (ret != W6X_STATUS_OK)
   {
@@ -1166,9 +1169,11 @@ static void W6X_WiFi_Station_cb(W61_event_id_t event_id, void *event_args)
       p_wifi_ctx->StaState = W6X_WIFI_STATE_STA_CONNECTED;
       W6X_WiFi_drv_obj->WifiCtx.StaState = W61_WIFI_STATE_STA_CONNECTED;
 
-      /* Delay added to avoid any AT command to be sent to soon after the CONNECTED event.
-       * This could create unexpected behaviors (wrong value returned, command not responsive, ...) */
-      vTaskDelay(pdMS_TO_TICKS(100));
+      /* Preserve the NCP's 100 ms settling interval at new-command admission.
+       * This callback runs in the shared RX parser: sleeping here starves an
+       * already announced BLE raw prompt/terminal reply for its entire budget. */
+      modem_cmd_handler_defer_tx(&W6X_WiFi_drv_obj->Modem.handler_data,
+                                  pdMS_TO_TICKS(100));
 
       if (p_wifi_ctx->Expected_event_connect == 1U)
       {

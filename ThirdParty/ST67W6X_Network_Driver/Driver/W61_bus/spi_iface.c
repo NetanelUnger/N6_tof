@@ -41,6 +41,7 @@
 
 #include "spi_iface.h"
 #include "spi_port.h"
+#include "debug_uart.h"
 
 /** SPI header magic code */
 #define SPI_HEADER_MAGIC_CODE           0x55AAU
@@ -804,6 +805,14 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
         }
       }
 
+      /* A fixed terminal-only trace distinguishes arrival at SPI from later
+       * parser consumption. Exact records only: never expose packet contents. */
+      if ((Debug_UART_NcpTraceEnabled() != 0U) &&
+          (((rxbuf->len == 11U) && (memcmp(rxbuf->data, "\r\nSEND OK\r\n", 11U) == 0)) ||
+           ((rxbuf->len == 13U) && (memcmp(rxbuf->data, "\r\nSEND FAIL\r\n", 13U) == 0))))
+      {
+        Debug_UART_NcpTerminalObservedAtSpi();
+      }
       ret = xQueueSend(engine->rxq[msg_type], &rxbuf, portMAX_DELAY);
       if (ret != pdTRUE)
       {

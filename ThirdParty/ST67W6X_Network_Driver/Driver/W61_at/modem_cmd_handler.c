@@ -44,6 +44,7 @@
 #include "modem_cmd_handler.h"
 #include "w61_default_config.h"
 #include "logging.h"
+#include "debug_uart.h"
 
 /* Private macros ------------------------------------------------------------*/
 /** @addtogroup ST67W61_AT_Modem_Cmd_Handler_Macros
@@ -738,6 +739,119 @@ int32_t modem_cmd_send_data_nolock(struct modem_iface *iface,
   return iface->mdm_write(iface, buf, len);
 }
 
+void modem_cmd_handler_defer_tx(struct modem_cmd_handler_data *data, TickType_t ticks)
+{
+  if (ticks == 0U)
+  {
+    return;
+  }
+  taskENTER_CRITICAL();
+  data->tx_quiet_until = xTaskGetTickCount() + ticks;
+  data->tx_quiet_active = true;
+  taskEXIT_CRITICAL();
+}
+
+void modem_cmd_handler_dns_drain_complete(struct modem_cmd_handler_data *data)
+{
+  TickType_t elapsed;
+  bool report, fenced;
+  int32_t result;
+  taskENTER_CRITICAL();
+  TickType_t now = xTaskGetTickCount();
+  report = data->dns_wait_active;
+  elapsed = now - (data->dns_drain_until - pdMS_TO_TICKS(20000U));
+  if (data->dns_drain_active)
+  {
+    /* A real fence is never cleared. After the vendor DNS deadline, even a
+     * terminal record is too late to restore admission without reinit. */
+    if ((int32_t)(now - data->dns_drain_until) >= 0)
+      data->tx_desynchronized = true;
+    data->dns_drain_active = false;
+  }
+  data->dns_wait_active = false;
+  fenced = data->tx_desynchronized;
+  result = data->last_error;
+  taskEXIT_CRITICAL();
+  /* Formatting/queue admission must stay outside interrupt exclusion. */
+  if (report)
+    Debug_UART_Log("RADIO-WAIT", "END reason=DNS_REPLY elapsed_ms=%lu result=%ld fenced=%u outcome=%s",
+                   (unsigned long)elapsed * portTICK_PERIOD_MS, (long)result, (unsigned)fenced,
+                   fenced ? "fenced" : ((result < 0) ? "failed" : "complete"));
+}
+
+int32_t modem_cmd_handler_wait_tx_ready(struct modem_cmd_handler_data *data,
+                                       TickType_t budget, bool nonblocking)
+{
+  TickType_t started_at = xTaskGetTickCount();
+  for (;;)
+  {
+    TickType_t now;
+    TickType_t quiet_remaining = 0U;
+    bool drain_expired = false;
+    taskENTER_CRITICAL();
+    now = xTaskGetTickCount();
+    if (data->dns_drain_active &&
+        ((int32_t)(now - data->dns_drain_until) >= 0))
+    {
+      data->dns_drain_active = false;
+      data->tx_desynchronized = true;
+      drain_expired = true;
+    }
+    bool draining = data->dns_drain_active;
+    bool fenced = data->tx_desynchronized;
+    /* Settling is short (100 ms), below half the tick counter range. */
+    if (data->tx_quiet_active)
+    {
+      if ((int32_t)(now - data->tx_quiet_until) >= 0)
+      {
+        data->tx_quiet_active = false;
+      }
+      else
+      {
+        quiet_remaining = data->tx_quiet_until - now;
+      }
+    }
+    taskEXIT_CRITICAL();
+    if (drain_expired) modem_cmd_handler_dns_drain_complete(data);
+    if (fenced) return -EIO;
+    if (draining)
+    {
+      if (nonblocking) return -EBUSY;
+      if ((now - started_at) >= budget) return -ETIMEDOUT;
+      /* RX stays runnable; no handler replacement or command bytes while the
+       * still-owned DNS reply is pending. Every waiter retains its own budget. */
+      vTaskDelay(1U);
+      continue;
+    }
+    if (quiet_remaining == 0U)
+    {
+      return 0;
+    }
+    if (nonblocking)
+    {
+      return -EBUSY;
+    }
+    TickType_t elapsed = now - started_at;
+    if ((elapsed >= budget) || (quiet_remaining >= (budget - elapsed)))
+    {
+      /* No command has been announced, so an exhausted admission budget
+       * cannot desynchronize AT. Do not spend it on a doomed transaction. */
+      return -ETIMEDOUT;
+    }
+    vTaskDelay(quiet_remaining);
+  }
+}
+
+TickType_t modem_cmd_handler_budget(struct modem_cmd_handler_data *data, TickType_t requested)
+{
+  if ((data->budget_owner == NULL) || (data->budget_owner != xTaskGetCurrentTaskHandle())) return requested;
+  if ((data->budget_generation != NULL) &&
+      (*data->budget_generation != data->budget_expected)) return 0U;
+  TickType_t elapsed = xTaskGetTickCount() - data->budget_started;
+  TickType_t remaining = (elapsed >= data->budget_ticks) ? 0U : data->budget_ticks - elapsed;
+  return (requested < remaining) ? requested : remaining;
+}
+
 int32_t modem_cmd_send_ext(struct modem_iface *iface,
                            struct modem_cmd_handler *handler,
                            const struct modem_cmd *handler_cmds,
@@ -748,7 +862,11 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
   int32_t ret = 0;
   TickType_t started_at;
   TickType_t remaining;
+  TickType_t lock_acquired_at = 0U;
+  TickType_t lock_held_ticks = 0U;
   bool tx_lock_acquired = false;
+  bool trace_scan = false;
+  TickType_t written_at = 0U;
 
   if ((iface == NULL) || (iface->mdm_write == NULL) ||
       (handler == NULL) || (handler->cmd_handler_data == NULL) ||
@@ -772,7 +890,16 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
   }
 
   data = (struct modem_cmd_handler_data *)(handler->cmd_handler_data);
+  if (timeout != 0U)
+  {
+    timeout = modem_cmd_handler_budget(data, timeout);
+    if (timeout == 0U) return -ETIMEDOUT; /* Expired is never fire-and-forget. */
+  }
   started_at = xTaskGetTickCount();
+  /* Record only the scan opcode, never AT arguments or credential payloads.
+   * This separates command ownership from waiting for another AT owner. */
+  trace_scan = ((flags & MODEM_NO_TX_LOCK) == 0U) &&
+               (strncmp((const char *)buf, "AT+CWLAP=", 9U) == 0);
   if ((flags & MODEM_NO_TX_LOCK) == 0U)
   {
     if (xSemaphoreTake(data->sem_tx_lock, timeout) != pdTRUE)
@@ -780,12 +907,34 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
       return -ETIMEDOUT;
     }
     tx_lock_acquired = true;
+    lock_acquired_at = xTaskGetTickCount();
   }
 
   if (data->tx_desynchronized)
   {
     ret = -EIO;
     goto unlock_tx_lock;
+  }
+
+  /* Keep association settling out of the RX parser and inside this operation's
+   * original budget. Guard before installing handlers or writing any AT text. */
+  TickType_t admission_elapsed = xTaskGetTickCount() - started_at;
+  remaining = (admission_elapsed >= timeout) ? 0U : timeout - admission_elapsed;
+  ret = modem_cmd_handler_wait_tx_ready(data, remaining,
+                                        (timeout == 0U) || ((flags & MODEM_TX_ADMISSION_NOWAIT) != 0U));
+  if (ret < 0)
+  {
+    goto unlock_tx_lock;
+  }
+  if ((timeout != 0U) && ((xTaskGetTickCount() - started_at) >= timeout))
+  {
+    ret = -ETIMEDOUT;
+    goto unlock_tx_lock;
+  }
+  if ((timeout != 0U) && (modem_cmd_handler_budget(data, remaining) == 0U))
+  {
+    ret = -ETIMEDOUT;
+    goto unlock_tx_lock; /* Epoch may have changed while waiting for AT. */
   }
 
   if ((flags & MODEM_NO_SET_CMDS) == 0U)
@@ -819,7 +968,30 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
   }
 
   size_t command_len = strlen((char *)buf);
-  if (iface->mdm_write(iface, buf, command_len) != (int32_t)command_len)
+  written_at = xTaskGetTickCount();
+  bool trace_dns = (sem != NULL) && ((flags & MODEM_NO_UNSET_CMDS) == 0U) &&
+                   (strncmp((const char *)buf, "AT+CIPDOMAIN=", 13U) == 0);
+  if (trace_dns)
+  {
+    /* Report START before publishing the state and before any command bytes:
+     * even an immediate terminal callback cannot print END ahead of START.
+     * Reuse the existing DNS deadline for elapsed timing; no new timer/task. */
+    /* The UART prefix already supplies HAL uptime; RTOS ticks are used only
+     * for durations because their epoch starts at scheduler entry. */
+    Debug_UART_Log("RADIO-WAIT", "START reason=DNS_REPLY limit_ms=20000");
+    taskENTER_CRITICAL();
+    data->dns_drain_until = written_at + pdMS_TO_TICKS(20000U);
+    data->dns_wait_active = true;
+    taskEXIT_CRITICAL();
+  }
+  if ((flags & MODEM_TX_TRACK_RAW_WRITE) != 0U) data->raw_command_attempted = true;
+  int32_t command_written = iface->mdm_write(iface, buf, command_len);
+  if (command_written == -EBUSY)
+  {
+    ret = -EBUSY; /* Explicit bus guarantee: no command bytes were queued. */
+    if ((flags & MODEM_TX_TRACK_RAW_WRITE) != 0U) data->raw_command_attempted = false;
+  }
+  else if (command_written != (int32_t)command_len)
   {
     data->tx_desynchronized = true;
     ret = -EIO;
@@ -839,6 +1011,53 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
     TickType_t elapsed = xTaskGetTickCount() - started_at;
     remaining = (elapsed >= timeout) ? 0U : (timeout - elapsed);
     ret = modem_cmd_handler_await(data, sem, remaining);
+    /* A scoped timeout has no terminal boundary; a late OK must not satisfy
+     * a new operation. Only module reinitialization clears this real fence. */
+    if ((ret == -ETIMEDOUT) && (data->budget_owner == xTaskGetCurrentTaskHandle()))
+    {
+      if (((flags & MODEM_NO_UNSET_CMDS) == 0U) &&
+          (strncmp((const char *)buf, "AT+CIPDOMAIN=", 13U) == 0))
+      {
+        /* Only ordinary DNS can finish beyond the application request budget.
+         * Detach its per-call query handlers below; persistent OK/ERROR own
+         * the terminal drain. No payload is resent and no caller pointer is
+         * retained. SDK DNS is bounded by 20s from command submission. */
+        taskENTER_CRITICAL();
+        data->dns_drain_until = written_at + pdMS_TO_TICKS(20000U);
+        data->dns_drain_active = true;
+        taskEXIT_CRITICAL();
+        /* Close the timeout/terminal race: the parser may have signalled just
+         * before drain publication. Keep timeout as the request's result. */
+        if (xSemaphoreTake(sem, 0U) == pdTRUE)
+          modem_cmd_handler_dns_drain_complete(data);
+        taskENTER_CRITICAL();
+        bool pending = data->dns_drain_active;
+        TickType_t pending_elapsed = xTaskGetTickCount() - written_at;
+        taskEXIT_CRITICAL();
+        /* Preserve the timeout notice. RX can finish before this thread queues
+         * it, so describe the captured timeout state, not current ownership.
+         * Never serialize diagnostic formatting by blocking the RX parser. */
+        if (pending)
+          Debug_UART_Log("RADIO-WAIT", "PENDING reason=DNS_REPLY elapsed_ms=%lu snapshot=request_timeout; terminal ownership was retained",
+                         (unsigned long)pending_elapsed * portTICK_PERIOD_MS);
+      }
+      else data->tx_desynchronized = true;
+    }
+  }
+
+  if (trace_dns && (ret < 0) && !data->dns_drain_active)
+  {
+    /* A failed bus admission may have no parser terminal. Retire its report
+     * here exactly once; do not mutate the protocol error or clear a fence. */
+    taskENTER_CRITICAL();
+    bool report = data->dns_wait_active;
+    data->dns_wait_active = false;
+    bool fenced = data->tx_desynchronized;
+    taskEXIT_CRITICAL();
+    if (report)
+      Debug_UART_Log("RADIO-WAIT", "END reason=DNS_REPLY elapsed_ms=%lu result=%ld fenced=%u outcome=%s",
+                     (unsigned long)(xTaskGetTickCount() - written_at) * portTICK_PERIOD_MS,
+                     (long)ret, (unsigned)fenced, fenced ? "fenced" : "failed");
   }
 
   if ((flags & MODEM_NO_UNSET_CMDS) == 0U)
@@ -849,7 +1068,14 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
 unlock_tx_lock:
   if (tx_lock_acquired)
   {
+    lock_held_ticks = xTaskGetTickCount() - lock_acquired_at;
     (void)xSemaphoreGive(data->sem_tx_lock);
+  }
+  if (trace_scan)
+  {
+    Debug_UART_Log("ST67", "Wi-Fi scan AT completed: wait_ticks=%lu held_ticks=%lu result=%ld",
+                   (unsigned long)(lock_acquired_at - started_at),
+                   (unsigned long)lock_held_ticks, (long)ret);
   }
 
   return ret;
@@ -981,6 +1207,13 @@ int32_t modem_cmd_handler_init(struct modem_cmd_handler *handler,
   data->rx_buf_len = 0U;
   data->rx_assembly_overflows = 0U;
   data->tx_desynchronized = false;
+  data->dns_drain_active = false;
+  data->dns_wait_active = false;
+  data->dns_drain_until = 0U;
+  data->budget_owner = NULL;
+  data->budget_generation = NULL;
+  data->tx_quiet_until = 0U;
+  data->tx_quiet_active = false;
 
   /* Assign command process implementation to command handler */
   handler->process = cmd_handler_process;

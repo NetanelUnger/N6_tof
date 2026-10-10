@@ -7,6 +7,54 @@ commands. Generated reports are written under `results/` and are not committed.
 
 ## Files
 
+- `test_cloud_send_slices.py` executes the actual bounded socket-send loop:
+  exact byte order/partial sends, empty/short bodies, failed send and invalid
+  driver acceptance (five cases). Its RX headroom model is not an allocator/RF
+  test; live reception evidence is in the CLI service document.
+- `test_cloud_async_completion.py` executes production post-dispatch branches:
+  ordinary end-of-line cannot complete pending Wi-Fi work; bounded completion
+  retry retains ownership; XMODEM terminal completion remains valid (three cases).
+
+- `test_cli_reply_ownership.py`, `test_cli_cloud_reply.py`,
+  `test_cli_reply_failure.py` and `test_radio_service_status.py` execute actual
+  bounded reply/status functions:29 native cases +two audits. Existing TX slot
+  reservation, RX remainder, generation cancellation, Cloud lease/ACK/hold,
+  explicit size/write/format/JSON failure, timing/fence immutability and raw
+  XMODEM isolation. Focused target reports and limits:
+  [CLI service/backpressure](../docs/cli-service-backpressure.md).
+
+- `test_radio_wait_diagnostics.py` executes actual DNS command/drain paths with
+  captured UART reports: START/pending/END ordering, single retirement, elapsed
+  milliseconds, expiry/partial-write fences, pre-write rejection and tick wrap.
+  Reproduces RX preemption before PENDING queue admission: the retained message
+  describes a timeout snapshot even after END. Expiry explicitly reports fenced
+  outcome regardless of terminal error code (10 actual-C cases plus source audit).
+  Checks logging occurs outside interrupt exclusion and brackets Wi-Fi calls.
+  `test_notify_transaction.py` also checks no duplicate drain END when parser
+  retirement is busy. Hardware wait timing and fault injection remain separate.
+
+- `test_notify_transaction.py`, `test_notify_route_owner.py`,
+  `test_cloud_socket_recovery.py` and `test_cloud_request_budget.py` compile and
+  execute the production C state/ownership paths with mocked RTOS/NCP replies.
+  Cover late/missing terminals, cancellation, task/parser ownership, MTU/route
+  changes, socket-close retry/proof, receive-size reuse, total-budget admission
+  and warm network epochs. Run with `training/.venv/Scripts/python.exe`.
+  See `docs/radio-transaction-cloud-recovery.md`; hardware gates remain separate.
+
+- `test_dns_reply_lifetime.py` executes production DNS callbacks and Wi-Fi
+  refresh paths. Late DNS replies cannot write to retired caller storage;
+  refresh defers during owned terminal drain and retries on active worker wakes.
+  `test_raw_send_response.py`, `test_wifi_assoc_admission.py` and the request
+  budget checks distinguish pre-write Cloud epoch cancellation, guaranteed
+  zero-byte BUSY, partial command writes and genuinely missing raw replies.
+
+- `test_ble_control_worker.py` executes actual C mailbox/completion/GATT setup
+  with mocked modem/RTOS boundaries. Covers by-value ownership, generation and
+  advertising-revision races, BUSY deferral, retry policy and timing wrap, plus
+  source audit for blocking BLE controls in Radio. Run with
+  `training/.venv/Scripts/python.exe hil_tests/test_ble_control_worker.py`.
+  Actual radio latency, missing responses and CRC routes still require HIL.
+
 - `ble_inspector.py` is an interactive BLE scanner, GATT inspector, and bounded
   stream probe. It scans all nearby advertisers, keeps the discovered `BLEDevice`
   objects, connects to a selected scan result, and reports every service,
@@ -151,6 +199,26 @@ and resumption with a Cloud `MAP ON` separately. On 2026-10-06 this connected
 gate passed 10+10 BLE images and 25 USB records; the live Cloud page rendered
 advancing images before and afterward. This is not long-run stability or
 fault-injection proof.
+
+## Native radio ownership checks
+
+```powershell
+.\training\.venv\Scripts\python.exe .\hil_tests\test_wifi_scan_lifetime.py
+.\training\.venv\Scripts\python.exe .\hil_tests\test_wifi_scan_admission.py
+.\training\.venv\Scripts\python.exe .\hil_tests\test_raw_send_response.py
+.\training\.venv\Scripts\python.exe .\hil_tests\test_wifi_assoc_admission.py
+```
+
+These compile and execute the actual C functions with mocked RTOS/bus boundaries
+using MSVC or an available C compiler. Seven scan-lifetime, nine admission and
+twenty raw-send checks verify borrowed storage release, allocation after AT
+admission, bounded failure cleanup and the observed BLE OK/prompt/Recv/SEND OK
+sequence. Raw checks cover fast ERROR, earlier payload OK, SEND FAIL, bad length
+and genuine missing-response fencing. Eleven association checks cover the
+original settling interval at admission, unchanged total deadlines, tick wrap,
+nonblocking BUSY and SPI scalar capture without formatting on its 768-byte stack.
+They do not prove hardware DMA, latency,
+worst-case stack bounds or long-run stability.
 
 ## Automated Milestone 3/4 repeated-boot gate
 

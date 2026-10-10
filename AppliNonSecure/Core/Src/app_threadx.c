@@ -87,7 +87,7 @@ static TX_THREAD tx_display_thread;
 #if (APP_ST67W6X_ENABLED == 1U)
 static TX_THREAD tx_wifi_ble_thread;
 #endif
-#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static TX_THREAD tx_wifi_control_thread;
 #endif
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
@@ -117,7 +117,7 @@ static void DisplayThread_Entry(ULONG thread_input);
 #if (APP_ST67W6X_ENABLED == 1U)
 static void WiFiBleThread_Entry(ULONG thread_input);
 #endif
-#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static void WiFiControlThread_Entry(ULONG thread_input);
 #endif
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
@@ -293,7 +293,7 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
     return TX_THREAD_ERROR;
   }
 
-#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   if (tx_byte_allocate(radio_pool, (VOID **)&pointer,
                        TX_WIFI_CONTROL_STACK_SIZE,
                        TX_NO_WAIT) != TX_SUCCESS)
@@ -301,6 +301,8 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
     return TX_POOL_ERROR;
   }
 
+  /* Preserve the existing task/diagnostic name and stack. This worker now
+   * owns slow BLE control commands as well as Wi-Fi requests. */
   if (tx_thread_create(&tx_wifi_control_thread, "ST67 Wi-Fi control",
                        WiFiControlThread_Entry, 0U, pointer,
                        TX_WIFI_CONTROL_STACK_SIZE,
@@ -429,7 +431,7 @@ static void WiFiBleThread_Entry(ULONG thread_input)
 }
 #endif
 
-#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static void WiFiControlThread_Entry(ULONG thread_input)
 {
   (void)thread_input;

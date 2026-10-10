@@ -934,9 +934,9 @@ W61_Status_t W61_Ble_ServerSendNotification(W61_Object_t *Obj, uint8_t conn_hand
   {
     (void)snprintf(&cmd[ret_len], W61_CMDRSP_STRING_SIZE - ret_len, "\r\n");
   }
-  /* BLE notification responds with '>' first, then OK after its payload.
-   * Waiting for an initial OK leaves the NCP expecting raw data and consumes
-   * the next AT command as notification bytes. */
+  /* BLE can return initial OK then '>', Recv and SEND OK; earlier firmware
+   * returns '>' then payload OK. The raw sender owns both variants through
+   * payload completion and must not use the initial OK as that boundary. */
   ret = W61_AT_Common_TrySendData(Obj, (uint8_t *)cmd, pdata, req_len, Timeout, false);
 
   if (ret != W61_STATUS_OK)

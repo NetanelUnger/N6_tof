@@ -1,4 +1,5 @@
 #include "cloud_relay.h"
+#include "app_cli_reply.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -29,6 +30,10 @@
 #endif
 #define CLOUD_HTTP_TIMEOUT_MS      (4500U)
 #define CLOUD_RECV_TIMEOUT_MS      (100U)
+/* SPI TX and full-MTU RX coexist in the same fragmented SRAM4 pool.  Keep
+ * Cloud's transient TX allocation bounded, including for the image body;
+ * TCP preserves the HTTP byte stream across these sends. */
+#define CLOUD_SEND_SLICE_BYTES     (512U)
 #define CLOUD_BACKOFF_MAX_SECONDS  (60U)
 #define CLOUD_RECORD_MAGIC         (0x434C364EU) /* N6LC */
 #define CLOUD_RECORD_VERSION       (1U)
@@ -62,6 +67,7 @@ static volatile uint32_t cloud_prepared;
 static volatile uint32_t cloud_initialized;
 static volatile uint32_t cloud_network_ready;
 static volatile uint32_t cloud_wifi_has_ip;
+static volatile uint32_t cloud_network_epoch;
 static uint32_t cloud_control_high_water;
 static uint32_t cloud_control_rejected;
 static CloudRelay_Status_t cloud_status_snapshot;
@@ -117,6 +123,8 @@ typedef struct
   uint32_t output_head;
   uint32_t output_tail;
   uint32_t output_count;
+  AppCliReply_t reply;
+  TX_THREAD *reply_owner;
   const uint8_t *tof_payload;
   uint32_t tof_frame_id;
   uint32_t tof_payload_crc32;
@@ -139,6 +147,8 @@ typedef struct
   uint32_t time_ready;
   uint32_t next_action_tick;
   uint32_t backoff_step;
+  uint32_t network_epoch;
+  uint32_t close_retry_tick;
 } CloudRelayContext_t;
 
 _Static_assert(sizeof(CloudRelayContext_t) <= CLOUD_CONTEXT_BUDGET,
@@ -250,6 +260,7 @@ void CloudRelay_SetNetworkState(uint32_t ready, uint32_t wifi_has_ip)
   UINT posture = tx_interrupt_control(TX_INT_DISABLE);
   uint32_t changed = ((cloud_network_ready != ready) ||
                        (cloud_wifi_has_ip != wifi_has_ip)) ? 1U : 0U;
+  if (changed != 0U) ++cloud_network_epoch;
   cloud_network_ready = ready;
   cloud_wifi_has_ip = wifi_has_ip;
   (void)tx_interrupt_control(posture);
@@ -296,6 +307,15 @@ void CloudRelay_Run(void)
     (void)tx_event_flags_get(&cloud_events, CLOUD_WAKE_FLAG, TX_OR_CLEAR,
                              &flags, CLOUD_WORKER_WAIT_TICKS);
   }
+}
+
+void CloudRelay_NetworkLost(void)
+{
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  ++cloud_network_epoch;
+  cloud_wifi_has_ip = 0U;
+  (void)tx_interrupt_control(posture);
+  if (cloud_prepared != 0U) (void)tx_event_flags_set(&cloud_events, CLOUD_WAKE_FLAG, TX_OR);
 }
 
 static void cloud_publish_status(void)
@@ -498,6 +518,29 @@ static void cloud_process(uint32_t wifi_has_ip)
 {
   if (cloud == NULL) return;
 
+  if (cloud->network_epoch != cloud_network_epoch)
+  {
+    cloud->network_epoch = cloud_network_epoch;
+    cloud_close_socket();
+    cloud_release_tof();
+    cloud->address_valid = 0U;
+    cloud->backoff_step = 0U;
+    cloud->status.backoff_seconds = 0U;
+    cloud->next_action_tick = HAL_GetTick();
+#if (APP_ST67W6X_CLOUD_USE_TLS == 1U)
+    cloud->time_configured = cloud->time_ready = 0U;
+#endif
+    Debug_UART_Log("CLOUD", "network epoch %lu; retiring old request, preserving desired pairing/enable",
+                   (unsigned long)cloud->network_epoch);
+  }
+  /* Failed close keeps the descriptor owned. Never rotate into a fresh socket
+   * while a CLOSING resource is unresolved. Retrying is paced, not a spin. */
+  if ((cloud->socket >= 0) && (cloud->http_kind == CLOUD_HTTP_NONE))
+  {
+    cloud_close_socket();
+    if (cloud->socket >= 0) return;
+  }
+
   if ((cloud->tof_pending != 0U) &&
       (TOF_App_GetStreamDestination() != TOF_STREAM_CLOUD))
   {
@@ -649,6 +692,20 @@ UINT CloudRelay_ReadInput(CloudRelay_Input_t *input)
   return TX_SUCCESS;
 }
 
+UINT CloudRelay_ReturnInput(const CloudRelay_Input_t *input)
+{
+  if (!cloud || !input) return TX_PTR_ERROR;
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  UINT result = TX_NOT_AVAILABLE;
+  if (cloud->input_ready && cloud->input_delivered &&
+      cloud->input.sequence == input->sequence &&
+      !strcmp(cloud->input.command_id, input->command_id)) {
+    cloud->input_delivered = 0U; result = TX_SUCCESS;
+  }
+  (void)tx_interrupt_control(posture);
+  return result;
+}
+
 UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input,
                                   uint32_t hold_command)
 {
@@ -682,6 +739,94 @@ UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input,
   return TX_SUCCESS;
 }
 
+UINT CloudRelay_BeginReply(void)
+{
+  if (!cloud) return TX_NOT_AVAILABLE;
+  UINT status = tx_mutex_get(&cloud->gate, TX_NO_WAIT);
+  if (status != TX_SUCCESS) return status;
+  if (cloud->reply.active || cloud->output_count || !cloud->active_command_id[0]) {
+    (void)tx_mutex_put(&cloud->gate); return TX_QUEUE_FULL;
+  }
+  cloud->output_head = cloud->output_tail = 0U;
+  cloud->reply = (AppCliReply_t){ .active = 1U, .generation = cloud->status.generation };
+  cloud->reply_owner = tx_thread_identify();
+  cloud->hold_command = 1U;
+  for (uint32_t i = 0U; i < CLOUD_OUTPUT_SLOT_COUNT; ++i)
+    (void)memset(&cloud->output[i], 0, sizeof(cloud->output[i]));
+  (void)tx_mutex_put(&cloud->gate);
+  return TX_SUCCESS;
+}
+
+UINT CloudRelay_CancelReply(void)
+{
+  if (!cloud) return TX_SUCCESS;
+  UINT result = tx_mutex_get(&cloud->gate, TX_NO_WAIT);
+  if (result != TX_SUCCESS) return result;
+  cloud->reply.active = 0U;
+  cloud->reply_owner = NULL;
+  (void)tx_mutex_put(&cloud->gate);
+  return TX_SUCCESS;
+}
+
+UINT CloudRelay_EndReply(uint32_t completed)
+{
+  if (!cloud) return TX_NOT_AVAILABLE;
+  UINT status = tx_mutex_get(&cloud->gate, TX_NO_WAIT);
+  if (status != TX_SUCCESS) return status;
+  if (!cloud->reply.active || cloud->reply_owner != tx_thread_identify()) {
+    (void)tx_mutex_put(&cloud->gate); return TX_NOT_AVAILABLE;
+  }
+  if (completed) {
+    const char *trailer = cloud->reply.overflow ?
+      "\r\n[CLI-RESULT] state=failed reason=OUTPUT_LIMIT\r\nn6> " :
+      completed == 3U ? "\r\n[CLI-RESULT] state=failed reason=WRITE_ERROR\r\n" :
+      completed == 2U ? "\r\n[CLI-RESULT] state=rejected reason=SERVICE_UNAVAILABLE\r\n" :
+      "\r\n[CLI-RESULT] state=complete\r\n";
+    (void)AppCliReply_Append(&cloud->reply, cloud->output[0].data,
+        sizeof(cloud->output[0]), CLOUD_OUTPUT_SLOT_SIZE, CLOUD_OUTPUT_SLOT_COUNT,
+        trailer, strlen(trailer), 1U);
+  }
+  uint32_t current = cloud->reply.generation == cloud->status.generation &&
+      cloud->active_command_id[0] != '\0';
+  uint32_t count = (cloud->reply.bytes + CLOUD_OUTPUT_SLOT_SIZE - 1U) / CLOUD_OUTPUT_SLOT_SIZE;
+  /* Packed records must still fit the existing 520-byte JSON encoder. Excess
+   * control characters must not trap an executed command in endless backoff.
+   * Count escaping without another buffer or a larger worker stack. */
+  for (uint32_t i = 0U; current && i < count; ++i) {
+    size_t length = cloud->reply.bytes - i * CLOUD_OUTPUT_SLOT_SIZE;
+    if (length > CLOUD_OUTPUT_SLOT_SIZE) length = CLOUD_OUTPUT_SLOT_SIZE;
+    size_t encoded = 0U;
+    for (size_t j = 0U; j < length; ++j) {
+      uint8_t byte = cloud->output[i].data[j];
+      encoded += byte == '"' || byte == '\\' || byte == '\r' || byte == '\n' || byte == '\t' ? 2U :
+                 byte < 0x20U ? 6U : 1U;
+    }
+    if (encoded >= 520U) {
+      const char *failure = "\r\n[CLI-RESULT] state=failed reason=ENCODING_LIMIT\r\nn6> ";
+      cloud->reply.bytes = cloud->reply.overflow = 0U;
+      (void)AppCliReply_Append(&cloud->reply, cloud->output[0].data,
+          sizeof(cloud->output[0]), CLOUD_OUTPUT_SLOT_SIZE, CLOUD_OUTPUT_SLOT_COUNT,
+          failure, strlen(failure), 1U);
+      count = 1U;
+      break;
+    }
+  }
+  for (uint32_t i = 0U; current && i < count; ++i) {
+    cloud->output[i].length = (uint16_t)((cloud->reply.bytes - i * CLOUD_OUTPUT_SLOT_SIZE) > CLOUD_OUTPUT_SLOT_SIZE ?
+        CLOUD_OUTPUT_SLOT_SIZE : cloud->reply.bytes - i * CLOUD_OUTPUT_SLOT_SIZE);
+    cloud->output[i].input_sequence = cloud->input.sequence;
+  }
+  cloud->reply.active = 0U; cloud->reply_owner = NULL;
+  if (current) {
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    cloud->output_tail = count % CLOUD_OUTPUT_SLOT_COUNT;
+    cloud->output_count = count;
+    (void)tx_interrupt_control(posture);
+  }
+  (void)tx_mutex_put(&cloud->gate);
+  return current ? TX_SUCCESS : TX_NOT_AVAILABLE;
+}
+
 UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary)
 {
   const uint8_t *bytes = (const uint8_t *)data;
@@ -695,6 +840,16 @@ UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary)
                    ((length % CLOUD_OUTPUT_SLOT_SIZE) != 0U ? 1U : 0U);
   status = tx_mutex_get(&cloud->gate, TX_NO_WAIT);
   if (status != TX_SUCCESS) return status;
+  if (cloud->reply.active) {
+    if (binary || cloud->reply_owner != tx_thread_identify()) {
+      (void)tx_mutex_put(&cloud->gate); return TX_NOT_AVAILABLE;
+    }
+    int result = AppCliReply_Append(&cloud->reply, cloud->output[0].data,
+        sizeof(cloud->output[0]), CLOUD_OUTPUT_SLOT_SIZE, CLOUD_OUTPUT_SLOT_COUNT,
+        data, length, 0U);
+    (void)tx_mutex_put(&cloud->gate);
+    return result ? TX_SIZE_ERROR : TX_SUCCESS;
+  }
   if (cloud->active_command_id[0] == '\0')
   {
     (void)tx_mutex_put(&cloud->gate);
@@ -762,6 +917,9 @@ UINT CloudRelay_CompleteCommand(void)
   if (cloud == NULL) return TX_NOT_AVAILABLE;
   status = tx_mutex_get(&cloud->gate, TX_NO_WAIT);
   if (status != TX_SUCCESS) return status;
+  if (cloud->reply.active) {
+    (void)tx_mutex_put(&cloud->gate); return TX_NOT_AVAILABLE;
+  }
   if (cloud->active_command_id[0] == '\0')
   {
     (void)tx_mutex_put(&cloud->gate);
@@ -925,8 +1083,24 @@ static void cloud_close_socket(void)
 {
   if ((cloud != NULL) && (cloud->socket >= 0))
   {
-    (void)W6X_Net_Close(cloud->socket);
-    cloud->socket = -1;
+    if ((cloud->close_retry_tick == 0U) ||
+        ((int32_t)(HAL_GetTick() - cloud->close_retry_tick) >= 0))
+    {
+      W6X_Net_RequestScopeBegin(500U, NULL, 0U);
+      int32_t result = W6X_Net_Close(cloud->socket);
+      W6X_Net_RequestScopeEnd();
+      if (result == 0)
+      {
+        cloud->socket = -1;
+        cloud->close_retry_tick = 0U;
+      }
+      else
+      {
+        cloud->close_retry_tick = HAL_GetTick() + 1000U;
+        Debug_UART_Log("CLOUD", "socket close pending: fd=%ld result=%ld; ownership retained",
+                       (long)cloud->socket, (long)result);
+      }
+    }
   }
   if (cloud != NULL)
   {
@@ -957,15 +1131,17 @@ static int cloud_send_all(int32_t socket, const void *data, size_t length)
   const uint8_t *cursor = (const uint8_t *)data;
   while (length != 0U)
   {
-    ssize_t sent = W6X_Net_Send(socket, cursor, length, 0);
-    if (sent <= 0) return -1;
+    size_t slice = (length > CLOUD_SEND_SLICE_BYTES) ?
+                   CLOUD_SEND_SLICE_BYTES : length;
+    ssize_t sent = W6X_Net_Send(socket, cursor, slice, 0);
+    if ((sent <= 0) || ((size_t)sent > slice)) return -1;
     cursor += (size_t)sent;
     length -= (size_t)sent;
   }
   return 0;
 }
 
-static int cloud_begin_request(CloudHttpKind_t kind, const char *method,
+static int cloud_begin_request_inner(CloudHttpKind_t kind, const char *method,
                                const char *path, const char *content_type,
                                const void *body, size_t body_length,
                                const void *body2, size_t body2_length,
@@ -1072,7 +1248,6 @@ static int cloud_begin_request(CloudHttpKind_t kind, const char *method,
   }
 
   cloud->http_kind = kind;
-  cloud->http_deadline = HAL_GetTick() + CLOUD_HTTP_TIMEOUT_MS;
   cloud->response_length = 0U;
   cloud->status.requests++;
   cloud->status.request_active = 1U;
@@ -1081,9 +1256,39 @@ static int cloud_begin_request(CloudHttpKind_t kind, const char *method,
   return 0;
 }
 
+static int cloud_begin_request(CloudHttpKind_t kind, const char *method,
+                               const char *path, const char *content_type,
+                               const void *body, size_t body_length,
+                               const void *body2, size_t body2_length,
+                               uint32_t authenticated)
+{
+  if (cloud->socket >= 0) return -1;
+  cloud->http_deadline = HAL_GetTick() + CLOUD_HTTP_TIMEOUT_MS;
+  uint32_t epoch = cloud_network_epoch;
+  W6X_Net_RequestScopeBegin(CLOUD_HTTP_TIMEOUT_MS, &cloud_network_epoch, epoch);
+  int result = cloud_begin_request_inner(kind, method, path, content_type,
+                                         body, body_length, body2, body2_length, authenticated);
+  W6X_Net_RequestScopeEnd();
+  if ((epoch != cloud_network_epoch) ||
+      ((int32_t)(HAL_GetTick() - cloud->http_deadline) >= 0))
+  {
+    cloud->status.last_transport_status = -17;
+    cloud_close_socket();
+    return -1;
+  }
+  return result;
+}
+
 static void cloud_receive_step(void)
 {
   ssize_t received;
+  int32_t remaining = (int32_t)(cloud->http_deadline - HAL_GetTick());
+  if (remaining <= 0)
+  {
+    cloud->status.last_transport_status = -17;
+    cloud_backoff();
+    return;
+  }
   if (cloud->response_length >= CLOUD_RESPONSE_SIZE)
   {
     cloud->status.last_transport_status = -20;
@@ -1091,9 +1296,12 @@ static void cloud_receive_step(void)
     return;
   }
 
+  W6X_Net_RequestScopeBegin((uint32_t)remaining, &cloud_network_epoch, cloud->network_epoch);
   received = W6X_Net_Recv(cloud->socket,
                           &cloud->response[cloud->response_length],
                           CLOUD_RESPONSE_SIZE - cloud->response_length, 0);
+  W6X_Net_RequestScopeEnd();
+  if (cloud->network_epoch != cloud_network_epoch) return; /* Retire next worker step; never commit stale reply. */
   if (received > 0)
   {
     cloud->response_length += (uint32_t)received;
@@ -1556,6 +1764,8 @@ static void cloud_clear_pairing(uint32_t delete_file)
   cloud->status.workspace_id[0] = '\0';
   cloud->active_command_id[0] = '\0';
   cloud->hold_command = 0U;
+  cloud->reply.active = 0U;
+  cloud->reply_owner = NULL;
   cloud->input_ready = 0U;
   cloud->input_delivered = 0U;
   cloud->ack_pending = 0U;
@@ -1901,6 +2111,10 @@ UINT CloudRelay_TryWriteOutput(const void *data, size_t length,
                                uint32_t binary)
 { (void)data; (void)length; (void)binary; return TX_NOT_AVAILABLE; }
 UINT CloudRelay_CompleteCommand(void) { return TX_NOT_AVAILABLE; }
+UINT CloudRelay_BeginReply(void) { return TX_NOT_AVAILABLE; }
+UINT CloudRelay_CancelReply(void) { return TX_SUCCESS; }
+UINT CloudRelay_EndReply(uint32_t completed) { (void)completed; return TX_NOT_AVAILABLE; }
+UINT CloudRelay_ReturnInput(const CloudRelay_Input_t *input) { (void)input; return TX_NOT_AVAILABLE; }
 UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
                                const uint8_t *payload, uint8_t width,
                                uint8_t height, uint32_t payload_crc32)

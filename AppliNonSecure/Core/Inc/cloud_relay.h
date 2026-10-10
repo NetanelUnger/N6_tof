@@ -76,6 +76,8 @@ UINT CloudRelay_Prepare(void);
 void CloudRelay_Run(void);
 /* Radio Manager publishes readiness only; it never advances Cloud sockets. */
 void CloudRelay_SetNetworkState(uint32_t ready, uint32_t wifi_has_ip);
+/* Callback-safe scalar publication, including loss/reconnect between pumps. */
+void CloudRelay_NetworkLost(void);
 void CloudRelay_GetStatus(CloudRelay_Status_t *status);
 
 UINT CloudRelay_RequestPair(const char *code);
@@ -84,11 +86,17 @@ UINT CloudRelay_RequestReconnect(void);
 UINT CloudRelay_Unpair(void);
 
 UINT CloudRelay_ReadInput(CloudRelay_Input_t *input);
+UINT CloudRelay_ReturnInput(const CloudRelay_Input_t *input);
 /* hold_command prevents a new lease after ACK until this command's completed
  * output record is accepted by the server. */
 UINT CloudRelay_AcknowledgeInput(const CloudRelay_Input_t *input,
                                   uint32_t hold_command);
 UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary);
+UINT CloudRelay_BeginReply(void);
+UINT CloudRelay_CancelReply(void);
+/* Same completion codes as WIFI_BLE_App_EndReply. Cloud's final server record
+ * remains authoritative for asynchronous operations and command admission. */
+UINT CloudRelay_EndReply(uint32_t completed);
 uint32_t CloudRelay_IsOutputDrained(void);
 /* Copy one bounded output record atomically, with no wait for queue space. */
 UINT CloudRelay_TryWriteOutput(const void *data, size_t length,

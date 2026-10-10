@@ -67,6 +67,8 @@ void Debug_UART_IRQHandler(void);
 void Debug_UART_Log(const char *component, const char *format, ...);
 uint32_t Debug_UART_GetDroppedMessages(void);
 uint32_t Debug_UART_NcpTraceEnabled(void);
+/* SPI worker records scalars only; formatting belongs to the parser's trace. */
+void Debug_UART_NcpTerminalObservedAtSpi(void);
 void Debug_UART_NcpTrace(const char *direction, const uint8_t *data,
                          size_t length, int32_t transport_result);
 void Debug_UART_NcpTracePing(const char *stage, const uint8_t *data,

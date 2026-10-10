@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import json
 import re
+import struct
 import sys
 import time
 from pathlib import Path
@@ -30,6 +31,8 @@ async def run(args: argparse.Namespace) -> dict:
     frames: list[dict] = []
     packet_count = 0
     invalid_headers = 0
+    usb_phase = False
+    ble_packets_during_usb: list[dict] = []
     usb = None
     result = {"passed": False, "cloud_tested": False}
 
@@ -38,6 +41,9 @@ async def run(args: argparse.Namespace) -> dict:
         packet_count += 1
         if len(data) < 20 or data[:3] != b"N6\x01":
             invalid_headers += 1
+        elif usb_phase:
+            ble_packets_during_usb.append({"frame_id": struct.unpack_from("<I", data, 4)[0],
+                                           "host_monotonic": time.monotonic()})
         frame = assembler.push(data)
         if frame is not None:
             frames.append(frame)
@@ -78,17 +84,23 @@ async def run(args: argparse.Namespace) -> dict:
         print("BLE frames and CRC: PASS", flush=True)
 
         usb.serial.write(b"dataset stream on\r")
+        usb_phase = True
         reader = FrameReader(usb.serial)
         usb_ids = []
         for index in range(args.usb_frames):
             frame = await asyncio.to_thread(reader.read_frame, 5)
             usb_ids.append(frame.frame_id)
+            result["usb_frames"] = list(usb_ids)
             if index == 0:
                 # Allow already-delivered WinRT callbacks to settle. The first
                 # USB frame proves the device has drained the old BLE owner.
                 await asyncio.sleep(0.2)
                 ble_at_usb_start = packet_count
         await asyncio.sleep(1.0)
+        result["usb_crc_errors"] = reader.crc_errors
+        result["ble_packets_at_usb_start"] = ble_at_usb_start
+        result["ble_packets_at_usb_end"] = packet_count
+        result["ble_packets_during_usb"] = ble_packets_during_usb
         assert packet_count == ble_at_usb_start, "BLE image fragments continued during USB ownership"
         assert reader.crc_errors == 0, "USB record CRC failure"
         assert len(set(usb_ids)) == args.usb_frames, "Repeated USB frame identity"
@@ -97,6 +109,7 @@ async def run(args: argparse.Namespace) -> dict:
         print("USB frames/CRC; BLE image traffic stopped: PASS", flush=True)
 
         usb.serial.write(b"dataset stream off\r")
+        usb_phase = False
         await asyncio.sleep(0.5)
         usb.serial.reset_input_buffer()
         result["middle"] = await asyncio.to_thread(usb.command, "tof status")
@@ -123,6 +136,7 @@ async def run(args: argparse.Namespace) -> dict:
                       ble_crc_errors=assembler.crc_errors,
                       ble_interrupted_frames=assembler.dropped,
                       invalid_ble_headers=invalid_headers)
+        result["ble_packets_during_usb"] = ble_packets_during_usb
         if inspector.client is not None and inspector.client.is_connected:
             for stream in ("tof", "cli"):
                 try:

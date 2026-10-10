@@ -950,6 +950,7 @@ typedef struct
 
 /**
   * @brief  Wi-Fi Scan result callback
+  * @note   entry and AP are borrowed until callback return. Copy needed results.
   */
 typedef void(* W6X_WiFi_Scan_Result_cb_t)(int32_t status, W6X_WiFi_Scan_Result_t *entry);
 

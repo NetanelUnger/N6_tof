@@ -24,6 +24,7 @@
 #include "w61_at_internal.h"
 #include "common_parser.h" /* Common Parser functions */
 #include "event_groups.h"
+#include "debug_uart.h"
 
 #if (defined(SYS_DBG_ENABLE_TA4) && (SYS_DBG_ENABLE_TA4 >= 1))
 #include "trcRecorder.h"
@@ -262,7 +263,32 @@ W61_Status_t W61_WiFi_Scan(W61_Object_t *Obj)
   char MAC[21U];
   char SSID[W61_WIFI_MAX_SSID_SIZE + 3U] = {'\0'}; /* Size + 2 if contains double-quote characters */
   char cmd[W61_CMDRSP_STRING_SIZE];
+  struct modem *mdm;
+  struct modem_cmd_handler_data *data;
+  TickType_t started_at;
+  TickType_t acquired_at;
+  TickType_t remaining;
+  TickType_t held_ticks;
+  W61_Status_t ret = W61_STATUS_ERROR;
   W61_NULL_ASSERT(Obj);
+
+  mdm = &Obj->Modem;
+  data = &mdm->handler_data;
+  /* Scan scratch must not compete with an already-admitted raw TX/RX pair.
+   * Admission, scratch lifetime and terminal response share one AT owner and
+   * one deadline. The parser's callback copies results before releasing AP. */
+  remaining = W61_AT_Common_TakeTxLockBudget(data->sem_tx_lock,
+                                             W61_WIFI_TIMEOUT, &started_at);
+  if (remaining == 0U)
+  {
+    return W61_STATUS_TIMEOUT;
+  }
+  acquired_at = xTaskGetTickCount();
+  if (data->tx_desynchronized)
+  {
+    ret = W61_STATUS_IO_ERROR;
+    goto unlock_scan;
+  }
 
   if (Obj->WifiCtx.ScanResults.AP == NULL)
   {
@@ -270,7 +296,7 @@ W61_Status_t W61_WiFi_Scan(W61_Object_t *Obj)
     if (Obj->WifiCtx.ScanResults.AP == NULL)
     {
       WIFI_LOG_ERROR("Error: Unable to allocate memory for scan results\n");
-      return W61_STATUS_ERROR;
+      goto unlock_scan;
     }
   }
 
@@ -294,7 +320,58 @@ W61_Status_t W61_WiFi_Scan(W61_Object_t *Obj)
   (void)snprintf((char *)cmd, W61_CMDRSP_STRING_SIZE, "AT+CWLAP=%" PRIu32 ",%s,%s,%" PRIu16 "\r\n",
                  (uint32_t)ScanOptions.scan_type, SSID,
                  (strcmp(MAC, "\"00:00:00:00:00:00\"") == 0) ? "" : MAC, ScanOptions.Channel);
-  return W61_AT_Common_SetExecute(Obj, (uint8_t *)cmd, W61_NCP_TIMEOUT);
+  remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_WIFI_TIMEOUT);
+  if (remaining == 0U)
+  {
+    ret = W61_STATUS_TIMEOUT;
+  }
+  else
+  {
+    ret = W61_Status(modem_cmd_send_ext(&mdm->iface, &mdm->handler,
+                                       NULL, 0, (uint8_t *)cmd,
+                                       mdm->sem_response, remaining, MODEM_NO_TX_LOCK));
+    if ((ret == W61_STATUS_TIMEOUT) || (ret == W61_STATUS_IO_ERROR))
+    {
+      /* SCAN_DONE may already have released scratch, but a missing terminal
+       * response still leaves unlabelled AT response ownership uncertain. */
+      data->tx_desynchronized = true;
+    }
+  }
+  /* Keep admission until both the terminal response and SCAN_DONE callback
+   * have completed; no large raw sender may compete with scan scratch. */
+  while ((ret == W61_STATUS_OK) && (Obj->WifiCtx.ScanResults.AP != NULL))
+  {
+    if (W61_AT_Common_RemainingTxBudget(started_at, W61_WIFI_TIMEOUT) == 0U)
+    {
+      ret = W61_STATUS_TIMEOUT;
+      break;
+    }
+    vTaskDelay(1U);
+  }
+  if (Obj->WifiCtx.ScanResults.AP != NULL)
+  {
+    /* A failed/missing completion must not retain scratch indefinitely. The
+     * parser mutex prevents freeing a list while scan_result writes into it.
+     * On ambiguous completion keep AT fenced until the module is restarted. */
+    data->tx_desynchronized = true;
+    remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_WIFI_TIMEOUT);
+    if (xSemaphoreTake(data->sem_parse_lock, remaining) == pdPASS)
+    {
+      vPortFree(Obj->WifiCtx.ScanResults.AP);
+      Obj->WifiCtx.ScanResults.AP = NULL;
+      Obj->WifiCtx.ScanResults.Count = 0U;
+      Obj->WifiCtx.ScanResults.More = 0U;
+      (void)xSemaphoreGive(data->sem_parse_lock);
+    }
+  }
+
+unlock_scan:
+  held_ticks = xTaskGetTickCount() - acquired_at;
+  (void)xSemaphoreGive(data->sem_tx_lock);
+  Debug_UART_Log("ST67", "Wi-Fi scan owned: wait_ticks=%lu held_ticks=%lu status=%u",
+                 (unsigned long)(acquired_at - started_at),
+                 (unsigned long)held_ticks, (unsigned int)ret);
+  return ret;
 }
 
 W61_Status_t W61_WiFi_SetReconnectionOpts(W61_Object_t *Obj, W61_WiFi_Connect_Opts_t *ConnectOpts)
@@ -1315,9 +1392,20 @@ static void W61_WiFi_AT_Event(void *hObj, uint16_t *argc, char **argv)
 
   if (strcmp(argv[0], "SCAN_DONE") == 0)
   {
-    if (Obj->ulcbs.UL_wifi_sta_cb != NULL)
+    /* The parser owns this scratch list. Consumers copy/print it inside the
+     * synchronous callback; keeping a second copy until Wi-Fi DeInit steals
+     * the space required for a full-duplex SPI TX/RX pair. A duplicate/late
+     * completion with no list must not publish stale results. */
+    if (Obj->WifiCtx.ScanResults.AP != NULL)
     {
-      Obj->ulcbs.UL_wifi_sta_cb(W61_WIFI_EVT_SCAN_DONE_ID, NULL);
+      if (Obj->ulcbs.UL_wifi_sta_cb != NULL)
+      {
+        Obj->ulcbs.UL_wifi_sta_cb(W61_WIFI_EVT_SCAN_DONE_ID, NULL);
+      }
+      vPortFree(Obj->WifiCtx.ScanResults.AP);
+      Obj->WifiCtx.ScanResults.AP = NULL;
+      Obj->WifiCtx.ScanResults.Count = 0U;
+      Obj->WifiCtx.ScanResults.More = 0U;
     }
     return;
   }

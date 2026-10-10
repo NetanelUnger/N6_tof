@@ -157,6 +157,17 @@ typedef struct
 
 typedef struct
 {
+  /* Mailbox state: 0 free, 1 pending, 2 running, 3 complete. Operation is the
+   * last/current job: connect, disconnect, ADV, mode, link, recovery (1..6).
+   * Durations are HAL milliseconds; AT admission/response ticks are logged
+   * separately by the vendor query boundary. No payloads are retained here. */
+  uint32_t state, operation, submitted, completed, deferred, stale;
+  uint32_t max_queue_ms, max_call_ms;
+  int32_t last_status;
+} WifiBle_ControlStatus_t;
+
+typedef struct
+{
   WifiBle_State_t state;
   uint32_t wifi_connected;
   uint32_t wifi_has_ip;
@@ -196,6 +207,7 @@ typedef struct
   uint32_t ble_init_stage;
   int32_t ble_last_status;
   WifiBle_ManagerHealth_t manager_health;
+  WifiBle_ControlStatus_t ble_control;
   WifiBle_StreamStatus_t ble_stream[WIFI_BLE_STREAM_COUNT];
   WifiBle_TofImageStatus_t ble_tof_image;
   char ble_device_name[WIFI_BLE_DEVICE_NAME_SIZE];
@@ -284,6 +296,24 @@ UINT WIFI_BLE_App_WifiSubmit(const WifiBle_WifiRequest_t *request,
 UINT WIFI_BLE_App_WifiReceiveResult(WifiBle_WifiResult_t *result);
 UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
                               ULONG length, ULONG wait_option);
+/* CLI-thread lease of the existing eight TX slots; no network wait or allocation.
+ * End publishes a packed response, including reserved completion/failure text. */
+UINT WIFI_BLE_App_BeginReply(void);
+/* completed: 0=continuation, 1=dispatch complete, 2=rejected, 3=write failed.
+ * Normal payload is packed in the existing slots, with reserved final text. */
+UINT WIFI_BLE_App_EndReply(uint32_t completed);
+UINT WIFI_BLE_App_StreamReadLine(void *buffer, ULONG capacity,
+                                 ULONG *actual_length);
+
+typedef enum { WIFI_BLE_SERVICE_AVAILABLE, WIFI_BLE_SERVICE_WAITING,
+               WIFI_BLE_SERVICE_FAULT } WifiBle_ServiceState_t;
+typedef struct {
+  WifiBle_ServiceState_t state;
+  const char *reason;
+  uint32_t elapsed_ms, remaining_ms;
+} WifiBle_ServiceStatus_t;
+/* Read-only scalar snapshot; never waits for or alters AT ownership/fences. */
+void WIFI_BLE_App_GetServiceStatus(WifiBle_ServiceStatus_t *status);
 UINT WIFI_BLE_App_StreamRead(WifiBle_Stream_t stream, void *buffer,
                              ULONG capacity, ULONG *actual_length,
                              ULONG wait_option);

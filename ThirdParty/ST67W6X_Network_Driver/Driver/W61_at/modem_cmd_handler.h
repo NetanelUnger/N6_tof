@@ -80,6 +80,8 @@ extern "C" {
 #define MODEM_NO_TX_LOCK    (1UL << 0U)  /*!< No TX lock flag send */
 #define MODEM_NO_SET_CMDS   (1UL << 1U)  /*!< No set commands flag send */
 #define MODEM_NO_UNSET_CMDS (1UL << 2U)  /*!< No unset commands flag send */
+#define MODEM_TX_ADMISSION_NOWAIT (1UL << 3U) /*!< Return BUSY before any write during settling */
+#define MODEM_TX_TRACK_RAW_WRITE (1UL << 4U) /*!< Publish raw command bus attempt under TX ownership */
 
 /** @} */
 
@@ -186,13 +188,29 @@ struct modem_cmd_handler_data
   uint32_t rx_assembly_overflows;
   /** An abandoned raw transaction makes further AT text unsafe until restart. */
   bool tx_desynchronized;
+  bool raw_command_attempted; /*!< TX-owner-only: distinguishes pre-write cancellation from ambiguous raw transmission */
+  /** Timed-out scoped DNS still owns the terminal response, without caller storage. */
+  volatile bool dns_drain_active;
+  volatile bool dns_wait_active; /*!< Paired UART transition report, owned until reply or failed admission */
+  TickType_t dns_drain_until;
   /** TX lock */
   SemaphoreHandle_t sem_tx_lock;
   /** Parse lock */
   SemaphoreHandle_t sem_parse_lock;
   /** User data */
   void *user_data;
+  /** New commands settle after association; the RX parser must never sleep. */
+  TickType_t tx_quiet_until;
+  bool tx_quiet_active;
+  TaskHandle_t budget_owner;
+  TickType_t budget_started;
+  TickType_t budget_ticks;
+  const volatile uint32_t *budget_generation;
+  uint32_t budget_expected;
 };
+
+TickType_t modem_cmd_handler_budget(struct modem_cmd_handler_data *data, TickType_t requested);
+void modem_cmd_handler_dns_drain_complete(struct modem_cmd_handler_data *data);
 
 /**
   * @brief  Modem command handler configuration
@@ -298,6 +316,14 @@ struct modem_cmd_handler_config
   * @return last handled error
   */
 int32_t modem_cmd_handler_get_error(struct modem_cmd_handler_data *data);
+
+/** Publish a TX settling interval from a parser callback without blocking RX. */
+void modem_cmd_handler_defer_tx(struct modem_cmd_handler_data *data, TickType_t ticks);
+
+/** Admit a new command within its existing budget. Caller owns sem_tx_lock.
+ * Nonblocking admission returns -EBUSY without changing response ownership. */
+int32_t modem_cmd_handler_wait_tx_ready(struct modem_cmd_handler_data *data,
+                                       TickType_t budget, bool nonblocking);
 
 /**
   * @brief  set the last error code

@@ -202,6 +202,15 @@ W61_Status_t W61_AT_Common_TrySendData(W61_Object_t *Obj, uint8_t *p_cmd, uint8_
   */
 void W61_AT_RemoveStrQuotes(char *inbuf);
 
+/* Same task must begin, poll and cancel. No caller buffer is retained.
+ * Poll BUSY means still owned, never permission to retransmit. Payload must
+ * be identical until completion; cancellation retires the result instead. */
+W61_Status_t W61_AT_Common_NotifyBegin(W61_Object_t *Obj, uint8_t *command,
+                                       uint32_t length, uint32_t timeout_ms);
+W61_Status_t W61_AT_Common_NotifyPoll(W61_Object_t *Obj, const uint8_t *payload,
+                                      uint32_t length, uint32_t *sent);
+W61_Status_t W61_AT_Common_NotifyCancel(W61_Object_t *Obj);
+
 /**
   * @brief  Log AT command
   * @param  pBuf: pointer to buffer

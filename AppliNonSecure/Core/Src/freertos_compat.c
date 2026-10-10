@@ -46,6 +46,7 @@ struct freertos_compat_event_group
 };
 
 static TX_BYTE_POOL *compat_byte_pool;
+static FreeRTOS_Compat_AllocationStatus_t allocation_status;
 static UINT critical_nesting;
 static UINT critical_previous_posture;
 
@@ -56,6 +57,7 @@ static UINT freertos_wait_to_threadx(TickType_t wait);
 UINT FreeRTOS_Compat_Init(TX_BYTE_POOL *byte_pool)
 {
   compat_byte_pool = byte_pool;
+  (void)memset(&allocation_status, 0, sizeof(allocation_status));
   critical_nesting = 0U;
   return (byte_pool != TX_NULL) ? TX_SUCCESS : TX_PTR_ERROR;
 }
@@ -63,18 +65,40 @@ UINT FreeRTOS_Compat_Init(TX_BYTE_POOL *byte_pool)
 void *pvPortMalloc(size_t size)
 {
   VOID *memory = TX_NULL;
+  UINT result;
 
   if ((compat_byte_pool == TX_NULL) || (size == 0U))
   {
     return NULL;
   }
 
-  if (tx_byte_allocate(compat_byte_pool, &memory, (ULONG)size, TX_NO_WAIT) != TX_SUCCESS)
+  result = tx_byte_allocate(compat_byte_pool, &memory, (ULONG)size, TX_NO_WAIT);
+  if (result != TX_SUCCESS)
   {
+    /* Capture scalars only. Formatting/logging here would consume the small
+     * SPI worker stack precisely when it is already handling an error. */
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    allocation_status.failures++;
+    allocation_status.requested_bytes = (ULONG)size;
+    allocation_status.available_bytes = compat_byte_pool->tx_byte_pool_available;
+    allocation_status.fragments = compat_byte_pool->tx_byte_pool_fragments;
+    allocation_status.threadx_status = result;
+    allocation_status.tick = tx_time_get();
+    (void)tx_interrupt_control(posture);
     return NULL;
   }
 
   return memory;
+}
+
+void FreeRTOS_Compat_GetAllocationStatus(FreeRTOS_Compat_AllocationStatus_t *status)
+{
+  if (status != NULL)
+  {
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    *status = allocation_status;
+    (void)tx_interrupt_control(posture);
+  }
 }
 
 void vPortFree(void *memory)
