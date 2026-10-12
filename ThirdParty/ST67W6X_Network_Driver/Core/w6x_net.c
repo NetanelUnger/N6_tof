@@ -22,7 +22,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "w6x_api.h"       /* Prototypes of the functions implemented in this file */
-#include "w61_at_api.h"    /* Prototypes of the functions called by this file */
+#include "w61_at_api.h"
+#include "w61_at_common.h"    /* Prototypes of the functions called by this file */
 #include "w6x_internal.h"
 #include "w61_io.h"        /* Prototypes of the BUS functions to be registered */
 #include "common_parser.h" /* Common Parser functions */
@@ -242,9 +243,11 @@ W6X_Status_t W6X_Net_Init(void)
   W6X_App_Cb_t *p_cb_handler;
   W6X_Status_t ret = W6X_STATUS_ERROR;
   uint32_t ncp_buf_size_resp;
+#if (W61_CONFIG_PRESERVE == 0)
   W61_Net_DhcpType_e State = W61_NET_DHCP_STA_AP_ENABLED;
   uint32_t zero = 0;
   uint32_t one = 1;
+#endif
   uint8_t hostname[33] = {0};
   uint8_t ip_subnet[3] = W6X_NET_SAP_IP_SUBNET;
   uint8_t Netmask_addr[4] = {255, 255, 255, 0};
@@ -299,6 +302,12 @@ W6X_Status_t W6X_Net_Init(void)
     goto _err;
   }
 
+#if (W61_CONFIG_PRESERVE == 1)
+  ret = TranslateErrorStatus(W61_AT_Common_VerifyConfig(W6X_Net_drv_obj,
+                  "AT+CWDHCP?\r\n", "+CWDHCP:", W6X_NET_DHCP));
+  if (ret != W6X_STATUS_OK) goto _err;
+  W6X_Net_drv_obj->NetCtx.DHCP_STA_IsEnabled = (W6X_NET_DHCP & 1U) != 0U;
+#else
   /* Reset the DHCP global configuration */
   ret = TranslateErrorStatus(W61_Net_SetDhcpConfig(W6X_Net_drv_obj, &State, &zero));
   if (ret != W6X_STATUS_OK)
@@ -313,6 +322,8 @@ W6X_Status_t W6X_Net_Init(void)
   {
     goto _err;
   }
+
+#endif
 
   if (strlen(W6X_NET_HOSTNAME) >= sizeof(hostname)) /* Check the length of the defined hostname */
   {
@@ -329,7 +340,23 @@ W6X_Status_t W6X_Net_Init(void)
   }
 
   /* Set default IP of the Soft-AP */
+#if (W61_CONFIG_PRESERVE == 1)
+  /* Clear the public shadow so a missing callback cannot look like readback. */
+  (void)memset(&W6X_Net_drv_obj->NetCtx.Net_ap_info, 0,
+                sizeof(W6X_Net_drv_obj->NetCtx.Net_ap_info));
+  ret = TranslateErrorStatus(W61_Net_AP_GetIPAddress(W6X_Net_drv_obj));
+  if (ret == W6X_STATUS_OK)
+  {
+    if ((memcmp(W6X_Net_drv_obj->NetCtx.Net_ap_info.IP_Addr, Ipaddr, 4U) != 0) ||
+        (memcmp(W6X_Net_drv_obj->NetCtx.Net_ap_info.IP_Mask, Netmask_addr, 4U) != 0))
+    {
+      NET_LOG_ERROR("NCP-CONFIG AP mismatch preserve=1\n");
+      ret = W6X_STATUS_ERROR;
+    }
+  }
+#else
   ret = TranslateErrorStatus(W61_Net_AP_SetIPAddress(W6X_Net_drv_obj, Ipaddr, Netmask_addr));
+#endif
   if (ret != W6X_STATUS_OK)
   {
     goto _err;
@@ -410,6 +437,12 @@ void W6X_Net_DeInit(void)
   }
 
   /* Call lower-level deinit and free memory */
+  for (uint32_t i = 0U; i < W61_NET_MAX_CONNECTIONS * 3U; ++i)
+  {
+    if (p_net_ctx->Credentials[i].name != NULL)
+      vPortFree(p_net_ctx->Credentials[i].name);
+    p_net_ctx->Credentials[i].name = NULL;
+  }
   (void)W61_Net_DeInit(W6X_Net_drv_obj); /* Deinitialize the Net context */
   vPortFree(p_net_ctx); /* Free the Net context */
   W6X_Net_drv_obj->ResetCfg.Net_status = W61_MODULE_STATE_NOT_INIT; /* Update Net state */

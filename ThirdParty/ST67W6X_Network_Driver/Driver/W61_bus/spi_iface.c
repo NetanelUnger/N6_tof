@@ -136,7 +136,7 @@ struct spi_xfer_engine
   /** Transfer task handle */
   TaskHandle_t task;
   /** Stop flag for clean shutdown */
-  int32_t stop;
+  volatile int32_t stop; /* 0 running, 1 requested, 2 worker acknowledged */
   /** Initialization flag */
   int32_t initialized;
   /** Event flags for synchronization */
@@ -153,6 +153,7 @@ struct spi_xfer_engine
   uint8_t rxq_bound;
   /** Current transmit buffer */
   struct spi_buffer *txbuf;
+  struct spi_buffer *failed_rxbuf; /* retained until DMA abort is proven */
   /** Transfer statistics */
   struct spi_stat stat;
   /** Received data callbacks for each traffic type */
@@ -540,12 +541,14 @@ static int32_t spi_txrx(struct spi_xfer_engine *engine, void *tx_buf, void *rx_b
     /* Wait for spi transaction completion. */
     if (spi_wait_event(engine, SPI_EVT_HW_XFER_DONE, SPI_WAIT_MSG_XFER_TIMEOUT_MS) == 0)
     {
+      spi_port_capture_failure(6U);
       spi_err("spi txrx transaction timeouted\n");
       SPI_STAT_INC(&engine->stat, wait_msg_xfer_timeouts, 1U);
       return -3;
     }
     if (spi_port_transfer_dma_status() != 0)
     {
+      spi_port_capture_failure(5U);
       spi_err("spi txrx transaction completed with a HAL error\n");
       SPI_STAT_INC(&engine->stat, io_err, 1U);
       return -4;
@@ -591,12 +594,14 @@ static int32_t spi_rx(struct spi_xfer_engine *engine, void *rx_buf, uint16_t len
     /* Wait for spi transaction completion. */
     if (spi_wait_event(engine, SPI_EVT_HW_XFER_DONE, SPI_WAIT_MSG_XFER_TIMEOUT_MS) == 0)
     {
+      spi_port_capture_failure(6U);
       spi_err("spi rx transaction timeouted\n");
       SPI_STAT_INC(&engine->stat, wait_msg_xfer_timeouts, 1U);
       return -3;
     }
     if (spi_port_transfer_dma_status() != 0)
     {
+      spi_port_capture_failure(5U);
       spi_err("spi rx transaction completed with a HAL error\n");
       SPI_STAT_INC(&engine->stat, io_err, 1U);
       return -4;
@@ -621,6 +626,7 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
 
   spi_trace(SPI_TP_NONE, "wait_txn_rdy %" PRIi32 "\n", wait_txn_rdy);
   engine->state = SPI_XFER_STATE_FIRST_PART;
+  spi_port_set_phase(SPI_XFER_STATE_FIRST_PART);
   if (wait_txn_rdy != 0)
   {
     /* SPI_RDY is level-readable as well as edge-signalled.  Sampling it on
@@ -745,6 +751,7 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
 
     spi_trace(SPI_TP_SECOND_TXN_START, "Receiving remaining data\n");
     engine->state = SPI_XFER_STATE_SECOND_PART;
+    spi_port_set_phase(SPI_XFER_STATE_SECOND_PART);
     remain = (remain + SPI_BUF_ALIGN_MASK) & ~SPI_BUF_ALIGN_MASK;
     rxp += xfer_size;
     if (spi_rx(engine, rxp, remain) != 0)
@@ -813,7 +820,10 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
       {
         Debug_UART_NcpTerminalObservedAtSpi();
       }
-      ret = xQueueSend(engine->rxq[msg_type], &rxbuf, portMAX_DELAY);
+      do
+      {
+        ret = xQueueSend(engine->rxq[msg_type], &rxbuf, pdMS_TO_TICKS(10U));
+      } while ((ret != pdTRUE) && (engine->stop == 0));
       if (ret != pdTRUE)
       {
         spi_trace(SPI_TP_NONE, "failed to send to type %d rxq, msg discarded\r\n", msg_type);
@@ -849,7 +859,7 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
   spi_trace(SPI_TP_WAIT_HDR_ACK_START, "waiting for header ack\n");
   while (spi_wait_event(engine, SPI_EVT_HDR_ACKED, SPI_WAIT_HDR_ACK_TIMEOUT_MS) == 0)
   {
-    if (spi_port_is_ready() == 0)
+    if ((spi_port_is_ready() == 0) || (engine->stop != 0))
     {
       break;
     }
@@ -861,6 +871,18 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
   return 0;
 
 out:
+  /* A timed-out DMA can still reference this destination. Never release it
+   * before both local DMA channels have stopped. Failure closes this worker. */
+  if ((err == SPI_XFER_TRANSPORT_ERROR) && (spi_port_abort() != 0))
+  {
+    engine->failed_rxbuf = rxbuf;
+    engine->stop = 1;
+    /* Keep this stack frame too: DMA TX may still reference the local header.
+     * The recovery barrier times out without deleting us. Only this DMA owner
+     * retries its local abort, sleeping between attempts rather than spinning. */
+    do { vTaskDelay(pdMS_TO_TICKS(100U)); } while (spi_port_abort() != 0);
+    engine->failed_rxbuf = NULL;
+  }
   spi_buffer_free(rxbuf);
   return err;
 }
@@ -881,7 +903,7 @@ static int32_t spi_do_xfer(struct spi_xfer_engine *engine, uint32_t flags)
    * bounded burst preserves pending work and normal multi-packet transfers,
    * while allowing modem-init timeouts and diagnostics to run.
    */
-  while (true)
+  while (engine->stop == 0)
   {
     /* Get txbuf */
     txbuf = spi_get_txbuf(engine);
@@ -1002,6 +1024,7 @@ static void spi_xfer_engine_task(void *arg)
     bits = xEventGroupWaitBits(engine->event, bits, pdTRUE, pdFALSE,
                                portMAX_DELAY);
     spi_trace(SPI_TP_NONE, "Got event bits %" PRIx32 "\n", bits);
+    if (engine->stop != 0) break;
     if ((bits & SPI_EVT_TXN_RDY) != 0U)
     {
       (void)spi_do_xfer(engine, SPI_XFER_F_SKIP_FIRST_TXN_WAIT);
@@ -1015,6 +1038,8 @@ static void spi_xfer_engine_task(void *arg)
       /* Event not managed */
     }
   }
+  engine->stop = 2;
+  for (;;) vTaskDelay(pdMS_TO_TICKS(100U)); /* foreign owner deletes this task */
 }
 
 int32_t spi_transaction_init(void)
@@ -1073,6 +1098,7 @@ int32_t spi_transaction_init(void)
   return 0;
 
 error:
+  (void)spi_port_deinit();
   /* Clean up resources in case of error */
   if (xfer_engine.txq != NULL)
   {
@@ -1089,8 +1115,31 @@ error:
   return ret;
 }
 
+int32_t spi_transaction_quiesce(uint32_t timeout_ms)
+{
+  TickType_t started = xTaskGetTickCount();
+  if (xfer_engine.task != NULL)
+  {
+    if (xfer_engine.stop == 0) xfer_engine.stop = 1;
+    (void)xEventGroupSetBits(xfer_engine.event, SPI_EVT_TXN_PENDING);
+    while (xfer_engine.stop != 2)
+    {
+      if ((xTaskGetTickCount() - started) >= pdMS_TO_TICKS(timeout_ms)) return -1;
+      vTaskDelay(pdMS_TO_TICKS(1U));
+    }
+  }
+  if (spi_port_abort() != 0) return -1;
+  (void)spi_port_set_cs(0);
+  return 0;
+}
+
 int32_t spi_transaction_deinit(void)
 {
+  struct spi_buffer *pending;
+  if (spi_transaction_quiesce(2000U) != 0) return -1;
+  /* EXTI/DMA callbacks must stop publishing before their event is deleted. */
+  xfer_engine.initialized = 0;
+  (void)spi_port_deinit();
   if (xfer_engine.task != NULL)
   {
     vTaskDelete(xfer_engine.task);
@@ -1100,6 +1149,8 @@ int32_t spi_transaction_deinit(void)
   /* Clean up resources in case of error */
   if (xfer_engine.txq != NULL)
   {
+    while (xQueueReceive(xfer_engine.txq, &pending, 0) == pdTRUE)
+      spi_buffer_free(pending);
     vQueueDelete(xfer_engine.txq);
   }
 
@@ -1112,10 +1163,14 @@ int32_t spi_transaction_deinit(void)
   {
     if (xfer_engine.rxq[i] != NULL)
     {
+      while (xQueueReceive(xfer_engine.rxq[i], &pending, 0) == pdTRUE)
+        spi_buffer_free(pending);
       vQueueDelete(xfer_engine.rxq[i]);
     }
   }
 
+  if (xfer_engine.txbuf != NULL) spi_buffer_free(xfer_engine.txbuf);
+  if (xfer_engine.failed_rxbuf != NULL) spi_buffer_free(xfer_engine.failed_rxbuf);
   /* Clear xfer_engine context */
   (void)memset(&xfer_engine, 0, sizeof(struct spi_xfer_engine));
 

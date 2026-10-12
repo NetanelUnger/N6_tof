@@ -243,6 +243,12 @@ W6X_Status_t W6X_WiFi_Init(void)
 
     if (mode != W61_WIFI_ANTENNA_DISABLED)
     {
+#if (W61_CONFIG_PRESERVE == 1)
+      WIFI_LOG_ERROR("NCP-CONFIG antenna old=%u required=%u preserve=1\n",
+                       (unsigned)mode, (unsigned)W61_WIFI_ANTENNA_DISABLED);
+      ret = W6X_STATUS_ERROR;
+      goto _err;
+#else
       /* If the antenna mode is not disabled, set it to disabled */
       ret = TranslateErrorStatus(W61_WiFi_SetAntennaEnable(W6X_WiFi_drv_obj, W61_WIFI_ANTENNA_DISABLED));
       if (ret != W6X_STATUS_OK)
@@ -250,9 +256,21 @@ W6X_Status_t W6X_WiFi_Init(void)
         goto _err;
       }
       HAL_SYS_RESET(); /* Reboot the host to apply the antenna change */
+#endif
     }
   }
 
+#if (W61_CONFIG_PRESERVE == 1)
+  /* Query before mode change: preserve both persisted configuration and the
+   * owner's explicit connection intent. A mismatch requires separate approval. */
+  ret = TranslateErrorStatus(W61_AT_Common_VerifyConfig(W6X_WiFi_drv_obj,
+                  "AT+CWAUTOCONN?\r\n", "+CWAUTOCONN:", W6X_WIFI_AUTOCONNECT));
+  if (ret != W6X_STATUS_OK) goto _err;
+  W6X_WiFi_drv_obj->WifiCtx.STASettings.AutoConnect = W6X_WIFI_AUTOCONNECT;
+  ret = TranslateErrorStatus(W61_AT_Common_VerifyConfig(W6X_WiFi_drv_obj,
+                  "AT+CWMODE?\r\n", "+CWMODE:", 1U));
+  if (ret != W6X_STATUS_OK) goto _err;
+#else
   /* Start the Wi-Fi as station */
   ret = W6X_WiFi_Station_Start();
   if (ret != W6X_STATUS_OK)
@@ -267,6 +285,7 @@ W6X_Status_t W6X_WiFi_Init(void)
     goto _err;
   }
 
+#endif
   /* Set the country code */
   ret = TranslateErrorStatus(W61_WiFi_SetCountryCode(W6X_WiFi_drv_obj, &policy, code));
   if (ret != W6X_STATUS_OK)
@@ -296,7 +315,11 @@ void W6X_WiFi_DeInit(void)
     return;
   }
 
+#if (W61_CONFIG_PRESERVE == 0)
   (void)W61_WiFi_Stop(W6X_WiFi_drv_obj);
+#endif
+  /* Preserve-mode teardown releases host resources only. Coordinated recovery
+   * still owns its existing stop proof, CHIP_EN power-off and fresh init. */
 
   /* Delete the Wi-Fi event handle */
   vEventGroupDelete(p_wifi_ctx->Wifi_event);

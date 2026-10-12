@@ -246,6 +246,9 @@ typedef struct
 } TOF_Context_t;
 
 static TOF_Context_t tof_context;
+/* Acquisition-owned; calibration is read once after the first successful boot.
+ * Runtime restart must retain the same transform and calibration allocations. */
+static uint32_t tof_calibration_ready;
 /* Persistent DMA destination: even an error/timeout cannot leave DMA holding
  * a pointer into the acquisition task's expired stack frame. */
 static uint8_t tof_command_status __attribute__((aligned(4)));
@@ -288,6 +291,9 @@ static const uint8_t depth_palette[] = {
 static void tof_fatal(const char *stage, int error);
 static void tof_request_recovery(const char *stage, int error);
 static uint32_t tof_recover(vl53l9_device_t *sensor, TOF_RawFrame_t *held_frame);
+static int tof_configure_sensor(vl53l9_device_t *sensor, const char **stage);
+static uint32_t tof_prepare_initial_sensor(vl53l9_device_t *sensor);
+static int tof_wait_sensor_frame(void);
 static void tof_note_complete_acquisition(void);
 static void tof_log(const char *format, ...);
 static int tof_configure_transform(transform_t *transform,
@@ -438,34 +444,7 @@ void TOF_App_Acquire(void)
     tof_context.state.width = tof_context.state.depth_width;
     tof_context.state.height = tof_context.state.depth_height;
 
-    ret = platform_power_reset(TOF_DEVICE_ID);
-    if (ret != 0)
-    {
-        tof_fatal("XSHUT reset", ret);
-    }
-    ret = platform_assign_dynamic_address();
-    if (ret != 0)
-    {
-        tof_fatal("I3C dynamic address", ret);
-    }
-    ret = vl53l9_init(sensor);
-    if (ret != 0)
-    {
-        tof_fatal("sensor init", ret);
-    }
-    ret = vl53l9_get_calib_data(sensor, tof_context.buffers.calibration);
-    if (ret != 0)
-    {
-        tof_fatal("calibration read", ret);
-    }
-
-    profile.frame_period_us = 1000000U / TOF_TARGET_FPS;
-    profile.sync = VL53L9_SYNC_AUTONOMOUS;
-    ret = vl53l9_utils_set_profile(sensor, &profile);
-    if (ret != 0)
-    {
-        tof_fatal("ranging profile", ret);
-    }
+    ranging = tof_prepare_initial_sensor(sensor);
 
     ret = tof_configure_transform(tof_context.state.transform, tof_context.buffers.calibration,
                                   TOF_RAW_BUFFER_SIZE,
@@ -476,11 +455,15 @@ void TOF_App_Acquire(void)
     }
 
     (void)platform_acknowledge_event(PLATFORM_GPIO_IT_EVT);
-    ranging = (tof_desired.paused == 0U) ? 1U : 0U;
-    ret = (ranging != 0U) ? vl53l9_start(sensor) : 0;
-    if (ret != 0)
+    if ((ranging == 0U) && (tof_desired.paused == 0U))
     {
-        tof_fatal("stream start", ret);
+        ret = vl53l9_start(sensor);
+        if (ret != 0) {
+            tof_request_recovery("stream start", ret);
+            ranging = tof_recover(sensor, NULL);
+        } else {
+            ranging = 1U;
+        }
     }
 
     tof_log("VL53L9CX: ready, %ux%u at up to %u fps.\r\n",
@@ -491,7 +474,8 @@ void TOF_App_Acquire(void)
                    (unsigned int)tof_context.state.depth_height,
                    (unsigned int)TOF_TARGET_FPS);
 
-    tof_context.state.state = TOF_APP_STATE_READY;
+    tof_context.state.state = (tof_context.recovery.awaiting_frame != 0U) ?
+        TOF_APP_STATE_RECOVERING : ((ranging != 0U) ? TOF_APP_STATE_READY : TOF_APP_STATE_PAUSED);
     UINT pipeline_status = tx_event_flags_set(&tof_context.buffers.pipeline_flags,
                                               TOF_PIPELINE_READY_FLAG, TX_OR);
     if (pipeline_status != TX_SUCCESS)
@@ -564,8 +548,8 @@ void TOF_App_Acquire(void)
             Debug_UART_Log("TOF", "frame 1: acquisition waiting for sensor event");
         }
         (void)platform_acknowledge_event(PLATFORM_GPIO_IT_EVT);
-        ret = platform_wait_for_event(PLATFORM_GPIO_IT_EVT,
-                                      TOF_EVENT_TIMEOUT_MS);
+        ret = tof_wait_sensor_frame();
+        if (ret == 1) continue; /* A newer pause cancels the missing-frame check. */
         if (ret != 0)
         {
             tof_log_platform_failure(PLATFORM_GPIO_IT_EVT, ret);
@@ -2126,6 +2110,58 @@ static void tof_note_complete_acquisition(void)
     }
 }
 
+static int tof_wait_sensor_frame(void)
+{
+    int ret = platform_wait_for_event(PLATFORM_GPIO_IT_EVT, TOF_EVENT_TIMEOUT_MS);
+    /* Pause can arrive while waiting for the next frame. It is intentional
+     * stop intent, not evidence of a stalled sensor. The acquisition owner
+     * applies vl53l9_stop on its next loop; real transfer errors still recover. */
+    if ((ret == -1) && (tof_desired.paused != 0U)) return 1;
+    return ret;
+}
+
+static int tof_configure_sensor(vl53l9_device_t *sensor, const char **stage)
+{
+    vl53l9_profile_t profile = g_ranging_profiles[TOF_USECASE];
+    *stage = "XSHUT reset";
+    int ret = platform_power_reset(TOF_DEVICE_ID);
+    if (ret == 0) {
+        *stage = "I3C dynamic address";
+        ret = platform_assign_dynamic_address();
+    }
+    if (ret == 0) {
+        *stage = "sensor init";
+        ret = vl53l9_init(sensor);
+    }
+    if ((ret == 0) && (tof_calibration_ready == 0U)) {
+        *stage = "calibration read";
+        ret = vl53l9_get_calib_data(sensor, tof_context.buffers.calibration);
+        if (ret == 0) tof_calibration_ready = 1U;
+    }
+    if (ret == 0) {
+        *stage = "ranging profile";
+        profile.frame_period_us = 1000000U / TOF_TARGET_FPS;
+        profile.sync = VL53L9_SYNC_AUTONOMOUS;
+        ret = vl53l9_utils_set_profile(sensor, &profile);
+    }
+    return ret;
+}
+
+static uint32_t tof_prepare_initial_sensor(vl53l9_device_t *sensor)
+{
+    const char *stage = "I3C/DMA reset";
+    /* A debugger reload replaces C handles while a powered sensor/controller
+     * may still own an old transfer. Quiesce the same local bus and DMA used
+     * by runtime recovery before XSHUT; never reset the shared DMA controller. */
+    int ret = platform_recover_i3c();
+    if (ret == 0) ret = tof_configure_sensor(sensor, &stage);
+    if (ret == 0) return 0U; /* Normal start follows host transform configuration. */
+    tof_request_recovery(stage, ret);
+    /* Reuse the existing three-attempt budget; exhausted startup stays error,
+     * USB/radio stay live, and no background reset loop is created. */
+    return tof_recover(sensor, NULL);
+}
+
 static void tof_request_recovery(const char *stage, int error)
 {
     UINT posture = tx_interrupt_control(TX_INT_DISABLE);
@@ -2194,23 +2230,7 @@ static uint32_t tof_recover(vl53l9_device_t *sensor, TOF_RawFrame_t *held_frame)
                 tof_log_queue_failure("recovery ready queue drain", status, NULL);
                 tof_fatal("recovery ready queue drain", (int)status);
             }
-            stage = "XSHUT reset";
-            ret = platform_power_reset(TOF_DEVICE_ID);
-        }
-        if (ret == 0) {
-            stage = "I3C dynamic address";
-            ret = platform_assign_dynamic_address();
-        }
-        if (ret == 0) {
-            stage = "sensor init";
-            ret = vl53l9_init(sensor);
-        }
-        if (ret == 0) {
-            vl53l9_profile_t profile = g_ranging_profiles[TOF_USECASE];
-            profile.frame_period_us = 1000000U / TOF_TARGET_FPS;
-            profile.sync = VL53L9_SYNC_AUTONOMOUS;
-            stage = "ranging profile";
-            ret = vl53l9_utils_set_profile(sensor, &profile);
+            ret = tof_configure_sensor(sensor, &stage);
         }
         /* This is the same physical sensor, calibration and transform.
          * Retain the transform and its lazy first-frame allocations; do not

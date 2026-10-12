@@ -222,7 +222,8 @@ def main():
     header = (ROOT / 'AppliNonSecure/Core/Inc/wifi_ble_app.h').read_text()
     end = header.index('} WifiBle_ControlStatus_t;') + len('} WifiBle_ControlStatus_t;')
     stats = header[header.rfind('typedef struct', 0, end):end]
-    run_native(PREFIX + constants + '\n' + stats + '\n' + manager + types + MOCKS + actual + TESTS)
+    recovery = 'static struct {unsigned state;}radio_recovery; static void radio_recovery_execute(void){}\n'
+    run_native(PREFIX + constants + '\n' + stats + '\n' + manager + types + recovery + MOCKS + actual + TESTS)
     for name in ['ble_process_pending_events','ble_reconcile_advertising','ble_recover_subsystem','ble_probe_shadow']:
         code = function(source,name)
         assert not re.search(r'W6X_Ble_\w+\(', code), name

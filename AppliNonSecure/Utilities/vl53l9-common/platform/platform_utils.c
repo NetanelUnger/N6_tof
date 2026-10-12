@@ -22,6 +22,7 @@
 #include "tx_api.h"
 #include "vl53l9_device.h"
 #include "vl53l9_interface.h"
+#include "debug_uart.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -72,11 +73,20 @@ int platform_get_version(platform_version_t *version) {
  * @return 0 in case of success, negative value otherwise
  */
 int platform_power_reset(uint8_t id) {
+    uint32_t started = HAL_GetTick();
     HAL_GPIO_WritePin((GPIO_TypeDef *)device[id].xshut.port, device[id].xshut.pin, GPIO_PIN_RESET);
     HAL_Delay(50);
+    uint32_t low = (uint32_t)HAL_GPIO_ReadPin((GPIO_TypeDef *)device[id].xshut.port, device[id].xshut.pin);
+    uint32_t low_ms = HAL_GetTick() - started;
     HAL_GPIO_WritePin((GPIO_TypeDef *)device[id].xshut.port, device[id].xshut.pin, GPIO_PIN_SET);
     HAL_Delay(50);
-    return 0;
+    /* IDR samples the pad through the input path, not the output latch. Read
+     * after the existing settle interval, never immediately after BSRR. */
+    uint32_t high = (uint32_t)HAL_GPIO_ReadPin((GPIO_TypeDef *)device[id].xshut.port, device[id].xshut.pin);
+    Debug_UART_Log("TOF-RESET", "XSHUT MCU readback low=%lu high=%lu low_ms=%lu total_ms=%lu; sensor rails remain powered",
+                   (unsigned long)low, (unsigned long)high, (unsigned long)low_ms,
+                   (unsigned long)(HAL_GetTick() - started));
+    return ((low == GPIO_PIN_RESET) && (high == GPIO_PIN_SET)) ? 0 : -1;
 }
 
 /**
@@ -123,6 +133,16 @@ int platform_set_device_address(uint8_t id, uint8_t address) {
     }
 }
 
+static int platform_daa_failure(const char *stage, HAL_StatusTypeDef status, uint32_t assignments) {
+    /* Acquisition context only: preserve the failed step before another HAL
+     * Init clears its error. No payload/register contents from the sensor. */
+    Debug_UART_Log("I3C-INIT", "failed stage=%s HAL=%lu assignments=%lu error=0x%08lX state=0x%02lX EVR=0x%08lX",
+                   stage, (unsigned long)status, (unsigned long)assignments,
+                   (unsigned long)hi3c1.ErrorCode, (unsigned long)hi3c1.State,
+                   (unsigned long)hi3c1.Instance->EVR);
+    return -1;
+}
+
 int platform_assign_dynamic_address() {
 
     HAL_StatusTypeDef status;
@@ -133,28 +153,36 @@ int platform_assign_dynamic_address() {
     hi3c1.Init.CtrlBusCharacteristic.SCLPPLowDuration = 0x7c;
     hi3c1.Init.CtrlBusCharacteristic.SCLI3CHighDuration = 0x7c;
     hi3c1.Init.CtrlBusCharacteristic.SCLODLowDuration = 0x7c;
-    if (HAL_I3C_Init(&hi3c1) != HAL_OK) {
-        return -1;
+    status = HAL_I3C_Init(&hi3c1);
+    if (status != HAL_OK) {
+        return platform_daa_failure("slow timing init", status, assignments);
     }
 
     // NOTE: for the moment apply static address as dynamic address
     do {
         status = HAL_I3C_Ctrl_DynAddrAssign(&hi3c1, &payload, I3C_RSTDAA_THEN_ENTDAA, 5000);
         if (status == HAL_BUSY) {
-            if ((++assignments > NB_DEVICES) ||
-                (HAL_I3C_Ctrl_SetDynAddr(&hi3c1, 0x52 & 0x7F) != HAL_OK)) {
-                return -1;
+            if (++assignments > NB_DEVICES) {
+                return platform_daa_failure("extra target", status, assignments);
+            }
+            HAL_StatusTypeDef assigned = HAL_I3C_Ctrl_SetDynAddr(&hi3c1, 0x52 & 0x7F);
+            if (assigned != HAL_OK) {
+                return platform_daa_failure("set dynamic address", assigned, assignments);
             }
         }
     } while (status == HAL_BUSY);
-    if (status != HAL_OK) return -1;
+    if (status != HAL_OK) return platform_daa_failure("RSTDAA/ENTDAA", status, assignments);
+    /* HAL_OK with no target response is not a valid sensor boot. Do not read
+     * unassigned address0x52 or configure IBI from an absent payload. */
+    if (assignments != NB_DEVICES) return platform_daa_failure("no target", HAL_ERROR, assignments);
 
     // Restore the 12 MHz timings generated for the STM32N657 I3C kernel clock.
     hi3c1.Init.CtrlBusCharacteristic.SCLPPLowDuration = 0x07;
     hi3c1.Init.CtrlBusCharacteristic.SCLI3CHighDuration = 0x07;
     hi3c1.Init.CtrlBusCharacteristic.SCLODLowDuration = 0x47;
-    if (HAL_I3C_Init(&hi3c1) != HAL_OK) {
-        return -1;
+    status = HAL_I3C_Init(&hi3c1);
+    if (status != HAL_OK) {
+        return platform_daa_failure("fast timing init", status, assignments);
     }
 
     // required to register ibi notifications
@@ -166,10 +194,11 @@ int platform_assign_dynamic_address() {
     DeviceConf.CtrlRoleReqAck = __HAL_I3C_GET_CR_CAPABLE(__HAL_I3C_GET_BCR(payload));
     DeviceConf.CtrlStopTransfer = DISABLE;
 
-    if (HAL_I3C_Ctrl_ConfigBusDevices(&hi3c1, &DeviceConf, 1U) != HAL_OK) {
-        return -1;
+    status = HAL_I3C_Ctrl_ConfigBusDevices(&hi3c1, &DeviceConf, 1U);
+    if (status != HAL_OK) {
+        return platform_daa_failure("bus device config", status, assignments);
     }
-
+    Debug_UART_Log("I3C-INIT", "ready assignments=%lu address=0x52", (unsigned long)assignments);
     return 0;
 }
 

@@ -291,6 +291,10 @@ void WIFI_BLE_App_GetHardwareStatus(WifiBle_HardwareStatus_t *status);
 UINT WIFI_BLE_App_RequestAdvertising(uint32_t advertising);
 UINT WIFI_BLE_App_RequestDisconnect(void);
 void WIFI_BLE_App_GetWifiStatus(WifiBle_WifiStatus_t *status);
+/* Public SSID/intent only; succeeds for an idle confirmed saved NCP reference.
+ * No password read, credential mutation, association or AT operation. */
+uint32_t WIFI_BLE_App_GetRetainedWifiReference(char ssid[WIFI_BLE_WIFI_SSID_SIZE],
+                                             uint32_t *desired);
 UINT WIFI_BLE_App_WifiSubmit(const WifiBle_WifiRequest_t *request,
                              AppRequestId_t *request_id);
 UINT WIFI_BLE_App_WifiReceiveResult(WifiBle_WifiResult_t *result);
@@ -314,6 +318,25 @@ typedef struct {
 } WifiBle_ServiceStatus_t;
 /* Read-only scalar snapshot; never waits for or alters AT ownership/fences. */
 void WIFI_BLE_App_GetServiceStatus(WifiBle_ServiceStatus_t *status);
+typedef struct {
+  uint32_t state, attempts, successes, failures, started_ms, elapsed_ms;
+  uint32_t radio_quiesced, cloud_quiesced, stage;
+  uint32_t wifi_reconnect_required;
+  int32_t last_status;
+} WifiBle_RecoveryStatus_t;
+/* Explicit coordinated module restart, same owner/barriers as automatic fence. */
+UINT WIFI_BLE_App_RequestRadioRecovery(void);
+/* Diagnostic only: quiesce owners, power NCP off, obtain a genuine unanswered
+ * scoped AT timeout, then exercise the same coordinated recovery path. */
+UINT WIFI_BLE_App_RequestRadioFaultTest(void);
+void WIFI_BLE_App_GetRecoveryStatus(WifiBle_RecoveryStatus_t *status);
+typedef struct {
+  uint32_t sequence, pending, generation, rx_slots, tx_slots, reply_active;
+  uint32_t notification_generation; /* pending=2 until TX terminal drain */
+} WifiBle_RecoveryNotice_t;
+void WIFI_BLE_App_GetRecoveryNotice(WifiBle_RecoveryNotice_t *notice);
+/* CLI owner only, before new input; an event, never a command completion. */
+UINT WIFI_BLE_App_SendRecoveryNotice(void);
 UINT WIFI_BLE_App_StreamRead(WifiBle_Stream_t stream, void *buffer,
                              ULONG capacity, ULONG *actual_length,
                              ULONG wait_option);

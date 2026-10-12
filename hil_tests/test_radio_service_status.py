@@ -31,7 +31,11 @@ static struct {struct {unsigned state;}shadow;struct{unsigned wifi_service_start
 /* Preserve member typing used by production. */
 static struct {struct{unsigned state;}shadow;struct{unsigned wifi_service_started_ms;}work;
  struct {typeof_control_placeholder *wifi_control_context;}queues;} radio_manager;
+typedef struct {unsigned elapsed_ms,remaining_ms;} AppSettings_Status;
+static unsigned settings_busy;static unsigned AppSettings_IsBusy(void){return settings_busy;}
+static void AppSettings_GetStatus(AppSettings_Status*s){s->elapsed_ms=4800;s->remaining_ms=8450;}
 static unsigned tick,hal,irq;static W61_Object_t *W61_ObjGet(void){return &driver;}
+static struct {unsigned state,started_ms,stage;}radio_recovery;
 static unsigned tx_interrupt_control(unsigned n){unsigned old=irq;irq=n;return old;}
 static unsigned xTaskGetTickCount(void){return tick;}
 static unsigned HAL_GetTick(void){return hal;}
@@ -56,8 +60,15 @@ int main(void){WifiBle_ServiceStatus_t s;
  WIFI_BLE_App_GetServiceStatus(&s);assert(s.state==1 && !strcmp(s.reason,"WIFI_CONNECT") && s.elapsed_ms==100 && !s.remaining_ms);
  control.status.operation_active=0;WIFI_BLE_App_GetServiceStatus(&s);assert(s.state==0 && !s.elapsed_ms);
  puts("PASS Wi-Fi busy duration survives HAL wrap; completion returns available without allocation");
+ reset();settings_busy=1;WIFI_BLE_App_GetServiceStatus(&s);assert(s.state==1 && !strcmp(s.reason,"SETTINGS_STORE") && s.elapsed_ms==4800 && s.remaining_ms==8450);
+ driver.Modem.handler_data.tx_desynchronized=true;WIFI_BLE_App_GetServiceStatus(&s);assert(s.state==2 && !strcmp(s.reason,"AT_FENCED"));settings_busy=0;
+ puts("PASS settings store deadline is public; true fence retains precedence");
  reset();radio_manager.shadow.state=3;WIFI_BLE_App_GetServiceStatus(&s);assert(s.state==2 && !strcmp(s.reason,"INIT_FAILED"));
- puts("PASS failed initialization is public fault rather than a ready radio");return 0;}
+ puts("PASS failed initialization is public fault rather than a ready radio");
+ radio_recovery.state=2;radio_recovery.stage=2;radio_recovery.started_ms=100;hal=250;
+ WIFI_BLE_App_GetServiceStatus(&s);assert(s.state==1 && !strcmp(s.reason,"RADIO_RECOVERY") && s.elapsed_ms==150);
+ radio_recovery.state=3;WIFI_BLE_App_GetServiceStatus(&s);assert(s.state==2 && !strcmp(s.reason,"RECOVERY_FAILED"));
+ puts("PASS lifecycle barrier overrides partially rebuilt driver status and failed recovery remains unavailable");return 0;}
 '''
 
 def main():

@@ -442,6 +442,9 @@ W61_Status_t W61_WiFi_Connect(W61_Object_t *Obj, W61_WiFi_Connect_Opts_t *Connec
     (void)snprintf((char *)&cmd[pos], W61_CMDRSP_STRING_SIZE - pos, ",%" PRIu32 "\r\n", ConnectOpts->WEP);
   }
   ret = W61_AT_Common_SetExecute(Obj, (uint8_t *)cmd, W61_WIFI_CONNECT_TIMEOUT);
+  /* The AT stack buffer also held the plaintext password. Keep this erase
+   * observable to the compiler, including early return below. */
+  for (size_t i = 0U; i < sizeof(cmd); ++i) ((volatile uint8_t *)cmd)[i] = 0U;
 
   if ((ret == W61_STATUS_OK) && (W61_WiFi_SetReconnectionOpts(Obj, ConnectOpts) != W61_STATUS_OK))
   {
@@ -538,7 +541,9 @@ W61_Status_t W61_WiFi_AddCredentials(W61_Object_t *Obj, uint8_t SSID[W61_WIFI_MA
   W61_NULL_ASSERT(Password);
 
   (void)snprintf(cmd, W61_CMDRSP_STRING_SIZE, "AT+CWCREDADD=\"%s\",\"%s\"\r\n", SSID, Password);
-  return W61_AT_Common_SetExecute(Obj, (uint8_t *)cmd, W61_NCP_TIMEOUT);
+  W61_Status_t status = W61_AT_Common_SetExecute(Obj, (uint8_t *)cmd, W61_NCP_TIMEOUT);
+  for (size_t i = 0U; i < sizeof(cmd); ++i) ((volatile uint8_t *)cmd)[i] = 0U;
+  return status;
 }
 
 W61_Status_t W61_WiFi_DeleteCredentials(W61_Object_t *Obj, uint8_t SSID[W61_WIFI_MAX_SSID_SIZE + 1])

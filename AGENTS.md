@@ -26,6 +26,413 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Combined-load preflight BLOCKED (2026-10-12): exact protected live reader05FD...
+  verified; settingsOK/gen1/705/CRC72B6B9AF/writes0/reference1, no fence/drain/
+  recovery. Cloud still paired but ERROR/HTTP403; uploads stopped6060. One runtime
+  reconnect with existing pairing did not restore frames; drop0->1 while retiring
+  pending frame. Server source maps403 to device_not_allowed (live body not read);
+  user must check correct updated existing workspace/device membership. No new
+  pair/code/token/workspace payload read or credential mutation. Sandbox BLE saw
+  advertisement but all3 connection variants FAILED before commands; normal
+  Windows transient pair=False connection PASS MTU247,6/6 PONG+final/max125ms,
+  OS paired flag observed, no Pair API requested. Link closed; CLI RX6/120bytes,
+  TX9/1195bytes, drops/retries/errors0. SPI5 data>8 bytes uses GPDMA1 TX10/RX11 by
+  verified code path, but no in-flight DMA/cancellation HIL claimed. Combined
+  fault NOT RUN until active Cloud is proven. Final ToF58337->58348/ready,
+  Wi-Fi/radio ready, BLE disconnected/adv, NCP1/1/0 unchanged, Cloud403/paired,
+  USB ping PASS, handles released/no active test. No firmware/build/Flash/reset/
+  power-cut/HTTP-TLS/commit/push/deploy. No proven firmware defect to fix; combined
+  BLE/Cloud/DMA fault and fulltask4 open. Evidence: ignored combined-preflight-
+  20261012 and combined-recovery-20261012; docs/radio-coordinated-recovery.md.
+
+- User pairing/managed startup/connected recovery verified (2026-10-12): user
+  submitted pair locally; agent never read/replayed the code or workspace/token
+  payload. ExactA8077FB8... initially paired/storeOK0/arm0/writes0, slot0/gen1/
+  flags31/length705/CRC72B6B9AF/password length0. Original save UART line unavailable;
+  paired publication plus actual committed metadata proven, then independent
+  guarded startup loads the same full schema/CRC. Candidate genuine-fence test
+  status3/fence1 PASS22152ms, Wi-Fi2766ms, ToF355039->355306, Cloud1136->1145,
+  14 USB pings max328ms. Preexisting NCP3/3/0/request errors3/dropped2/SPI fault1
+  unchanged by this test; natural SPI cause unproven. First host literal matcher
+  FAIL corrected on retained genuine_fence1 evidence, no hardware rerun.
+  Supported SRAM startup of read-only/config-preserve1 reader05FD9EFD... PASS;
+  managed load4 commands/gen1/705/CRC72B6B9AF, writes0, saved Wi-Fi restored3431ms,
+  pairing/Cloud route/images auto-return. Reader genuine-fence PASS19841ms,
+  ToF2088->2316, Cloud603->608, 12 pings max328ms; errors/drops/SPI/alloc0.
+  Live RAM is now reader05FD..., not candidate; normal Debug remains57FB502F...
+  config-preserveOFF, must not be substituted under guarded-load contract.
+  Final Reader storeOK/gen1/flags31/705/CRC72B6B9AF/writes0/fence-drain0, Wi-Fi IP,
+  ToF advancing/Cloud paired and streamCLOUD/BLE disconnected. Heap374496,
+  arena357412/tail17084/margin5856, not malloc-free/fragmentation proof. COM6/COM8/
+  debugger released. Host report-write and optimized-out reader symbol failures
+  retained/corrected with read-only inspection, no extra reset/pairing. No firmware
+  change/build/Flash/header/sign/package/HTTP/TLS/commit/push/deploy or old-file/
+  CWCRED mutation. Legacy integrity UNKNOWN; physical power loss/independent
+  receiver CRC/rendering/in-flight BLE CLI-DMA/fulltask4 remain open. Evidence:
+  ignored settings-user-pair-check-20261012; docs/settings-repairing-transition.md.
+
+- Local non-authentication preparation completed (2026-10-11): exactA8077FB8...
+  read-only SRAM vector/text/rodata/ARM sections match. Saved Wi-Fi reference and
+  confirmed SSID, idle unpaired Cloud/no recovery/fence/drain/notify owner verified.
+  One COM8 `cloud prepare yes` passes; UART at1636348ms result0/RAM_only1/
+  legacy_preserved1. Fresh complete inventory: calls1/present0, no managed files.
+  RAM arm1/writes1 permits only first user pairing save; seed flags19/gen0,
+  password/token lengths0, epoch1/cancel1. No actual FS/credential write or pairing
+  exchange. Wi-Fi IP/ToF/radio ready/Cloud unpaired/BLE disconnected; COM6/COM8
+  released, no active process. Do not repeat preparation/reset; user opens existing
+  workspace, presses + and sends displayed pair locally. Prior unarmed states
+  below are historical. Initial host enum assertion3 vs production READY2 failed
+  before submission; corrected, retained. No firmware/build/NOR/header/sign/
+  package/HTTP/TLS/commit/push/deploy. Evidence: ignored settings-bootguard-20261011/
+  prepare-only-summary.json; see docs/settings-repairing-transition.md.
+
+- RAM transition boot blocker resolved (2026-10-11): opt-in
+  W61_CONFIG_PRESERVE queries existing CWAUTOCONN0/CWMODE1/CWDHCP1, AP/clock/antenna;
+  matched settings skip persistent-capable setters, mismatch stops. Actual recovery
+  still powers off/reinitializes NCP.44 actual-C native/91 feature/default+reader+
+  candidate builds pass; Secure/FSBL build-only pass. Two supported SRAM startups
+  of exactA8077FB8... candidate pass, writes0/unarmed0; genuine legacy-fence recovery
+  16262/15913ms, retained-reference Wi-Fi IP restored without password write.
+  bin495612/heap370872/margin2232; reserved arena357412/tail13460, not malloc free.
+  ToF1198->1238 and2274->2313/USB/radio ready/BLE adv-disconnected/imageNONE;
+  Cloud unpaired, UART253/253 zero drops/errors,30 USB pings max329ms. Handles
+  released. Guarded read-only reader05FD9EFD... not loaded; normal Debug output
+  restored57FB502F... writesOFF/config-preserveOFF, differs from live candidate.
+  User preparation/authentication/pairing and real managed readback/Cloud recovery
+  remain NOT RUN. Board approval already granted. No original FS/CWCRED mutation,
+  firmware Flash/header/sign/package/HTTP/TLS/commit/push/deploy; legacy integrity
+  UNKNOWN. See [exact evidence and ready Hebrew user steps](docs/settings-repairing-transition.md).
+
+- Historical RAM transition readiness audit (2026-10-11): board approval now granted;
+  explicit user stop rule blocks load/reset because existing Wi-Fi init sends
+  unconditional CWAUTOCONN=0, ST NCP2.0.106 documents EasyFlash persistence.
+  No SYSSTORE=0 host setter found; actual unchanged-value write NOT proven.
+  AppSettings boot stays unarmed, but generic NCP init is outside that guard.
+  Prior7EE45958... RAM remains healthy; new2A076C3A.../43A897C2... NOT loaded,
+  runtime heap/restart/pairing NOT RUN. No source/binary/FS/credential change.
+  Resolve boot/recovery persistence contract before ready/user pairing; do not
+  re-ask already granted board availability. See docs/settings-repairing-transition.md
+  and ignored settings-ready-20261011 evidence.
+
+- Approved re-pairing transition preparation (2026-10-11): explicit USB/cloud
+  owner RAM seed only, preserves n6cloud.cfg/CWCRED/current Wi-Fi via reference
+  flag16/Secured=1, no password export. Candidate compilewrites1/transition1,
+  runtime0 until preparation/one first verified pair commit/then0; load never
+  re-arms. Fresh inventory before create shares original13250ms/15-command scope.
+  No paired publication or volatile new access after failed persistence.
+  42 native+five final affected suites/60 feature/default+candidate builds PASS.
+  Exact2A076C3A... candidate bin495324/heap371160/margin2520, reader43A897C2...
+  writesOFF/bin491772/heap374720. New images NOT RAM-loaded, user NOT paired,
+  no exchange or actual settings write; prior7EE45958... live RAM remains healthy.
+  Original legacy integrity UNKNOWN; prior reader rejects flag as UNSUPPORTED,
+  rollback cannot promise old Cloud auth/server state. Board availability and
+  user-owned authentication/code entry pending; no raw credentials/tokens in chat.
+  No firmware Flash/header/sign/package/commit/push/deploy/HTTP/TLS change;
+  real readback/managed startup/Cloud recovery/physical power-loss/fulltask4 open.
+  See [workflow and exact evidence](docs/settings-repairing-transition.md).
+
+- Settings memory/controlled synthetic startup (2026-10-11): shared CRC/HEX/lock
+  helpers at unchanged -O3; writesON host-only heap373280/margin4640 (+1984),
+  default heap375360/bin491108.40 native/50 feature/build checks pass. Two
+  read-only normal startup RAM loads select exact gen2/2561/CRC5A51424C,
+  including partial inactive512-byte write cancelled after SDK scope retirement.
+  Host15 command boundaries pass; physical power loss/in-flight AT reset/active
+  managed Wi-Fi/Cloud restore NOT tested.158 USB pings max16ms, ToF advancing;
+  owned synthetic files cleaned/absence proven, existing30 files retained.
+  Exact unsigned7EE45958... final clean RAM, writesOFF/header9; runtime arena
+  reserved357412/tail17948 (not live malloc/free-fragmentation proof). NCP recovery
+  14.301s/retained-reference Wi-Fi2.584s, ToF387->429/UART165/165 zero errors;
+  handles released, Cloud unpaired/legacy integrity UNKNOWN. No real migration/
+  credentials/NOR/header/sign/package/HTTP/TLS/commit/push/deploy. Prior failures
+  retained; real source/migration/physical durability/fulltask4 still open.
+  See [contract and exact evidence](docs/unified-ncp-settings.md).
+
+- Bounded settings actual-path follow-up (2026-10-11): immutable13250ms/15-command
+  transaction, each SDK command<=2000ms with retired scope/yield/cancellation;
+  complete32-file inventory accepts, overflow33 still rejects.39 native/50 feature/
+  build checks pass. Synthetic-only RAM PASS: three2561-byte commits, exact CRCs,
+  two-slot reload, cancelled partial blocks retry/keeps old active exact;143 USB
+  pings max16ms, ToF advancing, owned cleanup/absence proven. Three prior reload
+  FAILs and two temporary heap-guard FAILs retained; no existing30 files removed.
+  Final clean unsigned4A33C963... RAM restored, writesOFF/header9, bin492452/
+  heap374016; host-only writesON heap371296 (2656 margin). Legacy read still fails;
+  NCP recovery14.362s/Wi-Fi retained-reference restore2.580s pass; Cloud unpaired.
+  Final ToF386->428/UART165/165 zero errors, owned handles released. No real
+  migration/credential/config/NOR/header/sign/package/commit/push/deploy or
+  HTTP/TLS protocol change. Real cold managed-state/power-loss/connected Cloud/
+  BLE hardware and task4 acceptance remain open. See [contract and exact evidence](docs/unified-ncp-settings.md).
+
+- Synthetic NCP ASCII/HEX follow-up (2026-10-11): user-approved absent-name
+  n6s_probe.cfg created/read/owned-cleaned; exact2561 bytes/CRC8D391A60,
+  decoded1280/CRC1E7A6D24/five NULs,13 boundary reads PASS with independent
+  original2s SDK operations. Three whole-budget variants FAILED (write896,
+  read1024 after fullwrite,write2560); all cleanup absent verified/no probe fence.
+  Product whole2s/128-slice maximum-record commit remains NOT accepted; no budget
+  change. Temporary hooks removed and exact default3575B8A7... source/ELF restored
+  and RAM-loaded, writesOFF/bin491732/heap373776/header9. Normal legacy1172 read
+  still malformed2000ms/fence1; coordinated recovery14404ms PASS, public-only
+  retained Wi-Fi intent restored/IP2855ms, no password/CWCRED/config write.
+  Final ToF391->430/ready0/0/0/gen0, Wi-Fi IP/USB/radio ready/BLE adv-disconnected/
+  imageNONE/Cloud unpaired; NCP1/1/0/SPI0/alloc0/UART165/165 zero drops/errors.
+  Four native probe variants/builds +exact clean build pass; earlier38 native/
+  50 feature unaffected, not rerun. Managed-record restoration/power-loss/Cloud/
+  fulltask4 remain NOT RUN/BLOCKED; legacy integrity UNKNOWN. Separate validated
+  complete-source/migration approval and budget acceptance still required.
+  All handles released/no active test; no NOR/header/sign/package/commit/push/
+  deployment. See docs/unified-ncp-settings.md and ignored ncp-ascii-probe-20261011.
+
+- Unified NCP settings extension (2026-10-11): SSID/password (no enterprise
+  username) +existing Cloud fields in static bounded schema; printable HEX/CRC,
+  two alternating managed files, exact readback before publish, single2s scope.
+  Existing owners/generations/fences/capacities retained; list lifetime/complete
+  inventory proof tightened, blocked restore does not consume retries. Writes
+  defaultOFF; no implicit CWCRED/legacy Cloud mutation or migration. Legacy-only/
+  corrupt/unknown/future storage blocks writes; prior missing pairing bytes and
+  integrity UNKNOWN remain. All38 native/50 feature/build pass; unsigned
+  ELF3575B8A745AD42A62EC6B5B0E7284A94FB267C1764218BCF27660EC242035576,
+  bin491732/heap373776/header9. Separate host-only write-enabled link heap371048
+  (2408 above minimum); neither ELF RAM-loaded. Harness/sandbox failures retained
+  and affected checks corrected. No active test/build or device operation. No
+  actual FS fixture/credential/token write, provisioning/Flash/header/sign/package/
+  HTTP/TLS/commit/push/deploy; hardware settings HIL NOT RUN. See
+  docs/unified-ncp-settings.md and ignored unified-settings-20261011 evidence.
+
+- Saved-pairing follow-up (2026-10-11): actual SPI framing passes158 synthetic
+  cases plus three strict FS/parser/pairing regressions. No new proven host
+  defect or firmware/RAM reload. Missing public payload upstream of host
+  parser persists; integrity UNKNOWN. Need validated binary-safe NCP2.0.106
+  logical read; independent CRC alone cannot load absent pairing bytes.
+  No raw Flash/address guess/unlock/metadata AT query/credential exposure/
+  re-pairing/config mutation/ST contact/separate FAE project change. Connected
+  Cloud fault/restoration HIL BLOCKED/NOT RUN, not accepted. Final4D953D64...
+  exact ELF unchanged: ToF114793->114834/ready/counters8/8/0/gen8, Wi-Fi IP,
+  USB/radio ready/BLE adv-disconnected/imageNONE/Cloud unpaired;
+  NCP3/3/0/SPI faults0/alloc0/UART7085/7085 zero drops/errors. Handles released,
+  no test/build process. Initial native-harness newline failure retained then
+  corrected. No new feature/build/fulltask4; header9/Flash/sign/package/HTTP/
+  TLS/commit/push/deploy unchanged. See latest recovery doc and ignored
+  cloud-fs-resume-20261011 evidence.
+
+- Longer RAM campaign (2026-10-11): original7AC39D92... FAILED3807.187s,
+  second profile final Wi-Fi gate;11324 CRC records/eight ToF recoveries/six
+  pause gates passed. RF/AP/NCP disconnect cause unproven, no new NCP/SPI fault.
+  Existing control owner now restores ordinary confirmed link loss with retained
+  saved desired intent, max3 attempts/10s completion cooldown; user work/DHCP/
+  unconfirmed state/true fence/DNS/BLE ownership defer. Explicit disconnect
+  cancels intent. No healthy-NCP reset/new task/capacity/steady allocation;
+  eight static bytes. Unsigned4D953D64... bin487952/heap383792/header9;
+  33 native/24 feature/build-only pass, warm30CRC and ordinary restore143CRC
+  pass without ToF/NCP counter changes. Host bare-data write failure retained;
+  corrected hex RAM fixture requires scalar readback. Serial continuation of
+  failed/remaining three30min blocks PASS5446.735s/16993CRC. With original
+  first old-candidate profile: mixed7263.641s/22653CRC,16 ToF faults/12 pauses,
+  four genuine NCP probes20011/19968/20000/20792ms, four USB reopens, three
+  warm SRAM loads. Two no-reset ordinary Wi-Fi gates pass; unsolicited
+  disconnect2174577 restored in2687ms association call without NCP reset,
+  root cause unproven. Final ToF ready/advancing8/8/0/gen8, Wi-Fi IP,
+  BLE adv/disconnected/imageNONE/Cloud unpaired, UART2021/2021 zero drops/errors;
+  radio alloc/SPI faults0, Radio max gap269/BLEpump20820ms includes recovery.
+  All owned COM6/COM8/debugger/supervisor/UART handles released; no active
+  campaign. Ignored tof-endurance-20261011/continuation-1 verified-terminal-
+  summary.json and audit-final.log. No full task4/active BLE CLI-DMA/Cloud return
+  acceptance; no Flash/config/auth/header/sign/package/HTTP/TLS/commit/push/
+  deployment. See current ToF recovery doc for terminal status.
+
+- Bounded longer RAM validation (2026-10-11): unchanged exact7AC39D92... ELF,
+  binary487440/heap384312/header9; prior32 native/24 feature/three build-only
+  checks retained, not rerun without code changes. Three warm loads pass30 CRC
+  records each. ToF734.938s/2100 CRC records passes Median/Box radius2, three20s
+  pause gates (one latent XSHUT fault resumes into recovery) and four one-attempt
+  recoveries344/272/272/380ms; counters4/4/0/gen4. NCP counters unchanged in profile.
+  Separate genuine-fence NCP fault-test passes19749ms, Wi-Fi IP restored2652ms,
+  143 CRC records/seven USB pings with no ToF recovery. Controlled fault != natural
+  root-cause proof; active BLE CLI/DMA and Cloud return remain open. Official ST
+  FLASH-R-HEX lead has unknown safe file mapping/lock permission/credential exclusion;
+  no raw Flash/AT metadata query. P67W61-738 causal relevance unproven; storage
+  integrity UNKNOWN, strict original bytes/CRC/2s/fence retained. Final ToF ready
+  advancing1952->1991, Wi-Fi IP/USB/radio ready/BLE adv-disconnected/imageNONE/
+  Cloud unpaired; UART615/615 zero drops/errors, all handles released. No firmware
+  change/new steady allocation/Flash/config/auth/header/sign/package/HTTP/TLS/
+  commit/push/deploy/full task4 endurance. Evidence ignored tof-longer-20261011;
+  see latest ToF recovery doc and official FS lead in radio-coordinated-recovery.
+
+- ToF warm startup/recovery follow-up (2026-10-10): acquisition owner quiesces
+  I3C1/DMA0/1/2 before initial XSHUT; failed sensor boot uses existing max3
+  recovery tries, first-fresh-frame proof, cached calibration/latest settings.
+  Pause-timeout is intentional cancellation; real transfer failures recover.
+  Verified PD8 XSHUT low50/high50ms through expansion level shifter, not rail
+  power control. Initial readback candidate37733751 failed because IDR sampled
+  immediately after BSRR; corrected settled readback/test, failed evidence kept.
+  Final unsigned ELF7AC39D925C371A7B774A5CCA55E9EDAF41394739E95DC500E2C5FEC43252A8AA,
+  binary487440/heap384312/header9;32 native/24 feature/all3 build-only pass.
+  Two warm RAM boots pass; pause/resume/map-off no-reset gate and two real XSHUT
+  fault recoveries316/267ms preserve Median/USB/depth. Corrected collector10
+  baseline+40 fresh CRC records passes; first cross-counter-reset host assertion
+  FAIL retained (40 valid records,4 draining+36 fresh). No new capacity/task/
+  steady-state allocation;4-byte calibration flag. Original electrical/controller
+  cause not isolated, broad endurance/persistent-fault/Stage11/BLE/Cloud HIL open.
+  Cloud FS inquiry paused, no stored-corruption inference. No Flash/config/header/
+  sign/package/HTTP/TLS/commit/push/deploy. See docs/tof-desired-state-recovery.md
+  and ignored tof-warm-init-20261010 evidence. Final board ToF ready/advancing,
+  Wi-Fi IP/USB/radio ready/BLE adv/imageNONE/Cloud unpaired; UART319/319 zero
+  drops/errors. Existing approved volatile Wi-Fi intent restored in18703ms
+  with21 USB pings and ToF continuity, no password or saved-data write. All
+  COM6/COM8/debugger handles released; no physical power approval pending.
+
+- Task3 FS boundary diagnosis (2026-10-10), supersedes stored-corruption claims:
+  public offset5 (expected NUL0x00 in v1) received SPI peer_len13 = metadata11+
+  CRLF2, no payload; copy_equal1, parser19 adds terminalOK6, no NUL removed by
+  host parser. Upstream binary FS reply malformed; actual stored byte/CRC and
+  NCP formatter/internal/electrical cause cannot be proven by this read channel.
+  Prior inferred-NUL/full-tail audit CRC is NOT independent storage evidence.
+  Removed empty-to-zero/string-tail/padding reconstruction. Strict exact binary
+  read/original2s/full CRC, borrowed-pointer retirement, no fence clearing;
+  empty+OK untouched output/error/fence, 32-bit length no65544-to8 wrap.
+  Native SPI copy/collector tests all256 bytes/33 room boundaries; all31 files,
+  feature16/build pass. ELF31010048FB2DCA41377E34FC702E6836F69EE8659C127B30F6A455BA07BB0B70,
+  bin486632/heap385112/header9. Public probe recovery15977ms/advancing ToF passes;
+  temporary probe removed. Final clean warm RAM ToF I3C startup FAIL/frame0;
+  USB/radio ready/Wi-Fi IP/BLE adv/imageNONE/Cloud unpaired, handles released.
+  Full physical power removal confirmation pending; RAM approval valid. Need
+  independent NCP-local CRC/binary-safe read or ST FS2.0.106 implementation/
+  validated encoding to distinguish storage/read, without credential disclosure.
+  Do not infer stored corruption, repair config/re-pair or weaken CRC. No Flash,
+  credential/config/auth write, HTTP/TLS, sign/package/commit/push/deploy/endurance.
+  See latest recovery doc and ignored task3-fs-boundary-20261010 evidence.
+
+- Task3 final legacy RAM follow-up (2026-10-10): second power cycle confirmed;
+  NUL means value0x00 at file offset5, not offset0. Legacy reads complete330
+  within original2s, valid magic/version/length/strings but CRC FAIL; actual ABI
+  padding read does not fix it. Temporary on-device audit reads all842 tails:
+  143 nonzero, full1172-byte CRC stillFAIL; values never exposed to host. File as
+  returned by FS is invalid; original corruption/NCP internal cause unproven.
+  Audit removed; exact final unsigned ELF
+  39116974A8322069A7D0939EFBEC9171127BA09FE8CD0FA342F637E8A85B573F,
+  binary486808/heap384952/header9; all30 native/16 feature/build pass.
+  Focused genuine missing-response recovery19969ms passes, automatic saved-cred
+  Wi-Fi IP,23 USB pings/38 BLE finals p95/max156ms/13 CRC images/UNKNOWN notice,
+  advancing ToF. Notice active0; in-flight/DMA HIL open. Radio gap21ms but BLEpump
+  gap19537ms includes recovery; SetConnParam status2 retained, allocations0.
+  Cloud pairing FAIL; server images/restoration blocked, not accepted. No config,
+  credentials/auth write/re-pair/Flash/header/sign/package/HTTP/TLS/commit/push/
+  deployment or endurance. Final-board/handle evidence in recovery doc and ignored
+  task3-cloud-legacy-20261010. Earlier not-loaded/blocked checkpoints historical.
+  Final exact39116974... RAM reload healthy: ToF ready/advancing, Wi-Fi IP,
+  BLE advertising/disconnected, imageNONE, Cloud unpaired; UART195/195 zero drops.
+  COM6/COM8/BLE/debugger handles released; no board-availability approval pending.
+
+- Task3 cold Cloud follow-up (2026-10-10): physical power removal restored ST-LINK
+  and healthy ToF. The 256-byte sliced RAM read still failed (declared256,
+  assembly26/copied0/2000ms/fence1); automatic AT_FENCED recovery15199ms passed
+  with ToF continuing. Public magic/version probe proves omitted NUL in FS output;
+  no host credential/payload inspection. Probe removed, failed evidence retained.
+  Read-only legacy candidate reconstructs canonical zero tails/padding using
+  one-byte reads; only complete empty+OK can decode NUL, original whole-record CRC
+  and schema required, one original2s budget, no saved file/format/write change.
+  Build binary486464/heap385304/header9, unsigned ELF
+  1E4B968FE2A3EDAB913529EAD62A350B4042ABDBB21EB5573FCB1BD520997A47.
+  All30 native files/16 feature compiles/build pass; candidate NOT RAM-loaded.
+  Last probe warm reload ToF
+  I3C error/frame0, Wi-Fi disconnected/Cloud unpaired, USB/radio ready/BLE adv,
+  imageNONE. Host handles released. Second physical power-off/reconnect confirmation
+  pending; existing RAM permission valid. ST-LINK enumeration currently works.
+  Transient environment disconnect interrupted no active HIL/build. No Flash,
+  credential/config/authentication write, re-pairing, HTTP/TLS change/sign/package/
+  commit/push/deploy. See recovery doc and ignored task3-cloud-cold-20261010.
+
+- Task 3 Cloud-startup investigation (2026-10-10): initial FS read TIMEOUT
+  reproduced on diagnostic RAM ELF B6C38878DCC0A75D0AF4519E3F0EA5FDE03A04155FFC98AABE61E9046F180974.
+  Scalar-only evidence: requested/declared 1172, two callbacks, assembly 27,
+  copied 0, elapsed 2000 ms, fence 0. No credential values read by host or logged.
+  Candidate uses 256-byte read slices under one original 2s budget, bounds
+  payloads and retires borrowed FS output; unanswered submitted FS read fences,
+  pre-write timeout does not. 30 native files/16 feature compiles/build pass.
+  Candidate binary486216/heap385528/header9, ELF
+  75525ECB0DC9D084CBE5F5BE756CF85977102114093BDD401B6A8A2F5F02FE69.
+  Candidate NOT RAM-tested: next loader failed DEV_USB_COMM_ERR, also reproduced
+  by read-only normal-access ST-LINK enumeration. Need full physical power-off
+  and ST-LINK USB reconnect; existing focused RAM permission remains valid.
+  No verified Cloud restoration or diagnosed cause of payload truncation yet.
+  Board final diagnostic RAM: USB/radio ready, BLE advertising/disconnected,
+  Wi-Fi disconnected, Cloud not paired, ToF I3C dynamic-address error after warm
+  reload. All host handles released. Saved pairing/credentials and Flash/header
+  unchanged; no provisioning, HTTP/TLS change, signing, commit/push/deploy.
+  Current RAM also reports9 because the header was preserved, not because the
+  changed candidate was installed into Flash. See recovery doc and ignored
+  task3-cloud-20261010 evidence; do not override prior successful RAM checkpoint.
+
+- Task 3 host follow-up (2026-10-10): existing uncommitted recovery reconciled
+  against `ble`/d89a510. Old-parser BLE callbacks cannot resurrect link/CCCD/
+  image route after the barrier; fresh init reconnect observations retained,
+  RX/TX/reply admission closed until restoration completes. Slot-acquisition
+  recovery/generation races roll back ownership; no old output relabeling.
+  Uptime 0 uses lifecycle stage, not a timestamp sentinel, for one barrier and
+  the original 35 s deadline. All 28 native files/16 feature compiles/build pass.
+  Binary 485504/heap 386280/header 9; ELF
+  DC3BC6DD3539E1BE51C4C2C42E5BC137321A604B858F75B5812BECC9D12E5928.
+  User-approved focused RAM HIL now passes on this exact ELF: genuine missing
+  AT response/fence, automatic Wi-Fi restore in 2665 ms, recovery 21104 ms,
+  38 BLE finals (p95 172/max 203 ms), 25 USB pings, advancing ToF and actual
+  UNKNOWN notice. BLE/USB/BLE route gate passes 5/5/5 CRC frames. Volatile RAM
+  SSID/connection intent seeded after MCU reload, existing NCP credentials used;
+  no password or credential write. Cloud started unpaired after FS read TIMEOUT,
+  so current Cloud restoration is NOT validated. Notice had active_reply=0;
+  in-flight CLI/DMA failure HIL remains open. WinRT sandbox failures retained;
+  normal device access passes. UART 481/481, CLI RX/TX drops and allocations 0;
+  SetConnParam status=2 observations retained, not zero-driver-error acceptance.
+  Handles released, Wi-Fi IP/BLE advertising/image NONE. Not signed or installed.
+  No capacity/budget/HTTP/TLS/IOC change, no new endurance run or Flash write.
+  See docs/radio-coordinated-recovery.md for limitations and ignored evidence.
+
+- Candidate F (2026-10-10): pre-HAL SPI5 IRQ/worker failure scalar snapshots,
+  deferred Radio UART reporting and retained radio-status evidence. No ISR
+  formatting, speed/DMA-priority change or capacity growth. Shared recovery
+  retires BLE generation with UNKNOWN/no replay; next subscribed CLI receives
+  an event through existing TX slots, with new input held through terminal
+  drain. Binary updater excluded.27 native files/16 feature compiles pass.
+  RAM F ELF4E18B7AA28B6C1E6B6CB80A6C0CC512EB37C583CF3C6AB9356440DE388363B14,
+  package486496/NS485192/heap386568, Flash/header9. Focused F2 passes36 BLE
+  finals/25 USB pings/five new Cloud frames and actual UNKNOWN notice after
+  automatic Wi-Fi restore. F1 observer missed the notice on automatic Windows
+  reconnection; failed report retained, both sessions observed in F2. Full-hour
+  F profile started; raw checkpoints, received failed-command bytes/duration
+  retained. No arbitrary100 Hz Radio CPU assertion. Natural SPI cause remains
+  open; see docs/radio-coordinated-recovery.md. Older E checkpoints below retained.
+
+- Shared-NCP recovery tasks3–4 (2026-10-10) IN_PROGRESS. See
+  docs/radio-coordinated-recovery.md for current contract/evidence; older notes
+  saying "not started" or "UI unpublished" are historical. Browser source pushed
+  main, deployment unverified. Existing Radio/Cloud owners acknowledge; existing
+  Wi-Fi/BLE control worker owns reset. Genuine fence/expired DNS only, not ordinary
+  wait/BLE-only failure. Fail-closed stop proof before parser/context/buffer frees;
+  no foreign mutex release, shared DMA reset, MCU reset or automatic partial-init
+  retry. Cloud socket retired only after power-off/fresh-init proof. Pairing/output
+  lease retained; old commands not replayed. User explicitly authorized ST67
+  credential persistence: successful connection stores CWCREDADD, app password
+  cleared, CWJAPS/Secured=1 restores desired SSID after NCP reset. Disconnect cancels
+  intent; forget deletes credential. No password logging/history/app retention.
+  No new task or payload capacity growth.25 regression files/feature16 pass.
+  RAM E v10 package483904/NS482608/heap389344, Flash/header9. Missing-response
+  injection restores Wi-Fi/Cloud automatically while USB/ToF live, ~21.8 s;
+  Windows immediate GATT discovery failed and later57/57 BLE p95 1531 ms failed
+  latency. Focused E4 subsequently passes with neutral WinRT address discovery:
+  36 BLE finals/20 after reset,28 USB pings,5 Cloud frames in1719 ms; p95 219/max265.
+  E3 failure was local Node receiver reading partial JSON and closing Hub (409);
+  fixed host reader/atomic producer. These failures and C/D checkpoints remain;
+  full acceptance not closed.30-minute combined profile now PASS:7726 BLE finals,
+  1243 USB pings, p95 203/max3734,10 reconnects,3264 new CRC Cloud images,
+  37 matching completions,300 ordered UART burst lines; no new reset or
+  allocation/delivery drop. Clean/sign pass; exactly8 model compile-datetime
+  bytes differ, instruction bytes unchanged (see both exact hashes in doc).
+  One-hour failure profile first host run interrupted at743 s with no final
+  report (INCOMPLETE, not PASS). Second run FAILED near48 minutes: SPI HAL
+  transaction error, unresolved BLE notify, genuine AT fence; automatic NCP
+  recovery15840 ms succeeded but one BLE PONG/final absent.12525 preceding BLE
+  replies/2107 USB pings,10 connections/46 bursts. USB/ToF live; allocations and
+  CLI RX/TX drops0. Host restored Wi-Fi/IP afterward. Next priority: capture SPI
+  fault cause and explicit in-flight CLI failure across recovery, then rerun
+  full hour. Raw checkpoints retained. No whole-chip CPU/worst-stack claim.
+
 - Service availability / bounded CLI ownership (2026-10-10): tasks1–2 implemented.
   Public read-only available/waiting/fault plus timing/reason; UART/USB transitions,
   radio-dependent pre-dispatch rejection including password. Existing BLE8x768 /

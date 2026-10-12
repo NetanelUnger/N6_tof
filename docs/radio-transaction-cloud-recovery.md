@@ -1,5 +1,11 @@
 # Radio transaction ownership and Cloud warm recovery
 
+Latest tasks3–4 checkpoint: [coordinated NCP recovery](radio-coordinated-recovery.md).
+Recovery now has owner barriers, stop proof and user-authorized automatic Wi-Fi
+credential restoration. Focused Cloud return passed; BLE/endurance gates remain
+open. Browser source pushed main, Azure deployment unverified. Older notes below
+are retained as historical checkpoints.
+
 Latest tasks1–2 (2026-10-10): public service availability and bounded CLI reply
 ownership are implemented with focused BLE/USB verification. Exact RAM149/149
 ordinary finals +39 CRC frames, p95 187/max2797 ms; later whole-run Radio gap266 ms.

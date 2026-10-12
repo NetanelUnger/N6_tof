@@ -90,7 +90,7 @@ def main():
                     ['modem_cmd_handler_defer_tx','modem_cmd_handler_dns_drain_complete','modem_cmd_handler_wait_tx_ready','modem_cmd_send_ext'])
     run_native(prefix+code+TESTS)
     wifi=(ROOT/'AppliNonSecure/Core/Src/wifi_ble_app.c').read_text(encoding='utf-8')
-    for reason,call in [('WIFI_CONNECT','W6X_WiFi_Connect(&options)'),('WIFI_DISCONNECT','W6X_WiFi_Disconnect(request->forget)')]:
+    for reason,call in [('WIFI_CONNECT','W6X_WiFi_Connect(&options)'),('WIFI_DISCONNECT','W6X_WiFi_Disconnect(0U)')]:
         start=wifi.index('START reason='+reason)
         assert start<wifi.index(call,start)<wifi.index('END reason='+reason,start)
     print('PASS existing Wi-Fi worker brackets connect/disconnect calls with timing reports')

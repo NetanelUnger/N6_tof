@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def function(source: str, name: str) -> str:
-    match = re.search(r"^(?:static )?(?:void|uint32_t|TOF_StreamDestination_t|const char \*)\s*"
+    match = re.search(r"^(?:static )?(?:void|int|uint32_t|TOF_StreamDestination_t|const char \*)\s*"
                       + re.escape(name) + r"\([^;]*?\)\s*\{", source, re.M)
     if not match:
         raise AssertionError(f"Definition not found: {name}")
@@ -42,13 +42,14 @@ PREFIX = r'''
 #define TOF_USECASE 0U
 #define VL53L9_SYNC_AUTONOMOUS 1U
 #define PLATFORM_GPIO_IT_EVT 1U
+#define TOF_EVENT_TIMEOUT_MS 1500U
 typedef struct { uint32_t id, generation; uint8_t data[14842]; } TOF_RawFrame_t;
 typedef struct { int unused; } vl53l9_device_t;
 typedef struct { uint32_t frame_period_us, sync; } vl53l9_profile_t;
 static vl53l9_profile_t g_ranging_profiles[1];
 static struct {
   struct { TOF_App_State_t state; } state;
-  struct { int free_queue, ready_queue; TOF_RawFrame_t raw_frame_pool[3]; } buffers;
+  struct { int free_queue, ready_queue; TOF_RawFrame_t raw_frame_pool[3]; uint8_t calibration[4]; } buffers;
   struct { const char *error_stage; int error_code; uint32_t dropped_frames; } counters;
   struct { uint32_t requested, awaiting_frame, generation, attempts, successes,
     failures, consecutive_attempts, healthy_frames, last_tick;
@@ -56,6 +57,8 @@ static struct {
 } tof_context;
 static int reset_calls, resets_to_fail, init_calls, inits_to_fail, start_calls;
 static int release_calls, fatal_calls, change_request, ready_count;
+static int power_calls, daa_calls, daa_failures, calibration_calls, calibration_failures, frame_wait_result;
+static uint32_t tof_calibration_ready;
 static uint32_t tick;
 static jmp_buf fatal_jump;
 static UINT tx_interrupt_control(UINT mode) { (void)mode; return 0; }
@@ -83,8 +86,17 @@ static UINT tx_queue_send(int *queue, ULONG *message, ULONG wait) {
 }
 static void tof_log_queue_failure(const char *s, UINT u, const TOF_RawFrame_t *f)
   { (void)s; (void)u; (void)f; assert(0); }
-static int platform_power_reset(uint8_t id) { (void)id; return 0; }
-static int platform_assign_dynamic_address(void) { return 0; }
+static int platform_power_reset(uint8_t id) { (void)id; assert(reset_calls > 0); ++power_calls; return 0; }
+static int platform_assign_dynamic_address(void) {
+  ++daa_calls; if (daa_failures) { --daa_failures; return -1; } return 0;
+}
+static int platform_wait_for_event(int event, uint32_t timeout) {
+  assert(event == PLATFORM_GPIO_IT_EVT && timeout == 1500U); return frame_wait_result;
+}
+static int vl53l9_get_calib_data(vl53l9_device_t *sensor, uint8_t *data) {
+  (void)sensor; (void)data; ++calibration_calls;
+  if (calibration_failures) { --calibration_failures; return -1; } return 0;
+}
 static int platform_acknowledge_event(int e) { (void)e; return 0; }
 static int vl53l9_init(vl53l9_device_t *s) {
   (void)s; ++init_calls;
@@ -101,6 +113,8 @@ static int vl53l9_utils_set_profile(vl53l9_device_t *s, const vl53l9_profile_t *
 }
 static int vl53l9_start(vl53l9_device_t *s) { (void)s; ++start_calls; return 0; }
 static void tof_fatal(const char *s, int e);
+static void tof_request_recovery(const char *s, int e);
+static uint32_t tof_recover(vl53l9_device_t *s, TOF_RawFrame_t *f);
 '''
 
 TESTS = r'''
@@ -116,6 +130,8 @@ static void fresh(void) {
   tof_publication_blocked = 0; tof_stream_active = TOF_STREAM_NONE;
   reset_calls = resets_to_fail = init_calls = inits_to_fail = start_calls = 0;
   release_calls = fatal_calls = change_request = ready_count = 0;
+  power_calls = daa_calls = daa_failures = calibration_calls = calibration_failures = frame_wait_result = 0;
+  tof_calibration_ready = 1U;
   tof_desired.map_channel_mask = 0x15;
   tof_desired.processing_config.selected_filter = TOF_IMAGE_FILTER_MEDIAN;
 }
@@ -213,6 +229,53 @@ int main(void) {
   TOF_App_RequestStream((TOF_StreamDestination_t)-1);
   assert(tof_desired.destination == TOF_STREAM_CLOUD);
   puts("PASS exclusive route and mutually exclusive USB map/dataset intent");
+
+  fresh(); tof_calibration_ready = 0;
+  assert(tof_prepare_initial_sensor(&sensor) == 0);
+  assert(reset_calls == 1 && power_calls == 1 && daa_calls == 1 && init_calls == 1);
+  assert(calibration_calls == 1 && tof_calibration_ready == 1 && start_calls == 0);
+  assert(tof_context.recovery.attempts == 0 && fatal_calls == 0);
+  puts("PASS warm startup quiesces local controller/DMA before one XSHUT pulse; healthy boot has no recovery retries");
+
+  fresh(); tof_calibration_ready = 0; daa_failures = 1;
+  TOF_App_RequestStream(TOF_STREAM_CLOUD); before = tof_desired;
+  assert(tof_prepare_initial_sensor(&sensor) == 1);
+  assert(reset_calls == 2 && power_calls == 2 && daa_calls == 2 && init_calls == 1);
+  assert(calibration_calls == 1 && tof_context.recovery.attempts == 1);
+  assert(tof_context.recovery.awaiting_frame == 1 && tof_publication_blocked == 1);
+  assert(memcmp(&before, (const void *)&tof_desired, sizeof(before)) == 0);
+  tof_note_complete_acquisition();
+  assert(tof_context.recovery.successes == 1 && tof_publication_blocked == 0);
+  puts("PASS failed startup DAA enters existing bounded recovery and requires fresh acquisition");
+
+  fresh(); tof_calibration_ready = 0; calibration_failures = 1;
+  assert(tof_prepare_initial_sensor(&sensor) == 1);
+  assert(calibration_calls == 2 && tof_calibration_ready == 1);
+  tof_request_recovery("later transfer", -1); (void)tof_recover(&sensor, NULL);
+  assert(calibration_calls == 2);
+  puts("PASS failed initial calibration retries; successful calibration remains cached during runtime recovery");
+
+  fresh(); tof_calibration_ready = 0; resets_to_fail = 1; TOF_App_SetPaused(1);
+  before = tof_desired;
+  assert(tof_prepare_initial_sensor(&sensor) == 0);
+  assert(reset_calls == 2 && power_calls == 1 && calibration_calls == 1 && start_calls == 0);
+  assert(tof_context.state.state == TOF_APP_STATE_PAUSED);
+  assert(memcmp(&before, (const void *)&tof_desired, sizeof(before)) == 0);
+  puts("PASS failed startup quiescence cannot toggle sensor until stop proof; desired pause survives retry");
+
+  fresh(); tof_calibration_ready = 0; inits_to_fail = 99;
+  if (setjmp(fatal_jump) == 0) { (void)tof_prepare_initial_sensor(&sensor); assert(0); }
+  assert(reset_calls == 4 && init_calls == 4 && tof_context.recovery.attempts == 3);
+  assert(tof_context.recovery.failures == 3 && fatal_calls == 1 && start_calls == 0);
+  assert(tof_context.state.state == TOF_APP_STATE_ERROR && tof_publication_blocked == 1);
+  puts("PASS initial failure plus exactly three recovery attempts exhausts; no reset loop or false ready");
+
+  fresh();
+  assert(tof_wait_sensor_frame() == 0 && reset_calls == 0);
+  frame_wait_result = -1; assert(tof_wait_sensor_frame() == -1);
+  TOF_App_SetPaused(1); assert(tof_wait_sensor_frame() == 1 && reset_calls == 0);
+  frame_wait_result = -2; assert(tof_wait_sensor_frame() == -2);
+  puts("PASS missing-frame timeout is cancelled by newer pause; genuine transfer error is not hidden");
   return 0;
 }
 '''
@@ -226,8 +289,9 @@ def main() -> None:
              'TOF_App_GetStreamDestination', 'TOF_App_StreamName',
              'TOF_App_SetMapEnabled', 'TOF_App_SetDatasetStreamEnabled',
              'TOF_App_SetPaused', 'tof_release_raw_frame', 'tof_frame_is_current',
+             'tof_wait_sensor_frame', 'tof_configure_sensor', 'tof_prepare_initial_sensor',
              'tof_request_recovery', 'tof_recover', 'tof_note_complete_acquisition']
-    with tempfile.TemporaryDirectory(prefix='n6-tof-recovery-') as temp:
+    with tempfile.TemporaryDirectory(prefix='n6-tof-recovery-', ignore_cleanup_errors=True) as temp:
         folder = Path(temp)
         (folder / 'tx_api.h').write_text('''#include <stdint.h>
 typedef unsigned UINT;

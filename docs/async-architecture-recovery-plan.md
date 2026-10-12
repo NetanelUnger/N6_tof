@@ -1,5 +1,82 @@
 # Asynchronous Control-Plane Recovery Plan
 
+Longer2026-10-11 campaign FAILED on ordinary Wi-Fi loss at3807s while ToF/USB
+continued. Saved desired intent was restored only after NCP initialization;
+existing Wi-Fi control owner now handles ordinary confirmed loss without a
+modem reset, respecting user work/cancellation/DHCP/fences/DNS/BLE ownership,
+max3 calls and10s cooldown. Candidate4D953D64... passes33 native/24 feature/
+build-only, warm30 CRC and focused143 CRC ordinary restore without NCP reset.
+Three30-minute continuation profiles PASS5446.735s/16993CRC; with separately
+accepted original first profile, mixed7263.641s/22653CRC,16 ToF faults/12 pauses,
+four genuine NCP probes/four USB reopens/three warm loads. Two ordinary Wi-Fi
+gates plus unsolicited loss restored without NCP reset. Final board healthy,
+Cloud unpaired, UART2021/2021 zero drops/errors, all owned handles released.
+Original failure retained; no full task4/active BLE CLI-DMA/Cloud return accepted.
+Header9/Flash unchanged. See [terminal campaign](tof-desired-state-recovery.md#longer-campaign-terminal-continuation-2026-10-11).
+
+Latest bounded follow-up (2026-10-11): unchanged7AC39D92... RAM candidate passes
+three warm loads and734.938s ToF/2100 CRC records, four physical fault recoveries
+and intentional pause gates. Separate genuine-fence NCP recovery passes19749ms,
+Wi-Fi IP restored,143 CRC records/seven USB pings and no ToF reset. Final board
+is healthy with Cloud unpaired; older warm-error/board-access blocks below are
+historical. This does not accept Cloud return, active BLE CLI/DMA or full task4.
+ST hex Flash command lead lacks safe logical-file mapping/permission; no raw
+read executed, stored integrity unknown. Header9/Flash unchanged. See
+[bounded evidence](tof-desired-state-recovery.md#bounded-longer-ram-validation-2026-10-11)
+and [official FS lead](radio-coordinated-recovery.md#official-read-only-diagnostic-lead-2026-10-11).
+
+Task3 Cloud-startup follow-up: incomplete read reproduced (1172 declared,
+27 assembled,0 copied/2000 ms). Slice/lifetime candidate passes30 native/16
+feature/build; RAM retest BLOCKED by ST-LINK DEV_USB_COMM_ERR, needing physical
+power removal/reconnect. Current Cloud return is not accepted. Final diagnostic
+RAM has the known warm-reload ToF I3C address error and no Wi-Fi/pairing loaded;
+saved configuration and Flash/header9 unchanged. See
+[current blocker](radio-coordinated-recovery.md#cloud-startup-investigation--2026-10-10).
+
+Task 3 host follow-up (2026-10-10): existing dirty recovery reconciled with
+`ble`/d89a510; old BLE parser events blocked across the owner barrier, fresh
+init reconnect observations retained, CLI RX/TX/reply admission and slot races
+guarded, uptime 0 deadline corrected. All 28 native files/16 feature compiles and
+build/link pass (binary 485504, heap 386280, header 9). User-approved focused RAM
+HIL now passes genuine diagnostic fence/recovery, Wi-Fi restore, 38 BLE finals,
+25 USB pings, ToF continuity, UNKNOWN notice and BLE/USB/BLE CRC routing. Volatile
+connection intent was seeded after MCU reload; no credential/password write.
+Cloud started unpaired after FS read TIMEOUT, so current Cloud return and an
+executing-CLI reset remain unverified. This image is not signed or installed. No new
+task 4 run, HTTP/TLS change, Flash write, push or deployment in this follow-up.
+See [review evidence](radio-coordinated-recovery.md#task-3-host-follow-up--2026-10-10)
+and [focused RAM limitations](radio-coordinated-recovery.md#task-3-focused-ram-follow-up--2026-10-10).
+
+Latest SPI follow-up (2026-10-10): RAM F adds retained pre-HAL IRQ/DMA scalar
+evidence, deferred UART reporting and BLE UNKNOWN recovery events with actual
+TX-drain backpressure; no command replay.27 native/16 feature checks pass.
+Focused F2 passes36 BLE finals/25 USB pings/five new Cloud images and an actual
+notice on Windows-restored BLE. Full-hour F profile started; natural SPI cause
+and Flash acceptance remain open. Previous E failed hour remains FAILED.
+
+Latest tasks3–4 status (2026-10-10): IN_PROGRESS. Coordinated genuine-NCP
+recovery and authorized ST67 Wi-Fi credential restoration implemented;25 native
+regression files/feature16 pass. RAM E restores Wi-Fi and actual Cloud frames
+without a host password after a genuine diagnostic fence, with USB/ToF continuity.
+Focused E4 passes36 BLE finals/28 USB pings/5 new Cloud frames, p95 219/max265;
+neutral WinRT discovery used, host JSON receiver failure repaired. Earlier
+immediate Windows GATT discovery and BLE latency have failed checkpoints; full
+one-hour gate remains open; the30-minute result below passes. Flash/header9. Browser source pushed main;
+Azure deployment not verified. See [current contract](radio-coordinated-recovery.md).
+This note supersedes older "tasks3–4 not started" statements below.
+
+M10.2 combined30-minute profile now PASS:1800.2 s,7726 BLE finals/1243 USB pings,
+zero missing, p95 203/max3734 ms;10 reconnects,3264 actual Cloud frames CRC-valid,
+37 matching Cloud completions and300 ordered UART burst lines. No new resets,
+radio allocations or BLE/UART drops. Clean build/sign passed, timestamp-only
+8-byte model metadata difference recorded. First one-hour host run interrupted
+at743 s, no final report (INCOMPLETE). Second run FAILED near48 minutes: SPI HAL
+error -> unresolved BLE notify -> AT fence. Automatic NCP recovery15840 ms
+passed, USB/ToF live, one BLE PONG/final absent after12525 preceding replies and
+2107 USB pings. Wi-Fi restored by host cleanup. Next priority: SPI cause capture
+and in-flight CLI outcome across recovery, then rerun full hour;
+earlier failed checkpoints and global boot/stack/failure-latency gates remain.
+
 Status: `IN_PROGRESS` — updated 2026-10-10 after service/CLI ownership work on RAM.
 Active subtask completed: `M5.3 UART wait-state diagnostics — focused VERIFIED`.
 Active substep: service availability + bounded CLI admission/reply ownership
@@ -102,7 +179,12 @@ explicitly marked; they do not accept the failed hardware gates.
   ownership retained; focused native/BLE/USB verified, older failed gates retained.
 - [x] Complete live Cloud acceptance after explicit saved-token authorization:
  414 CRC frames,6/6 matching completions,139/139 BLE replies, two warm reconnects.
-- [ ] Publish the locally tested browser change. No tasks3–4 yet.
+- [x] Commit/push the locally tested browser source to main (previous user request).
+- [ ] Verify the Azure deployment of the browser change.
+- [x] Implement coordinated genuine-NCP recovery, with bounded owner barrier,
+  SPI/parser stop proof and user-authorized NCP credential restoration.
+- [ ] Accept complete BLE reconnection after NCP reset, 30-minute combined load
+  and one-hour failure run; retain failed reports and latency limits.
 - [x] Twelve reconnects restore server-received Cloud images; exclusive CRC
   route repeat passes. Quiescent all6 sockets retire; pool/stack observed.
 - [ ] Accept combined BLE/USB latency/delivery under DNS drain, coordinated
@@ -1864,7 +1946,7 @@ originally reproduced the problem.
 
 ### Milestone 10 gate
 
-- [ ] Thirty-minute combined soak passes.
+- [x] Thirty-minute combined soak passes (2026-10-10, candidate E; see current evidence).
 - [ ] One-hour failure soak passes.
 - [ ] Final incremental and clean builds pass.
 - [ ] Documentation matches the measured configuration.

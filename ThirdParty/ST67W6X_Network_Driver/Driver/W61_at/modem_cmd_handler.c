@@ -1237,7 +1237,7 @@ int32_t modem_cmd_handler_init(struct modem_cmd_handler *handler,
   data->sem_tx_lock = xSemaphoreCreateMutex();
   data->sem_parse_lock = xSemaphoreCreateMutex();
 
-  return 0;
+  return (data->sem_tx_lock && data->sem_parse_lock) ? 0 : -ENOMEM;
 }
 
 /** @} */

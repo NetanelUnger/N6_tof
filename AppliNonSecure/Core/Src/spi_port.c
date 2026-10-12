@@ -9,6 +9,7 @@
 #include "display_app.h"
 #endif
 #include "main.h"
+#include "debug_uart.h"
 #include "stm32n6xx_ll_dma.h"
 
 #define SYSTICK_LOAD   (*(volatile uint32_t *)0xE000E014UL)
@@ -22,6 +23,106 @@ static uint32_t dma_reinitialization_failures;
 static uint32_t spi_reinitializations;
 static uint32_t spi_reinitialization_failures;
 static uint32_t cs_hold_timer_fallbacks;
+static volatile SpiPortFault_t spi_fault;
+static volatile uint32_t transfer_id, transfer_phase, transfer_length, transfer_rx_only;
+static volatile uint32_t fault_reported; /* Radio writes; IRQ capture reads. */
+
+void spi_port_set_phase(uint32_t phase) { transfer_phase = phase; }
+
+void spi_port_capture_failure(uint32_t source)
+{
+  uint32_t posture = __get_PRIMASK();
+  __disable_irq();
+  /* HAL can call the error callback once for each DMA abort. Preserve the
+   * first register snapshot, enriching only the later HAL error code. */
+  if (spi_fault.count && spi_fault.transfer == transfer_id)
+  {
+    spi_fault.spi_error |= NCP_SPI_HANDLE.ErrorCode;
+    __set_PRIMASK(posture);
+    return;
+  }
+  if (spi_fault.count != fault_reported)
+  {
+    ++spi_fault.collapsed; /* retain the first fault until Radio can print it */
+    __set_PRIMASK(posture);
+    return;
+  }
+  spi_fault.count++;
+  spi_fault.collapsed = 0U;
+  spi_fault.tick = HAL_GetTick();
+  spi_fault.transfer = transfer_id;
+  spi_fault.phase = transfer_phase;
+  spi_fault.length = transfer_length;
+  spi_fault.rx_only = transfer_rx_only;
+  spi_fault.source = source;
+  spi_fault.spi_error = NCP_SPI_HANDLE.ErrorCode;
+  spi_fault.spi_state = NCP_SPI_HANDLE.State;
+  spi_fault.sr = NCP_SPI_HANDLE.Instance->SR;
+  spi_fault.cr1 = NCP_SPI_HANDLE.Instance->CR1;
+  spi_fault.cr2 = NCP_SPI_HANDLE.Instance->CR2;
+  spi_fault.cfg1 = NCP_SPI_HANDLE.Instance->CFG1;
+  spi_fault.cfg2 = NCP_SPI_HANDLE.Instance->CFG2;
+  spi_fault.ier = NCP_SPI_HANDLE.Instance->IER;
+  spi_fault.pins = ((SPI_CS_GPIO_Port->IDR & SPI_CS_Pin) ? 1U : 0U) |
+      ((SPI_RDY_GPIO_Port->IDR & SPI_RDY_Pin) ? 2U : 0U) |
+      ((CHIP_EN_GPIO_Port->IDR & CHIP_EN_Pin) ? 4U : 0U);
+  DMA_HandleTypeDef *tx = NCP_SPI_HANDLE.hdmatx, *rx = NCP_SPI_HANDLE.hdmarx;
+  if (tx && tx->Instance)
+  {
+    spi_fault.tx_state = tx->State; spi_fault.tx_error = tx->ErrorCode;
+    spi_fault.tx_ccr = tx->Instance->CCR; spi_fault.tx_csr = tx->Instance->CSR;
+    spi_fault.tx_remaining = tx->Instance->CBR1;
+    spi_fault.tx_ctr1 = tx->Instance->CTR1; spi_fault.tx_ctr2 = tx->Instance->CTR2;
+  }
+  if (rx && rx->Instance)
+  {
+    spi_fault.rx_state = rx->State; spi_fault.rx_error = rx->ErrorCode;
+    spi_fault.rx_ccr = rx->Instance->CCR; spi_fault.rx_csr = rx->Instance->CSR;
+    spi_fault.rx_remaining = rx->Instance->CBR1;
+    spi_fault.rx_ctr1 = rx->Instance->CTR1; spi_fault.rx_ctr2 = rx->Instance->CTR2;
+  }
+  __set_PRIMASK(posture);
+}
+
+void spi_port_capture_irq(void)
+{
+  /* Capture before HAL clears OVR/MODF/FRE/UDR and starts DMA aborts. */
+  if (NCP_SPI_HANDLE.Instance->SR & NCP_SPI_HANDLE.Instance->IER &
+      (SPI_FLAG_OVR | SPI_FLAG_MODF | SPI_FLAG_FRE | SPI_FLAG_UDR))
+    spi_port_capture_failure(1U);
+}
+
+void spi_port_get_fault(SpiPortFault_t *fault)
+{
+  if (!fault) return;
+  uint32_t posture = __get_PRIMASK(); __disable_irq();
+  *fault = spi_fault;
+  __set_PRIMASK(posture);
+}
+
+void spi_port_report_fault(void)
+{
+  SpiPortFault_t f;
+  spi_port_get_fault(&f);
+  if (f.count == fault_reported) return;
+  fault_reported = f.count;
+  Debug_UART_Log("SPI-FAULT", "count=%lu tick=%lu transfer=%lu phase=%lu len=%lu rx_only=%lu source=%lu HAL_error=0x%08lx state=%lu collapsed=%lu",
+      (unsigned long)f.count, (unsigned long)f.tick, (unsigned long)f.transfer,
+      (unsigned long)f.phase, (unsigned long)f.length, (unsigned long)f.rx_only,
+      (unsigned long)f.source, (unsigned long)f.spi_error, (unsigned long)f.spi_state,
+      (unsigned long)f.collapsed);
+  Debug_UART_Log("SPI-FAULT", "SR=%08lx CR1=%08lx CR2=%08lx CFG1=%08lx CFG2=%08lx IER=%08lx pins(CS/RDY/EN)=%lx",
+      (unsigned long)f.sr, (unsigned long)f.cr1, (unsigned long)f.cr2,
+      (unsigned long)f.cfg1, (unsigned long)f.cfg2, (unsigned long)f.ier, (unsigned long)f.pins);
+  Debug_UART_Log("SPI-FAULT", "TX state=%lu error=%08lx CCR=%08lx CSR=%08lx CBR1=%08lx CTR1=%08lx CTR2=%08lx",
+      (unsigned long)f.tx_state, (unsigned long)f.tx_error, (unsigned long)f.tx_ccr,
+      (unsigned long)f.tx_csr, (unsigned long)f.tx_remaining,
+      (unsigned long)f.tx_ctr1, (unsigned long)f.tx_ctr2);
+  Debug_UART_Log("SPI-FAULT", "RX state=%lu error=%08lx CCR=%08lx CSR=%08lx CBR1=%08lx CTR1=%08lx CTR2=%08lx",
+      (unsigned long)f.rx_state, (unsigned long)f.rx_error, (unsigned long)f.rx_ccr,
+      (unsigned long)f.rx_csr, (unsigned long)f.rx_remaining,
+      (unsigned long)f.rx_ctr1, (unsigned long)f.rx_ctr2);
+}
 
 static void spi_port_wait_cs_hold(uint32_t start, uint32_t count)
 {
@@ -70,6 +171,7 @@ int32_t spi_port_deinit(void)
 int32_t spi_port_transfer(void *tx_buf, void *rx_buf, uint16_t len, uint32_t timeout)
 {
   HAL_StatusTypeDef status;
+  ++transfer_id; transfer_length = len; transfer_rx_only = tx_buf == NULL;
 
   if (NCP_SPI_HANDLE.State == HAL_SPI_STATE_RESET)
   {
@@ -96,6 +198,7 @@ int32_t spi_port_transfer(void *tx_buf, void *rx_buf, uint16_t len, uint32_t tim
     }
     status = HAL_SPI_TransmitReceive(&NCP_SPI_HANDLE, dummy, rx_buf, len, timeout);
   }
+  if (status != HAL_OK) spi_port_capture_failure(4U);
   return (status == HAL_OK) ? 0 : -1;
 }
 
@@ -103,6 +206,7 @@ int32_t spi_port_transfer_dma(void *tx_buf, void *rx_buf, uint16_t len)
 {
   static uint8_t tx_dummy;
   HAL_StatusTypeDef status;
+  ++transfer_id; transfer_length = len; transfer_rx_only = tx_buf == NULL;
 
   if ((NCP_SPI_HANDLE.State == HAL_SPI_STATE_RESET) ||
       (NCP_SPI_HANDLE.hdmatx == NULL) || (NCP_SPI_HANDLE.hdmarx == NULL))
@@ -134,6 +238,7 @@ int32_t spi_port_transfer_dma(void *tx_buf, void *rx_buf, uint16_t len)
   if (status != HAL_OK)
   {
     transaction_failed = 1;
+    spi_port_capture_failure(3U);
     return -1;
   }
   return 0;
@@ -275,7 +380,7 @@ void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
   if (hspi == &NCP_SPI_HANDLE)
   {
     transaction_failed = 1;
-    LogError("SPI5 transfer error: 0x%08lx\n", (unsigned long)hspi->ErrorCode);
+    spi_port_capture_failure(2U);
     spi_port_complete(hspi);
   }
 }

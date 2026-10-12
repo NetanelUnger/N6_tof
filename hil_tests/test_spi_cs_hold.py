@@ -45,7 +45,7 @@ int main(void) {
 
 def main():
     source = (ROOT / 'AppliNonSecure/Core/Src/spi_port.c').read_text(encoding='utf-8')
-    with tempfile.TemporaryDirectory(prefix='n6-spi-hold-') as temp:
+    with tempfile.TemporaryDirectory(prefix='n6-spi-hold-', ignore_cleanup_errors=True) as temp:
         folder = Path(temp)
         (folder / 'test.c').write_text(PREFIX + function(source, 'spi_port_wait_cs_hold') + TESTS, encoding='utf-8')
         if os.name == 'nt':

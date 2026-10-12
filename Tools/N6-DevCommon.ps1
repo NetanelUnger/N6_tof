@@ -276,6 +276,36 @@ function Assert-N6NonSecureImage {
     Write-Host "Non-Secure C heap capacity: $availableHeapBytes bytes (minimum $minimumTofHeapBytes)."
 }
 
+function Sync-N6ApplicationCoreBuildInputs {
+    param([Parameter(Mandatory = $true)][string]$ProjectRoot)
+    # CubeIDE regenerates these lists itself. The build-only lane must also
+    # include newly added application units without opening Generate Code.
+    $debugRoot = Join-Path $ProjectRoot 'AppliNonSecure\Debug'
+    $manifest = Join-Path $debugRoot 'Core\Src\subdir.mk'
+    $objectsFile = Join-Path $debugRoot 'objects.list'
+    $content = [IO.File]::ReadAllText($manifest)
+    $objects = [IO.File]::ReadAllText($objectsFile)
+    foreach ($source in Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'AppliNonSecure\Core\Src') -Filter '*.c' -File) {
+        $name = $source.BaseName
+        if ($name -notmatch '^[A-Za-z0-9_]+$') { throw "Unsupported application source name: $name" }
+        foreach ($entry in @(
+            @{ Variable = 'C_SRCS'; Input = "../Core/Src/$name.c" },
+            @{ Variable = 'OBJS'; Input = "./Core/Src/$name.o" },
+            @{ Variable = 'C_DEPS'; Input = "./Core/Src/$name.d" }
+        )) {
+            if (-not $content.Contains($entry.Input)) {
+                $marker = $entry.Variable + ' += \'
+                if (-not $content.Contains($marker)) { throw "Missing $($entry.Variable) in generated source manifest." }
+                $content = $content.Replace($marker, $marker + "`r`n" + $entry.Input + ' \')
+            }
+        }
+        $object = '"./Core/Src/' + $name + '.o"'
+        if (-not $objects.Contains($object)) { $objects = $objects.TrimEnd() + "`r`n" + $object + "`r`n" }
+    }
+    if ([IO.File]::ReadAllText($manifest) -ne $content) { [IO.File]::WriteAllText($manifest, $content) }
+    if ([IO.File]::ReadAllText($objectsFile) -ne $objects) { [IO.File]::WriteAllText($objectsFile, $objects) }
+}
+
 function Invoke-N6NonSecureIncrementalBuild {
     param(
         [Parameter(Mandatory = $true)]
@@ -294,6 +324,7 @@ function Invoke-N6NonSecureIncrementalBuild {
     if (-not (Test-Path -LiteralPath (Join-Path $debugRoot 'makefile') -PathType Leaf)) {
         throw "Generated Non-Secure makefile was not found: $debugRoot"
     }
+    Sync-N6ApplicationCoreBuildInputs -ProjectRoot $ProjectRoot
 
     Push-Location $debugRoot
     try {

@@ -25,6 +25,12 @@
 #include "w61_io.h" /* SPI_XFER_MTU_BYTES */
 #include "common_parser.h" /* Common Parser functions */
 #include "cmsis_compiler.h" /* __CLZ */
+#include "debug_uart.h"
+
+/* Scalar FS-read evidence only. AT ownership serializes callers; RX publishes
+ * lengths without formatting or exposing the length-delimited file payload. */
+static volatile uint32_t fs_read_callbacks, fs_read_declared, fs_read_available, fs_read_copied;
+static volatile uint32_t fs_list_header_seen, fs_list_invalid;
 
 #if (defined(SYS_DBG_ENABLE_TA4) && (SYS_DBG_ENABLE_TA4 >= 1))
 #include "trcRecorder.h"
@@ -608,7 +614,12 @@ W61_Status_t W61_FS_ReadFile(W61_Object_t *Obj, char *filename, uint32_t offset,
     (void)xSemaphoreGive(data_mdm->sem_tx_lock);
     return W61_STATUS_TIMEOUT;
   }
+  taskENTER_CRITICAL();
   mdm->rx_data = (void *)data;
+  mdm->rx_data_len = len;
+  taskEXIT_CRITICAL();
+  fs_read_callbacks = fs_read_declared = fs_read_available = fs_read_copied = 0U;
+  data_mdm->raw_command_attempted = false;
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
                                       &mdm->handler,
                                       handlers,
@@ -616,8 +627,27 @@ W61_Status_t W61_FS_ReadFile(W61_Object_t *Obj, char *filename, uint32_t offset,
                                       (const uint8_t *)cmd,
                                       mdm->sem_response,
                                       remaining,
-                                      MODEM_NO_TX_LOCK));
-
+                                      MODEM_NO_TX_LOCK | MODEM_TX_TRACK_RAW_WRITE));
+  /* Retire the borrowed output before releasing AT. A late binary record must
+   * never populate a returned caller or a replacement operation. */
+  taskENTER_CRITICAL();
+  if ((ret == W61_STATUS_OK) &&
+      (data_mdm->tx_desynchronized || (fs_read_copied != len)))
+  {
+    data_mdm->tx_desynchronized = true;
+    ret = W61_STATUS_ERROR;
+  }
+  mdm->rx_data = NULL;
+  mdm->rx_data_len = 0U;
+  if ((ret == W61_STATUS_TIMEOUT) && data_mdm->raw_command_attempted)
+    data_mdm->tx_desynchronized = true;
+  taskEXIT_CRITICAL();
+  if ((len != 1U) || (ret != W61_STATUS_OK))
+    Debug_UART_Log("FS-READ", "result=%ld elapsed_ms=%lu requested=%lu callbacks=%lu declared=%lu available=%lu copied=%lu fenced=%lu",
+      (long)ret, (unsigned long)(xTaskGetTickCount() - started_at) * portTICK_PERIOD_MS,
+      (unsigned long)len, (unsigned long)fs_read_callbacks, (unsigned long)fs_read_declared,
+      (unsigned long)fs_read_available, (unsigned long)fs_read_copied,
+      (unsigned long)data_mdm->tx_desynchronized);
   (void)xSemaphoreGive(data_mdm->sem_tx_lock);
   return ret;
 }
@@ -684,16 +714,20 @@ W61_Status_t W61_FS_ListFiles(W61_Object_t *Obj, W61_FS_FilesList_t *files_list)
     - <type>: 0
     - <operation>: 5 (List files in a directory)
     - <dirname>: The name of the directory to list files from
-    The multiline responses are in the form of
-    +FS:LIST,<nfiles>,[filename] */
+    AT2.0.106 documents a +FS:LIST header, followed by one filename per line
+    and a terminal OK. A bare OK is not an inventory/absence proof. */
   remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_NCP_TIMEOUT);
   if (remaining == 0U)
   {
     (void)xSemaphoreGive(data->sem_tx_lock);
     return W61_STATUS_TIMEOUT;
   }
+  taskENTER_CRITICAL();
   mdm->rx_data = (void *)files_list;
   files_list->nb_files = 0; /* Reset the number of files */
+  fs_list_header_seen = fs_list_invalid = 0U;
+  taskEXIT_CRITICAL();
+  data->raw_command_attempted = false;
   ret = W61_Status(modem_cmd_send_ext(&mdm->iface,
                                       &mdm->handler,
                                       handlers,
@@ -701,8 +735,17 @@ W61_Status_t W61_FS_ListFiles(W61_Object_t *Obj, W61_FS_FilesList_t *files_list)
                                       (const uint8_t *)"AT+FS=0,5,\".\"\r\n",
                                       mdm->sem_response,
                                       remaining,
-                                      MODEM_NO_TX_LOCK));
+                                      MODEM_NO_TX_LOCK | MODEM_TX_TRACK_RAW_WRITE));
 
+  /* Retire the borrowed list before AT unlock; late callbacks cannot write
+   * into a returned caller. Only a submitted unanswered request fences. */
+  taskENTER_CRITICAL();
+  if ((ret == W61_STATUS_OK) && (!fs_list_header_seen || fs_list_invalid))
+    ret = W61_STATUS_ERROR;
+  mdm->rx_data = NULL;
+  if ((ret == W61_STATUS_TIMEOUT) && data->raw_command_attempted)
+    data->tx_desynchronized = true;
+  taskEXIT_CRITICAL();
   (void)xSemaphoreGive(data->sem_tx_lock);
   return ret;
 }
@@ -1160,6 +1203,12 @@ W61_Status_t W61_SetClockSource(W61_Object_t *Obj, uint32_t source)
     return W61_STATUS_OK;
   }
 
+#if (W61_CONFIG_PRESERVE == 1)
+  SYS_LOG_ERROR("NCP-CONFIG clock old=%lu required=%lu preserve=1\n",
+                  (unsigned long)current_source, (unsigned long)source);
+  return W61_STATUS_ERROR;
+#endif
+
   /* Set the clock source. The parameter is:
      - <source>: The clock source to set (1: Internal RC, 2: External XTAL, 3: External Clock Input) */
   (void)snprintf(cmd, W61_CMDRSP_STRING_SIZE, "AT+SET_CLOCK=%" PRIu32 "\r\n", source);
@@ -1407,16 +1456,31 @@ MODEM_CMD_DIRECT_DEFINE(on_cmd_read_efuse)
 MODEM_CMD_DEFINE(on_cmd_fs_listfiles)
 {
   struct modem *mdm = (struct modem *) data->user_data;
+  taskENTER_CRITICAL();
   W61_FS_FilesList_t *files_list = (W61_FS_FilesList_t *) mdm->rx_data;
 
-  if ((files_list->nb_files < W61_SYS_FS_MAX_FILES) &&
-      (argc >= 1U) && (argv[0][0] != (uint8_t)'.') && (strcmp((char *) argv[0], "+FS:LIST") != 0))
+  if (files_list != NULL)
   {
-    /* Copy the filename */
-    (void)snprintf(files_list->filename[files_list->nb_files], W61_SYS_FS_FILENAME_SIZE, "%s", argv[0]);
-
-    files_list->nb_files++; /* Increment the number of files */
+    if ((argc < 1U) || (argv == NULL) || (argv[0] == NULL)) fs_list_invalid = 1U;
+    else if (strcmp((char *)argv[0], "+FS:LIST") == 0)
+    {
+      if (fs_list_header_seen) fs_list_invalid = 1U;
+      fs_list_header_seen = 1U;
+    }
+    else if (!fs_list_header_seen) fs_list_invalid = 1U;
+    else if ((strcmp((char *)argv[0], ".") != 0) && (strcmp((char *)argv[0], "..") != 0))
+    {
+      size_t length = strlen((char *)argv[0]);
+      if (!length || length >= W61_SYS_FS_FILENAME_SIZE ||
+          files_list->nb_files >= W61_SYS_FS_MAX_FILES) fs_list_invalid = 1U;
+      else
+      {
+        memcpy(files_list->filename[files_list->nb_files], argv[0], length + 1U);
+        ++files_list->nb_files;
+      }
+    }
   }
+  taskEXIT_CRITICAL();
   return 0;
 }
 
@@ -1427,7 +1491,10 @@ MODEM_CMD_DIRECT_DEFINE(on_cmd_fs_readfile)
   uint8_t *ptr;
   uint32_t offset;
   uint8_t *endptr;
-  uint16_t rx_data_len;
+  uint32_t rx_data_len;
+
+  ++fs_read_callbacks;
+  fs_read_available = data->rx_buf_len;
 
   if (data->rx_buf == NULL)
   {
@@ -1437,6 +1504,7 @@ MODEM_CMD_DIRECT_DEFINE(on_cmd_fs_readfile)
   data->rx_buf[data->rx_buf_len] = 0;
 
   rx_data_len = strtol((char *) ptr, (char **)&endptr, 10);
+  fs_read_declared = rx_data_len;
   if ((endptr == ptr) || (*endptr != ','))
   {
     SYS_LOG_ERROR("Invalid FS read response format");
@@ -1444,9 +1512,45 @@ MODEM_CMD_DIRECT_DEFINE(on_cmd_fs_readfile)
   }
   offset = endptr - data->rx_buf + 1;
 
+  /* A declared byte must actually be present before its delimiter. Empty+OK
+   * is a malformed binary response, not a validated encoding for NUL. */
+  if (rx_data_len == 1U)
+  {
+    size_t available = data->rx_buf_len - offset;
+    const uint8_t *payload = data->rx_buf + offset;
+    if ((available >= 3U) && (payload[1] == '\r') && (payload[2] == '\n'))
+    {
+      /* A real binary byte, including CR, LF or NUL. */
+    }
+    else if (((available >= 6U) && !memcmp(payload, "\r\nOK\r\n", 6U)) ||
+             ((available >= 8U) && !memcmp(payload, "\r\n\r\nOK\r\n", 8U)))
+    {
+      taskENTER_CRITICAL();
+      data->tx_desynchronized = true;
+      (void)modem_cmd_handler_set_error(data, -EIO);
+      (void)xSemaphoreGive(mdm->sem_response);
+      taskEXIT_CRITICAL();
+      return -EIO;
+    }
+    else return -EAGAIN;
+  }
+
   if (data->rx_buf_len >= (offset + rx_data_len))
   {
+    taskENTER_CRITICAL();
+    if ((mdm->rx_data == NULL) || (rx_data_len != mdm->rx_data_len))
+    {
+      /* A length mismatch has no trustworthy binary boundary. Do not copy or
+       * accept a following OK as success; only coordinated restart clears it. */
+      data->tx_desynchronized = true;
+      (void)modem_cmd_handler_set_error(data, -EIO);
+      (void)xSemaphoreGive(mdm->sem_response);
+      taskEXIT_CRITICAL();
+      return -EINVAL;
+    }
     (void)memcpy(mdm->rx_data, endptr + 1, rx_data_len);
+    fs_read_copied = rx_data_len;
+    taskEXIT_CRITICAL();
     return offset + rx_data_len;
   }
   else

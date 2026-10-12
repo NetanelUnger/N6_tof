@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "debug_uart.h"
+#include "spi_port.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -306,7 +307,7 @@ void SPI4_IRQHandler(void)
 void SPI5_IRQHandler(void)
 {
   /* USER CODE BEGIN SPI5_IRQn 0 */
-
+  spi_port_capture_irq();
   /* USER CODE END SPI5_IRQn 0 */
   HAL_SPI_IRQHandler(&hspi5);
   /* USER CODE BEGIN SPI5_IRQn 1 */

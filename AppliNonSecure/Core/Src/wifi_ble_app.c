@@ -1,5 +1,6 @@
 #include "wifi_ble_app.h"
 #include "app_cli_reply.h"
+#include "app_settings.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -14,7 +15,9 @@
 #include "main.h"
 #include "vl53l9_interface.h"
 #include "spi_iface.h"
+#include "spi_port.h"
 #include "w61_at_api.h"
+#include "w61_at_common.h"
 #include "w6x_api.h"
 
 /* Avoid including app_azure_rtos.h here: its generated USB-PD include graph
@@ -358,6 +361,30 @@ static WifiBle_RadioManagerContext_t radio_manager =
   .work = { .ble_adv_request = BLE_ADV_REQUEST_NONE }
 };
 
+/* Scalar recovery metadata in application SRAM, no new task/payload storage.
+ * 0 idle, 1 requested, 2 owner restarting, 3 failed/exhausted (fail closed). */
+static volatile WifiBle_RecoveryStatus_t radio_recovery;
+static volatile WifiBle_RecoveryNotice_t ble_recovery_notice;
+static uint32_t recovery_window_started, recovery_window_attempts;
+static uint32_t recovery_invalid_request_id;
+static volatile uint32_t recovery_fault_test;
+static void radio_recovery_pump(void);
+static void radio_recovery_execute(void);
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+/* Only non-secret intent lives in application SRAM. The password lives in the
+ * NCP credential store after an explicitly successful user connection. */
+static uint8_t wifi_desired_ssid[W6X_WIFI_MAX_SSID_SIZE + 1U];
+static uint32_t wifi_unified_settings;
+static uint32_t wifi_connection_desired, wifi_credentials_saved;
+/* Control-worker-only bounded retries for an ordinary confirmed link loss.
+ * A healthy NCP is not reset, and an explicit disconnect still cancels intent. */
+static uint32_t wifi_link_restore_attempts, wifi_link_restore_last_ms;
+static void wifi_remember_connection(W6X_WiFi_Connect_Opts_t *options);
+static uint32_t wifi_restore_connection(void);
+static void wifi_link_restore_pump(void);
+static W6X_Status_t wifi_forget_connection(uint32_t forget);
+#endif
+
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 static TX_EVENT_FLAGS_GROUP radio_control_events;
 static volatile uint32_t radio_control_events_ready;
@@ -464,6 +491,7 @@ ble_write_u16(uint8_t *destination, uint16_t value);
 static void __attribute__((optimize("Os")))
 ble_write_u32(uint8_t *destination, uint32_t value);
 static void ble_stream_purge_stale(void);
+static void ble_notify_retire_stale(void);
 static void ble_stream_drop_tx(WifiBle_Stream_t stream);
 static uint32_t ble_att_payload_size(void);
 static UINT ble_create_pointer_queue(TX_QUEUE *queue, CHAR *name,
@@ -661,6 +689,23 @@ void WIFI_BLE_App_Run(void)
   }
 #endif
 
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  AppSettings_Result settings_result = AppSettings_InitializeAndLoad();
+  W6X_WiFi_Connect_Opts_t saved_options = {0};
+  uint32_t saved_desired = 0U;
+  if (settings_result == APP_SETTINGS_OK &&
+      AppSettings_GetWifi((char *)saved_options.SSID, (char *)saved_options.Password,
+                          &saved_desired) == APP_SETTINGS_OK)
+  {
+    memcpy(wifi_desired_ssid, saved_options.SSID, sizeof(wifi_desired_ssid));
+    wifi_connection_desired = saved_desired;
+    wifi_credentials_saved = wifi_unified_settings = 1U;
+  }
+  AppSettings_Scrub(&saved_options, sizeof(saved_options));
+  Debug_UART_Log("NCP-SETTINGS", "load result=%ld writes=%lu", (long)settings_result,
+                 (unsigned long)AppSettings_WritesEnabled());
+#endif
+
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
   if ((cloud_net_ready != 0U) &&
       (CloudRelay_Initialize(MX_RadioBytePool_Get(), radio_manager.shadow.ble_device_name) != TX_SUCCESS))
@@ -714,6 +759,14 @@ void WIFI_BLE_App_Run(void)
     if (loop_gap > radio_manager.counters.wifi_ble_max_loop_gap_ticks)
     {
       radio_manager.counters.wifi_ble_max_loop_gap_ticks = loop_gap;
+    }
+    spi_port_report_fault(); /* format captured ISR scalars on the Radio stack */
+    radio_recovery_pump();
+    if (radio_recovery.state != 0U)
+    {
+      tx_thread_sleep((TX_TIMER_TICKS_PER_SECOND >= 50U) ?
+                       TX_TIMER_TICKS_PER_SECOND / 50U : 1U);
+      continue; /* no new notification, probe, readiness or control work */
     }
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
     wifi_process_pending_events();
@@ -769,6 +822,317 @@ WifiBle_State_t WIFI_BLE_App_GetState(void)
   return radio_manager.shadow.state;
 }
 
+UINT WIFI_BLE_App_RequestRadioRecovery(void)
+{
+#if (APP_ST67W6X_ENABLED == 1U) && ((APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U))
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  if ((radio_recovery.state == 1U) || (radio_recovery.state == 2U) ||
+      ((radio_recovery.state == 3U) && (radio_recovery.stage >= 2U)) ||
+      (radio_manager.shadow.state != WIFI_BLE_STATE_READY))
+  {
+    (void)tx_interrupt_control(posture);
+    return TX_NOT_AVAILABLE;
+  }
+  radio_recovery.started_ms = 0U;
+  radio_recovery.stage = 0U;
+  radio_recovery.radio_quiesced = 0U;
+  radio_recovery.state = 1U;
+  (void)tx_interrupt_control(posture);
+  return TX_SUCCESS;
+#else
+  return TX_NOT_AVAILABLE;
+#endif
+}
+
+void WIFI_BLE_App_GetRecoveryStatus(WifiBle_RecoveryStatus_t *status)
+{
+  if (!status) return;
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  *status = radio_recovery;
+  (void)tx_interrupt_control(posture);
+}
+
+void WIFI_BLE_App_GetRecoveryNotice(WifiBle_RecoveryNotice_t *notice)
+{
+  if (!notice) return;
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  *notice = ble_recovery_notice;
+  (void)tx_interrupt_control(posture);
+}
+
+UINT WIFI_BLE_App_SendRecoveryNotice(void)
+{
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  WifiBle_RecoveryNotice_t notice;
+  WIFI_BLE_App_GetRecoveryNotice(&notice);
+  if (!notice.pending) return TX_SUCCESS;
+  WifiBle_StreamContext_t *ctx = radio_manager.queues.ble_stream_context;
+  if (notice.pending == 2U && notice.notification_generation ==
+      radio_manager.shadow.ble_session_generation)
+  {
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    uint32_t drained = ctx && !ctx->stats[WIFI_BLE_STREAM_CLI].tx_queued &&
+        !ctx->active_tx[WIFI_BLE_STREAM_CLI] && !ctx->reply.active;
+    if (drained && notice.sequence == ble_recovery_notice.sequence)
+      ble_recovery_notice.pending = 0U;
+    (void)tx_interrupt_control(posture);
+    return drained ? TX_SUCCESS : TX_NOT_AVAILABLE;
+  }
+  UINT result = WIFI_BLE_App_BeginReply();
+  if (result != TX_SUCCESS) return result;
+  uint32_t target_generation = ctx->reply.generation;
+  char text[256];
+  int length = snprintf(text, sizeof(text),
+      "\r\n[CLI-EVENT] event=RADIO_RECOVERY sequence=%lu old_generation=%lu outcome=unknown rx=%lu tx=%lu active=%lu\r\n"
+      "Previous commands may have executed. Verify state before retry; no automatic replay.\r\n",
+      (unsigned long)notice.sequence, (unsigned long)notice.generation,
+      (unsigned long)notice.rx_slots, (unsigned long)notice.tx_slots,
+      (unsigned long)notice.reply_active);
+  result = length > 0 && (size_t)length < sizeof(text) ?
+      WIFI_BLE_App_StreamWrite(WIFI_BLE_STREAM_CLI, text, (ULONG)length, TX_NO_WAIT) : TX_SIZE_ERROR;
+  /* Do not manufacture a final for an unknown command from an old link. */
+  UINT published = WIFI_BLE_App_EndReply(0U);
+  if (result != TX_SUCCESS) return result;
+  if (published != TX_SUCCESS) return published;
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  if (notice.sequence == ble_recovery_notice.sequence)
+  {
+    ble_recovery_notice.pending = 2U;
+    ble_recovery_notice.notification_generation = target_generation;
+  }
+  (void)tx_interrupt_control(posture);
+  return TX_NOT_AVAILABLE; /* new input waits for the actual TX terminal */
+#else
+  return TX_SUCCESS;
+#endif
+}
+
+UINT WIFI_BLE_App_RequestRadioFaultTest(void)
+{
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U) && (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  UINT result = WIFI_BLE_App_RequestRadioRecovery();
+  if (result == TX_SUCCESS) recovery_fault_test = 1U;
+  (void)tx_interrupt_control(posture);
+  return result;
+#else
+  return TX_NOT_AVAILABLE;
+#endif
+}
+
+static void radio_recovery_pump(void)
+{
+#if (APP_ST67W6X_ENABLED == 1U) && ((APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U))
+  if (radio_recovery.state == 0U)
+  {
+    W61_Object_t *driver = W61_ObjGet();
+    struct modem_cmd_handler_data *handler = &driver->Modem.handler_data;
+    if (handler->tx_desynchronized || (handler->dns_drain_active &&
+        (int32_t)(xTaskGetTickCount() - handler->dns_drain_until) >= 0))
+      (void)WIFI_BLE_App_RequestRadioRecovery();
+    else return; /* ordinary contention/late terminal never resets the NCP */
+  }
+  if ((radio_recovery.state != 1U) || radio_recovery.radio_quiesced) return;
+  if (radio_recovery.stage == 0U)
+  {
+    radio_recovery.started_ms = HAL_GetTick();
+    radio_recovery.stage = 1U;
+    radio_recovery.wifi_reconnect_required = radio_manager.shadow.wifi_connected;
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+    radio_recovery.wifi_reconnect_required = wifi_connection_desired;
+#endif
+    AppSettings_Cancel(); /* retire any FS owner before the existing quiescence barrier */
+    CloudRelay_PauseForRadioRecovery();
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+    recovery_invalid_request_id = radio_manager.work.wifi_last_request_id;
+#endif
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    WifiBle_StreamContext_t *streams = radio_manager.queues.ble_stream_context;
+    ++ble_recovery_notice.sequence;
+    ble_recovery_notice.pending = 1U;
+    ble_recovery_notice.generation = radio_manager.shadow.ble_session_generation;
+    ble_recovery_notice.rx_slots = streams ? streams->stats[WIFI_BLE_STREAM_CLI].rx_queued : 0U;
+    ble_recovery_notice.tx_slots = streams ? streams->stats[WIFI_BLE_STREAM_CLI].tx_queued : 0U;
+    ble_recovery_notice.reply_active = streams ? streams->reply.active : 0U;
+    radio_manager.shadow.ble_connected = 0U;
+    radio_manager.shadow.ble_cli_tx_subscribed = 0U;
+    radio_manager.shadow.ble_debug_tx_subscribed = 0U;
+    radio_manager.shadow.ble_tof_image_subscribed = 0U;
+    radio_manager.shadow.ble_transport_ready = 0U;
+    radio_manager.shadow.ble_connection_handle = 0xFFU;
+    radio_manager.shadow.ble_mtu = 23U;
+    ++radio_manager.shadow.ble_session_generation;
+    if (ble_control.state) ble_control.job.cancelled = 1U;
+    (void)tx_interrupt_control(posture);
+    Debug_UART_Log("CLI-RECOVERY", "BLE generation=%lu outcome=unknown rx_slots=%lu tx_slots=%lu active_reply=%lu; link retiring, no command replay",
+        (unsigned long)ble_recovery_notice.generation,
+        (unsigned long)ble_recovery_notice.rx_slots, (unsigned long)ble_recovery_notice.tx_slots,
+        (unsigned long)ble_recovery_notice.reply_active);
+#endif
+    W61_Object_t *driver = W61_ObjGet();
+    const char *reason = driver->Modem.handler_data.tx_desynchronized ? "AT_FENCED" :
+        driver->Modem.handler_data.dns_drain_active ? "DNS_EXPIRED" :
+        recovery_fault_test ? "TEST_MISSING_RESPONSE" : "EXPLICIT_REQUEST";
+    Debug_UART_Log("RADIO-RECOVERY", "START reason=%s started_ms=%lu", reason,
+                   (unsigned long)radio_recovery.started_ms);
+  }
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  ble_notify_retire_stale(); /* only Radio may cancel its notification owner */
+  if (radio_manager.work.notify_source) return;
+  ble_stream_purge_stale();
+  WifiBle_TofImageContext_t *image = radio_manager.queues.ble_tof_image_context;
+  if (image && (image->state != BLE_TOF_IMAGE_FILLING) &&
+      !CloudRelay_IsTofFramePending(image->frame_id)) image->state = BLE_TOF_IMAGE_FREE;
+  if (image && image->state != BLE_TOF_IMAGE_FREE) return;
+#endif
+  radio_recovery.radio_quiesced = 1U;
+  (void)tx_event_flags_set(&radio_control_events, WIFI_CONTROL_WORK_FLAG, TX_OR);
+#endif
+}
+
+static void radio_recovery_execute(void)
+{
+#if (APP_ST67W6X_ENABLED == 1U) && ((APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U))
+  if (radio_recovery.state != 1U) { tx_thread_sleep(1U); return; }
+  W61_Object_t *driver = W61_ObjGet();
+  W6X_Status_t status = W6X_STATUS_ERROR;
+  uint32_t now = HAL_GetTick();
+  if ((now - recovery_window_started) >= 60000U)
+  { recovery_window_started = now; recovery_window_attempts = 0U; }
+  radio_recovery.cloud_quiesced = CloudRelay_IsRadioRecoveryQuiesced();
+  if (!radio_recovery.radio_quiesced || !radio_recovery.cloud_quiesced)
+  {
+    if (radio_recovery.stage && (now - radio_recovery.started_ms >= 35000U)) goto failed;
+    (void)tx_event_flags_set(&radio_control_events, WIFI_CONTROL_WORK_FLAG, TX_OR);
+    tx_thread_sleep(1U);
+    return;
+  }
+  /* A foreign transaction must have returned. Never force-release its mutex. */
+  if (driver->Modem.notify_phase ||
+      (xSemaphoreTake(driver->Modem.handler_data.sem_tx_lock, 0U) != pdTRUE))
+  {
+    if (now - radio_recovery.started_ms >= 35000U) goto failed;
+    (void)tx_event_flags_set(&radio_control_events, WIFI_CONTROL_WORK_FLAG, TX_OR);
+    tx_thread_sleep(1U);
+    return;
+  }
+  if (recovery_window_attempts >= 3U)
+  {
+    (void)xSemaphoreGive(driver->Modem.handler_data.sem_tx_lock);
+    goto failed;
+  }
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U) && (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  if (recovery_fault_test)
+  {
+    recovery_fault_test = 0U;
+    (void)xSemaphoreGive(driver->Modem.handler_data.sem_tx_lock);
+    HAL_GPIO_WritePin(CHIP_EN_GPIO_Port, CHIP_EN_Pin, GPIO_PIN_RESET);
+    W6X_Net_RequestScopeBegin(1000U, NULL, 0U);
+    status = (W6X_Status_t)W61_AT_Common_SetExecute(driver, (uint8_t *)"AT\r\n", 1000U);
+    W6X_Net_RequestScopeEnd();
+    Debug_UART_Log("RADIO-RECOVERY", "TEST missing NCP response status=%ld genuine_fence=%lu",
+                   (long)status, (unsigned long)driver->Modem.handler_data.tx_desynchronized);
+    if (!driver->Modem.handler_data.tx_desynchronized) goto failed;
+    if (xSemaphoreTake(driver->Modem.handler_data.sem_tx_lock, 0U) != pdTRUE) goto failed;
+  }
+#endif
+  /* Admission is closed and all application owners acknowledged. Fence host
+   * deinit commands too; only fresh initialization after power-off clears it. */
+  driver->Modem.handler_data.tx_desynchronized = true;
+  (void)xSemaphoreGive(driver->Modem.handler_data.sem_tx_lock);
+  ++recovery_window_attempts;
+  ++radio_recovery.attempts;
+  radio_recovery.state = 2U;
+  radio_recovery.stage = 2U;
+  if (spi_transaction_quiesce(2000U) != 0) goto failed;
+  /* Stop unsolicited callbacks before subsystem context/queues are destroyed. */
+  if (driver->Modem.modem_task_handle)
+  {
+    vTaskDelete(driver->Modem.modem_task_handle);
+    driver->Modem.modem_task_handle = NULL;
+  }
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  W6X_Ble_DeInit();
+  radio_manager.shadow.ble_gatt_ready = radio_manager.shadow.ble_advertising = 0U;
+#endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  W6X_Net_DeInit();
+  cloud_net_ready = 0U;
+#endif
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  W6X_WiFi_DeInit();
+#endif
+  W6X_DeInit(); /* transport cleanup powers CHIP_EN off */
+  if (HAL_GPIO_ReadPin(CHIP_EN_GPIO_Port, CHIP_EN_Pin) != GPIO_PIN_RESET) goto failed;
+  radio_manager.shadow.wifi_has_ip = radio_manager.shadow.wifi_connected = 0U;
+  radio_manager.shadow.wifi_state_confirmed = 0U;
+  tx_thread_sleep((TX_TIMER_TICKS_PER_SECOND >= 10U) ? TX_TIMER_TICKS_PER_SECOND / 10U : 1U);
+  radio_recovery.stage = 3U;
+  status = W6X_Init();
+  if (status != W6X_STATUS_OK) goto failed;
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  status = W6X_WiFi_Init();
+  if (status != W6X_STATUS_OK) goto failed;
+  status = wifi_enable_station_dhcp();
+  if (status != W6X_STATUS_OK) goto failed;
+  wifi_refresh_status();
+#endif
+#if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
+  status = W6X_Net_Init();
+  if (status != W6X_STATUS_OK) goto failed;
+  cloud_net_ready = 1U;
+#endif
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  status = W6X_Ble_Init(W6X_BLE_MODE_SERVER, radio_manager.queues.ble_receive_buffer,
+                         sizeof(radio_manager.queues.ble_receive_buffer) - 1U);
+  if (status != W6X_STATUS_OK) goto failed;
+  status = ble_configure_gatt_server();
+  if (status != W6X_STATUS_OK) goto failed;
+  if (!radio_manager.shadow.ble_advertising_desired)
+  {
+    status = W6X_Ble_AdvStop();
+    if (status != W6X_STATUS_OK) goto failed;
+    radio_manager.shadow.ble_advertising = 0U;
+  }
+  radio_manager.work.ble_recovery_pending = 0U;
+  radio_manager.work.ble_restart_advertising_pending = 0U;
+  radio_manager.work.ble_connect_pending = 0U;
+  radio_manager.work.ble_adv_request = BLE_ADV_REQUEST_NONE;
+  radio_manager.work.ble_disconnect_request = 0U;
+  W6X_Ble_ServerNotifySetWakeCallback(ble_notification_wake);
+  radio_manager.shadow.ble_transport_ready = 1U;
+#endif
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  wifi_restore_connection();
+  /* An unanswered restore AT is a fresh genuine fault. Do not publish READY
+   * over it or silently retry an uncertain association. */
+  if (driver->Modem.handler_data.tx_desynchronized) goto failed;
+#endif
+  CloudRelay_SetNetworkState(1U, radio_manager.shadow.wifi_has_ip);
+  CloudRelay_RadioResetComplete(); /* proof: old NCP sockets no longer exist */
+  radio_recovery.last_status = status;
+  radio_recovery.elapsed_ms = HAL_GetTick() - radio_recovery.started_ms;
+  ++radio_recovery.successes;
+  Debug_UART_Log("RADIO-RECOVERY", "END result=ready elapsed_ms=%lu attempts=%lu; BLE reconnect required, wifi_credentials_required=%lu",
+                   (unsigned long)radio_recovery.elapsed_ms, (unsigned long)radio_recovery.attempts,
+                   (unsigned long)radio_recovery.wifi_reconnect_required);
+  radio_recovery.stage = radio_recovery.radio_quiesced = 0U;
+  radio_recovery.state = 0U;
+  /* Resume processing old accepted requests as explicit failures, not replay. */
+  (void)tx_event_flags_set(&radio_control_events, WIFI_CONTROL_WORK_FLAG, TX_OR);
+  return;
+failed:
+  recovery_fault_test = 0U;
+  radio_recovery.last_status = status;
+  radio_recovery.elapsed_ms = radio_recovery.stage ? HAL_GetTick() - radio_recovery.started_ms : 0U;
+  ++radio_recovery.failures;
+  radio_recovery.state = 3U;
+  Debug_UART_Log("RADIO-RECOVERY", "END result=failed stage=%lu elapsed_ms=%lu status=%ld; admission remains closed",
+                   (unsigned long)radio_recovery.stage, (unsigned long)radio_recovery.elapsed_ms, (long)status);
+#endif
+}
+
 void WIFI_BLE_App_GetServiceStatus(WifiBle_ServiceStatus_t *status)
 {
   if (!status) return;
@@ -778,7 +1142,11 @@ void WIFI_BLE_App_GetServiceStatus(WifiBle_ServiceStatus_t *status)
   W61_Object_t *driver = W61_ObjGet();
   UINT posture = tx_interrupt_control(TX_INT_DISABLE);
   TickType_t now = xTaskGetTickCount();
-  if (radio_manager.shadow.state != WIFI_BLE_STATE_READY || !driver) {
+  if (radio_recovery.state != 0U) {
+    status->state = radio_recovery.state == 3U ? WIFI_BLE_SERVICE_FAULT : WIFI_BLE_SERVICE_WAITING;
+    status->reason = radio_recovery.state == 3U ? "RECOVERY_FAILED" : "RADIO_RECOVERY";
+    status->elapsed_ms = radio_recovery.stage ? HAL_GetTick() - radio_recovery.started_ms : 0U;
+  } else if (radio_manager.shadow.state != WIFI_BLE_STATE_READY || !driver) {
     status->state = radio_manager.shadow.state == WIFI_BLE_STATE_ERROR ?
         WIFI_BLE_SERVICE_FAULT : WIFI_BLE_SERVICE_WAITING;
     status->reason = radio_manager.shadow.state == WIFI_BLE_STATE_ERROR ? "INIT_FAILED" : "STARTING";
@@ -796,6 +1164,11 @@ void WIFI_BLE_App_GetServiceStatus(WifiBle_ServiceStatus_t *status)
     status->elapsed_ms = (now - driver->Modem.notify_started) * portTICK_PERIOD_MS;
     uint32_t limit = driver->Modem.notify_budget * portTICK_PERIOD_MS + 1000U;
     status->remaining_ms = status->elapsed_ms < limit ? limit - status->elapsed_ms : 0U;
+  } else if (AppSettings_IsBusy()) {
+    AppSettings_Status saved;
+    AppSettings_GetStatus(&saved);
+    status->state=WIFI_BLE_SERVICE_WAITING;status->reason="SETTINGS_STORE";
+    status->elapsed_ms=saved.elapsed_ms;status->remaining_ms=saved.remaining_ms;
   }
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
   else if (radio_manager.queues.wifi_control_context &&
@@ -943,6 +1316,7 @@ void WIFI_BLE_App_GetHardwareStatus(WifiBle_HardwareStatus_t *status)
 
 UINT WIFI_BLE_App_RequestAdvertising(uint32_t advertising)
 {
+  if (radio_recovery.state) return TX_NOT_AVAILABLE;
   if (radio_manager.shadow.ble_gatt_ready == 0U)
   {
     return TX_NOT_AVAILABLE;
@@ -962,6 +1336,7 @@ UINT WIFI_BLE_App_RequestAdvertising(uint32_t advertising)
 
 UINT WIFI_BLE_App_RequestDisconnect(void)
 {
+  if (radio_recovery.state) return TX_NOT_AVAILABLE;
   if (radio_manager.shadow.ble_connected == 0U)
   {
     return TX_NOT_AVAILABLE;
@@ -1066,9 +1441,22 @@ static AppRequestId_t wifi_allocate_request_id(void)
 }
 #endif
 
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+static void wifi_cancel_settings_on_request(UINT result,WifiBle_WifiOperation_t operation)
+{
+  if(result!=TX_SUCCESS)return;
+  if(operation==WIFI_BLE_WIFI_OPERATION_DISCONNECT
+#if APP_SETTINGS_TRANSITION_ENABLED
+     || operation==WIFI_BLE_WIFI_OPERATION_CONNECT
+#endif
+    )AppSettings_Cancel(); /* a new user intent retires a prepared candidate seed */
+}
+#endif
+
 UINT WIFI_BLE_App_WifiSubmit(const WifiBle_WifiRequest_t *request,
                              AppRequestId_t *request_id)
 {
+  if (radio_recovery.state) return TX_NOT_AVAILABLE;
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
   WifiBle_WifiRequest_t *slot = NULL;
   AppRequestId_t assigned_id;
@@ -1107,7 +1495,12 @@ UINT WIFI_BLE_App_WifiSubmit(const WifiBle_WifiRequest_t *request,
     slot->forget = request->forget;
   }
 
-  result = wifi_request_slot_publish(slot);
+  /* Close the race between initial admission and the reset barrier. A fully
+   * copied request is either published before that barrier or scrubbed here. */
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  result = radio_recovery.state ? TX_NOT_AVAILABLE : wifi_request_slot_publish(slot);
+  wifi_cancel_settings_on_request(result,request->operation);
+  (void)tx_interrupt_control(posture);
   if (result != TX_SUCCESS)
   {
     UINT release_result = wifi_request_slot_release(slot);
@@ -1152,9 +1545,10 @@ UINT WIFI_BLE_App_BeginReply(void)
   ULONG free_count = 0U;
   void *slot;
   void *owned[BLE_CLI_TX_SLOT_COUNT];
-  if (!ctx || !radio_manager.shadow.ble_connected ||
+  if (radio_recovery.state || !ctx || !radio_manager.shadow.ble_connected ||
       !radio_manager.shadow.ble_cli_tx_subscribed) return TX_NOT_AVAILABLE;
   if (ctx->reply.active) return TX_NOT_AVAILABLE;
+  uint32_t generation = radio_manager.shadow.ble_session_generation;
   (void)tx_queue_info_get(&ctx->cli_tx_free, TX_NULL, &free_count, TX_NULL,
                            TX_NULL, TX_NULL, TX_NULL);
   if (free_count != BLE_CLI_TX_SLOT_COUNT) return TX_QUEUE_FULL;
@@ -1169,9 +1563,19 @@ UINT WIFI_BLE_App_BeginReply(void)
     }
     owned[i] = slot;
   }
-  ctx->reply = (AppCliReply_t){ .active = 1U,
-      .generation = radio_manager.shadow.ble_session_generation };
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  if (radio_recovery.state || !radio_manager.shadow.ble_connected ||
+      !radio_manager.shadow.ble_cli_tx_subscribed ||
+      generation != radio_manager.shadow.ble_session_generation)
+  {
+    (void)tx_interrupt_control(posture);
+    for (uint32_t i = 0U; i < BLE_CLI_TX_SLOT_COUNT; ++i)
+      (void)tx_queue_send(&ctx->cli_tx_free, &owned[i], TX_NO_WAIT);
+    return TX_NOT_AVAILABLE;
+  }
+  ctx->reply = (AppCliReply_t){ .active = 1U, .generation = generation };
   ctx->reply_owner = tx_thread_identify();
+  (void)tx_interrupt_control(posture);
   return TX_SUCCESS;
 #else
   return TX_NOT_AVAILABLE;
@@ -1194,7 +1598,7 @@ UINT WIFI_BLE_App_EndReply(uint32_t completed)
         sizeof(ctx->cli_tx_slots[0]), BLE_CLI_TX_SLOT_SIZE,
         BLE_CLI_TX_SLOT_COUNT, trailer, strlen(trailer), 1U);
   }
-  uint32_t current = radio_manager.shadow.ble_connected &&
+  uint32_t current = !radio_recovery.state && radio_manager.shadow.ble_connected &&
       radio_manager.shadow.ble_cli_tx_subscribed &&
       ctx->reply.generation == radio_manager.shadow.ble_session_generation;
   uint32_t count = (ctx->reply.bytes + BLE_CLI_TX_SLOT_SIZE - 1U) / BLE_CLI_TX_SLOT_SIZE;
@@ -1247,7 +1651,7 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
   {
     return TX_PTR_ERROR;
   }
-  if ((radio_manager.shadow.ble_transport_ready == 0U) || (radio_manager.shadow.ble_connected == 0U) ||
+  if (radio_recovery.state || (radio_manager.shadow.ble_transport_ready == 0U) || (radio_manager.shadow.ble_connected == 0U) ||
       (radio_manager.queues.ble_stream_context == NULL))
   {
     return TX_NOT_AVAILABLE;
@@ -1259,6 +1663,7 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
   {
     return TX_NOT_AVAILABLE;
   }
+  uint32_t generation = radio_manager.shadow.ble_session_generation;
 
   if ((stream == WIFI_BLE_STREAM_CLI) &&
       radio_manager.queues.ble_stream_context->reply.active) {
@@ -1308,7 +1713,8 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
     return result;
   }
 
-  if ((radio_manager.shadow.ble_connected == 0U) ||
+  if (radio_recovery.state || (radio_manager.shadow.ble_connected == 0U) ||
+      (generation != radio_manager.shadow.ble_session_generation) ||
       (((stream == WIFI_BLE_STREAM_CLI) ? radio_manager.shadow.ble_cli_tx_subscribed :
                                            radio_manager.shadow.ble_debug_tx_subscribed) == 0U))
   {
@@ -1319,7 +1725,7 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
   if (stream == WIFI_BLE_STREAM_CLI)
   {
     WifiBle_CliTxSlot_t *tx_slot = (WifiBle_CliTxSlot_t *)slot;
-    tx_slot->generation = radio_manager.shadow.ble_session_generation;
+    tx_slot->generation = generation;
     tx_slot->length = (uint16_t)length;
     tx_slot->offset = 0U;
     tx_slot->retries = 0U;
@@ -1328,7 +1734,7 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
   else
   {
     WifiBle_DebugTxSlot_t *tx_slot = (WifiBle_DebugTxSlot_t *)slot;
-    tx_slot->generation = radio_manager.shadow.ble_session_generation;
+    tx_slot->generation = generation;
     tx_slot->length = (uint16_t)length;
     tx_slot->offset = 0U;
     tx_slot->retries = 0U;
@@ -1387,7 +1793,7 @@ static UINT ble_stream_read(WifiBle_Stream_t stream, void *buffer,
   {
     return TX_PTR_ERROR;
   }
-  if ((radio_manager.shadow.ble_transport_ready == 0U) || (radio_manager.queues.ble_stream_context == NULL))
+  if (radio_recovery.state || (radio_manager.shadow.ble_transport_ready == 0U) || (radio_manager.queues.ble_stream_context == NULL))
   {
     return TX_NOT_AVAILABLE;
   }
@@ -1413,12 +1819,13 @@ static UINT ble_stream_read(WifiBle_Stream_t stream, void *buffer,
     }
     (void)tx_interrupt_control(posture);
 
-    if (slot->generation != radio_manager.shadow.ble_session_generation)
+    if (radio_recovery.state || slot->generation != radio_manager.shadow.ble_session_generation)
     {
       (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
       posture = tx_interrupt_control(TX_INT_DISABLE);
       radio_manager.queues.ble_stream_context->stats[stream].stale_drops++;
       (void)tx_interrupt_control(posture);
+      if (radio_recovery.state) return TX_NOT_AVAILABLE;
       slot = NULL;
       wait_option = TX_NO_WAIT;
     }
@@ -1780,6 +2187,12 @@ static UINT wifi_result_slot_acquire_wait(WifiBle_WifiResult_t **slot)
   }
   do
   {
+    if (radio_recovery.state != 0U)
+    {
+      radio_recovery_execute();
+      result = TX_QUEUE_EMPTY;
+      continue;
+    }
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
     ble_control_execute();
 #endif
@@ -2127,15 +2540,22 @@ fail:
 static W6X_Status_t wifi_enable_station_dhcp(void)
 {
   W61_Object_t *driver = W61_ObjGet();
+#if (W61_CONFIG_PRESERVE == 0)
   W61_Net_DhcpType_e dhcp = W61_NET_DHCP_STA_ENABLED;
   uint32_t enable = 1U;
+#endif
   W61_Status_t status;
 
   if (driver == NULL)
   {
     return W6X_STATUS_ERROR;
   }
+#if (W61_CONFIG_PRESERVE == 1)
+  status = W61_AT_Common_VerifyConfig(driver, "AT+CWDHCP?\r\n", "+CWDHCP:", 1U);
+  if (status == W61_STATUS_OK) driver->NetCtx.DHCP_STA_IsEnabled = 1U;
+#else
   status = W61_Net_SetDhcpConfig(driver, &dhcp, &enable);
+#endif
   return (status == W61_STATUS_OK) ? W6X_STATUS_OK : W6X_STATUS_ERROR;
 }
 
@@ -2249,6 +2669,152 @@ static void wifi_refresh_status(void)
   radio_manager.queues.wifi_control_context->status.has_ip = radio_manager.shadow.wifi_has_ip;
 }
 
+uint32_t WIFI_BLE_App_GetRetainedWifiReference(char ssid[WIFI_BLE_WIFI_SSID_SIZE],uint32_t *desired)
+{
+  if(ssid==NULL || desired==NULL)return 0U;
+  AppSettings_Scrub(ssid,WIFI_BLE_WIFI_SSID_SIZE);*desired=0U;
+  UINT posture=tx_interrupt_control(TX_INT_DISABLE);
+  WifiBle_WifiControlContext_t *context=radio_manager.queues.wifi_control_context;
+  uint32_t valid=context && wifi_credentials_saved && wifi_connection_desired &&
+    !wifi_unified_settings && !radio_recovery.state &&
+    radio_manager.shadow.state==WIFI_BLE_STATE_READY &&
+    radio_manager.shadow.wifi_state_confirmed && radio_manager.shadow.wifi_has_ip &&
+    !context->status.operation_active && !context->request_ready.tx_queue_enqueued &&
+    wifi_desired_ssid[0] &&
+    !memcmp(context->status.ssid,wifi_desired_ssid,WIFI_BLE_WIFI_SSID_SIZE);
+  if(valid) { memcpy(ssid,wifi_desired_ssid,WIFI_BLE_WIFI_SSID_SIZE);*desired=1U; }
+  (void)tx_interrupt_control(posture);return valid;
+}
+
+static void wifi_remember_connection(W6X_WiFi_Connect_Opts_t *options)
+{
+  (void)memcpy(wifi_desired_ssid, options->SSID, sizeof(wifi_desired_ssid));
+  wifi_connection_desired = 1U;
+  wifi_credentials_saved = 0U;
+  AppSettings_Result saved = AppSettings_SaveWifi((const char *)options->SSID,
+                                                 (const char *)options->Password);
+  /* Erase the last application working copy immediately after the store call. */
+  AppSettings_Scrub(options->Password, sizeof(options->Password));
+  wifi_credentials_saved = (saved == APP_SETTINGS_OK) ? 1U : 0U;
+  wifi_unified_settings = wifi_credentials_saved;
+  Debug_UART_Log("RADIO-RECOVERY", "Wi-Fi credentials store result=%ld automatic_restore=%lu",
+                 (long)saved, (unsigned long)wifi_credentials_saved);
+}
+
+static uint32_t wifi_restore_connection(void)
+{
+  if (!wifi_connection_desired) { radio_recovery.wifi_reconnect_required = 0U; return 0U; }
+  radio_recovery.wifi_reconnect_required = 1U;
+  if (!wifi_credentials_saved)
+  {
+    Debug_UART_Log("RADIO-RECOVERY", "Wi-Fi restore unavailable: credentials were not stored");
+    return 0U;
+  }
+  W6X_WiFi_Connect_Opts_t options = {0};
+  (void)memcpy(options.SSID, wifi_desired_ssid, sizeof(options.SSID));
+  if (wifi_unified_settings)
+  {
+    uint32_t desired = 0U;
+    AppSettings_Result loaded = AppSettings_GetWifi((char *)options.SSID,
+                                                   (char *)options.Password, &desired);
+    if (loaded != APP_SETTINGS_OK || !desired ||
+        memcmp(options.SSID, wifi_desired_ssid, sizeof(options.SSID)))
+    {
+      AppSettings_Scrub(&options, sizeof(options));
+      Debug_UART_Log("RADIO-RECOVERY", "Wi-Fi settings unavailable result=%ld", (long)loaded);
+      return 0U;
+    }
+    options.Secured = AppSettings_WifiUsesReference() ? 1U : 0U;
+    /* Explicit reference uses CWJAPS; an empty non-reference password remains
+     * an open CWJAP network. Never infer one from the other. */
+  }
+  else options.Secured = 1U; /* Retained legacy NCP credential reference only. */
+  radio_manager.work.wifi_connect_call_active = 1U;
+  uint32_t started = HAL_GetTick();
+  Debug_UART_Log("RADIO-RECOVERY", "START reason=WIFI_RESTORE started_ms=%lu", (unsigned long)started);
+  W6X_Status_t status = W6X_WiFi_Connect(&options);
+  AppSettings_Scrub(&options, sizeof(options));
+  radio_manager.work.wifi_connect_call_active = 0U;
+  wifi_refresh_status();
+  if ((status == W6X_STATUS_OK) && radio_manager.shadow.wifi_has_ip)
+    radio_recovery.wifi_reconnect_required = 0U;
+  Debug_UART_Log("RADIO-RECOVERY", "END reason=WIFI_RESTORE elapsed_ms=%lu result=%ld ip=%lu",
+                 (unsigned long)(HAL_GetTick() - started), (long)status,
+                 (unsigned long)radio_manager.shadow.wifi_has_ip);
+  return 1U; /* exactly one SDK association was attempted */
+}
+
+static W6X_Status_t wifi_forget_connection(uint32_t forget)
+{
+  /* Volatile cancellation always applies, including a failed persistent save. */
+  wifi_connection_desired = 0U;
+  radio_recovery.wifi_reconnect_required = 0U;
+  AppSettings_Result saved = AppSettings_DisconnectWifi(forget);
+  Debug_UART_Log("WIFI-SETTINGS", "disconnect store result=%ld forget=%lu", (long)saved,
+                 (unsigned long)forget);
+  if (saved != APP_SETTINGS_OK) return W6X_STATUS_ERROR;
+  if (forget)
+  {
+    wifi_credentials_saved = wifi_unified_settings = 0U;
+    AppSettings_Scrub(wifi_desired_ssid, sizeof(wifi_desired_ssid));
+  }
+  return W6X_STATUS_OK;
+}
+
+static void wifi_link_restore_pump(void)
+{
+  WifiBle_WifiControlContext_t *context = radio_manager.queues.wifi_control_context;
+  W61_Object_t *driver = W61_ObjGet();
+  if (!wifi_connection_desired || radio_manager.shadow.wifi_has_ip)
+  {
+    wifi_link_restore_attempts = 0U;
+    return;
+  }
+  /* Called only by the existing control owner, after queued user work. Never
+   * interfere with reset/initialization, DHCP, an AT fence or an owned reply. */
+  if (!wifi_credentials_saved || !context || !driver || radio_recovery.state ||
+      radio_manager.shadow.state != WIFI_BLE_STATE_READY ||
+      !radio_manager.shadow.wifi_state_confirmed || radio_manager.shadow.wifi_connected ||
+      context->status.operation_active || driver->Modem.handler_data.tx_desynchronized ||
+      driver->Modem.handler_data.dns_drain_active || driver->Modem.notify_phase ||
+      AppSettings_IsBusy())
+    return;
+  if (wifi_link_restore_attempts >= 3U ||
+      (wifi_link_restore_attempts &&
+       (uint32_t)(HAL_GetTick() - wifi_link_restore_last_ms) < 10000U))
+    return;
+
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  /* A user request may arrive after the worker's empty-queue observation.
+   * Give it priority and close fresh BLE admission atomically before logging. */
+  if (!wifi_connection_desired || radio_recovery.state ||
+      context->status.operation_active || context->request_ready.tx_queue_enqueued)
+  {
+    (void)tx_interrupt_control(posture);
+    return;
+  }
+  context->status.operation_active = 1U;
+  context->active_operation = WIFI_BLE_WIFI_OPERATION_CONNECT;
+  radio_manager.work.wifi_service_started_ms = HAL_GetTick();
+  radio_manager.work.wifi_connect_call_active = 1U;
+  (void)tx_interrupt_control(posture);
+  Debug_UART_Log("WIFI-LINK", "restore attempt=%lu/3; saved credentials, no NCP reset",
+                 (unsigned long)(wifi_link_restore_attempts + 1U));
+  if (wifi_restore_connection()) /* original SDK call/deadlines, no credential write */
+  {
+    ++wifi_link_restore_attempts;
+    wifi_link_restore_last_ms = HAL_GetTick();
+  }
+  posture = tx_interrupt_control(TX_INT_DISABLE);
+  radio_manager.work.wifi_connect_call_active = 0U;
+  context->status.operation_active = 0U;
+  context->active_operation = WIFI_BLE_WIFI_OPERATION_NONE;
+  (void)tx_interrupt_control(posture);
+  if (radio_manager.shadow.wifi_has_ip) wifi_link_restore_attempts = 0U;
+  else if (wifi_link_restore_attempts == 3U)
+    Debug_UART_Log("WIFI-LINK", "restore exhausted; no further automatic association attempts");
+}
+
 static void wifi_execute_request(WifiBle_WifiRequest_t *request,
                                  WifiBle_WifiResult_t *result)
 {
@@ -2265,6 +2831,15 @@ static void wifi_execute_request(WifiBle_WifiRequest_t *request,
   result->operation = request->operation;
   result->request_id = request->request_id;
   result->route = request->route;
+  /* Accepted before the reset barrier: retire with an explicit owned result,
+   * never execute an old connection/scan in the fresh modem generation. */
+  if (recovery_invalid_request_id &&
+      (int32_t)(request->request_id - recovery_invalid_request_id) <= 0)
+  {
+    result->final_status = W6X_STATUS_ERROR;
+    (void)memset(request->password, 0, sizeof(request->password));
+    return;
+  }
 
   if (request->operation == WIFI_BLE_WIFI_OPERATION_SCAN)
   {
@@ -2344,6 +2919,12 @@ static void wifi_execute_request(WifiBle_WifiRequest_t *request,
     Debug_UART_Log("RADIO-WAIT", "START reason=WIFI_CONNECT started_ms=%lu",
                    (unsigned long)wait_started);
     status = W6X_WiFi_Connect(&options);
+    radio_manager.work.wifi_connect_call_active = 0U; /* association retired; FS steps have their own admission */
+    if (status == W6X_STATUS_OK)
+    {
+      radio_recovery.wifi_reconnect_required = 0U;
+      wifi_remember_connection(&options);
+    }
     radio_manager.work.wifi_connect_call_active = 0U;
     Debug_UART_Log("RADIO-WAIT", "END reason=WIFI_CONNECT elapsed_ms=%lu result=%ld",
                    (unsigned long)(HAL_GetTick() - wait_started), (long)status);
@@ -2360,7 +2941,11 @@ static void wifi_execute_request(WifiBle_WifiRequest_t *request,
     uint32_t wait_started = HAL_GetTick();
     Debug_UART_Log("RADIO-WAIT", "START reason=WIFI_DISCONNECT started_ms=%lu",
                    (unsigned long)wait_started);
-    status = W6X_WiFi_Disconnect(request->forget);
+    W6X_Status_t forget_status = wifi_forget_connection(request->forget);
+    /* Persistent removal is handled only by the settings owner above. */
+    status = W6X_WiFi_Disconnect(0U);
+    if (status == W6X_STATUS_OK && forget_status != W6X_STATUS_OK) status = forget_status;
+    if (status == W6X_STATUS_OK) radio_recovery.wifi_reconnect_required = 0U;
     Debug_UART_Log("RADIO-WAIT", "END reason=WIFI_DISCONNECT elapsed_ms=%lu result=%ld",
                    (unsigned long)(HAL_GetTick() - wait_started), (long)status);
     wifi_refresh_status();
@@ -2426,6 +3011,8 @@ static void wifi_event_callback(W6X_event_id_t event_id, void *event_args)
 #endif
   }
   (void)tx_interrupt_control(posture);
+  if ((event_id == W6X_WIFI_EVT_DISCONNECTED_ID) && radio_control_events_ready)
+    (void)tx_event_flags_set(&radio_control_events, WIFI_CONTROL_WORK_FLAG, TX_OR);
 }
 
 static void wifi_scan_callback(int32_t status,
@@ -2468,6 +3055,9 @@ static void wifi_scan_callback(int32_t status,
   (void)tx_event_flags_set(&radio_control_events,
                            WIFI_CONTROL_SCAN_DONE_FLAG, TX_OR);
 }
+#else
+uint32_t WIFI_BLE_App_GetRetainedWifiReference(char ssid[WIFI_BLE_WIFI_SSID_SIZE],uint32_t *desired)
+{ if(ssid)AppSettings_Scrub(ssid,WIFI_BLE_WIFI_SSID_SIZE);if(desired)*desired=0U;return 0U; }
 #endif
 
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
@@ -2495,6 +3085,11 @@ void WIFI_BLE_App_WifiControlRun(void)
     status = tx_event_flags_get(&radio_control_events,
                                 WIFI_CONTROL_WORK_FLAG, TX_OR_CLEAR,
                                 &actual_flags, WIFI_HEALTH_PROBE_WAIT_TICKS);
+    if (radio_recovery.state != 0U)
+    {
+      radio_recovery_execute();
+      continue;
+    }
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
     /* BLE mailbox wakes must not indefinitely postpone a failed Wi-Fi
      * refresh. Pace retry on the existing probe timestamp and worker. */
@@ -2515,6 +3110,7 @@ void WIFI_BLE_App_WifiControlRun(void)
 #endif
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
       wifi_refresh_status();
+      wifi_link_restore_pump();
 #endif
       continue;
     }
@@ -2526,6 +3122,7 @@ void WIFI_BLE_App_WifiControlRun(void)
 
     for (;;)
     {
+      if (radio_recovery.state != 0U || AppSettings_IsBusy()) break;
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
       ble_control_execute();
 #endif
@@ -2537,6 +3134,7 @@ void WIFI_BLE_App_WifiControlRun(void)
       status = wifi_request_slot_receive(&request);
       if (status == TX_QUEUE_EMPTY)
       {
+        wifi_link_restore_pump();
         break;
       }
       if (status != TX_SUCCESS)
@@ -2580,6 +3178,23 @@ void WIFI_BLE_App_WifiControlRun(void) {}
 static void ble_event_callback(W6X_event_id_t event_id, void *event_args)
 {
   W6X_Ble_CbParamData_t *event = (W6X_Ble_CbParamData_t *)event_args;
+  /* The old parser may still deliver queued events during the owner barrier.
+   * It must not resurrect a retired link, subscription or image route. Stage 3
+   * starts only after the old parser/transport have stopped: preserve fresh
+   * link/CCCD observations then, but admit no input until restoration finishes. */
+  if (radio_recovery.state &&
+      ((radio_recovery.state != 2U) || (radio_recovery.stage < 3U) ||
+       (event_id == W6X_BLE_EVT_WRITE_ID)))
+  {
+    if ((event_id == W6X_BLE_EVT_WRITE_ID) && event)
+    {
+      UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+      ++radio_manager.counters.ble_rx_write_events;
+      radio_manager.counters.ble_rx_discarded_bytes += event->available_data_length;
+      (void)tx_interrupt_control(posture);
+    }
+    return;
+  }
   radio_manager.work.ble_last_activity_tick = HAL_GetTick();
 
   if (event_id == W6X_BLE_EVT_CONNECTED_ID)
@@ -2970,7 +3585,7 @@ static W6X_Status_t ble_notify_fragment(uint32_t source, uint8_t service,
   if (radio_manager.work.notify_source == 0U)
   {
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
-    if (radio_manager.work.wifi_connect_call_active != 0U) return W6X_STATUS_BUSY;
+    if (radio_manager.work.wifi_connect_call_active != 0U || AppSettings_IsIoActive()) return W6X_STATUS_BUSY;
 #endif
     W6X_Status_t admitted = W6X_Ble_ServerNotifyBegin(
         (uint8_t)radio_manager.shadow.ble_connection_handle, service, characteristic,

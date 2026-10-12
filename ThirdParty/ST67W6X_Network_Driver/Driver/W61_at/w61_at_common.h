@@ -28,6 +28,13 @@ extern "C" {
 
 #include "w61_at_api.h"
 
+#if (W61_CONFIG_PRESERVE == 1)
+/* Query a public scalar configuration, strictly decode it and require equality.
+ * No setter, borrowed output retention, retry or fence clearing. */
+W61_Status_t W61_AT_Common_VerifyConfig(W61_Object_t *Obj, const char *query,
+                                       const char *response, uint32_t expected);
+#endif
+
 /** @defgroup ST67W61_AT_Common ST67W61 AT Driver Common
   * @ingroup  ST67W61_AT
   */

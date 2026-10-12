@@ -20,6 +20,7 @@
 #include "w61_at_common.h"
 #include "w61_at_internal.h"
 #include "w61_io.h"
+#include "spi_iface.h"
 #include <stdlib.h>
 #include "modem_cmd_handler.h"
 #include "debug_uart.h"
@@ -312,6 +313,8 @@ int32_t W61_AT_ModemInit(W61_Object_t *Obj)
   int32_t ret = -1;
   struct modem *mdm = (struct modem *) &Obj->Modem;
 
+  /* Reinitialization follows caller/SPI quiescence and complete teardown. */
+  (void)memset(mdm, 0, sizeof(*mdm));
   mdm->spi_rx_pending = NULL;
   mdm->spi_rx_pending_data = NULL;
   mdm->spi_rx_pending_len = 0U;
@@ -393,11 +396,14 @@ int32_t W61_AT_ModemInit(W61_Object_t *Obj)
 
   return ret;
 __err:
+  /* Also retire partially initialized SPI queues/worker on startup failure. */
+  if (spi_transaction_quiesce(2000U) != 0) return ret; /* retain DMA-owned memory */
   if (mdm->modem_task_handle != NULL)
   {
     vTaskDelete(mdm->modem_task_handle);
     mdm->modem_task_handle = NULL;
   }
+  (void)BusIo_SPI_DeInit();
   if (mdm->spi_rx_pending != NULL)
   {
     (void)BusIo_SPI_Free(mdm->spi_rx_pending);
@@ -425,6 +431,16 @@ __err:
   {
     vSemaphoreDelete(mdm->sem_tx_ready);
     mdm->sem_tx_ready = NULL;
+  }
+  if (mdm->handler_data.sem_tx_lock != NULL)
+  {
+    vSemaphoreDelete(mdm->handler_data.sem_tx_lock);
+    mdm->handler_data.sem_tx_lock = NULL;
+  }
+  if (mdm->handler_data.sem_parse_lock != NULL)
+  {
+    vSemaphoreDelete(mdm->handler_data.sem_parse_lock);
+    mdm->handler_data.sem_parse_lock = NULL;
   }
   return ret;
 }
@@ -432,12 +448,14 @@ __err:
 void W61_AT_ModemDeInit(W61_Object_t *Obj)
 {
   struct modem *mdm = (struct modem *) &Obj->Modem;
+  /* Stop DMA before terminating parser or releasing any packet. */
+  if (spi_transaction_quiesce(2000U) != 0) return;
   if (mdm->modem_task_handle != NULL)
   {
     vTaskDelete(mdm->modem_task_handle);
     mdm->modem_task_handle = NULL;
   }
-  (void)io_deinit(&mdm->iface);
+  if (io_deinit(&mdm->iface) != 0) return;
   if (mdm->spi_rx_pending != NULL)
   {
     (void)BusIo_SPI_Free(mdm->spi_rx_pending);
@@ -465,6 +483,16 @@ void W61_AT_ModemDeInit(W61_Object_t *Obj)
   {
     vSemaphoreDelete(mdm->sem_tx_ready);
     mdm->sem_tx_ready = NULL;
+  }
+  if (mdm->handler_data.sem_tx_lock != NULL)
+  {
+    vSemaphoreDelete(mdm->handler_data.sem_tx_lock);
+    mdm->handler_data.sem_tx_lock = NULL;
+  }
+  if (mdm->handler_data.sem_parse_lock != NULL)
+  {
+    vSemaphoreDelete(mdm->handler_data.sem_parse_lock);
+    mdm->handler_data.sem_parse_lock = NULL;
   }
 }
 
@@ -495,6 +523,26 @@ W61_Status_t W61_Status(int32_t ret)
 
 W61_Status_t W61_AT_Common_SetExecute(W61_Object_t *Obj, uint8_t *p_cmd, uint32_t timeout_ms)
 {
+#if (W61_CONFIG_PRESERVE == 1)
+  /* Defense against another boot/cleanup path issuing a persistent-capable SET.
+   * Explicit managed-file commit remains owned by the one-shot settings gate.
+   * Public names only in diagnostics, never command arguments or credentials. */
+  static const char *const blocked[] = {
+    "AT+CWAUTOCONN=", "AT+CWMODE=", "AT+CWDHCP=", "AT+CWDHCPS=",
+    "AT+CIPAP=", "AT+CIPSTA=", "AT+SET_CLOCK=", "AT+CWANTENABLE=",
+    "AT+CWCREDADD=", "AT+CWCREDDEL=", "AT+SYSSTORE=", "AT+RESTORE",
+    "AT+SYSMSG=", "AT+SYSLOG=", "AT+SAVETRANSLINK=", "AT+FLASH-",
+    "AT+EFUSE-"
+  };
+  for (size_t i = 0U; i < ARRAY_SIZE(blocked); ++i)
+  {
+    if (strncmp((const char *)p_cmd, blocked[i], strlen(blocked[i])) == 0)
+    {
+      SYS_LOG_ERROR("NCP-CONFIG blocked %s preserve=1\n", blocked[i]);
+      return W61_STATUS_ERROR;
+    }
+  }
+#endif
   struct modem *mdm = &Obj->Modem;
   return W61_Status(modem_cmd_send(&mdm->iface,
                                    &mdm->handler,
@@ -504,6 +552,76 @@ W61_Status_t W61_AT_Common_SetExecute(W61_Object_t *Obj, uint8_t *p_cmd, uint32_
                                    mdm->sem_response,
                                    timeout_ms));
 }
+
+#if (W61_CONFIG_PRESERVE == 1)
+typedef struct { uint32_t value; uint32_t seen; } W61_ConfigReadback_t;
+MODEM_CMD_DEFINE(on_cmd_config_scalar)
+{
+  struct modem *mdm = (struct modem *)data->user_data;
+  uint32_t value = 0U, digits = 0U;
+  bool valid = (argc == 1U) && (argv[0] != NULL);
+  if (valid)
+  {
+    const char *p = argv[0];
+    while ((*p != '\0') && valid)
+    {
+      if ((++digits > 10U) || (*p < '0') || (*p > '9') ||
+          (value > (UINT32_MAX - (uint32_t)(*p - '0')) / 10U)) valid = false;
+      else value = value * 10U + (uint32_t)(*p++ - '0');
+    }
+    valid = valid && (digits != 0U);
+  }
+  /* Serialize copying and pointer retirement; late terminals cannot touch a
+   * retired stack descriptor. The immutable handlers below outlive timeouts. */
+  taskENTER_CRITICAL();
+  W61_ConfigReadback_t *readback = (W61_ConfigReadback_t *)mdm->rx_data;
+  if (readback != NULL)
+  {
+    if (readback->seen != 0U) readback->seen = 2U; /* duplicate is ambiguous */
+    else { readback->value = value; readback->seen = valid ? 1U : 2U; }
+  }
+  taskEXIT_CRITICAL();
+  return 0;
+}
+
+W61_Status_t W61_AT_Common_VerifyConfig(W61_Object_t *Obj, const char *query,
+                                       const char *response, uint32_t expected)
+{
+  static const struct modem_cmd handlers[] = {
+    MODEM_CMD("+CWAUTOCONN:", on_cmd_config_scalar, 1U, ","),
+    MODEM_CMD("+CWMODE:", on_cmd_config_scalar, 1U, ","),
+    MODEM_CMD("+CWDHCP:", on_cmd_config_scalar, 1U, ",")
+  };
+  const struct modem_cmd *handler;
+  struct modem *mdm = &Obj->Modem;
+  struct modem_cmd_handler_data *data = (struct modem_cmd_handler_data *)mdm->handler.cmd_handler_data;
+  W61_ConfigReadback_t readback = {0U, 0U};
+  TickType_t started_at, remaining;
+  W61_Status_t ret;
+  if ((strcmp(query, "AT+CWAUTOCONN?\r\n") == 0) && (strcmp(response, "+CWAUTOCONN:") == 0)) handler = &handlers[0];
+  else if ((strcmp(query, "AT+CWMODE?\r\n") == 0) && (strcmp(response, "+CWMODE:") == 0)) handler = &handlers[1];
+  else if ((strcmp(query, "AT+CWDHCP?\r\n") == 0) && (strcmp(response, "+CWDHCP:") == 0)) handler = &handlers[2];
+  else return W61_STATUS_ERROR;
+  if (data == NULL) return W61_STATUS_ERROR;
+  remaining = W61_AT_Common_TakeTxLockBudget(data->sem_tx_lock, W61_NCP_TIMEOUT, &started_at);
+  if (remaining == 0U) return W61_STATUS_TIMEOUT;
+  remaining = W61_AT_Common_RemainingTxBudget(started_at, W61_NCP_TIMEOUT);
+  if (remaining == 0U) { (void)xSemaphoreGive(data->sem_tx_lock); return W61_STATUS_TIMEOUT; }
+  mdm->rx_data = &readback;
+  ret = W61_Status(modem_cmd_send_ext(&mdm->iface, &mdm->handler, handler, 1U,
+                  (const uint8_t *)query, mdm->sem_response, remaining, MODEM_NO_TX_LOCK));
+  taskENTER_CRITICAL();
+  mdm->rx_data = NULL;
+  taskEXIT_CRITICAL();
+  (void)xSemaphoreGive(data->sem_tx_lock);
+  if (ret != W61_STATUS_OK) return ret;
+  if (readback.seen != 1U) return W61_STATUS_ERROR;
+  SYS_LOG_INFO("NCP-CONFIG %s old=%lu required=%lu match=%u preserve=1\n",
+                response, (unsigned long)readback.value, (unsigned long)expected,
+                (unsigned)(readback.value == expected));
+  return (readback.value == expected) ? W61_STATUS_OK : W61_STATUS_ERROR;
+}
+#endif
 
 TickType_t W61_AT_Common_RemainingTxBudget(TickType_t started_at, uint32_t timeout_ms)
 {

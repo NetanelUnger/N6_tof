@@ -180,6 +180,10 @@ int32_t spi_transaction_init(void);
   */
 int32_t spi_transaction_deinit(void);
 
+/* Recovery owner only, after application callers stop. Leaves the parser and
+ * queues alive until the worker has acknowledged no live DMA/local buffer. */
+int32_t spi_transaction_quiesce(uint32_t timeout_ms);
+
 /**
   * @brief  Allocate a SPI buffer
   * @param  size: Size of the buffer to allocate

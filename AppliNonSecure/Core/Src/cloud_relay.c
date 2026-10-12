@@ -1,8 +1,10 @@
 #include "cloud_relay.h"
 #include "app_cli_reply.h"
+#include "app_settings.h"
 
 #include <ctype.h>
 #include <stdio.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -12,6 +14,7 @@
 #include "firmware_build_version.h"
 #include "main.h"
 #include "w6x_api.h"
+#include "wifi_ble_app.h"
 
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
 
@@ -47,7 +50,8 @@ typedef enum
   CLOUD_CONTROL_PAIR = 1,
   CLOUD_CONTROL_ENABLE,
   CLOUD_CONTROL_RECONNECT,
-  CLOUD_CONTROL_UNPAIR
+  CLOUD_CONTROL_UNPAIR,
+  CLOUD_CONTROL_SETTINGS_TRANSITION
 } CloudControlKind_t;
 
 typedef struct
@@ -68,6 +72,8 @@ static volatile uint32_t cloud_initialized;
 static volatile uint32_t cloud_network_ready;
 static volatile uint32_t cloud_wifi_has_ip;
 static volatile uint32_t cloud_network_epoch;
+static volatile uint32_t cloud_recovery_pause, cloud_recovery_quiesced;
+static volatile uint32_t cloud_recovery_reset_proven;
 static uint32_t cloud_control_high_water;
 static uint32_t cloud_control_rejected;
 static CloudRelay_Status_t cloud_status_snapshot;
@@ -205,6 +211,7 @@ static void cloud_finish_request(void);
 static void cloud_start_next_request(void);
 static int cloud_load_pairing(void);
 static int cloud_save_pairing(void);
+static void cloud_complete_pairing(int status,const uint8_t *body,size_t length);
 static void cloud_clear_pairing(uint32_t delete_file);
 static int cloud_parse_pair_response(const uint8_t *body, size_t length);
 static int cloud_parse_command(const uint8_t *body, size_t length);
@@ -227,7 +234,7 @@ static void cloud_process(uint32_t wifi_has_ip);
 static void cloud_publish_status(void);
 static void cloud_release_tof(void);
 static UINT cloud_submit_control(const CloudControlRequest_t *request);
-static UINT cloud_apply_control(const CloudControlRequest_t *request);
+static UINT cloud_apply_control(CloudControlRequest_t *request);
 static UINT cloud_control_queue_self_test(void);
 static UINT cloud_receive_control(CloudControlRequest_t *request);
 
@@ -278,7 +285,35 @@ void CloudRelay_Run(void)
 
   for (;;)
   {
-    if (cloud_initialized != 0U)
+    if (cloud_recovery_pause != 0U)
+    {
+      /* This branch runs only after the preceding blocking call returned.
+       * No old image reader remains; retain descriptor until reset proof. */
+      if (cloud != NULL) cloud_release_tof();
+      cloud_recovery_quiesced = 1U;
+      if (cloud_recovery_reset_proven != 0U)
+      {
+        if ((cloud == NULL) || (tx_mutex_get(&cloud->gate, TX_NO_WAIT) == TX_SUCCESS))
+        {
+          if (cloud != NULL)
+          {
+            cloud->socket = -1;
+            cloud->http_kind = CLOUD_HTTP_NONE;
+            cloud->response_length = cloud->address_valid = 0U;
+            cloud->ca_ready = cloud->time_configured = cloud->time_ready = 0U;
+            cloud->close_retry_tick = cloud->backoff_step = 0U;
+            cloud->next_action_tick = HAL_GetTick();
+            cloud->network_epoch = cloud_network_epoch;
+            /* Preserve the active lease/output: network work resumes without
+             * executing a command again or discarding its completion. */
+            (void)tx_mutex_put(&cloud->gate);
+          }
+          cloud_recovery_reset_proven = cloud_recovery_quiesced = 0U;
+          cloud_recovery_pause = 0U;
+        }
+      }
+    }
+    else if (cloud_initialized != 0U && !AppSettings_IsBusy())
     {
       uint32_t started = HAL_GetTick();
       if ((request_pending == 0U) &&
@@ -316,6 +351,25 @@ void CloudRelay_NetworkLost(void)
   cloud_wifi_has_ip = 0U;
   (void)tx_interrupt_control(posture);
   if (cloud_prepared != 0U) (void)tx_event_flags_set(&cloud_events, CLOUD_WAKE_FLAG, TX_OR);
+}
+
+void CloudRelay_PauseForRadioRecovery(void)
+{
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  cloud_recovery_quiesced = cloud_recovery_reset_proven = 0U;
+  cloud_recovery_pause = 1U;
+  ++cloud_network_epoch; /* cancels scoped work before its next wire write */
+  (void)tx_interrupt_control(posture);
+  if (cloud_prepared) (void)tx_event_flags_set(&cloud_events, CLOUD_WAKE_FLAG, TX_OR);
+}
+
+uint32_t CloudRelay_IsRadioRecoveryQuiesced(void)
+{ return !cloud_initialized || cloud_recovery_quiesced; }
+
+void CloudRelay_RadioResetComplete(void)
+{
+  cloud_recovery_reset_proven = 1U;
+  if (cloud_prepared) (void)tx_event_flags_set(&cloud_events, CLOUD_WAKE_FLAG, TX_OR);
 }
 
 static void cloud_publish_status(void)
@@ -375,10 +429,44 @@ static UINT cloud_receive_control(CloudControlRequest_t *request)
   return result;
 }
 
-static UINT cloud_apply_control(const CloudControlRequest_t *request)
+static UINT cloud_apply_control(CloudControlRequest_t *request)
 {
   uint32_t save = 0U;
-  uint32_t delete_file = 0U;
+#if APP_SETTINGS_TRANSITION_ENABLED
+  if(request->kind==CLOUD_CONTROL_PAIR &&
+     (!AppSettings_WritesEnabled() || cloud->status.paired || cloud->pair_pending)) {
+    cloud->status.request_errors++;cloud_publish_status();
+    return TX_SUCCESS; /* stale queued admission cannot replace a completed pair */
+  }
+  if(request->kind==CLOUD_CONTROL_SETTINGS_TRANSITION) {
+    /* Existing Cloud owner; no gate across inventory, no protocol/auth work. */
+    char ssid[APP_SETTINGS_SSID_CAP]={0};uint32_t desired=0U;
+    AppSettings_Result result=APP_SETTINGS_UNAVAILABLE;
+    if(!cloud->status.paired && !cloud->pair_pending && cloud->http_kind==CLOUD_HTTP_NONE &&
+       !cloud->reply.active && !cloud->input_ready && !cloud->output_count &&
+       WIFI_BLE_App_GetRetainedWifiReference(ssid,&desired))
+      result=AppSettings_PrepareCloudTransition(ssid,desired);
+    AppSettings_Scrub(ssid,sizeof(ssid));
+    if(result==APP_SETTINGS_BUSY)return TX_NOT_AVAILABLE;
+    if(result!=APP_SETTINGS_OK)cloud->status.request_errors++;
+    Debug_UART_Log("SETTINGS-TRANSITION","prepare result=%ld RAM_only=%lu legacy_preserved=1",
+      (long)result,(unsigned long)(result==APP_SETTINGS_OK));
+    cloud_publish_status();return TX_SUCCESS;
+  }
+#endif
+  if (request->kind == CLOUD_CONTROL_UNPAIR && request->value == 0U)
+  {
+    AppSettings_Result result = AppSettings_ClearCloud();
+    if (result == APP_SETTINGS_BUSY) return TX_NOT_AVAILABLE;
+    if (result != APP_SETTINGS_OK)
+    {
+      Debug_UART_Log("CLOUD-CONFIG", "unpair rejected: store result=%ld", (long)result);
+      cloud->status.request_errors++;
+      cloud_publish_status();
+      return TX_SUCCESS; /* terminal failure; pairing and reply ownership stay live */
+    }
+    request->value = 1U; /* verified once, even while the Cloud gate is busy */
+  }
   /* Only this worker can close/reopen a socket or touch the NCP filesystem.
    * The gate is never held across those blocking operations. */
   if ((request->kind == CLOUD_CONTROL_RECONNECT) ||
@@ -421,15 +509,14 @@ static UINT cloud_apply_control(const CloudControlRequest_t *request)
       (void)memset(cloud->pair_code, 0, sizeof(cloud->pair_code));
       cloud->status.generation++;
       cloud_release_tof();
-      delete_file = 1U;
       break;
     default:
       break;
   }
   (void)tx_mutex_put(&cloud->gate);
   cloud_publish_status();
-  if (save != 0U) (void)cloud_save_pairing();
-  if (delete_file != 0U) (void)W6X_FS_DeleteFile(cloud_pair_file);
+  if (save != 0U && cloud_save_pairing() != 0) cloud->status.request_errors++;
+  cloud_publish_status();
   return TX_SUCCESS;
 }
 
@@ -644,6 +731,14 @@ UINT CloudRelay_RequestPair(const char *code)
 {
   size_t length;
   if ((cloud == NULL) || (code == NULL)) return TX_PTR_ERROR;
+#if APP_SETTINGS_TRANSITION_ENABLED
+  if(cloud->status.paired || cloud->pair_pending)return TX_NOT_AVAILABLE;
+#endif
+  AppSettings_Status settings_status;
+  AppSettings_GetStatus(&settings_status);
+  if (!AppSettings_WritesEnabled() ||
+      (settings_status.result != APP_SETTINGS_OK && settings_status.result != APP_SETTINGS_ABSENT))
+    return TX_NOT_AVAILABLE; /* no new provisioning without an approved writable store */
   length = strlen(code);
   if (length != CLOUD_RELAY_PAIR_CODE_LENGTH) return TX_SIZE_ERROR;
   for (size_t index = 0U; index < length; ++index)
@@ -656,6 +751,16 @@ UINT CloudRelay_RequestPair(const char *code)
   UINT result = cloud_submit_control(&request);
   (void)memset(&request, 0, sizeof(request));
   return result;
+}
+
+UINT CloudRelay_RequestSettingsTransition(void)
+{
+#if APP_SETTINGS_TRANSITION_ENABLED && APP_SETTINGS_WRITES_ENABLED
+  CloudControlRequest_t request={.kind=CLOUD_CONTROL_SETTINGS_TRANSITION};
+  return cloud_submit_control(&request);
+#else
+  return TX_NOT_AVAILABLE;
+#endif
 }
 
 UINT CloudRelay_SetEnabled(uint32_t enabled)
@@ -672,6 +777,7 @@ UINT CloudRelay_RequestReconnect(void)
 
 UINT CloudRelay_Unpair(void)
 {
+  if (!AppSettings_WritesEnabled()) return TX_NOT_AVAILABLE;
   CloudControlRequest_t request = { .kind = CLOUD_CONTROL_UNPAIR };
   return cloud_submit_control(&request);
 }
@@ -1002,6 +1108,7 @@ UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
                                const uint8_t *payload, uint8_t width,
                                uint8_t height, uint32_t payload_crc32)
 {
+  if (cloud_recovery_pause) return TX_NOT_AVAILABLE;
   uint32_t length = (uint32_t)width * (uint32_t)height * sizeof(float);
   if ((cloud == NULL) || (payload == NULL) || (width == 0U) || (height == 0U) ||
       (width > 54U) || (height > 42U) || (length > UINT16_MAX))
@@ -1019,6 +1126,12 @@ UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
     return TX_NOT_AVAILABLE;
   }
   UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  if (cloud_recovery_pause)
+  {
+    (void)tx_interrupt_control(posture);
+    (void)tx_mutex_put(&cloud->gate);
+    return TX_NOT_AVAILABLE;
+  }
   cloud->tof_payload = payload;
   cloud->tof_frame_id = frame_id;
   cloud->tof_payload_crc32 = payload_crc32;
@@ -1086,7 +1199,10 @@ static void cloud_close_socket(void)
     if ((cloud->close_retry_tick == 0U) ||
         ((int32_t)(HAL_GetTick() - cloud->close_retry_tick) >= 0))
     {
+      UINT settings_posture=tx_interrupt_control(TX_INT_DISABLE);
+      if(AppSettings_IsBusy()) { (void)tx_interrupt_control(settings_posture);return; }
       W6X_Net_RequestScopeBegin(500U, NULL, 0U);
+      (void)tx_interrupt_control(settings_posture);
       int32_t result = W6X_Net_Close(cloud->socket);
       W6X_Net_RequestScopeEnd();
       if (result == 0)
@@ -1265,7 +1381,10 @@ static int cloud_begin_request(CloudHttpKind_t kind, const char *method,
   if (cloud->socket >= 0) return -1;
   cloud->http_deadline = HAL_GetTick() + CLOUD_HTTP_TIMEOUT_MS;
   uint32_t epoch = cloud_network_epoch;
+  UINT settings_posture=tx_interrupt_control(TX_INT_DISABLE);
+  if(AppSettings_IsBusy()) { (void)tx_interrupt_control(settings_posture);return -1; }
   W6X_Net_RequestScopeBegin(CLOUD_HTTP_TIMEOUT_MS, &cloud_network_epoch, epoch);
+  (void)tx_interrupt_control(settings_posture);
   int result = cloud_begin_request_inner(kind, method, path, content_type,
                                          body, body_length, body2, body2_length, authenticated);
   W6X_Net_RequestScopeEnd();
@@ -1296,7 +1415,10 @@ static void cloud_receive_step(void)
     return;
   }
 
+  UINT settings_posture=tx_interrupt_control(TX_INT_DISABLE);
+  if(AppSettings_IsBusy()) { (void)tx_interrupt_control(settings_posture);return; }
   W6X_Net_RequestScopeBegin((uint32_t)remaining, &cloud_network_epoch, cloud->network_epoch);
+  (void)tx_interrupt_control(settings_posture);
   received = W6X_Net_Recv(cloud->socket,
                           &cloud->response[cloud->response_length],
                           CLOUD_RESPONSE_SIZE - cloud->response_length, 0);
@@ -1483,22 +1605,7 @@ static void cloud_finish_request(void)
   switch (kind)
   {
     case CLOUD_HTTP_PAIR:
-      if ((status == 200) && (cloud_parse_pair_response(body, body_length) == 0))
-      {
-        cloud->pair_pending = 0U;
-        (void)memset(cloud->pair_code, 0, sizeof(cloud->pair_code));
-        cloud->status.paired = 1U;
-        cloud->status.state = CLOUD_RELAY_STATE_CONNECTING;
-        cloud->status.generation++;
-        (void)cloud_save_pairing();
-      }
-      else
-      {
-        cloud->pair_pending = 0U;
-        (void)memset(cloud->pair_code, 0, sizeof(cloud->pair_code));
-        cloud->status.request_errors++;
-        cloud->status.state = CLOUD_RELAY_STATE_UNPAIRED;
-      }
+      cloud_complete_pairing(status,body,body_length);
       break;
     case CLOUD_HTTP_POLL:
       if (status == 204)
@@ -1700,14 +1807,47 @@ static void cloud_start_next_request(void)
   }
 }
 
+/* Accept only exact binary bytes from FS. An empty response is not a defined
+ * encoding for NUL, and string tails/padding cannot be inferred from schema. */
+static W6X_Status_t cloud_read_pairing_record(CloudPairingRecord_t *record)
+{
+  W6X_Status_t status;
+  (void)memset(record, 0, sizeof(*record));
+  W6X_Net_RequestScopeBegin(2000U, NULL, 0U); /* Original FS read budget, once. */
+  status = W6X_FS_ReadFile(cloud_pair_file, 0U, (uint8_t *)record, sizeof(*record));
+  W6X_Net_RequestScopeEnd();
+  if (status != W6X_STATUS_OK) (void)memset(record, 0, sizeof(*record));
+  Debug_UART_Log("CLOUD-CONFIG", "binary read result=%ld; exact bytes and original CRC required",
+                 (long)status);
+  return status;
+}
+
 static int cloud_load_pairing(void)
 {
   uint32_t size = 0U;
   uint32_t crc;
+  AppSettings_Scrub(&cloud->pairing, sizeof(cloud->pairing));
+  AppSettings_Result loaded = AppSettings_GetCloud(cloud->pairing.device_id,
+      cloud->pairing.workspace_id, cloud->pairing.token, &cloud->pairing.enabled);
+  if (loaded == APP_SETTINGS_OK)
+  {
+    cloud->pairing.magic = CLOUD_RECORD_MAGIC;
+    cloud->pairing.version = CLOUD_RECORD_VERSION;
+    cloud->pairing.length = sizeof(cloud->pairing);
+    cloud->pairing.crc32 = cloud_crc32(&cloud->pairing, sizeof(cloud->pairing));
+    goto accepted;
+  }
+  /* A validated unified tombstone is authoritative. Only inventory-proven
+   * legacy-only storage may use the strict old binary read, without migration. */
+  if (loaded != APP_SETTINGS_LEGACY)
+  {
+    Debug_UART_Log("CLOUD-CONFIG", "unified load result=%ld", (long)loaded);
+    cloud_clear_pairing(0U);
+    return -1;
+  }
   if ((W6X_FS_GetSizeFile(cloud_pair_file, &size) != W6X_STATUS_OK) ||
       (size != sizeof(cloud->pairing)) ||
-      (W6X_FS_ReadFile(cloud_pair_file, 0U, (uint8_t *)&cloud->pairing,
-                       sizeof(cloud->pairing)) != W6X_STATUS_OK))
+      (cloud_read_pairing_record(&cloud->pairing) != W6X_STATUS_OK))
   {
     cloud_clear_pairing(0U);
     return -1;
@@ -1722,10 +1862,19 @@ static int cloud_load_pairing(void)
       (memchr(cloud->pairing.workspace_id, '\0', sizeof(cloud->pairing.workspace_id)) == NULL) ||
       (memchr(cloud->pairing.token, '\0', sizeof(cloud->pairing.token)) == NULL))
   {
+    Debug_UART_Log("CLOUD-CONFIG", "record rejected: magic_ok=%lu version_ok=%lu length_ok=%lu crc_ok=%lu strings_ok=%lu",
+      (unsigned long)(cloud->pairing.magic == CLOUD_RECORD_MAGIC),
+      (unsigned long)(cloud->pairing.version == CLOUD_RECORD_VERSION),
+      (unsigned long)(cloud->pairing.length == sizeof(cloud->pairing)),
+      (unsigned long)(cloud_crc32(&cloud->pairing, sizeof(cloud->pairing)) == crc),
+      (unsigned long)((memchr(cloud->pairing.device_id, '\0', sizeof(cloud->pairing.device_id)) != NULL) &&
+                      (memchr(cloud->pairing.workspace_id, '\0', sizeof(cloud->pairing.workspace_id)) != NULL) &&
+                      (memchr(cloud->pairing.token, '\0', sizeof(cloud->pairing.token)) != NULL)));
     cloud_clear_pairing(0U);
     return -1;
   }
   cloud->pairing.crc32 = crc;
+accepted:
   cloud->status.enabled = cloud->pairing.enabled;
   cloud->status.paired = 1U;
   (void)snprintf(cloud->status.device_id, sizeof(cloud->status.device_id),
@@ -1737,23 +1886,25 @@ static int cloud_load_pairing(void)
 
 static int cloud_save_pairing(void)
 {
-  CloudPairingRecord_t verify;
-  cloud->pairing.magic = CLOUD_RECORD_MAGIC;
-  cloud->pairing.version = CLOUD_RECORD_VERSION;
-  cloud->pairing.length = sizeof(cloud->pairing);
-  cloud->pairing.enabled = cloud->status.enabled;
-  cloud->pairing.crc32 = 0U;
-  cloud->pairing.crc32 = cloud_crc32(&cloud->pairing, sizeof(cloud->pairing));
-  if ((W6X_FS_WriteFileByContent(cloud_pair_file,
-                                 (const char *)&cloud->pairing,
-                                 sizeof(cloud->pairing)) != W6X_STATUS_OK) ||
-      (W6X_FS_ReadFile(cloud_pair_file, 0U, (uint8_t *)&verify,
-                       sizeof(verify)) != W6X_STATUS_OK) ||
-      (memcmp(&verify, &cloud->pairing, sizeof(verify)) != 0))
-  {
-    return -1;
+  AppSettings_Result saved = AppSettings_SaveCloud(cloud->pairing.device_id,
+      cloud->pairing.workspace_id, cloud->pairing.token, cloud->status.enabled);
+  Debug_UART_Log("CLOUD-CONFIG", "unified save result=%ld verified=%lu", (long)saved,
+                 (unsigned long)(saved == APP_SETTINGS_OK));
+  return saved == APP_SETTINGS_OK ? 0 : -1;
+}
+
+static void cloud_complete_pairing(int status,const uint8_t *body,size_t length)
+{
+  cloud->pair_pending=0U;AppSettings_Scrub(cloud->pair_code,sizeof(cloud->pair_code));
+  if(status==200 && cloud_parse_pair_response(body,length)==0 && cloud_save_pairing()==0) {
+    cloud->status.paired=1U;cloud->status.state=CLOUD_RELAY_STATE_CONNECTING;
+    cloud->status.generation++;
+  } else {
+    /* Never use new access as a volatile substitute for failed persistence. */
+    cloud_clear_pairing(0U);cloud->status.request_errors++;
+    cloud->status.state=CLOUD_RELAY_STATE_UNPAIRED;
   }
-  return 0;
+  AppSettings_Scrub(cloud->response,sizeof(cloud->response));
 }
 
 static void cloud_clear_pairing(uint32_t delete_file)
@@ -1772,20 +1923,21 @@ static void cloud_clear_pairing(uint32_t delete_file)
   cloud->output_count = 0U;
   cloud->output_head = 0U;
   cloud->output_tail = 0U;
-  if (delete_file != 0U) (void)W6X_FS_DeleteFile(cloud_pair_file);
+  (void)delete_file; /* legacy records are never removed implicitly */
 }
 
 static int cloud_parse_pair_response(const uint8_t *body, size_t length)
 {
-  char device_id[65];
-  char workspace_id[65];
-  char token[CLOUD_TOKEN_SIZE];
+  int result = -1;
+  char device_id[65] = {0};
+  char workspace_id[65] = {0};
+  char token[CLOUD_TOKEN_SIZE] = {0};
   if ((json_get_string(body, length, "deviceId", device_id,
                        sizeof(device_id)) != 0) ||
       (json_get_string(body, length, "workspaceId", workspace_id,
                        sizeof(workspace_id)) != 0) ||
       (json_get_string(body, length, "deviceToken", token,
-                       sizeof(token)) != 0)) return -1;
+                       sizeof(token)) != 0)) goto cleanup;
 
   (void)memset(&cloud->pairing, 0, sizeof(cloud->pairing));
   (void)snprintf(cloud->pairing.device_id, sizeof(cloud->pairing.device_id),
@@ -1799,7 +1951,12 @@ static int cloud_parse_pair_response(const uint8_t *body, size_t length)
                  "%s", workspace_id);
   cloud->pairing.magic = CLOUD_RECORD_MAGIC;
   cloud->pairing.enabled = 1U;
-  return 0;
+  result = 0;
+cleanup:
+  AppSettings_Scrub(device_id, sizeof(device_id));
+  AppSettings_Scrub(workspace_id, sizeof(workspace_id));
+  AppSettings_Scrub(token, sizeof(token));
+  return result;
 }
 
 static int cloud_parse_command(const uint8_t *body, size_t length)
@@ -2091,12 +2248,16 @@ static const uint8_t *cloud_find_ci(const uint8_t *haystack, size_t haystack_len
 UINT CloudRelay_Initialize(TX_BYTE_POOL *pool, const char *suggested_device_id)
 { (void)pool; (void)suggested_device_id; return TX_NOT_AVAILABLE; }
 UINT CloudRelay_Prepare(void) { return TX_NOT_AVAILABLE; }
+void CloudRelay_PauseForRadioRecovery(void) { }
+uint32_t CloudRelay_IsRadioRecoveryQuiesced(void) { return 1U; }
+void CloudRelay_RadioResetComplete(void) { }
 void CloudRelay_Run(void) { }
 void CloudRelay_SetNetworkState(uint32_t ready, uint32_t wifi_has_ip)
 { (void)ready; (void)wifi_has_ip; }
 void CloudRelay_GetStatus(CloudRelay_Status_t *status)
 { if (status != NULL) (void)memset(status, 0, sizeof(*status)); }
 UINT CloudRelay_RequestPair(const char *code) { (void)code; return TX_NOT_AVAILABLE; }
+UINT CloudRelay_RequestSettingsTransition(void) { return TX_NOT_AVAILABLE; }
 UINT CloudRelay_SetEnabled(uint32_t enabled) { (void)enabled; return TX_NOT_AVAILABLE; }
 UINT CloudRelay_RequestReconnect(void) { return TX_NOT_AVAILABLE; }
 UINT CloudRelay_Unpair(void) { return TX_NOT_AVAILABLE; }

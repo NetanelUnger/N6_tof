@@ -1,5 +1,10 @@
 # Radio availability and bounded CLI replies
 
+Tasks3–4 follow-up is implemented/in progress; see
+[coordinated recovery](radio-coordinated-recovery.md). The service/CLI work below
+is the preceding checkpoint. Browser source pushed main, deployment unverified;
+full latency/endurance and failed hardware reports remain open.
+
 2026-10-10, tasks 1 and 2 authorized by the user. Implementation and focused
 BLE/USB/Cloud hardware checks pass after the live follow-up below.
 Tasks 3 (coordinated genuine-NCP recovery) and 4 (full endurance) are not started.
@@ -24,7 +29,8 @@ commands, including password submission, are explicitly rejected before dispatch
 
 A fault on the response transport itself can prevent a remote fault message
 from arriving. The browser then shows an unknown command outcome; USB/UART remain
-the independent diagnostic path. This change does not implement NCP recovery.
+the independent diagnostic path. The subsequent coordinated NCP recovery is
+documented separately above.
 
 ## Ownership and admission
 

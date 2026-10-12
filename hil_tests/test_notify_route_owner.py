@@ -37,6 +37,7 @@ int main(void) {
  radio_manager.work.wifi_connect_call_active=1;
  assert(ble_notify_fragment(3,0,2,packet,132,&sent)==W6X_STATUS_BUSY && !sent && !begin_calls);
  radio_manager.work.wifi_connect_call_active=0;
+ settings_io=1;assert(ble_notify_fragment(3,0,2,packet,132,&sent)==W6X_STATUS_BUSY && !begin_calls);settings_io=0;
  assert(ble_notify_fragment(3,0,2,packet,132,&sent)==W6X_STATUS_BUSY && !sent);
  assert(begin_calls==1 && radio_manager.work.notify_source==3);
  assert(ble_notify_fragment(1,0,1,packet,15,&sent)==W6X_STATUS_BUSY && begin_calls==1 && poll_calls==1);
@@ -44,10 +45,10 @@ int main(void) {
  radio_manager.work.wifi_connect_call_active=1;
  radio_manager.shadow.ble_mtu=23;
  assert(ble_att_payload_size()==132); /* Rebuild the same image header/chunk. */
- pending=0;assert(ble_notify_fragment(3,0,2,packet,132,&sent)==0 && sent==132);
+ settings_io=1;pending=0;assert(ble_notify_fragment(3,0,2,packet,132,&sent)==0 && sent==132);
  assert(radio_manager.work.notify_source==0 && ble_att_payload_size()==20);
  assert(ble_notify_fragment(1,0,1,packet,15,&sent)==W6X_STATUS_BUSY && !sent && begin_calls==1);
- radio_manager.work.wifi_connect_call_active=0;
+ radio_manager.work.wifi_connect_call_active=0;settings_io=0;
  puts("PASS association blocks only fresh announcements; already-owned notification still finishes");
  puts("PASS mid-transfer MTU change cannot alter announced length; completion advances once");
  pending=1;assert(ble_notify_fragment(1,0,1,packet,15,&sent)==W6X_STATUS_BUSY);
@@ -69,7 +70,7 @@ def main():
     source = (ROOT / 'AppliNonSecure/Core/Src/wifi_ble_app.c').read_text(encoding='utf-8')
     code = '\n'.join(extract_function(source, name) for name in
                      ['ble_att_payload_size','ble_notify_fragment','ble_notify_retire_stale'])
-    run_native(PREFIX + code + TESTS)
+    run_native(PREFIX + "\nstatic unsigned settings_io;static unsigned AppSettings_IsIoActive(void){return settings_io;}\n" + code + TESTS)
     events = extract_function(source, 'ble_process_pending_events')
     assert events.index('ble_notify_retire_stale') < events.index('ble_stream_purge_stale')
     wake = extract_function(source, 'ble_notification_wake')

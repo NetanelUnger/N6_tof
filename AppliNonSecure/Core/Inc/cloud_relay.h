@@ -78,9 +78,15 @@ void CloudRelay_Run(void);
 void CloudRelay_SetNetworkState(uint32_t ready, uint32_t wifi_has_ip);
 /* Callback-safe scalar publication, including loss/reconnect between pumps. */
 void CloudRelay_NetworkLost(void);
+/* Cooperative recovery barrier. Old socket identity is retained until the
+ * recovery owner proves hardware reset; only the Cloud worker retires it. */
+void CloudRelay_PauseForRadioRecovery(void);
+uint32_t CloudRelay_IsRadioRecoveryQuiesced(void);
+void CloudRelay_RadioResetComplete(void);
 void CloudRelay_GetStatus(CloudRelay_Status_t *status);
 
 UINT CloudRelay_RequestPair(const char *code);
+UINT CloudRelay_RequestSettingsTransition(void); /* explicit RAM preparation, no exchange */
 UINT CloudRelay_SetEnabled(uint32_t enabled);
 UINT CloudRelay_RequestReconnect(void);
 UINT CloudRelay_Unpair(void);

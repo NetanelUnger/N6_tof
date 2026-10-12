@@ -38,6 +38,22 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 typedef void (*spi_transaction_complete_t)(void);
 
+/* Scalar evidence only, retained across local abort and NCP reinitialization.
+ * No payload/pointer ownership and no formatting from an ISR/SPI worker. */
+typedef struct
+{
+  uint32_t count, tick, transfer, phase, length, rx_only, source, collapsed;
+  uint32_t spi_error, spi_state, sr, cr1, cr2, cfg1, cfg2, ier, pins;
+  uint32_t tx_state, tx_error, tx_ccr, tx_csr, tx_remaining, tx_ctr1, tx_ctr2;
+  uint32_t rx_state, rx_error, rx_ccr, rx_csr, rx_remaining, rx_ctr1, rx_ctr2;
+} SpiPortFault_t;
+
+void spi_port_set_phase(uint32_t phase);
+void spi_port_capture_irq(void);
+void spi_port_capture_failure(uint32_t source);
+void spi_port_get_fault(SpiPortFault_t *fault);
+void spi_port_report_fault(void); /* Radio task only. */
+
 /* Exported constants --------------------------------------------------------*/
 /** Transfer with size greater than this value should use DMA */
 #define SPI_DMA_XFER_SIZE_THRESHOLD     8U

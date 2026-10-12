@@ -25,6 +25,7 @@
 #include "vl53l9_interface.h"
 #include "usb_cdc_transport.h"
 #include "wifi_ble_app.h"
+#include "spi_port.h"
 #if (APP_ST67W6X_ENABLED == 1U)
 #include "w6x_api.h"
 #endif
@@ -383,6 +384,7 @@ static const char *const cli_completion_base[] =
   "cloud status",
   "cloud endpoint",
   "cloud pair ",
+  "cloud prepare yes",
   "cloud enable",
   "cloud disable",
   "cloud reconnect",
@@ -454,6 +456,7 @@ static uint32_t cli_command_needs_radio(const char *command)
   return cli_prefix_matches(command, "wifi connect") || cli_prefix_matches(command, "wifi scan") ||
       cli_prefix_matches(command, "wifi disconnect") || cli_prefix_matches(command, "radio info") ||
       cli_prefix_matches(command, "ble adv") || cli_prefix_matches(command, "ble disconnect") ||
+      cli_prefix_matches(command, "cloud prepare") ||
       cli_prefix_matches(command, "cloud pair") || cli_prefix_matches(command, "cloud reconnect");
 }
 
@@ -1076,6 +1079,11 @@ static void __attribute__((optimize("Os"))) cli_poll_ble(void)
                    (unsigned long)runtime.ble_session_generation);
   }
 
+  if (!Firmware_Update_IsActive() && WIFI_BLE_App_SendRecoveryNotice() != TX_SUCCESS)
+  {
+    cli_active_session = &cli_usb_session;
+    return; /* retain new input until the recovery event is published */
+  }
   for (uint32_t burst = 0U; burst < CLI_BLE_RX_BURST; ++burst)
   {
     ULONG actual_length = 0U;
@@ -2273,10 +2281,45 @@ static void cli_command_radio(Menu_t *menu, const char *command)
               (unsigned long)runtime.ble_control.deferred, (unsigned long)runtime.ble_control.stale,
               (unsigned long)runtime.ble_control.max_queue_ms, (unsigned long)runtime.ble_control.max_call_ms,
               (long)runtime.ble_control.last_status);
+    WifiBle_RecoveryStatus_t recovery;
+    WIFI_BLE_App_GetRecoveryStatus(&recovery);
+    cli_print("  NCP recovery: state=%lu stage=%lu attempts=%lu ready=%lu failed=%lu elapsed=%lu ms owners radio/cloud=%lu/%lu last=%ld\r\n",
+              (unsigned long)recovery.state, (unsigned long)recovery.stage,
+              (unsigned long)recovery.attempts, (unsigned long)recovery.successes,
+              (unsigned long)recovery.failures, (unsigned long)recovery.elapsed_ms,
+              (unsigned long)recovery.radio_quiesced, (unsigned long)recovery.cloud_quiesced,
+              (long)recovery.last_status);
+    if (recovery.wifi_reconnect_required)
+      cli_print("  Wi-Fi restore pending/unavailable; check UART WIFI_RESTORE and credentials store result. Pairing retained.\r\n");
+#if (APP_ST67W6X_ENABLED == 1U)
+    SpiPortFault_t spi_fault;
+    spi_port_get_fault(&spi_fault);
+    cli_print("  SPI fault: count=%lu tick=%lu source=%lu phase=%lu len=%lu HAL_error=%08lx SR=%08lx TX_DMA_error=%08lx RX_DMA_error=%08lx\r\n",
+        (unsigned long)spi_fault.count, (unsigned long)spi_fault.tick,
+        (unsigned long)spi_fault.source, (unsigned long)spi_fault.phase,
+        (unsigned long)spi_fault.length, (unsigned long)spi_fault.spi_error,
+        (unsigned long)spi_fault.sr, (unsigned long)spi_fault.tx_error,
+        (unsigned long)spi_fault.rx_error);
+#endif
+    WifiBle_RecoveryNotice_t notice;
+    WIFI_BLE_App_GetRecoveryNotice(&notice);
+    cli_print("  BLE recovery notice: sequence=%lu pending=%lu old_generation=%lu rx_slots=%lu tx_slots=%lu active_reply=%lu outcome=unknown\r\n",
+        (unsigned long)notice.sequence, (unsigned long)notice.pending,
+        (unsigned long)notice.generation, (unsigned long)notice.rx_slots,
+        (unsigned long)notice.tx_slots, (unsigned long)notice.reply_active);
     return;
   }
 
 #if (APP_ST67W6X_ENABLED == 1U)
+  if ((argc == 2) && ((strcmp(argv[1], "recover") == 0) || (strcmp(argv[1], "fault-test") == 0)))
+  {
+    if (Firmware_Update_IsActive()) { cli_print("Radio test/restart rejected during firmware update.\r\n"); return; }
+    UINT admitted = strcmp(argv[1], "fault-test") == 0 ?
+        WIFI_BLE_App_RequestRadioFaultTest() : WIFI_BLE_App_RequestRadioRecovery();
+    cli_print("Radio recovery %s. BLE will disconnect; USB/UART remain available.\r\n",
+               admitted == TX_SUCCESS ? "requested" : "not admitted");
+    return;
+  }
   if ((argc == 2) && (strcmp(argv[1], "info") == 0))
   {
     W6X_ModuleInfo_t *info;
@@ -2330,7 +2373,7 @@ static void cli_command_radio(Menu_t *menu, const char *command)
 #endif
 
 #if (APP_ST67W6X_ENABLED == 1U)
-  (void)Menu_Reply(menu, "Usage: radio hardware|status|info");
+  (void)Menu_Reply(menu, "Usage: radio hardware|status|info|recover|fault-test");
 #else
   (void)Menu_Reply(menu, "Usage: radio hardware|status");
 #endif
@@ -2536,6 +2579,15 @@ static void cli_command_cloud(Menu_t *menu, const char *command)
     cli_print("Cloud Relay endpoint: %s://%s/\r\n",
               CLOUD_RELAY_SCHEME, CLOUD_RELAY_HOST);
   }
+  else if ((argc == 3) && (strcmp(argv[1], "prepare") == 0) &&
+           (strcmp(argv[2], "yes") == 0))
+  {
+    UINT result=TX_NOT_AVAILABLE;
+    if(cli_active_session->route.transport==APP_TRANSPORT_USB)
+      result=CloudRelay_RequestSettingsTransition();
+    cli_print("Settings transition: %s. Check UART prepare result before pairing.\r\n",
+      result==TX_SUCCESS ? "queued; legacy retained" : "unavailable; USB and candidate required");
+  }
   else if ((argc == 3) && (strcmp(argv[1], "pair") == 0))
   {
     UINT result = CloudRelay_RequestPair(argv[2]);
@@ -2568,7 +2620,7 @@ static void cli_command_cloud(Menu_t *menu, const char *command)
   else
   {
     (void)Menu_Reply(menu,
-        "Usage: cloud status|endpoint|test|pair <6 digits>|enable|disable|reconnect|unpair yes");
+        "Usage: cloud status|endpoint|test|prepare yes|pair <6 digits>|enable|disable|reconnect|unpair yes");
   }
 }
 #endif
@@ -2861,6 +2913,8 @@ static void cli_history_record(const char *command)
   {
     return;
   }
+  if(cli_prefix_matches(command,"cloud pair") &&
+     (command[10]=='\0' || command[10]==' ' || command[10]=='\t'))return;
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
   /* Do not retain the SSID-bearing credential command after submission. */
   if ((cli_prefix_matches(command, "wifi connect") != 0U) &&
@@ -3210,6 +3264,7 @@ static void cli_show_help(void)
   cli_print("\r\nCloud CLI via " CLOUD_RELAY_SCHEME " Relay:\r\n"
             "  cloud status | cloud endpoint\r\n"
             "  cloud pair <6-digit-code>     available from USB or BLE\r\n"
+            "  cloud prepare yes            USB: approved RAM transition candidate\r\n"
             "  cloud enable | cloud disable\r\n"
             "  cloud reconnect | cloud test\r\n"
             "  cloud unpair yes              delete the saved device token\r\n"

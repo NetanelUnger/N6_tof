@@ -47,20 +47,21 @@ typedef struct {
  Stats stats[2];AppCliReply_t reply;TX_THREAD *reply_owner;
 } WifiBle_StreamContext_t;
 static WifiBle_StreamContext_t context;
+static struct {unsigned state;} radio_recovery;
 static struct {
  struct {unsigned ble_connected,ble_cli_tx_subscribed,ble_debug_tx_subscribed,ble_transport_ready,ble_session_generation;} shadow;
  struct {WifiBle_StreamContext_t *ble_stream_context;} queues;
 } radio_manager;
-static unsigned irq,takes,fail_take;
+static unsigned irq,takes,fail_take,take_calls,race_take,race_kind;
 static TX_THREAD task=1, other=2;static TX_THREAD *current=&task;
 static TX_THREAD *tx_thread_identify(void){return current;}
 static UINT tx_interrupt_control(UINT n){UINT old=irq;irq=n;return old;}
 #define Debug_UART_Log(...) do {assert(!irq);} while(0)
 static UINT tx_queue_info_get(TX_QUEUE*q,void*a,ULONG*n,void*b,void*c,void*d,void*e){(void)a;(void)b;(void)c;(void)d;(void)e;*n=q->count;return 0;}
-static UINT tx_queue_receive(TX_QUEUE*q,void*p,ULONG wait){assert(wait==0);if(fail_take && ++takes==fail_take)return 3;if(!q->count)return 3;*(void**)p=q->items[0];--q->count;memmove(q->items,q->items+1,q->count*sizeof(void*));return 0;}
+static UINT tx_queue_receive(TX_QUEUE*q,void*p,ULONG wait){assert(wait==0);if(fail_take && ++takes==fail_take)return 3;if(!q->count)return 3;*(void**)p=q->items[0];--q->count;memmove(q->items,q->items+1,q->count*sizeof(void*));if(++take_calls==race_take){if(race_kind==1)radio_recovery.state=1;else radio_manager.shadow.ble_session_generation++;}return 0;}
 static UINT tx_queue_send(TX_QUEUE*q,void*p,ULONG wait){assert(wait==0);if(q->count==8)return 2;q->items[q->count++]=*(void**)p;return 0;}
 static UINT tx_queue_front_send(TX_QUEUE*q,void*p,ULONG wait){assert(wait==0);if(q->count==8)return 2;memmove(q->items+1,q->items,q->count*sizeof(void*));q->items[0]=*(void**)p;++q->count;return 0;}
-static void reset(void){memset(&context,0,sizeof context);memset(&radio_manager,0,sizeof radio_manager);radio_manager.queues.ble_stream_context=&context;radio_manager.shadow.ble_connected=radio_manager.shadow.ble_cli_tx_subscribed=radio_manager.shadow.ble_transport_ready=1;radio_manager.shadow.ble_session_generation=7;irq=takes=fail_take=0;current=&task;for(unsigned i=0;i<8;i++){void*p=&context.cli_tx_slots[i];tx_queue_send(&context.cli_tx_free,&p,0);}}
+static void reset(void){memset(&context,0,sizeof context);memset(&radio_manager,0,sizeof radio_manager);radio_recovery.state=0;radio_manager.queues.ble_stream_context=&context;radio_manager.shadow.ble_connected=radio_manager.shadow.ble_cli_tx_subscribed=radio_manager.shadow.ble_transport_ready=1;radio_manager.shadow.ble_session_generation=7;irq=takes=fail_take=take_calls=race_take=race_kind=0;current=&task;for(unsigned i=0;i<8;i++){void*p=&context.cli_tx_slots[i];tx_queue_send(&context.cli_tx_free,&p,0);}}
 '''
 
 TESTS = r'''
@@ -110,6 +111,32 @@ int main(void){
  reset();assert(!WIFI_BLE_App_BeginReply());assert(!WIFI_BLE_App_StreamWrite(0,"partial",7,0));
  assert(!WIFI_BLE_App_EndReply(3));assert(strstr((char*)context.cli_tx_slots[0].data,"state=failed reason=WRITE_ERROR"));
  puts("PASS failed handler write has explicit failure, never a false completion");
+ reset();slot.generation=7;slot.length=4;p=&slot;tx_queue_send(&context.cli_rx_ready,&p,0);
+ for(unsigned state=1;state<=3;state++){
+  radio_recovery.state=state;
+  assert(WIFI_BLE_App_BeginReply()==TX_NOT_AVAILABLE && context.cli_tx_free.count==8);
+  assert(WIFI_BLE_App_StreamWrite(0,"blocked",7,0)==TX_NOT_AVAILABLE);
+  n=99;assert(ble_stream_read(0,out,sizeof out,&n,0,1)==TX_NOT_AVAILABLE && !n);
+  assert(context.cli_rx_ready.count==1 && !context.cli_tx_ready.count);
+ }
+ puts("PASS recovery closes BLE reply, TX and RX admission even with fresh link/subscription observations");
+ reset();assert(!WIFI_BLE_App_BeginReply());assert(!WIFI_BLE_App_StreamWrite(0,"old",3,0));
+ radio_recovery.state=1;assert(WIFI_BLE_App_EndReply(1)==TX_NOT_AVAILABLE);
+ assert(context.cli_tx_free.count==8 && !context.cli_tx_ready.count && !context.reply.active);
+ puts("PASS a barrier before generation retirement cannot publish an old command final");
+ for(unsigned kind=1;kind<=2;kind++){
+  reset();race_kind=kind;race_take=4;
+  assert(WIFI_BLE_App_BeginReply()==TX_NOT_AVAILABLE && context.cli_tx_free.count==8 && !context.reply.active);
+  reset();race_kind=kind;race_take=1;
+  assert(WIFI_BLE_App_StreamWrite(0,"old producer",12,0)==TX_NOT_AVAILABLE);
+  assert(context.cli_tx_free.count==8 && !context.cli_tx_ready.count);
+ }
+ puts("PASS recovery or generation change during slot acquisition rolls back leases and cannot relabel old TX");
+ reset();slot.generation=7;slot.length=4;p=&slot;tx_queue_send(&context.cli_rx_ready,&p,0);
+ race_take=race_kind=1;n=99;
+ assert(ble_stream_read(0,out,sizeof out,&n,0,1)==TX_NOT_AVAILABLE && !n);
+ assert(!context.cli_rx_ready.count && context.cli_rx_free.count==1 && !irq);
+ puts("PASS recovery racing RX dequeue returns the slot before any bytes reach the command parser");
  return 0;
 }
 '''
