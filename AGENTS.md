@@ -26,6 +26,156 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Morning BLE-only readiness (2026-10-12): corrected nonblocking host hour
+  PASS3600.545552s/6920 actual NPU/3673 CRC images/5971 CLI finals;
+  p50/p95/p99/max93.40/111.79/126.39/219.73ms,1500ms gate unchanged.
+  Direct NPU/image gaps0.570112/1.023138s/loop lag19.755ms/errors0;
+  gen25/frame+run advance/age253ms/1765 matching sensorframe IDs;11 USB snapshots
+  NCP/SPI0/WiFiIP0/CloudHTTP0/pairing preserved. Earlier hour CLI/CRC passed but
+  receive continuity NOT_ACCEPTED4.79/5.18s; callback backlog and synchronous
+  4.7MB report writes exposed weak host watchdog, exact old I/O cause unrecorded.
+  Host logging/gap/timing fix only, focused120.624s with4.503s writer delay PASS;
+  reusable hil_tests/run_ble_npu_soak.py. No new firmware build/load/reset/deploy.
+  Final immutable5689348E.../gen1/31/705/CRC72B6B9AF/writes0/calls4 match;
+  ToF123106->123223/BLE adv-disconnected/imageNONE/all owned handles+lease released.
+  Same MAIN18cff... Azure/static/health verified; independent production browser
+  E2E NOT RUN (fresh CUA apps[]/browsers[]). RAM loses demo on power loss;
+  guarded reload only, never normalDebug8234... or Wi-Fi-restoring fallback.
+  Hour !=overnight/fulltask4 acceptance. No Flash/header/sign/settings/Pair/cache/
+  security/FAE change. See recovery doc and morning checklist.
+
+
+- Actual BLE-only NPU/image + deployment checkpoint (2026-10-12): explicit human
+  browser disconnect/lease reacquisition; hook-free RAM5689348E... unchanged.
+  Three nonbonded cycles PASS297 CLI finals/max189.49ms/388 actual NPU Notify/
+  187 CRC images/errors0/age252ms; RPS-only routeNONE, reconnect generations
+  11/13/15 advance,92 matching frame IDs. PairFalse/OSpairedfalse throughout.
+  NCP/SPI0, WiFiIP0/CloudHTTP0/images0/pairing preserved.600.483s soak PASS
+  1171 NPU/615 CRC images/976 finals/max165.36ms/errors0/age252ms;
+  first host premature-image assertion FAILED, retained; corrected retry no reset.
+  Final immutable568.../slot0/gen1/31/705/CRC72B6B9AF/writes0/calls4 unchanged;
+  ToF40840->40921/BLE adv-disconnected/imageNONE/fence-drain-notify-recovery0.
+  All owned hardware handles/lease released; normal Debug8234... not substituted.
+  User-authorized N6 PR1 merged MAIN18cff111...; Actions38303887605 build+deploy
+  SUCCESS, Azure public routes+health200/staticSHA dce21722... exactlocal match.
+  Production browser rendering independently NOT RUN; localhost receipt user-
+  observed. Earlier user-owned pause superseded by explicit release. Older failed
+  latency/Cloud/endurance/fulltask4 causes remain open. No firmware Flash/header/
+  sign/persistent write/FAE change. See latest recovery documentation.
+
+
+- User-observed NPU browser receipt (2026-10-12): scissors98.8%, frame20615/
+  inference8943, explicitly separate from displayed image. User says working;
+  end-to-end receipt is USER-OBSERVED, not independent packet/alignment/soak
+  acceptance. Prior Windows failures retained; cause unproven. NEVER PAIR the
+  N6 BLE device in Windows: no OS Pair/Pair APIs/forced bonding/cache erasure;
+  automated clients pair=False, browser chooser/GATT connect only, cancel system
+  pairing prompt. Preserve Cloud pairing/settings. Browser currently user-owned;
+  wait for parent confirmation of explicit מנותק before ANY hardware/serial/BLE/
+  debugger acquisition or test/reset/load. No elapsed-time assumption. Only docs/
+  retained-log review performed now; live5689348E... and BLE-only state untouched.
+  Three actual image+NPU runs/soak/deployed verification still pending. Evidence
+  ignored coordinated-user-npu-receipt-20261012/report.json; recovery doc.
+
+
+- Resumed GATT/latency checkpoint (2026-10-12): live hook-free5689348E... protected
+  BLE-only RAM/bin493212/heap373064/margin4424/writesOFF/preserve1/header9.
+  UUID0005 now DEBUG service0101/index2 appended, legacy handles/order retained.
+  NCP readback confirms new UUID/Notify; transient REGISTER0/1 ACK0/0 and
+  central-negotiation prototype did not solve Windows discovery; hooks removed.
+  ServiceChanged2a05 manual subscribe AccessDenied, not retried/worked around;
+  no cache/bond/identity/security mutation. Exact fresh UUID query empty.
+  120.388s existing-channel BLE-only PASS188 finals/123 CRC images/max131.81ms;
+  prior1515.03ms FAIL retained/causeuncaptured, not endurance acceptance.
+  New NPU Notify0/three new integrated+soak NOT RUN. Final immutable+storegen1/
+  flags31/705/CRC72B6B9AF/writes0/calls4 match; WiFiIP0/intent0/CloudHTTP0,
+  paired/ToF advancing/BLE adv-disconnected/NCP+SPI0/imageNONE. Handles/lease
+  released. Chrome/IAB tools explicitly unavailable; tested local preview
+  localhost4173/terminal remains running for human Chrome device selection.
+  Website draft PR1 latest0b30c802... CI38299648238 PASS/deploySKIP. No firmware
+  Flash/header/signing/persistent write/FAE edit. See latest recovery section.
+
+
+- BLE-only NPU follow-up (2026-10-12) NOT ACCEPTED: protected RAM7CAB8F5A...
+  bin493212/heap373064/margin4424, writesOFF/preserve1/BLE-only1/header9.
+  Fresh immutable/store slot0/gen1/31/705/CRC72B6B9AF/writes0/calls4 unchanged;
+  WiFiIP0/intent0, Cloud paired/waiting/no requests. New UUID0005/index3 publishes
+  actual timestamped Neural-ART class/scores/confidence; CCCD does not select images.
+  46 native/5 feature/default+protected builds and16 website tests pass. Physical
+  new Notify BLOCKED: Windows uncached E_UNEXPECTED/BAD_COMMAND, cached old UUIDs;
+  no OS cache/pairing/credential mutation. Three new integrated runs NOT RUN.
+  Cached old CLI/ToF receives5 CRC images/5 PONG finals but FAIL1515.03ms>1500.
+  NPU actual USB4228runs/errors0; final20 USB PONG/max308.58ms/LCD35 renders pass,
+  ToF advancing, NCP/SPI faults0, BLE adv/disconnected, handles/lease released.
+  N6 website draft PR1/SHA7e637509... pushed; CI build/tests/packagePASS/deploySKIP;
+  no available browser, actual end-to-end/deployment/endurance still open. FAE
+  untouched. Prior wired/Cloud hour alsoFAILED1186.5s/1401 USB/new request errors.
+  No firmware Flash/header/signing/persistence write. See recovery doc/checklist.
+
+
+- Classroom recovery follow-up (2026-10-12): live protected hook-free RAM is
+  304CC6F723881BD3E8DA50219858F6BBED317D15F394701B0368B239F136389D,
+  writesOFF/config-preserve1/header9/bin492124/heap374360/margin5720. Normal
+  Debug49E3F634... config-preserveOFF must not replace it. Saved slot0/gen1/
+  flags31/705/CRC72B6B9AF/writes0/calls4 unchanged in fresh guarded audits.
+  Source adds8 static bytes: same UNKNOWN sequence repeats once after fresh
+  application input, before that input executes; no old command/output/final
+  replay, raw updater exclusion intact.45 native/5 changed-unit feature modes,
+  default+protected NS builds pass; no Generate Code required. Host runner
+  preserves image CCCDs and continuous UART between profiles; exclusive lease
+  status/marker must be honored, never stolen. Three final bounded profiles
+  PASS19819/20533/20519ms,39 BLE finals/32 USB pings; actual UNKNOWN before new
+  PONG, ToF/CLOUD continuity, attempts0->3/ready3/failed0/no extra recovery.
+  Current-fix temporary DMA probe FEDAC2E8... PASS: real252-byte transfer,
+  RX251 remaining at abort, both DMA/SPI READY, actual UNKNOWN,12 BLE finals/
+  14 USB pings, AT_FENCED16877ms; hook disarmed and absent from live304CC6F7...
+  Initial DMA probe passed cleanup but missed remote UNKNOWN; retain qualifier.
+  Strict combined soak FAILED BLE3193.5ms vs1500ms; bounded diagnostic also
+  FAILED2906.82/2543.51ms, GATT writes45/50ms, fast firmware PONG, AT BUSY peak
+  3060ms/Cloud worker4501ms. Do not relax/promote the latency gate or reset a
+  healthy NCP for contention. Natural SPI1/pre-HAL IRQ/RX OVR error4/len520/
+  tick431538 observed before soak, no new NCP recovery; cause and audit-window
+  association unproven. Older plus one earlier old-reader-startup extra recovery
+  remain UNCLASSIFIED. Wired USB/LCD/Cloud one-hour demo soak RUNNING; exact
+  live progress in ignored coordinated-owner-progress.json, reports/docs in
+  docs/radio-coordinated-recovery.md. Protected primary/fallback05FD9EFD...
+  ELF/bin/map preserved in ignored demo-ready-20261013; reproducible startup
+  in docs/demo-start-20261013.md. Browser rendering/optical LCD/active handler/
+  unattended reconnect/fulltask4/physical power-loss remain open. No Flash/
+  signing/header/pairing/settings-record/credentials/push/deploy change.
+
+- Active Cloud/BLE campaign (2026-10-12): three bounded profiles remain FAILED.
+  Radio/Wi-Fi17619/17984/16219ms;84 USB pings/24 BLE finals/ToF continuity pass.
+  First two keep old Windows client across NCP reinit and lose CLOUD->BLE route.
+  Third retires old host before reinit: Cloud frames7859->7869 auto-return, then
+  fresh BLE finds ToF CCCD0100. Harness clearing it to0000 itself requests BLE
+  then releases toNONE; final route assertion FAILED, not proof pure CLI steals
+  route. Sequence5 UNKNOWN/tx4/active0 plus6 clean new finals/no HELP banner prove
+  queued-reply interruption only; executing handler/physical DMA abort unproven.
+  NCP1/1->5/5/failed0 includes one uncaptured extra recovery between profiles2/3;
+  keep UNCLASSIFIED. Errors0->2/drop1 unchanged/SPI+alloc0. Fresh pre/post reader
+  05FD... immutable SRAM and store slot0/gen1/31/705/CRC72B6B9AF/writes0/calls4
+  unchanged; final fence/drain/notify/recovery0. Hardware handles closed, IAB
+  existing workspace retained/Cloud MAP ON restored. No firmware edit/build/load/
+  MCU reset/Flash/credentials/pair/deploy. Windows/GATT restoration is hypothesis,
+  no proven firmware defect. Fulltask4/DMA/executing-handler/unattended reconnect
+  remain open. See latest docs/radio-coordinated-recovery.md; retain3 FAILED reports.
+
+- Existing Cloud workspace restored (2026-10-12): matching downloaded workspace
+  had devices[]. User-approved ignored copy adds only already-paired N6-MAINT-B8FB,
+  preserves all other fields/token/original file. Browser tool root limitation
+  prevented automatic opening; user opened copy in IAB. RELAY CONNECTED/online,
+  Cloud ping PONG+complete, MAP ON complete and independently rendered LIVE
+  Depth54x42 frames/CRCs306373->306880 pass. Cloud status polling/paired/HTTP200/
+  transport0/backoff0, uploads6060->6190/drop1 unchanged/request errors0. Cloud
+  MAP ON restored publication; USB DTR-close releases only USB, not selected Cloud.
+  No new pair/code/
+  token rotation/workspace or firmware/build/reset/Flash/deployment. Keep existing
+  IAB workspace open. No new immutable-SRAM audit or fault test here; combined
+  BLE CLI/DMA fault/fulltask4 still NOT RUN. Earlier403/409 blocker below is
+  superseded for this session; failures stay evidence. See current section in
+  docs/radio-coordinated-recovery.md and ignored workspace-restore-20261012 summary.
+
 - Combined-load preflight BLOCKED (2026-10-12): exact protected live reader05FD...
   verified; settingsOK/gen1/705/CRC72B6B9AF/writes0/reference1, no fence/drain/
   recovery. Cloud still paired but ERROR/HTTP403; uploads stopped6060. One runtime

@@ -1,5 +1,561 @@
 # Coordinated ST67 recovery — 2026-10-10
 
+## Morning BLE-only readiness: corrected one-hour PASS (2026-10-12)
+
+The supervised corrected soak **PASS3600.545552s**, with exact monotonic start
+563251.3046344/end566851.8501866 and counters frozen at the interval boundary:
+**6920 actual NPU results,3673 CRC-complete54x42 images,5971 CLI PONG+complete
+replies**. Counts exclude setup and terminal drain; entire run6939/3676/5972.
+CLI p50/p95/p99/max **93.40/111.79/126.39/219.73ms**, unchanged1500ms bound.
+Direct NPU/image receive-gap maxima **0.570112/1.023138s**, below3s/5s;
+maximum event-loop lag19.755ms. CRC/parser/image-drop/I/O errors0, no UART
+recovery event, no new NCP recovery or SPI fault. Model wire age max253ms,
+strictly increasing frame/inference IDs in generation25,1765 matching image/
+model frame IDs. Eleven periodic USB snapshots kept ToF advancing, BLE route,
+WiFiIP0/CloudHTTP0/images0/errors0/pairing preserved. MTU247/public/pairFalse/
+actual OS-pairedfalse. NPU unsubscribe3.2s silence/expiry/fresh resubscribe proof
+passes; deployed parser's16 protocol regressions pass. Browser rendering was
+not observed by the agent, so these are native receiver and parser proofs.
+Evidence: ignored `coordinated-ble-rps-hour-20261012-retry1/{report,verified-summary}.json`.
+
+The earlier hour completed21:48:46UTC with CLI/CRC/count gates passing, but
+**continuous receive acceptance was rejected after analysis**: NPU gap4.790206s
+and image gap5.178279s. The old post-await freshness watchdog missed queued
+callback bursts. Its4.7MB report was synchronously serialized/rewritten after
+each ping; the shared atomic writer can sleep during replacement retries.
+Bursts of increasing device frames/runs support host-loop backlog; exact old
+write timing was not recorded, so a specific Dropbox/Windows cause is unproven.
+Raw old report remains unchanged; its verified summary records raw-pass versus
+NOT_ACCEPTED continuity. The reported21:49UTC machine interruption occurred
+**after** the first terminal timestamp; no unobserved time was credited.
+
+The host harness now writes small periodic status on a dedicated thread,
+writes the full trace once after hardware cleanup, directly checks receive gaps,
+measures loop lag and records exact interval/end counts. A120.624s focused test
+with a deliberate4.502756s host-writer delay PASS: NPU gap0.567935s/image1.018840s,
+loop lag15.823ms, no hardware changes. Evidence:
+`coordinated-ble-rps-writer-focused-20261012/report.json`.
+Reusable source: `hil_tests/run_ble_npu_soak.py`; compilation/help checks pass,
+and its implementation was exercised by the focused and corrected hour runs.
+No firmware change, build, load/reset or new website deployment was needed.
+
+Final read-only immutable vector/text/rodata/ARM audit matches protected RAM
+`5689348E42076D018F4614AEAA17D17B0FCF173A478A1EDCF5C73C3832870B61`,
+bin493212/heap373064/margin4424, preserve1/BLE-only1/writesOFF/header9.
+Store slot0/gen1/flags31/705/CRC72B6B9AF/writes0/calls4/arm0/busy0/io0 and
+Cloud pairing exactly match the pre-hour baseline. Final ToF123106->123223,
+radio ready, WiFiIP0/intent0/CloudHTTP0/requests0, BLE advertising/disconnected,
+imageNONE, fence/drain/notify/recovery0, NCP/SPI0. All owned BLE/USB/UART/debug/
+collector/lease handles closed. Evidence:
+`coordinated-ble-rps-hour-final-20261012-retry1/inspection.json`.
+
+Production remains exact MAIN18cff111.../Actions38303887605 and staticSHA
+dce21722541f37b559e9bfe9c46316858fa0d616017717f7fee47b3a2e3aab6f.
+Post-hour public health200/static bytes match. No FAE or firmware Flash/header/
+signing/settings/Windows Pair/cache/bond/security change. Fresh CUA inventory
+still apps[]/browsers[]: independent **production browser-to-board E2E NOT RUN**;
+localhost browser receipt remains user-observed. [Morning checklist](demo-start-20261013.md)
+now documents powered SRAM operation and guarded reload if RAM is lost.
+This accepts the requested supervised one-hour BLE-only demo observation, not
+all-night reliability, Wi-Fi/Cloud/fulltask4, classifier accuracy, physical
+power loss, executing-handler interruption or historical fault causes.
+
+## Actual BLE-only NPU/image runs and MAIN/Azure deployment (2026-10-12)
+
+The user explicitly disconnected the browser and released hardware ownership.
+The exclusive lease was reacquired only after checking competing processes.
+This supersedes the earlier paused/user-owned checkpoint below. No OS Pair,
+bond/cache/security mutation, firmware load/reset or persistence write occurred.
+
+Three actual nonbonded BLE reconnect cycles **PASS** on hook-free protected RAM
+`5689348E42076D018F4614AEAA17D17B0FCF173A478A1EDCF5C73C3832870B61`:
+297 CLI PONG+complete replies, max189.49ms against the unchanged1500ms bound;
+388 actual UUID0005 NPU results, 187 CRC-complete54x42 images, zero CRC/parser
+errors. MTU247/public address/OS-pairedfalse/pair=False on all three connections.
+NPU-only Notify left image route NONE/NONE each time. With ToF Notify and MAP ON,
+images and results coexisted; frame/run IDs strictly advanced in generations
+11/13/15, maximum model-result age252ms. All int8 scores/class/confidence matched
+the actual-model formula. There were92 matching sensor frame IDs across image
+and result records; other results stay separate in the UI. Observed class was
+scissors, not a classifier-accuracy evaluation. NCP recovery/SPI faults remained0,
+board Wi-Fi IP0/Cloud HTTP0/Cloud images0, Cloud pairing preserved. Disconnect
+released image route to NONE. All run-owned handles closed. Evidence: ignored
+`coordinated-ble-rps-integrated-20261012/{report,verified-summary}.json`.
+
+The initial600s sustained image+NPU+CLI attempt failed in the host startup check. The initial host harness
+asserted image availability before the first frame could arrive, failed with
+0 images/12 valid NPU results, then closed handles. That failed artifact is
+retained in `coordinated-ble-rps-soak-20261012`; the corrected harness gives the
+first image an explicit5s startup budget, then requires fresh continuous images
+and results with the same1500ms CLI gate. Retry evidence:
+`coordinated-ble-rps-soak-20261012-retry1/report.json`. No firmware change/reset
+was used for this host correction.
+
+The corrected600s gate **PASS** at600.483s:1171 actual NPU results,
+615 CRC-complete images/CRC errors0,976 CLI finals/max165.36ms, result age
+max252ms,299 matching image/result sensor frame IDs. No malformed/stale result,
+stream stall, UART recovery event, new NCP recovery or SPI fault. PairFalse and
+actual OS-pairedfalse; RPS-only routeNONE, final routeNONE after disconnect.
+All soak handles closed. The initial host startup failure remains retained.
+This is ten-minute bounded acceptance, not an hour/overnight/fulltask4 pass.
+
+Fresh final read-only SRAM audit matches vector/text/rodata/ARM of exact5689348E...
+without halt/reset/load. Store slot0/gen1/flags31/705/CRC72B6B9AF/writes0/arm0/
+busy0/io0/calls4 remains unchanged. WiFiIP0/intent0/CloudHTTP0/requests0, pairing
+preserved; ToF ready/advancing40840->40921, BLE advertising/disconnected, image
+NONE, fence/drain/notify/recovery0, NCP/SPI0. UART/USB/debugger/collector handles
+closed and exclusive lease released. No firmware Flash/sign/header/persistent
+write, Windows Pair/cache/bond/security mutation or FAE change. Normal Debug
+8234AB7F... remains preserveOFF/BLE-onlyOFF and must not replace live protected
+RAM. Final evidence: `coordinated-ble-rps-terminal-20261012/inspection.json`.
+
+
+The human explicitly authorized N6 website MAIN merge and Azure deployment.
+PR1 merged exact head7b95fd32 into MAIN
+`18cff11142f250ff247952f852cfdd1d42ef8d41`. Exact push Actions run
+[38303887605](https://github.com/NetanelUnger/Web_N6_ST67W611M1_VL53L9CX/actions/runs/38303887605)
+**SUCCESS**: frontend lint/16 protocol tests/build, .NET package, Azure login and
+Production deploy. Local website checkout is clean MAIN at that SHA.
+[Production terminal](https://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net/terminal)
+now serves `/assets/index-Bq_SpfPR.js`, SHA256
+`dce21722541f37b559e9bfe9c46316858fa0d616017717f7fee47b3a2e3aab6f`,
+byte-for-byte equal to the local merged build (336038 bytes), including UUID0005,
+NPU RPS TX and Hebrew no-Windows-PAIR guidance. `/`, `/terminal`, `/cloud` and
+`/api/health` return200; health says N6 Cloud Relay/ok. Evidence:
+`coordinated-production-20261012/verification.json`. These are deployment/content
+checks; the earlier browser-to-board receipt was user-observed on localhost,
+not independent production browser rendering. Chrome/IAB automation remains
+unavailable. No FAE_Master or firmware Flash/header/signing change occurred.
+
+Older1515.03ms BLE-only, combined3193/2906/2543ms and wired Cloud-hour failures
+remain failures. This new bounded BLE-only pass does not accept fulltask4,
+executing-handler interruption, unexplained historical recoveries, natural SPI
+root cause, physical power loss or overnight endurance.
+
+## Earlier user-observed browser receipt and pause (superseded by release above) (2026-10-12)
+
+The user reported the working browser panel: **NPU scissors, model score98.8%,
+sensor frame20615, inference8943**. It explicitly said the result frame was
+separate from the displayed image and that the model score is not calibrated
+correctness probability. This is **user-observed end-to-end receipt**, not an
+agent-captured packet trace, alignment proof, classification-accuracy result or
+sustained acceptance. It supersedes a blanket claim that the browser path is
+blocked; earlier WinRT failures remain failed with their causes unproven.
+Evidence: ignored `coordinated-user-npu-receipt-20261012/report.json`.
+
+**Project operating rule: NEVER PAIR this N6 BLE device in Windows.** Connect
+through the browser's device chooser/GATT connect; do not use Windows Bluetooth
+Settings Pair, a Pair API, `BleakClient(pair=True)`, forced bonding or cache/bond
+erasure as a workaround. All automated N6 clients must request `pair=False`.
+Cancel a system pairing prompt. The user's report that Windows pairing caused
+trouble is operating guidance, not a proven diagnosis of earlier failures.
+Existing Cloud pairing/settings remain separate and must be preserved.
+
+The browser session is currently user-owned. The parent requested disconnect
+and an explicit reply **מנותק**. Until the parent confirms release, do not acquire
+the hardware lease, serial/debug/BLE handles, disconnect the user's session,
+reset/load firmware, or start any automatic hardware test. Elapsed time is not
+release. RAM5689348E.../BLE-only configuration remain unchanged by the agent.
+
+Safe pending preparation: review retained logs and document the next acceptance
+gate. After confirmed release and exclusive ownership, verify baseline/identity/
+unchanged settings, then three bounded BLE image+actual NPU runs and soak. Capture
+real UUID0005 records, model-score consistency, frame identity/age, CRC-complete
+images, reconnect/CCCD behavior and the unchanged1500ms CLI bound. Preserve the
+earlier1515ms failure and120.388s/188-finals/123-CRC-image pass. Production remains
+unpublished until meaningful physical verification; latest website draft PR1
+SHA0b30c802... has successful CI. No test was run during this user-owned session.
+
+
+## Resumed BLE-only GATT investigation and browser handoff (2026-10-12)
+
+Current hook-free protected RAM is
+`5689348E42076D018F4614AEAA17D17B0FCF173A478A1EDCF5C73C3832870B61`,
+binary SHA256 `D0EBAA4C69EAF6B4269E55B3041BB11C7DC66D342C5FC1AC6DC5AF55F8DEC445`,
+493212 bytes/heap373064/margin4424, preserve1/BLE-only1/writesOFF/header9.
+Normal Debug8234AB7F... is preserveOFF/BLE-onlyOFF and must not substitute.
+The new Notify UUID0005 is now appended to **DEBUG service0101/index2**, after
+its prior RX/TX. The former CLI/index3 prototype is superseded. Original
+CLI/ToF/DEBUG creation order/indices and MAC/name remain unchanged. Changed native
+sender/callback tests and five feature modes/default+protected builds pass; the
+prior46-suite regression pass remains evidence, rather than a newly repeated run.
+
+Safe physical investigation actually completed:
+- Fresh characteristics over cached CLI/DEBUG services returned only old entries.
+  Exact0005 UUID lookup returned status0/protocol-errorNULL/empty,530.69ms.
+- Manual subscription to existing Generic Attribute Service Changed2a05 was
+  denied by Windows. It was not retried or worked around; no bond/cache/security
+  change occurred. No host-side Service Changed hook was found in current code;
+  NCP-internal cache invalidation remains unverified. Windows documents its GATT
+  cache as system-wide, so a fresh process alone is not an independent cache.
+  [Microsoft cache semantics](https://learn.microsoft.com/en-us/uwp/api/windows.devices.bluetooth.bluetoothcachemode).
+- Temporary owner-thread NCP query DC861CD1... confirmed UUID-match1/index2/
+  Notify16/READ1/type2 at startup. Temporary30EBF9D3... acknowledged supported
+  volatile application GATT REGISTER0/1 as0/0 with the same readback. Neither
+  resolved full uncached Windows discovery. This confirms the configuration
+  table, not the active on-air graph or a specific Windows/NCP cause.
+- Temporary B4C037D6... suppressed optional peripheral MTU/connection-parameter
+  requests during discovery; scalar UART confirmed central-negotiation1. Full
+  uncached discovery still failed E_UNEXPECTED. That hypothesis did not resolve
+  discovery. No permanent connect-policy change was made. All temporary hooks
+  were removed by restoring exact5689348E... with a fresh immutable SRAM audit.
+
+**Bounded existing-channel BLE-only PASS:**120.388s,188 PONG/final pairs and123
+CRC-valid54x42/9072-byte images, max131.81ms/GATT-write67.99ms, no slow commands.
+Control call max472ms/queue max205ms, CLI drops/retries/errors0, image CRC0,
+NCP0/0/failed0/SPI0, Wi-Fi IP0 and Cloud HTTP0. Busy image drops reflect the
+single-snapshot backpressure policy, not corrupt completed frames. Evidence:
+`coordinated-ble-only-latency-20261012/report.json`. The original1515.03ms failure
+was not reproduced and its initiating owner remains uncaptured; no threshold
+relaxation or endurance acceptance. **New NPU Notify received0; its three
+integrated runs and soak remain NOT RUN.**
+
+Final fresh audit `coordinated-appended-latency-final-20261012/inspection.json`
+matches slot0/gen1/flags31/705/CRC72B6B9AF/writes0/loaded1/calls4, WiFiIP0/
+intent0, Cloud paired/waiting/requests0, fence/drain/notify/recovery0; ready
+advancing ToF, BLE disconnected/advertising and image NONE. All hardware handles
+and the reacquired exclusive lease are released for the next human browser test.
+
+Both `cua.createBrowserTab('chrome', ...)` and `('iab', ...)` explicitly returned
+Browser unavailable; inventory apps[]/browsers[]. Native control is disabled.
+The tested localhost preview is still running,HTTP200 at
+`http://127.0.0.1:4173/terminal`, asset `index-87c4YD8S.js`.
+Human step: regular Chrome on this connected Windows PC; close only stale N6
+BLE tabs, preserve the Cloud workspace; open preview, press חיפוש התקן BLE,
+select N6-MAINT-B8FB, and report whether NPU RPS TX is available. If available,
+enable it and TOF IMAGE TX; cancel any system pairing prompt. No host BLE test
+runs concurrently. A genuinely independent BLE central may be needed if this
+Windows cache remains unresolved; cache clearing/unpairing is not proven necessary
+and is not authorized by the present scope.
+
+Website draft PR1 now has SHA `0b30c802e2c92333d8be792971da83e9b0968fd5`,
+CI run38299648238 success; production deployment remains skipped/not run. No
+FAE, firmware Flash/signing/header, stored settings/credentials or identity change.
+
+
+## BLE-only NPU/demo checkpoint - NOT ACCEPTED (2026-10-12)
+
+The latest user scope supersedes network coexistence testing: the board now
+runs a protected **BLE-only RAM profile**, without a Wi-Fi connection or Cloud
+traffic. `APP_DEMO_BLE_ONLY=1` suppresses only volatile station restore intent;
+saved settings are still loaded read-only. No Wi-Fi disconnect/store operation,
+Cloud disable/save, credential deletion, re-pairing or PC network change was used.
+Ordinary feature defaults retain their prior behavior. `W61_CONFIG_PRESERVE=1`
+retains the existing read-only NCP configuration checks; mismatch still stops.
+
+The new optional CLI-service Notify characteristic is
+`7a1e0005-b5a3-f393-e0a9-e50e24dcca9e`, index3. CLI RX/TX and image UUID/indices
+are unchanged. Its CCCD only controls NPU results and never requests/releases an
+image destination. The existing shared asynchronous notifier gains source5;
+generation loss, unsubscribe and binary updater cancel/drain it before reuse.
+One bounded192-byte Radio-owned slot replaces unadmitted results, pins admitted
+frame/scores, and limits publication to2Hz. No new task/queue/image buffer or
+steady allocation. Existing CLI priority and image fragment scheduling remain.
+
+The actual Neural-ART success snapshot publishes its four int8 scores, argmax,
+per-mille confidence, sensor frame, inference counter and HAL tick atomically.
+The wire format is bounded newline ASCII JSON: `v,g,f,r,ok,c,p,q,npu,a`.
+`q` order is none/rock/paper/scissors; `p` is the existing rounded quantization
+conversion, not calibrated probability of correct recognition. Disabled/not-run/
+error/stale output is invalid. The fixed-width age footer stays together at
+ATT20 and is refreshed until copied; receivers also expire partial/displayed
+records, reject inconsistent scores and old generations, and clear on disconnect.
+`none` is a real model class, not a transport failure or fabricated prediction.
+
+**Validation PASS:**46 native suites; five wifi_ble feature modes; ordinary and
+protected Non-Secure compile/link/memory checks. Native coverage includes ATT20
+fragmentation, pinned scores, admission backpressure, age/tick wrap, cancellation
+and image handover independence. The existing RWX LOAD warning remains. A default
+compiler crash/TEMP failure and intermediate host failures are retained; writable
+process-local TEMP and normal build access corrected compilation. Debug artifacts
+were finalized after the guarded loader restored them. No Generate Code needed.
+
+Current live ELF SHA256:
+`7CAB8F5AE062C9542E240A14AEF746BA14E7F0794868B0B4701973FB5090E1E6`.
+Binary SHA256 `2EA5CC69133D82898BF429D127C52D4E77786AE7801B1E102FE6FB61E1EC3C61`;
+493212 bytes, heap373064, margin4424 above368640. Writes/transitionOFF, preserve1,
+BLE-only1, header9, no DMA test hook. Ordinary Debug ELF
+`2C168A542149F11A6E03E2352001B86C0E9F9FC82F4D4F2F743459BA605FA881` is
+preserveOFF/BLE-onlyOFF and must not be loaded under the current guarded scope.
+
+**Physical Notify BLOCKED:** the sandbox attempt failed before commands. Normal
+uncached full-service discovery failed with Windows E_UNEXPECTED; public/random/
+automatic variants did not resolve it. CLI-service-only uncached discovery failed
+with ERROR_BAD_COMMAND (or address not found). A read-only cached catalog connected
+but retained old UUIDs and lacked0005. This is cache/discovery evidence, not proof
+of the firmware/NCP/Windows cause. No cache erasure, OS re-pairing, adapter reset or
+credential workaround was performed. The three new image+NPU integrated profiles
+never reached subscriptions: **NOT RUN**, not three passing runs.
+
+**Existing-channel BLE-only gate FAILED:** cached unchanged CLI/ToF handles did
+receive five9072-byte54x42 CRC-valid images and five PONG/final pairs. Latencies
+104.77/67.58/142.06/78.00/1515.03ms; the last exceeded the unchanged1500ms gate.
+No NPU notification was claimed from this observation. Its initiating contention
+owner was not captured; it is not proof Cloud alone caused prior BLE latency.
+Actual NPU execution is independently visible over USB: e.g. runs4228/errors0,
+frame9998/scissors/988permille/raw[-128,-126,-127,125]/inference2ms. LCD reports
+the corresponding real model result; DMA render is not optical verification.
+
+**Final public gate PASS:**20 USB PONGs, max308.58ms, local LCD map enabled,
+35 submitted/rendered frames, LCD DMA7605/errors0, advancing ready ToF/NPU.
+Radio ready, NCP0/0/failed0, SPI fault0; BLE disconnected/advertising, queues empty.
+Cloud remains paired but waiting for Wi-Fi, HTTP0/requests0/images0. Fresh immutable
+SRAM and settings audits before/after confirm slot0/gen1/flags31/705/CRC72B6B9AF,
+writes/arm/busy/io/fence/drain/notify/recovery0, loaded1/calls4, volatile intent0.
+
+The N6 website (not FAE) has optional result discovery, bounded validation, a
+Hebrew class/percentage/frame panel and stale-session handling. Local lint/build
+and16 protocol tests pass. User-authorized commits were pushed to
+`codex/npu-notify-demo-20261012`, SHA
+`7e63750973faa1de04dc6aab8b4dca3986576890`.
+[Draft PR1](https://github.com/NetanelUnger/Web_N6_ST67W611M1_VL53L9CX/pull/1)
+has successful CI build/tests/.NET packaging; deploy is skipped for the PR.
+The task has no available browser surface, so actual Web Bluetooth/rendering and
+new physical Notify remain blocked. Main merge/production deployment and deployed
+verification remain **NOT RUN**, pending acceptance rather than a new approval.
+
+Evidence is retained under ignored `coordinated-ble-rps-20261012/`,
+`coordinated-rps-preload-20261012/`, `coordinated-rps-loaded-20261012/`,
+`coordinated-rps-final-20261012/` and four `coordinated-ble-rps-hil*` failed reports.
+The earlier304CC6F7 recovery/DMA passes below retain their own scope; their failed
+latency/endurance reports remain failed. Natural SPI cause/unclassified recovery,
+executing-handler cancellation, unattended reconnect and full task4 stay open.
+No persistent firmware Flash, signing/header change, settings write or FAE change.
+Owned handles and the hardware lease are released at the terminal checkpoint.
+
+
+## Coordinated demo follow-up — bounded recovery PASS, BLE latency FAILED (2026-10-12)
+
+The current source and protected RAM candidate are independent of the previous
+parent checkout. The starting branch was `ble` at
+`62483589670b1cadbd379a7b3e6ffd206a2e8844`; its three dirty documentation files
+were preserved. No local `.agents/skills` directory was found in the examined
+project ancestors. Runtime app status showed the previous local task idle, its
+terminal report confirmed closed handles, and elevated read-only process
+inspection found no competing serial/debug/HIL process. A host-only exclusive
+lease now coordinates access; an existing marker is a blocker, never something
+to remove or steal. The live owner checkpoint is in the ignored
+`coordinated-owner-progress.json` file.
+
+**Source change:** an automatically restored CLI CCCD can let an UNKNOWN event
+drain before a newly attached application observes it. A new host profile
+reproduced missing remote UNKNOWN while the firmware's pending flag reached 0;
+the failed report is retained. This does not prove the exact Windows/NCP timing.
+Firmware now repeats the same sequenced event once after fresh CLI input in
+that generation, holding that input through the event's terminal drain. The
+readiness epoch is published before RX queue admission can wake the CLI. The
+initial event remains proactive; already-present input needs no duplicate, and
+a later ordinary generation cannot resurrect an acknowledged event. This does
+not replay the interrupted command, its output, or a command completion marker.
+Binary firmware update retains its existing exclusion. Two static 32-bit epochs
+add 8 bytes; task, queue, response capacity, HTTP/TLS and SDK budgets are unchanged.
+
+**Image policy:** three pure CLI connects without image CCCD writes passed18
+PONG/final pairs and kept CLOUD. The host runner now leaves the ToF CCCD alone,
+retires the old CLI notification/client before NCP return, and retains causal
+UART collection between profiles. An actual image CCCD enable remains a BLE
+request under last-request-wins. There is no firmware route-policy change.
+
+Validation:45 native suites and5 feature modes for the changed unit pass; both
+ordinary and protected Non-Secure build/link/memory checks pass. A compiler TEMP
+failure and a host lease-read failure before hardware access are retained and
+corrected. The lease uses a separately readable JSON status because Windows byte
+locking also prevents reading the marker. The existing RWX LOAD warning remains.
+No Generate Code is required.
+
+Protected hook-free ELF SHA256:
+`304CC6F723881BD3E8DA50219858F6BBED317D15F394701B0368B239F136389D`;
+binary SHA256 `805489AEBD9F7DFDC0744E3D2E476B8B29AE1B48FDD8AC347839CF2E7BE822B3`.
+Binary492124 bytes, C heap374360, margin5720 above368640 minimum. It has
+`W61_CONFIG_PRESERVE=1`, settings/transition writesOFF and header9. Ordinary
+Debug ELF49E3F634... is config-preserveOFF and must not replace this guarded RAM
+candidate. Known protected fallback05FD9EFD... and primary ELF/bin/map copies
+are preserved in ignored `demo-ready-20261013/manifest.json`.
+
+### Actual partial DMA cancellation
+
+A temporary, explicitly host-armed SRAM-only copy suspended only SPI5 TX10/RX11
+after observing real DMA progress during BLE notification payload transmission.
+The unchanged SPI worker then entered its real abort/cleanup path. The temporary
+hook is absent from the final demo image and starts unarmed in each probe image.
+No shared GPDMA reset or payload/credential inspection was used.
+
+- Initial probe F576FC3B...:252 bytes,250 RX bytes still remaining at abort;
+  both channels disabled and both DMA handles plus SPI READY after abort.12 BLE
+  finals/11 USB pings and clean fresh-generation output pass. Actual new-client
+  UNKNOWN was not observed; this initial result does not prove notice reception.
+- Current-fix probe FEDAC2E8...:252 bytes,251 RX bytes remaining at abort,
+  TX had already advanced8 bytes. Both channels disabled and DMA/SPI READY.
+  Automatic AT_FENCED recovery16877ms,12 BLE finals/14 USB pings, actual sequence1
+  UNKNOWN observed, no old HELP banner. The same sequence may appear twice by
+  design, before and after first fresh input. No old command was replayed.
+
+Evidence: ignored `coordinated-dma-20261012/{initial-report.json,report.json,
+initial-build.json,build.json}` plus named scalar pre/post DMA registers and
+fresh immutable SRAM audits. The hook was disarmed and the hook-free304CC6F7...
+image restored through the supported SRAM loader before integrated acceptance.
+This is controlled partial-transfer cancellation, not natural SPI causality or
+executing-handler proof. The notice snapshot still has active_reply0/tx_slots4.
+
+### Three final integrated profiles
+
+All three profiles pass the bounded gate on the exact hook-free304CC6F7... image:
+
+| Profile | Radio/Wi-Fi recovery | BLE PONG/finals | USB pings | Cloud accepted frames before/return/final |
+|---|---:|---:|---:|---|
+| 1 | 19819ms | 13 | 9 | 515/526/558 |
+| 2 | 20533ms | 13 | 9 | 594/600/638 |
+| 3 | 20519ms | 13 | 14 | 678/685/716 |
+
+Every profile captures exactly one TEST_MISSING_RESPONSE START, genuine fence,
+Wi-Fi restoration and ready END. Attempts/ready0->3/3, failed0; no extra recovery
+between profiles.39 BLE finals/32 USB pings; maximum observed BLE314.06ms and
+USB308.75ms include host observation overhead. UNKNOWN precedes each new
+readiness PONG, even when profiles2/3 deliberately discard the proactive notice
+to model a late application observer. No old HELP banner or extra command final,
+no image CCCD writes, CLOUD route retained, advancing ToF and automatic Cloud
+return. Continuous USB/UART handles are retained between profiles and closed at
+the terminal result. Evidence: `coordinated-integrated-final-20261012/summary.json`
+and its three `profile-N/report.json` files. Earlier FAILED reports remain FAILED.
+
+### Sustained demo validation and remaining risks
+
+The strict combined one-hour profile **FAILED** on a completed BLE reply taking
+3193.5ms, above its declared1500ms functional bound;66 BLE finals/65 USB pings
+were observed before stopping. The LCD SPI4 DMA, ToF and Cloud counters advanced.
+A separate180.548s diagnostic profile also **FAILED** the same latency bound:
+180 BLE finals/179 USB pings, with slow replies2906.82/2543.51ms. Their GATT writes
+took45.17/50.17ms and the firmware PONG ticks were only201/193ms after the preceding
+USB PONG. TX admission contention peaked306 ThreadX ticks=3060ms, with no BLE
+drop/retry/error, Radio max gap23ms and Cloud worker maximum4501ms. The existing
+Cloud HTTP budget is4500ms. This supports output admission contention, but the
+specific AT owner at each slow reply was not captured; no speculative late
+network/protocol refactor or budget increase was made. These are completed
+commands, not a passed BLE latency gate.
+
+The distinct one-hour **wired USB/LCD/Cloud** profile also **FAILED**: last
+stored elapsed1186.5s,1401 USB PONGs/max313.68ms, then new Cloud request errors
+2->4 (drop3 unchanged). The declared strict gate stopped; this was not a completed
+hour or an accepted Cloud demonstration. Its failure report and final public
+snapshot are retained under `coordinated-wired-demo-soak-20261012/`.
+
+Before that sustained baseline, a natural SPI fault was found: count1, source1
+pre-HAL IRQ, RX overrun HAL_error4, len520, tick431538. Radio remained ready and
+NCP stayed3/3. It occurred outside the prior continuous observer window; an
+association with the intervening SRAM audit is unproven. Keep this captured fault
+and the older unclassified extra recovery. One more unclassified recovery was
+seen after an earlier old-reader reload outside its30s observer; current protected
+starts now retain90s UART coverage, without repeating that extra recovery so far.
+
+Fresh protected metadata after the three profiles still matches slot0/gen1/
+flags31/705/CRC72B6B9AF, writes/arm/busy/io0, loaded1/calls4. A final audit and
+handle/lease release follow sustained testing. Independent browser rendering is
+unavailable in this environment, and LCD DMA completion is not optical proof.
+Executing-handler cancellation, unattended Windows reconnect, natural fault
+root causes, full task4 latency/endurance and physical power-loss durability
+remain open. There was no persistent Flash/header/signing/pairing/settings
+mutation, Git push or deployment.
+
+See [the exact classroom start and protected fallback checklist](demo-start-20261013.md).
+
+## Active Cloud/BLE reply recovery campaign — overall FAILED (2026-10-12)
+
+Three bounded profiles each submitted exactly one genuine missing-response test
+while Cloud images were active and BLE HELP was accepted but not fully received.
+All three profiles retain FAILED verdicts; the narrower passing observations
+below do not promote them to whole-gate acceptance.
+
+- First profile: radio/Wi-Fi returned in17619ms, but image destination changed
+  CLOUD->BLE and fresh Cloud images did not return before the80s deadline.
+  USB38/38 passed, max306.58ms; ToF continued, SPI/allocation failures0.
+- Second profile explicitly read the BLE image CCCD0100 and toggled its image
+  subscription on/off to confirm0000 before the Cloud baseline. It still failed:
+  radio/Wi-Fi returned17984ms, then CLI subscription was off while image
+  subscription was on and destinationBLE. USB37/37 passed, max387.5ms.
+- Third profile also retired the old Windows GATT client immediately after fault
+  admission, before NCP reinitialization. Radio/Wi-Fi recovery16219ms, Cloud
+  accepted images7859->7869 and CLOUD destination returned without MAP ON.
+  Fresh BLE reconnect then found image CCCD0100; the harness explicitly cleared
+  it to0000, which itself requests BLE then releases it, leaving destinationNONE.
+  Its assertion that the final destination still be CLOUD failed. This is not
+  proof that a purely CLI-only reconnect changes the destination: the reconnect
+  cleanup performed actual image subscription changes. USB9/9 passed,
+  max307.67ms. Genuine-fence status3/fence1 was captured for all three probes.
+
+The third fresh BLE session received actual sequence5/old_generation13
+UNKNOWN/rx0/tx4/active0. Six new PONG/final pairs passed, with exactly six new
+complete markers and no old HELP banner; twelve total BLE ping finals passed in
+that profile. This proves interruption of queued reply transmission and a
+delivered new-generation notice; it does not prove the CLI handler was still
+executing. Replies are assembled before notification: remote accepted alone
+cannot prove `reply.active`. Total across the profiles:24 BLE ping finals and
+84 USB pings; no old command was replayed by the host.
+
+First baseline NCP attempts/ready1/1 became final5/5, failed0. Only three explicit
+fault submissions were made. The additional recovery occurred between the second
+and third captured baselines; its cause/terminal was not captured and stays
+UNCLASSIFIED. Request errors0->2/drop1 unchanged; SPI fault and radio allocation
+failure counters remained0. Do not erase these observations or infer an SPI
+electrical cause from them. Windows subscription restoration/GATT identity is a
+candidate explanation for the descriptor behavior, not a proven root cause.
+The existing last-request-wins policy treats an actual image CCCD enable as a
+new BLE destination request; no firmware defect/fix is established by this run.
+
+Fresh read-only immutable SRAM audits before/after match reader05FD9EFD...;
+managed record remains slot0/gen1/flags31/705/CRC72B6B9AF, writes/arm/busy/io0,
+loaded1/calls4. Final fence/drain/notify/recovery0, saved-reference Wi-Fi ready,
+Cloud still paired. No source edit/build/RAM load/MCU reset/Flash/credential
+mutation/re-pairing/deployment. All USB/UART/collector/BLE handles closed.
+Cloud MAP ON and `debug ping combined-final` completed in the retained IAB
+workspace after cleanup. Final Cloud status polling/paired/HTTP200/transport0/
+backoff0, accepted images8267/drop1/request errors2; rendered browser frame323844
+CRC B1C8D8E5. The measured4501ms cumulative worker maximum is not latency
+acceptance. Summary: combined-active-retired-host-20261012/terminal-summary.json;
+chat visualization screenshot: `combined-final-cloud.jpg`.
+
+Ignored evidence: combined-active-preflight-20261012 and combined-active-final-
+20261012/inspection.json; report.json and run_once.py in combined-active-
+20261012, combined-active-followup-20261012 and combined-active-retired-host-
+20261012. Physical in-flight DMA abort/cancellation, executing-handler recovery,
+unattended Windows reconnect, the unclassified extra recovery and fulltask4
+latency/endurance remain open. No fourth forced fault is warranted before
+isolating the host subscription restoration behavior.
+
+## Existing Cloud workspace restored and verified (2026-10-12)
+
+The Cloud authorization blocker is resolved for the current session. Read-only
+USB status confirmed the device remains paired to the existing workspace. Its
+matching downloaded workspace file had an empty device list. An ignored restored
+copy adds only the already-paired N6-MAINT-B8FB device; all other fields, including
+the existing signed token, remain identical and the original file is preserved.
+The user explicitly approved opening this copy at the existing Azure N6 site.
+Automated file opening first failed approval review, then after explicit approval
+failed the browser tool's workspace-root check. The user opened the copy manually
+in the in-app browser. No token value was displayed or included in evidence.
+
+The UI reports RELAY CONNECTED and the device became online after its existing
+30-second workspace-inactive backoff. `debug ping workspace-restored` returned
+PONG plus `[CLI-RESULT] state=complete`. Cloud `MAP ON` explicitly restored
+the CLOUD destination and also returned complete. The earlier attribution to
+USB DTR-close was not established: that policy releases only USB publication,
+not a selected Cloud route. Independent browser reception
+and rendering now show LIVE Depth 54x42 frames advancing: 306373/E849F8C9,
+306609/BF0BF812, 306686/21DAD22C and 306880/5718A143. These are displayed frame
+IDs/CRCs, not a throughput/endurance measurement.
+
+Cloud `cloud status` returned a matching completion: polling/paired, HTTP200,
+transport0/backoff0, frames6060->6190, dropped1 unchanged, request errors0.
+No re-pairing, token rotation, new workspace, firmware edit, build, reset, Flash,
+power interruption or deployment was needed. USB handles are closed; the user
+workspace remains open in the in-app browser. Ignored summary:
+`.local-dependencies/diagnostics/workspace-restore-20261012/summary.json`.
+Screenshot: the chat's visualization directory, `cloud-restored.jpg`.
+
+This closes only the workspace/Cloud prerequisite. Combined active BLE CLI/DMA
+fault injection and full task4 are still NOT RUN in this follow-up. Natural SPI
+causality, physical power-loss durability and latency/endurance gates stay open.
+Earlier blocked and failed checkpoints below retain their original outcomes.
+
 ## Combined-load preflight blocked on Cloud authorization (2026-10-12)
 
 The user approved the bounded sensor/Cloud/BLE CLI/DMA recovery test. No forced

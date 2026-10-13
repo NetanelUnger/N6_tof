@@ -10,6 +10,8 @@
 #include "bsp_conf.h"
 #include "cloud_relay.h"
 #include "tof_app.h"
+#include "rps_ai.h"
+#include "firmware_update.h"
 #include "debug_uart.h"
 #include "logging.h"
 #include "main.h"
@@ -51,6 +53,7 @@ extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
 #define BLE_RX_CHAR_INDEX       (0U)
 #define BLE_TX_CHAR_INDEX       (1U)
 #define BLE_TOF_IMAGE_CHAR_INDEX (2U)
+#define BLE_RPS_RESULT_CHAR_INDEX (2U)
 #define BLE_ADV_REQUEST_NONE    (2U)
 #define BLE_HEALTH_PROBE_INTERVAL_MS (15000U)
 #define BLE_CONNECTED_IDLE_MS       (5000U)
@@ -82,6 +85,7 @@ extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
 #define BLE_CLI_RX_UUID         "7a1e0002b5a3f393e0a9e50e24dcca9e"
 #define BLE_CLI_TX_UUID         "7a1e0003b5a3f393e0a9e50e24dcca9e"
 #define BLE_TOF_IMAGE_UUID      "7a1e0004b5a3f393e0a9e50e24dcca9e"
+#define BLE_RPS_RESULT_UUID     "7a1e0005b5a3f393e0a9e50e24dcca9e"
 #define BLE_DEBUG_SERVICE_UUID  "7a1e0101b5a3f393e0a9e50e24dcca9e"
 #define BLE_DEBUG_RX_UUID       "7a1e0102b5a3f393e0a9e50e24dcca9e"
 #define BLE_DEBUG_TX_UUID       "7a1e0103b5a3f393e0a9e50e24dcca9e"
@@ -96,7 +100,7 @@ extern TX_BYTE_POOL *MX_RadioBytePool_Get(void);
 _Static_assert(W6X_BLE_MAX_CREATED_SERVICE_NBR >= 2U,
                "BLE maintenance requires two custom services");
 _Static_assert(W6X_BLE_MAX_CHAR_NBR >= 3U,
-               "The CLI service requires RX, TX and ToF image characteristics");
+               "CLI and DEBUG each require three characteristics");
 _Static_assert(WIFI_BLE_RX_BUFFER_SIZE > W6X_BLE_MAX_NOTIF_IND_DATA_LENGTH,
                "BLE callback buffer must hold one maximum ATT value");
 
@@ -221,6 +225,12 @@ static const WifiBle_GattCharacteristic_t ble_characteristics[] =
   {
     BLE_DEBUG_SERVICE_INDEX, BLE_TX_CHAR_INDEX, BLE_DEBUG_TX_UUID,
     W6X_BLE_CHAR_PROP_NOTIFY, W6X_BLE_CHAR_PERM_READ, "DEBUG TX"
+  },
+  {
+    /* Append after all preexisting attributes. Keep old service starts and
+     * CLI/ToF/DEBUG handles stable for already connected Windows clients. */
+    BLE_DEBUG_SERVICE_INDEX, BLE_RPS_RESULT_CHAR_INDEX, BLE_RPS_RESULT_UUID,
+    W6X_BLE_CHAR_PROP_NOTIFY, W6X_BLE_CHAR_PERM_READ, "NPU RPS result TX"
   }
 };
 #endif
@@ -284,6 +294,7 @@ typedef struct
     volatile uint32_t ble_cli_tx_subscribed;
     volatile uint32_t ble_debug_tx_subscribed;
     volatile uint32_t ble_tof_image_subscribed;
+    volatile uint32_t ble_rps_subscribed;
     volatile uint32_t ble_session_generation;
     volatile uint32_t ble_transport_ready;
     volatile uint32_t ble_init_stage;
@@ -365,6 +376,11 @@ static WifiBle_RadioManagerContext_t radio_manager =
  * 0 idle, 1 requested, 2 owner restarting, 3 failed/exhausted (fail closed). */
 static volatile WifiBle_RecoveryStatus_t radio_recovery;
 static volatile WifiBle_RecoveryNotice_t ble_recovery_notice;
+/* A restored CCCD can precede the remote application's receive handler.
+ * Repeat the same event once after fresh CLI input proves that application
+ * is active. These epochs never replay an interrupted command or its output. */
+static volatile uint32_t ble_recovery_input_generation;
+static volatile uint32_t ble_recovery_delivery_generation;
 static uint32_t recovery_window_started, recovery_window_attempts;
 static uint32_t recovery_invalid_request_id;
 static volatile uint32_t recovery_fault_test;
@@ -698,7 +714,7 @@ void WIFI_BLE_App_Run(void)
                           &saved_desired) == APP_SETTINGS_OK)
   {
     memcpy(wifi_desired_ssid, saved_options.SSID, sizeof(wifi_desired_ssid));
-    wifi_connection_desired = saved_desired;
+    wifi_connection_desired = APP_DEMO_BLE_ONLY ? 0U : saved_desired;
     wifi_credentials_saved = wifi_unified_settings = 1U;
   }
   AppSettings_Scrub(&saved_options, sizeof(saved_options));
@@ -865,7 +881,20 @@ UINT WIFI_BLE_App_SendRecoveryNotice(void)
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   WifiBle_RecoveryNotice_t notice;
   WIFI_BLE_App_GetRecoveryNotice(&notice);
-  if (!notice.pending) return TX_SUCCESS;
+  if (!notice.pending)
+  {
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    uint32_t generation = radio_manager.shadow.ble_session_generation;
+    if (notice.sequence && notice.notification_generation == generation &&
+        ble_recovery_input_generation == generation &&
+        ble_recovery_delivery_generation != generation)
+    {
+      ble_recovery_notice.pending = 1U;
+      notice.pending = 1U;
+    }
+    (void)tx_interrupt_control(posture);
+    if (!notice.pending) return TX_SUCCESS;
+  }
   WifiBle_StreamContext_t *ctx = radio_manager.queues.ble_stream_context;
   if (notice.pending == 2U && notice.notification_generation ==
       radio_manager.shadow.ble_session_generation)
@@ -874,7 +903,13 @@ UINT WIFI_BLE_App_SendRecoveryNotice(void)
     uint32_t drained = ctx && !ctx->stats[WIFI_BLE_STREAM_CLI].tx_queued &&
         !ctx->active_tx[WIFI_BLE_STREAM_CLI] && !ctx->reply.active;
     if (drained && notice.sequence == ble_recovery_notice.sequence)
-      ble_recovery_notice.pending = 0U;
+    {
+      uint32_t generation = radio_manager.shadow.ble_session_generation;
+      uint32_t repeat = ble_recovery_input_generation == generation &&
+          ble_recovery_delivery_generation != generation;
+      ble_recovery_notice.pending = repeat ? 1U : 0U;
+      if (repeat) drained = 0U; /* keep the new command queued for this event */
+    }
     (void)tx_interrupt_control(posture);
     return drained ? TX_SUCCESS : TX_NOT_AVAILABLE;
   }
@@ -899,6 +934,8 @@ UINT WIFI_BLE_App_SendRecoveryNotice(void)
   {
     ble_recovery_notice.pending = 2U;
     ble_recovery_notice.notification_generation = target_generation;
+    if (ble_recovery_input_generation == target_generation)
+      ble_recovery_delivery_generation = target_generation;
   }
   (void)tx_interrupt_control(posture);
   return TX_NOT_AVAILABLE; /* new input waits for the actual TX terminal */
@@ -951,6 +988,7 @@ static void radio_recovery_pump(void)
     WifiBle_StreamContext_t *streams = radio_manager.queues.ble_stream_context;
     ++ble_recovery_notice.sequence;
     ble_recovery_notice.pending = 1U;
+    ble_recovery_input_generation = ble_recovery_delivery_generation = 0U;
     ble_recovery_notice.generation = radio_manager.shadow.ble_session_generation;
     ble_recovery_notice.rx_slots = streams ? streams->stats[WIFI_BLE_STREAM_CLI].rx_queued : 0U;
     ble_recovery_notice.tx_slots = streams ? streams->stats[WIFI_BLE_STREAM_CLI].tx_queued : 0U;
@@ -959,6 +997,7 @@ static void radio_recovery_pump(void)
     radio_manager.shadow.ble_cli_tx_subscribed = 0U;
     radio_manager.shadow.ble_debug_tx_subscribed = 0U;
     radio_manager.shadow.ble_tof_image_subscribed = 0U;
+    radio_manager.shadow.ble_rps_subscribed = 0U;
     radio_manager.shadow.ble_transport_ready = 0U;
     radio_manager.shadow.ble_connection_handle = 0xFFU;
     radio_manager.shadow.ble_mtu = 23U;
@@ -3206,6 +3245,7 @@ static void ble_event_callback(W6X_event_id_t event_id, void *event_args)
       radio_manager.work.ble_link_mismatch_count = 0U;
       radio_manager.work.ble_mode_mismatch_count = 0U;
       radio_manager.shadow.ble_connected = 1U;
+      radio_manager.shadow.ble_rps_subscribed = 0U;
       radio_manager.shadow.ble_advertising = 0U;
       radio_manager.shadow.ble_advertising_evidence = WIFI_BLE_ADV_CONNECTION_EVENT;
       radio_manager.shadow.ble_mode_confirmed = 1U;
@@ -3244,6 +3284,11 @@ static void ble_event_callback(W6X_event_id_t event_id, void *event_args)
         radio_manager.shadow.ble_tof_image_subscribed = enabled;
         if (enabled != 0U) TOF_App_RequestStream(TOF_STREAM_BLE);
         else TOF_App_ReleaseStream(TOF_STREAM_BLE);
+      }
+      else if ((event->service_idx == BLE_DEBUG_SERVICE_INDEX) &&
+               (event->charac_idx == BLE_RPS_RESULT_CHAR_INDEX))
+      {
+        radio_manager.shadow.ble_rps_subscribed = enabled;
       }
     }
   }
@@ -3305,6 +3350,7 @@ static void ble_note_disconnected(void)
   radio_manager.shadow.ble_cli_tx_subscribed = 0U;
   radio_manager.shadow.ble_debug_tx_subscribed = 0U;
   radio_manager.shadow.ble_tof_image_subscribed = 0U;
+    radio_manager.shadow.ble_rps_subscribed = 0U;
   TOF_App_ReleaseStream(TOF_STREAM_BLE);
   radio_manager.shadow.ble_mtu = 23U;
   radio_manager.work.ble_restart_advertising_pending = 1U;
@@ -3470,9 +3516,14 @@ static void ble_stream_enqueue_rx(WifiBle_Stream_t stream,
     return;
   }
 
-  slot->generation = radio_manager.shadow.ble_session_generation;
+  uint32_t generation = radio_manager.shadow.ble_session_generation;
+  slot->generation = generation;
   slot->length = (uint16_t)length;
   (void)memcpy(slot->data, data, length);
+  /* Publish readiness before the queue wakes the CLI consumer. Even a full
+   * queue is valid fresh application activity, but cannot execute the input. */
+  if (stream == WIFI_BLE_STREAM_CLI)
+    ble_recovery_input_generation = generation;
   if (tx_queue_send(ready_queue, &slot, TX_NO_WAIT) != TX_SUCCESS)
   {
     (void)tx_queue_send(free_queue, &slot, TX_NO_WAIT);
@@ -3612,10 +3663,11 @@ static void ble_notify_retire_stale(void)
   if (source == 0U) return;
   uint32_t subscribed = (source == 1U) ? radio_manager.shadow.ble_cli_tx_subscribed :
       (source == 2U) ? radio_manager.shadow.ble_debug_tx_subscribed :
+      (source == 5U) ? radio_manager.shadow.ble_rps_subscribed :
       radio_manager.shadow.ble_tof_image_subscribed;
   if ((source != 4U) && ((radio_manager.shadow.ble_connected == 0U) ||
       (radio_manager.work.notify_generation != radio_manager.shadow.ble_session_generation) ||
-      (subscribed == 0U) || ((source == 3U) &&
+      (subscribed == 0U) || ((source == 5U) && Firmware_Update_IsActive()) || ((source == 3U) &&
        (TOF_App_GetStreamDestination() != TOF_STREAM_BLE))))
   {
     /* Cancel before old slots are returned. A fully queued payload retains
@@ -4457,6 +4509,85 @@ static W6X_Status_t ble_configure_gatt_server(void)
   return status;
 }
 
+/* Radio-owned latest-result slot. No queue, dynamic allocation or image copy.
+ * Once any fragment is admitted its identity is pinned through terminal drain.
+ * The fixed-width age footer stays together even with the minimum ATT payload. */
+static struct {
+  char line[192];
+  uint32_t generation, sample_tick, due;
+  uint16_t length, offset;
+} ble_rps;
+
+static uint16_t ble_rps_format(char *line, uint32_t capacity,
+                               const RPS_AI_Status_t *s, uint32_t generation,
+                               uint32_t now)
+{
+  uint32_t age = now - s->last_result_tick;
+  uint32_t valid = s->enabled && s->ready && s->runs && !s->last_error &&
+                   s->class_id < RPS_AI_CLASS_COUNT && age < 2000U;
+  int n = snprintf(line, capacity,
+      "{\"v\":1,\"g\":%lu,\"f\":%lu,\"r\":%lu,\"ok\":%lu,\"c\":\"%s\",\"p\":%u,"
+      "\"q\":[%d,%d,%d,%d],\"npu\":1,\"a\":\"%010lu\"}\n",
+      (unsigned long)generation, (unsigned long)s->last_frame,
+      (unsigned long)s->runs, (unsigned long)valid,
+      valid ? RPS_AI_ClassName(s->class_id) : "unknown",
+      valid ? s->confidence_per_mille : 0U,
+      s->scores[0], s->scores[1], s->scores[2], s->scores[3],
+      (unsigned long)age);
+  return (n > 0 && (uint32_t)n < capacity) ? (uint16_t)n : 0U;
+}
+
+static void ble_rps_process_tx(void)
+{
+  uint32_t now = HAL_GetTick();
+  uint32_t generation = radio_manager.shadow.ble_session_generation;
+  if (!radio_manager.shadow.ble_connected || !radio_manager.shadow.ble_rps_subscribed ||
+      Firmware_Update_IsActive() || ble_rps.generation != generation)
+  {
+    /* Retire_stale has already cancelled any old borrowed transaction. */
+    if (radio_manager.work.notify_source == 5U) return;
+    ble_rps.length = ble_rps.offset = 0U;
+    ble_rps.due = 0U;
+    ble_rps.generation = generation;
+    if (!radio_manager.shadow.ble_connected || !radio_manager.shadow.ble_rps_subscribed ||
+        Firmware_Update_IsActive()) return;
+  }
+  if (!ble_rps.length || (!ble_rps.offset && radio_manager.work.notify_source != 5U))
+  {
+    if (!ble_rps.length && ble_rps.due && (int32_t)(now - ble_rps.due) < 0) return;
+    RPS_AI_Status_t status;
+    RPS_AI_GetStatus(&status);
+    ble_rps.length = ble_rps_format(ble_rps.line, sizeof(ble_rps.line), &status, generation, now);
+    ble_rps.sample_tick = status.last_result_tick;
+    if (!ble_rps.length) return;
+  }
+  /* Keep the age accurate until the final footer is copied by the bus. It
+   * cannot change the announced length, earlier fragments, or result scores. */
+  uint32_t footer = ble_rps.length - 19U;
+  if (ble_rps.offset <= footer)
+  {
+    char age[11];
+    (void)snprintf(age, sizeof(age), "%010lu", (unsigned long)(now - ble_rps.sample_tick));
+    memcpy(&ble_rps.line[ble_rps.length - 13U], age, 10U);
+  }
+  uint32_t fragment = ble_rps.length - ble_rps.offset;
+  uint32_t payload = ble_att_payload_size();
+  if (fragment > payload) fragment = payload;
+  if (ble_rps.offset < footer && ble_rps.offset + fragment > footer &&
+      ble_rps.offset + fragment < ble_rps.length) fragment = footer - ble_rps.offset;
+  uint32_t sent;
+  W6X_Status_t result = ble_notify_fragment(5U, BLE_DEBUG_SERVICE_INDEX,
+      BLE_RPS_RESULT_CHAR_INDEX, &ble_rps.line[ble_rps.offset], fragment, &sent);
+  if (result == W6X_STATUS_BUSY) return;
+  if (result == W6X_STATUS_OK && sent == fragment) ble_rps.offset += (uint16_t)sent;
+  else ble_rps.offset = ble_rps.length; /* Receiver times out a partial line. */
+  if (ble_rps.offset == ble_rps.length)
+  {
+    ble_rps.length = ble_rps.offset = 0U;
+    ble_rps.due = HAL_GetTick() + 500U;
+  }
+}
+
 static void ble_process_pending_events(void)
 {
   ble_notify_retire_stale();
@@ -4493,6 +4624,7 @@ static void ble_process_pending_events(void)
    * monopolizing CLI/XMODEM while keeping every W6X send in this owner thread. */
   ble_stream_process_tx(WIFI_BLE_STREAM_CLI);
   ble_stream_process_tx(WIFI_BLE_STREAM_DEBUG);
+  ble_rps_process_tx();
   ble_tof_image_process_tx();
   ble_probe_shadow(HAL_GetTick());
 }
@@ -4743,6 +4875,7 @@ static void ble_apply_probe(const BleControlJob_t *job)
           radio_manager.shadow.ble_cli_tx_subscribed = 0U;
           radio_manager.shadow.ble_debug_tx_subscribed = 0U;
           radio_manager.shadow.ble_tof_image_subscribed = 0U;
+    radio_manager.shadow.ble_rps_subscribed = 0U;
           radio_manager.work.ble_stream_flush_pending = 1U;
           radio_manager.work.ble_connect_pending = 1U;
         }

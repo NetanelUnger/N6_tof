@@ -53,6 +53,7 @@ typedef enum
  * A logical frame is split across self-describing BLE notifications; the
  * receiver must validate the complete payload CRC before displaying it. */
 #define WIFI_BLE_TOF_IMAGE_UUID             "7a1e0004-b5a3-f393-e0a9-e50e24dcca9e"
+#define WIFI_BLE_RPS_RESULT_UUID            "7a1e0005-b5a3-f393-e0a9-e50e24dcca9e"
 #define WIFI_BLE_TOF_FRAGMENT_MAGIC         (0x364EU) /* bytes "N6" */
 #define WIFI_BLE_TOF_FRAGMENT_VERSION       (1U)
 #define WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE   (20U)

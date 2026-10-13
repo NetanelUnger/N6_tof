@@ -35,6 +35,7 @@ typedef struct
   uint32_t runs;
   uint32_t errors;
   uint32_t inference_ms;
+  uint32_t last_result_tick;
   int32_t last_error;
   uint16_t confidence_per_mille;
   uint8_t class_id;

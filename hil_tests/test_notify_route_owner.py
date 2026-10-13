@@ -14,8 +14,10 @@ enum {W6X_STATUS_OK,W6X_STATUS_BUSY,W6X_STATUS_ERROR};
 #define TOF_STREAM_BLE 2U
 #define APP_ST67W6X_WIFI_SERVICES_ENABLED 1U
 static struct {struct {unsigned ble_mtu,ble_connection_handle,ble_session_generation,
- ble_connected,ble_cli_tx_subscribed,ble_debug_tx_subscribed,ble_tof_image_subscribed;} shadow;
+ ble_connected,ble_cli_tx_subscribed,ble_debug_tx_subscribed,ble_tof_image_subscribed,ble_rps_subscribed;} shadow;
  struct {unsigned notify_source,notify_generation,notify_length,wifi_connect_call_active;} work;} radio_manager;
+static unsigned update_active;
+static unsigned Firmware_Update_IsActive(void){return update_active;}
 static unsigned route=TOF_STREAM_BLE,begin_calls,poll_calls,cancel_calls,pending=1,sent_length;
 static unsigned TOF_App_GetStreamDestination(void) {return route;}
 static unsigned W6X_Ble_ServerNotifyBegin(unsigned conn,unsigned service,unsigned characteristic,unsigned length,unsigned timeout) {
@@ -62,6 +64,16 @@ int main(void) {
  route=1;ble_notify_retire_stale();assert(cancel_calls==2 && radio_manager.work.notify_source==4);
  pending=0;ble_notify_retire_stale();assert(!radio_manager.work.notify_source);
  puts("PASS last-request-wins image handover cancels old result without another image buffer");
+ radio_manager.shadow.ble_rps_subscribed=1;pending=1;
+ assert(ble_notify_fragment(5,0,3,packet,20,&sent)==W6X_STATUS_BUSY);
+ route=0;ble_notify_retire_stale();assert(radio_manager.work.notify_source==5 && cancel_calls==2);
+ radio_manager.shadow.ble_rps_subscribed=0;ble_notify_retire_stale();assert(cancel_calls==3 && radio_manager.work.notify_source==4);
+ pending=0;ble_notify_retire_stale();assert(!radio_manager.work.notify_source);
+ radio_manager.shadow.ble_rps_subscribed=1;pending=1;
+ assert(ble_notify_fragment(5,0,3,packet,20,&sent)==W6X_STATUS_BUSY);
+ update_active=1;ble_notify_retire_stale();assert(cancel_calls==4 && radio_manager.work.notify_source==4);
+ pending=0;ble_notify_retire_stale();assert(!radio_manager.work.notify_source);
+ puts("PASS separate RPS owner survives image handover; unsubscribe/update cancels and drains before reuse");
  return 0;
 }
 '''

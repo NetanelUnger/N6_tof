@@ -1,5 +1,91 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+> Morning BLE-only readiness: corrected3600.546s supervised soak PASS6920 actual
+> NPU results/3673 CRC images/5971 CLI finals, max219.73ms; receive gaps
+> NPU0.570s/image1.023s, errors0. Final protected5689348E.../saved store audit PASS;
+> all hardware handles/lease released. First hour's host-gap failure is retained.
+> Same Azure MAIN18cff... remains live. [Morning checklist](docs/demo-start-20261013.md).
+> Keep the board powered: the RAM demo does not survive power loss. Independent
+> production browser E2E remains NOT RUN; hour acceptance does not cover overnight/fulltask4.
+
+> Current checkpoint: three actual BLE-only NPU/image runs PASS297 CLI finals,
+> max189.49ms,388 model results/187 CRC images. Protected RAM5689348E...,
+> no Windows PAIR, saved settings/pairing preserved.600.483s soak PASS1171 NPU/
+> 615 CRC images/976 CLI finals/max165.36ms. Final immutable/store audit PASS;
+> hardware handles/lease released. This is bounded BLE-only acceptance, not fulltask4.
+> N6 website MAIN18cff111... merged with human authorization and Azure deploy
+> SUCCESS Actions38303887605. Production routes/health/static bytes verified.
+> [Open production terminal](https://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net/terminal).
+> Earlier paused/discovery/deployment checkpoints below are historical.
+
+> User-observed browser NPU receipt: scissors98.8%, frame20615/inference8943,
+> separate from the displayed image; sustained/alignment acceptance still pending.
+> NEVER PAIR this N6 BLE device in Windows. Use browser chooser/GATT connect and
+> pair=False clients; preserve Cloud pairing. The user owns the live session:
+> no hardware access until parent confirms explicit browser disconnect.
+
+
+> Resumed checkpoint: live protected BLE-only RAM5689348E...; NPU UUID0005
+> appended to DEBUG service0101/index2. Existing-channel120.388s observation
+> PASS188 BLE finals/123 CRC images/max131.81ms; physical new Notify still
+> BLOCKED. Tested Chrome preview http://127.0.0.1:4173/terminal awaits manual
+> selection, all hardware handles/lease released. Website draft PR1 latest
+> SHA0b30c802... CI PASS; production untouched.
+
+
+> Latest demo checkpoint: BLE-only protected RAM7CAB8F5A..., real NPU result
+> Notify implemented but physical discovery/browser acceptance BLOCKED; BLE latency
+> gate FAILED1515.03ms. Website draft PR1 CI passed, production not deployed.
+> See [current evidence](docs/radio-coordinated-recovery.md) and
+> [Hebrew start checklist](docs/demo-start-20261013.md).
+
+
+Classroom follow-up (2026-10-12): protected hook-free RAM304CC6F7... includes
+bounded same-sequence UNKNOWN repetition after first fresh CLI input.45 native
+suites/5 feature modes/default+protected builds pass. Three bounded integrated
+recoveries PASS19819/20533/20519ms,39 BLE finals/32 USB pings, ToF and automatic
+CLOUD return, with no image CCCD writes or extra recovery. A separate real
+252-byte partial SPI5 DMA abort on the current-fix probe passes cleanup, actual
+UNKNOWN and clean subsequent replies; that temporary hook is absent from live
+RAM. Strict BLE latency soak FAILED on3193.5ms and diagnostic2906/2543ms replies;
+the1500ms gate is not accepted. The wired USB/LCD/Cloud hour profile FAILED on new Cloud request errors.
+One natural RX overrun and unclassified earlier extra recoveries remain evidence.
+Saved gen1/705/CRC72B6B9AF and pairing are unchanged, writesOFF/config-preserve1;
+no Flash/signing/header/credential/pair/push/deployment change. Normal Debug is
+config-preserveOFF and must not substitute for guarded RAM. See the
+[current recovery evidence](docs/radio-coordinated-recovery.md) and
+[exact demo start / protected fallback checklist](docs/demo-start-20261013.md).
+Older FAILED checkpoints below keep their original outcomes.
+
+Active Cloud/BLE recovery campaign (2026-10-12): three bounded profiles FAILED
+their full Cloud/reconnect route gates. Genuine radio/Wi-Fi recoveries passed
+17619/17984/16219ms;84 USB pings/24 BLE ping finals and ToF continuity observed.
+Retiring the old Windows GATT client before NCP return restored Cloud images
+automatically; fresh reconnect then found image CCCD0100, and explicitly clearing
+that subscription changed the last-request-wins destination toNONE. Delivered
+sequence5 UNKNOWN/tx4/active0 and six clean new finals prove queued-reply
+interruption, not an executing CLI handler or physical DMA cancellation. NCP
+attempts1->5 includes one additional unclassified recovery; request errors0->2,
+drop1 unchanged/SPI and allocation failures0. Fresh exact reader/store metadata
+remain unchanged/writes0; no firmware edits/load/reset/Flash/credentials/deploy.
+All hardware handles closed; Cloud MAP ON is restored in the retained browser.
+Fulltask4, physical DMA cancellation and unattended reconnect remain open.
+See [current results and exact limits](docs/radio-coordinated-recovery.md).
+
+Existing Cloud workspace restored (2026-10-12): the matching local file had an
+empty device list. User-approved restored copy adds only the already-paired
+N6-MAINT-B8FB and preserves the original file/token; the user opened it in the
+in-app browser after automated file opening hit a workspace-root limitation.
+RELAY CONNECTED/online, Cloud ping PONG+complete, MAP ON complete and independently
+rendered LIVE Depth54x42 frames/CRCs advancing now pass. Cloud status completes:
+polling/paired/HTTP200/transport0/backoff0, uploads6060->6190, dropped1 unchanged,
+request errors0. Cloud MAP ON restored publication; USB DTR-close releases only
+USB and is not proven to have stopped this Cloud route. No new pairing/workspace/credential rotation or firmware
+edit/build/reset/Flash/deployment. Keep this existing workspace open. The Cloud
+prerequisite is resolved; combined BLE CLI/DMA fault and fulltask4 remain NOT RUN.
+See [current evidence and limits](docs/radio-coordinated-recovery.md).
+The blocked preflight below is an earlier checkpoint.
+
 Combined-load preflight blocked (2026-10-12): protected reader05FD... and saved
 gen1/705/CRC72B6B9AF remain healthy/read-only, but paired Cloud returns403 and
 uploads stopped6060. One existing-pair runtime reconnect did not restore service.

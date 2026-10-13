@@ -844,6 +844,8 @@ int RPS_AI_ProcessDepth(const float *depth, uint8_t width, uint8_t height,
 
   int8_t *scores = (int8_t *)rps_output;
   uint8_t best = 0U;
+  uint32_t posture = __get_PRIMASK();
+  __disable_irq();
   for (uint32_t index = 0U; index < RPS_AI_CLASS_COUNT; ++index)
   {
     rps_status.scores[index] = scores[index];
@@ -852,8 +854,10 @@ int RPS_AI_ProcessDepth(const float *depth, uint8_t width, uint8_t height,
   rps_status.class_id = best;
   rps_status.confidence_per_mille = RPS_AI_ScorePerMille(scores[best]);
   rps_status.last_frame = frame_id;
+  rps_status.last_result_tick = HAL_GetTick();
   rps_status.last_error = STAI_SUCCESS;
   ++rps_status.runs;
+  __set_PRIMASK(posture);
   return 0;
 #else
   (void)depth;
@@ -874,7 +878,10 @@ void RPS_AI_GetStatus(RPS_AI_Status_t *status)
 {
   if (status != NULL)
   {
+    uint32_t posture = __get_PRIMASK();
+    __disable_irq();
     *status = rps_status;
+    __set_PRIMASK(posture);
   }
 }
 

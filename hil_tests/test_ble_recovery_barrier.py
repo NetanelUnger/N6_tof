@@ -22,6 +22,7 @@ typedef unsigned UINT, W6X_event_id_t;
 #define BLE_RX_CHAR_INDEX 0U
 #define BLE_TX_CHAR_INDEX 1U
 #define BLE_TOF_IMAGE_CHAR_INDEX 2U
+#define BLE_RPS_RESULT_CHAR_INDEX 2U
 #define BLE_DEBUG_RX_POLICY_ENABLED 0U
 #define WIFI_BLE_STREAM_CLI 0U
 #define WIFI_BLE_STREAM_DEBUG 1U
@@ -84,6 +85,13 @@ int main(void){
  assert(route_requests==1 && radio_manager.shadow.ble_tof_image_subscribed);
  ble_event_callback(W6X_BLE_EVT_NOTIFICATION_STATUS_DISABLED_ID,&event);
  assert(route_releases==1 && !radio_manager.shadow.ble_tof_image_subscribed);
+ event.service_idx=BLE_DEBUG_SERVICE_INDEX;event.charac_idx=BLE_RPS_RESULT_CHAR_INDEX;
+ ble_event_callback(W6X_BLE_EVT_NOTIFICATION_STATUS_ENABLED_ID,&event);
+ assert(radio_manager.shadow.ble_rps_subscribed && !radio_manager.shadow.ble_tof_image_subscribed);
+ assert(route_requests==1 && route_releases==1);
+ ble_event_callback(W6X_BLE_EVT_NOTIFICATION_STATUS_DISABLED_ID,&event);
+ assert(!radio_manager.shadow.ble_rps_subscribed && route_requests==1 && route_releases==1);
+ puts("PASS appended DEBUG RPS subscription never changes image destination");
  puts("PASS completed recovery restores normal input and last-request-wins image subscription behavior");
  reset(3,3);ble_event_callback(W6X_BLE_EVT_WRITE_ID,NULL);
  assert(!radio_manager.counters.ble_rx_write_events && !irq);

@@ -27,6 +27,12 @@
 #define APP_ST67W6X_WIFI_SERVICES_ENABLED (1U)
 #endif
 
+/* Protected RAM demo profile: load saved settings read-only, but do not
+ * restore the station connection intent. No configuration/credential setter. */
+#ifndef APP_DEMO_BLE_ONLY
+#define APP_DEMO_BLE_ONLY (0U)
+#endif
+
 /* Outbound Cloud Relay CLI and independent ToF upload path. */
 #ifndef APP_ST67W6X_CLOUD_RELAY_ENABLED
 #define APP_ST67W6X_CLOUD_RELAY_ENABLED (1U)

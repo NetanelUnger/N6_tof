@@ -4,7 +4,44 @@ This file contains the dated engineering record extracted from `README.md`.
 Do not load it during normal project work; consult it only when a task
 explicitly requires historical context.
 
+## 2026-10-12 — Corrected supervised one-hour BLE-only demo acceptance
+
+- One-hour nonblocking host soak PASS3600.545552s:6920 actual NPU/3673 CRC images/
+  5971 finals; CLI p50/p95/p99/max93.40/111.79/126.39/219.73ms. Receive gaps
+  NPU0.570112s/image1.023138s, errors0, NCP/SPI0, WiFi/Cloud inactive.
+- Earlier hour raw CLI/CRC gates passed but continuity NOT_ACCEPTED4.79/5.18s.
+  Host full-report synchronous I/O and queued callbacks exposed weak watchdog;
+  dedicated status writer/direct gap checks/exact interval implemented.120.624s
+  focused4.503s writer-delay probe PASS. No firmware or deployment changes.
+- Final immutable5689348E.../gen1/31/705/CRC72B6B9AF/writes0/calls4 preserved;
+  handles/lease released. Morning checklist warns RAM is lost on power loss.
+  Production content/health verified; independent browser E2E remains NOT RUN.
+
+## 2026-10-12 — Actual BLE-only NPU/image acceptance and N6 Azure deployment
+
+- Three nonbonded reconnect cycles PASS:297 CLI finals/max189.49ms,388 actual NPU
+  results,187 CRC images. Corrected host600.483s soak PASS1171 NPU/615 images/
+  976 finals/max165.36ms/errors0; initial premature-image assertion retained.
+- Exact protected RAM5689348E... and final immutable/storegen1/705/CRC72B6B9AF
+  unchanged, writes0; WiFiIP0/CloudHTTP0/pairing preserved. Handles/lease released.
+- Human-authorized website PR1 merged MAIN18cff111...; Actions38303887605 build
+  and Azure deploy PASS. Public routes/health200 and static SHA exactlocal match.
+  Earlier latency/Cloud/fulltask4/long-endurance failures remain open.
+
 ### 2026-10-12
+
+- BLE-only protected RAM adds separate real NPU result Notify and bounded freshness/frame protocol. 46 native/5 feature builds and16 web regressions pass; physical new GATT/browser acceptance blocked, cached-image latency failed1515.03ms. N6 website draft PR1 CI passed; no production/Flash/settings changes.
+
+- Protected RAM classroom follow-up: repeat the same UNKNOWN event once after
+  fresh CLI input and hold it through TX drain; preserve image CCCDs/last-request-
+  wins and all original capacities/budgets.45 native/5 feature modes and NS
+  builds pass; hook-free304CC6F7.../492124 bytes/heap374360. Three bounded
+  recoveries PASS19819/20533/20519ms,39 BLE finals/32 USB pings. Current-fix
+  physical partial-DMA probe passes cleanup and actual UNKNOWN; hook removed.
+  Strict BLE latency profiles remain FAILED (3193/2906/2543ms); wired demo hour
+  RUNNING. Preserve natural RX OVR and unclassified recovery evidence. Protected
+  primary/fallback and demo-start checklist saved; settings/pairing unchanged,
+  no Flash/signing/header/push/deployment. See current recovery documentation.
 
 - Combined-load preflight blocked on paired Cloud HTTP403/stopped uploads6060;
   one existing-pair reconnect did not recover. Protected reader/settings unchanged.
