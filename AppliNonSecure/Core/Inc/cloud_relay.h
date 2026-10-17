@@ -1,6 +1,8 @@
 #ifndef CLOUD_RELAY_H
 #define CLOUD_RELAY_H
 
+#include "tof_image_codec.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -109,9 +111,11 @@ UINT CloudRelay_TryWriteOutput(const void *data, size_t length,
                                uint32_t binary);
 UINT CloudRelay_CompleteCommand(void);
 
+/* Borrow the single writable float snapshot; the Cloud worker encodes in place.
+ * Caller must retain it until IsTofFramePending is false. Metadata is copied. */
 UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
-                               const uint8_t *payload, uint8_t width,
-                               uint8_t height, uint32_t payload_crc32);
+                               uint8_t *payload, uint8_t width,
+                               uint8_t height, const TofImageInfo *info);
 uint32_t CloudRelay_IsTofFramePending(uint32_t frame_id);
 
 #endif /* CLOUD_RELAY_H */

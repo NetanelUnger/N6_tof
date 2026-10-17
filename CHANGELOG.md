@@ -1,5 +1,32 @@
 # Project change history
 
+## 2026-10-17 - Frame-bound NPU result and compression HELP
+
+- Capture the matching inference with each wireless image; v3/56-byte header carries state, class, score, frame/run IDs and inference duration under CRC.
+- Preserve the fast standalone NPU channel and USB MAP format; add all compression choices to HELP.
+- Browser/relay accept v1/v2/v3 and display attached NPU separately from live results. Native/browser/local relay tests and builds pass; new hardware/deployment acceptance not yet run.
+
+
+## 2026-10-17 - Production browser wireless codec validation
+
+- Verified live RAW, UINT16, UINT8 and JPEG on Chrome through BLE and through physical Wi-Fi/Azure; advancing frames and CRC-validated rendering.
+- Renewed Cloud pairing under explicit user authorization, then restored read-only guarded RAM and confirmed automatic reconnect; no firmware NOR update.
+- Final Cloud count 231 sent, zero dropped/request errors; restored RAW. Normal local build passes with heap369640; hardware lease released. See docs/wireless-image-codec.md for bounded-test evidence.
+
+
+## 2026-10-17 - Experimental depth JPEG
+
+- Added CLI JPEG mode, bounded software grayscale encoder and lossless validity mask.
+- Browser/Cloud mode 4 decoding and synthetic native/browser/relay verification.
+- USB MAP unchanged; hardware acceptance recorded in docs/wireless-image-codec.md.
+
+## 2026-10-16 - Wireless image codec v2
+
+- Added task-owned in-place RAW/UINT16/UINT8 encoding, CRC-protected metadata, and MAP ENCODING CLI selection. USB MAP unchanged.
+- Browser and Cloud relay decode v2 and retain v1 support; actual-C cross-language and local relay tests added.
+- See docs/wireless-image-codec.md for format, sizes, and verification limits.
+
+
 This file contains the dated engineering record extracted from `README.md`.
 Do not load it during normal project work; consult it only when a task
 explicitly requires historical context.

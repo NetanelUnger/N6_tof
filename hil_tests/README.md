@@ -1,5 +1,12 @@
 # N6 Hardware-in-the-Loop tests
 
+Wireless image codec v2: `test_tof_image_codec.py` checks the production C
+encoder without hardware. `run_image_codec.py` is a bounded actual BLE test for
+RAW/UINT16/UINT8 switches; it requires a held matching hardware lease and uses
+pair=False. Its notification capture can be replayed by the website's
+`scripts/replay-tof-capture.mjs`. See [protocol and acceptance status](../docs/wireless-image-codec.md).
+
+
 NCP preservation checks (2026-10-11): `test_ncp_config_preserve.py` executes
 the actual scalar parser/query and common SET defense: equality/mismatch,
 malformed/duplicate/missing response, original2s lock budget, pointer retirement,
@@ -364,3 +371,7 @@ write from a sustained stall. The runner stops as soon as the remaining
 attempts cannot reach five consecutive passes; transient Dropbox locks on the
 summary file are retried with a finite budget. ToF health is checked separately
 at preflight and postflight, and a ToF failure also fails the full gate.
+
+JPEG experimental: `test_tof_jpeg.py` requires Pillow and MSVC, verifies native C
+output with an independent decoder and emits `--fixtures`. `run_image_codec.py`
+now also exercises JPEG; replay its capture with the website decoder.

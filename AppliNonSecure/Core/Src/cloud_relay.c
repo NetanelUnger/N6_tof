@@ -131,7 +131,7 @@ typedef struct
   uint32_t output_count;
   AppCliReply_t reply;
   TX_THREAD *reply_owner;
-  const uint8_t *tof_payload;
+  uint8_t *tof_payload;
   uint32_t tof_frame_id;
   uint32_t tof_payload_crc32;
   uint16_t tof_payload_length;
@@ -139,7 +139,8 @@ typedef struct
   uint8_t tof_height;
   uint8_t tof_channel_id;
   uint32_t tof_pending;
-  uint8_t tof_header[20];
+  uint8_t tof_header[TOF_IMAGE_HEADER_SIZE];
+  TofImageInfo tof_info;
   int32_t socket;
   CloudHttpKind_t http_kind;
   uint32_t http_deadline;
@@ -193,8 +194,6 @@ static const char cloud_root_ca[] =
 #endif
 
 static uint32_t cloud_crc32(const void *data, size_t length);
-static void cloud_store_u16(uint8_t *target, uint16_t value);
-static void cloud_store_u32(uint8_t *target, uint32_t value);
 static void cloud_close_socket(void);
 static void cloud_backoff(void);
 static int cloud_send_all(int32_t socket, const void *data, size_t length);
@@ -1105,12 +1104,12 @@ done:
 }
 
 UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
-                               const uint8_t *payload, uint8_t width,
-                               uint8_t height, uint32_t payload_crc32)
+                               uint8_t *payload, uint8_t width,
+                               uint8_t height, const TofImageInfo *info)
 {
   if (cloud_recovery_pause) return TX_NOT_AVAILABLE;
   uint32_t length = (uint32_t)width * (uint32_t)height * sizeof(float);
-  if ((cloud == NULL) || (payload == NULL) || (width == 0U) || (height == 0U) ||
+  if ((cloud == NULL) || (payload == NULL) || (info == NULL) || (width == 0U) || (height == 0U) ||
       (width > 54U) || (height > 42U) || (length > UINT16_MAX))
   {
     return TX_PTR_ERROR;
@@ -1134,7 +1133,8 @@ UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
   }
   cloud->tof_payload = payload;
   cloud->tof_frame_id = frame_id;
-  cloud->tof_payload_crc32 = payload_crc32;
+  cloud->tof_info = *info;
+  cloud->tof_payload_crc32 = 0U;
   cloud->tof_payload_length = (uint16_t)length;
   cloud->tof_width = width;
   cloud->tof_height = height;
@@ -1178,19 +1178,9 @@ static uint32_t cloud_crc32(const void *data, size_t length)
   return crc ^ 0xFFFFFFFFU;
 }
 
-static void cloud_store_u16(uint8_t *target, uint16_t value)
-{
-  target[0] = (uint8_t)value;
-  target[1] = (uint8_t)(value >> 8U);
-}
 
-static void cloud_store_u32(uint8_t *target, uint32_t value)
-{
-  target[0] = (uint8_t)value;
-  target[1] = (uint8_t)(value >> 8U);
-  target[2] = (uint8_t)(value >> 16U);
-  target[3] = (uint8_t)(value >> 24U);
-}
+
+
 
 static void cloud_close_socket(void)
 {
@@ -1769,17 +1759,15 @@ static void cloud_start_next_request(void)
 
   if (cloud->tof_pending != 0U)
   {
-    cloud_store_u16(&cloud->tof_header[0], 0x364EU);
-    cloud->tof_header[2] = 1U;
-    cloud->tof_header[3] = 3U;
-    cloud_store_u32(&cloud->tof_header[4], cloud->tof_frame_id);
-    cloud_store_u16(&cloud->tof_header[8], 0U);
-    cloud_store_u16(&cloud->tof_header[10], cloud->tof_payload_length);
-    cloud->tof_header[12] = cloud->tof_width;
-    cloud->tof_header[13] = cloud->tof_height;
-    cloud->tof_header[14] = cloud->tof_channel_id;
-    cloud->tof_header[15] = 1U;
-    cloud_store_u32(&cloud->tof_header[16], cloud->tof_payload_crc32);
+    /* The Cloud worker exclusively owns this borrowed snapshot until release. */
+    if (TofImage_Encode(cloud->tof_payload,
+                        (size_t)cloud->tof_width * cloud->tof_height * sizeof(float),
+                        &cloud->tof_info) != 0) {
+      cloud_release_tof(); cloud->status.tof_frames_dropped++; return;
+    }
+    cloud->tof_payload_length = cloud->tof_info.payload_length;
+    cloud->tof_payload_crc32 = cloud->tof_info.payload_crc32;
+    TofImage_Header(cloud->tof_header, &cloud->tof_info, 0U, 3U);
     if (cloud_begin_request(CLOUD_HTTP_TOF, "POST", "/api/device/tof/frames",
                             "application/octet-stream", cloud->tof_header,
                             sizeof(cloud->tof_header), cloud->tof_payload,
@@ -2277,9 +2265,9 @@ UINT CloudRelay_CancelReply(void) { return TX_SUCCESS; }
 UINT CloudRelay_EndReply(uint32_t completed) { (void)completed; return TX_NOT_AVAILABLE; }
 UINT CloudRelay_ReturnInput(const CloudRelay_Input_t *input) { (void)input; return TX_NOT_AVAILABLE; }
 UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
-                               const uint8_t *payload, uint8_t width,
-                               uint8_t height, uint32_t payload_crc32)
-{ (void)frame_id; (void)channel_id; (void)payload; (void)width; (void)height; (void)payload_crc32; return TX_NOT_AVAILABLE; }
+                               uint8_t *payload, uint8_t width,
+                               uint8_t height, const TofImageInfo *info)
+{ (void)frame_id; (void)channel_id; (void)payload; (void)width; (void)height; (void)info; return TX_NOT_AVAILABLE; }
 uint32_t CloudRelay_IsTofFramePending(uint32_t frame_id) { (void)frame_id; return 0U; }
 
 #endif

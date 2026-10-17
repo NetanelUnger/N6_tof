@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import math
 import json
 import os
 import re
@@ -390,13 +391,43 @@ class TofFrameAssembler:
         (magic, version, flags, frame_id, offset, total, width, height,
          channel, pixel_format, expected_crc) = struct.unpack_from(
              "<HBBIHHBBBBI", notification)
-        fragment = bytes(notification[TOF_IMAGE_HEADER_SIZE:])
+        header_size = 20 if version == 1 else 40 if version == 2 else 56
+        if version not in (1, 2, 3) or len(notification) <= header_size:
+            self.reset(count_drop=True)
+            return None
+        base = step = 0.0
+        timestamp_ms = None
+        if version >= 2:
+            if zlib.crc32(notification[:header_size-4]) != struct.unpack_from("<I", notification, header_size-4)[0]:
+                self.crc_errors += 1
+                self.reset(count_drop=True)
+                return None
+            base, step, timestamp_ms, declared_size, reserved = struct.unpack_from("<ffIHH", notification, 20)
+            if (not math.isfinite(base) or not math.isfinite(step) or step < 0 or
+                    declared_size != header_size or (version == 2 and reserved != 0) or
+                    (pixel_format == 1 and (base != 0 or step != 0))):
+                self.reset(count_drop=True)
+                return None
+        npu = None
+        if version == 3:
+            state, cls, confidence, reserved, nframe, runs, ms = struct.unpack_from('<BBHHIII', notification, 34)
+            if (state > 3 or cls > 3 or confidence > 1000 or reserved or
+                (state == 3 and (nframe != frame_id or not runs)) or
+                (state != 3 and any((cls, confidence, nframe, runs, ms)))):
+                self.reset(count_drop=True)
+                return None
+            npu = dict(state=state, class_id=cls, confidence=confidence, frame_id=nframe, runs=runs, inference_ms=ms)
+        fragment = bytes(notification[header_size:])
         valid_header = (
             magic == TOF_IMAGE_MAGIC
-            and version == TOF_IMAGE_VERSION
-            and pixel_format == TOF_IMAGE_FLOAT32_LE
-            and width > 0 and height > 0
-            and total == width * height * 4
+            and version in (1, 2, 3)
+            and pixel_format in ((1,) if version == 1 else (1, 2, 3, 4))
+            and 0 < width <= 54 and 0 < height <= 42 and 1 <= channel <= 5
+            and flags & ~3 == 0
+            and bool(flags & 1) == (offset == 0)
+            and bool(flags & 2) == (offset + len(fragment) == total)
+            and ((pixel_format == 4 and total > (width * height + 7) // 8 + 4) or
+                 total == width * height * {1: 4, 2: 2, 3: 1}.get(pixel_format, 0))
             and total <= TOF_IMAGE_MAX_PAYLOAD
             and offset + len(fragment) <= total
         )
@@ -415,7 +446,8 @@ class TofFrameAssembler:
                 "height": height,
                 "channel": channel,
                 "pixel_format": pixel_format,
-                "crc32": expected_crc,
+                "version": version, "base": base, "step": step, "timestamp_ms": timestamp_ms,
+                "crc32": expected_crc, "npu": npu,
                 "payload": bytearray(),
             }
 
@@ -427,7 +459,9 @@ class TofFrameAssembler:
             pending["height"] != height,
             pending["channel"] != channel,
             pending["pixel_format"] != pixel_format,
-            pending["crc32"] != expected_crc,
+            pending["version"] != version, pending["base"] != base,
+            pending["step"] != step, pending["timestamp_ms"] != timestamp_ms,
+            pending["crc32"] != expected_crc, pending["npu"] != npu,
             len(pending["payload"]) != offset,
         )):
             self.reset(count_drop=True)

@@ -879,7 +879,7 @@ void TOF_App_Process(void)
             (void)WIFI_BLE_App_PublishTofImage(
                 map_frame.frame_id, (uint8_t)map_frame.channel_id,
                 map_frame.pixels, (uint8_t)map_frame.width,
-                (uint8_t)map_frame.height);
+                (uint8_t)map_frame.height, &rps_status);
         }
 #endif
         /* When an auxiliary map is selected, render it before this shared

@@ -1,5 +1,22 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+New local v3 update: image-bound NPU decision/state/score in the 56-byte header;
+independent fast NPU output preserved. HELP lists MAP ENCODING choices. Builds
+and local protocol/relay tests pass; deploy the site/server before loading v3.
+The production hardware results below describe the preceding v2 build.
+
+Production Chrome verification (2026-10-17): real BLE and real Wi-Fi/Azure both
+render advancing RAW/UINT16/UINT8/JPEG frames with validated CRC. Cloud final
+231 sent / 0 dropped / 0 request errors. User-authorized pairing renewed and
+verified after read-only RAM reload; RAW Cloud streaming left active. See
+[measured results and limits](docs/wireless-image-codec.md).
+
+Wireless image protocol v3 adds `MAP ENCODING RAW|UINT16|UINT8|JPEG`, per-frame
+quantization metadata and header/payload CRCs. Encoding runs in the transmitting
+BLE/Cloud worker; USB MAP is unchanged. See [wire format and verification](docs/wireless-image-codec.md).
+The v1 wireless description below is historical; v3 is the current sender format.
+
+
 > Morning BLE-only readiness: corrected3600.546s supervised soak PASS6920 actual
 > NPU results/3673 CRC images/5971 CLI finals, max219.73ms; receive gaps
 > NPU0.570s/image1.023s, errors0. Final protected5689348E.../saved store audit PASS;

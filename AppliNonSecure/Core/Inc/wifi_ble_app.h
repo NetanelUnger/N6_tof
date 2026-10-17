@@ -1,6 +1,9 @@
 #ifndef WIFI_BLE_APP_H
 #define WIFI_BLE_APP_H
 
+#include "tof_image_codec.h"
+#include "rps_ai.h"
+
 #include <stdint.h>
 
 #include "app_route.h"
@@ -55,8 +58,8 @@ typedef enum
 #define WIFI_BLE_TOF_IMAGE_UUID             "7a1e0004-b5a3-f393-e0a9-e50e24dcca9e"
 #define WIFI_BLE_RPS_RESULT_UUID            "7a1e0005-b5a3-f393-e0a9-e50e24dcca9e"
 #define WIFI_BLE_TOF_FRAGMENT_MAGIC         (0x364EU) /* bytes "N6" */
-#define WIFI_BLE_TOF_FRAGMENT_VERSION       (1U)
-#define WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE   (20U)
+#define WIFI_BLE_TOF_FRAGMENT_VERSION       (TOF_IMAGE_VERSION)
+#define WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE   (TOF_IMAGE_HEADER_SIZE)
 #define WIFI_BLE_TOF_FRAGMENT_FLAG_START    (1U << 0)
 #define WIFI_BLE_TOF_FRAGMENT_FLAG_END      (1U << 1)
 #define WIFI_BLE_TOF_PIXEL_FORMAT_FLOAT32_LE (1U)
@@ -345,6 +348,11 @@ uint32_t WIFI_BLE_App_IsTofImageSubscribed(void);
 uint32_t WIFI_BLE_App_IsTofImageIdle(void);
 UINT WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
                                   const float *pixels, uint8_t width,
-                                  uint8_t height);
+                                  uint8_t height, const RPS_AI_Status_t *rps);
+
+
+/* Wireless encoding setting; captured once when accepting a frame. */
+UINT WIFI_BLE_App_SetImageEncoding(uint8_t mode);
+uint8_t WIFI_BLE_App_GetImageEncoding(void);
 
 #endif /* WIFI_BLE_APP_H */

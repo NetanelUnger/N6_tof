@@ -191,6 +191,7 @@ typedef struct
   uint8_t retries;
   WifiBle_TofImageStatus_t stats;
   uint32_t contention_start_tick;
+  TofImageInfo image_info;
   uint8_t payload[BLE_TOF_IMAGE_MAX_BYTES] __attribute__((aligned(4)));
 } WifiBle_TofImageContext_t;
 
@@ -500,12 +501,6 @@ static void ble_stream_enqueue_rx(WifiBle_Stream_t stream,
 static void ble_stream_process_tx(WifiBle_Stream_t stream);
 static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void);
 static void __attribute__((optimize("Os"))) ble_tof_image_drop_active(void);
-static uint32_t __attribute__((optimize("Os")))
-ble_crc32(const void *data, size_t length);
-static void __attribute__((optimize("Os")))
-ble_write_u16(uint8_t *destination, uint16_t value);
-static void __attribute__((optimize("Os")))
-ble_write_u32(uint8_t *destination, uint32_t value);
 static void ble_stream_purge_stale(void);
 static void ble_notify_retire_stale(void);
 static void ble_stream_drop_tx(WifiBle_Stream_t stream);
@@ -517,6 +512,20 @@ static void ble_purge_queue(TX_QUEUE *ready_queue, TX_QUEUE *free_queue,
 #endif
 static void error_callback(W6X_Status_t status, const char *function_name);
 static void log_output(const char *message);
+
+static volatile uint8_t image_encoding = TOF_IMAGE_RAW;
+
+UINT WIFI_BLE_App_SetImageEncoding(uint8_t mode)
+{
+  if (mode < TOF_IMAGE_RAW || mode > TOF_IMAGE_JPEG) return TX_OPTION_ERROR;
+  image_encoding = mode;
+  return TX_SUCCESS;
+}
+
+uint8_t WIFI_BLE_App_GetImageEncoding(void)
+{
+  return image_encoding;
+}
 
 void WIFI_BLE_App_ConfigureHardware(void)
 {
@@ -1964,7 +1973,7 @@ uint32_t WIFI_BLE_App_IsTofImageIdle(void)
 UINT __attribute__((optimize("Os")))
 WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
                              const float *pixels, uint8_t width,
-                             uint8_t height)
+                             uint8_t height, const RPS_AI_Status_t *rps)
 {
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   size_t pixel_count;
@@ -2003,8 +2012,24 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
 
   (void)memcpy(radio_manager.queues.ble_tof_image_context->payload, pixels, payload_length);
   radio_manager.queues.ble_tof_image_context->frame_id = frame_id;
-  radio_manager.queues.ble_tof_image_context->payload_crc32 =
-      ble_crc32(radio_manager.queues.ble_tof_image_context->payload, payload_length);
+  radio_manager.queues.ble_tof_image_context->image_info = (TofImageInfo){
+      .frame_id=frame_id, .timestamp_ms=HAL_GetTick(), .width=width,
+      .height=height, .channel=channel_id, .mode=image_encoding };
+  TofImageInfo *info = &radio_manager.queues.ble_tof_image_context->image_info;
+  if (rps && rps->enabled)
+  {
+    info->npu_state = !rps->ready ? TOF_IMAGE_NPU_NOT_READY : TOF_IMAGE_NPU_NO_RESULT;
+    if (rps->ready && rps->runs && rps->last_error == 0 && rps->last_frame == frame_id &&
+        rps->class_id < RPS_AI_CLASS_COUNT && rps->confidence_per_mille <= 1000U)
+    {
+      info->npu_state = TOF_IMAGE_NPU_VALID;
+      info->npu_class = rps->class_id;
+      info->npu_confidence = rps->confidence_per_mille;
+      info->npu_frame = rps->last_frame;
+      info->npu_runs = rps->runs;
+      info->npu_inference_ms = rps->inference_ms;
+    }
+  }
   radio_manager.queues.ble_tof_image_context->payload_length = (uint16_t)payload_length;
   radio_manager.queues.ble_tof_image_context->offset = 0U;
   radio_manager.queues.ble_tof_image_context->width = width;
@@ -2021,7 +2046,7 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   {
     admitted = CloudRelay_SubmitTofFrame(
         frame_id, channel_id, radio_manager.queues.ble_tof_image_context->payload,
-        width, height, radio_manager.queues.ble_tof_image_context->payload_crc32);
+        width, height, &radio_manager.queues.ble_tof_image_context->image_info);
   }
   posture = tx_interrupt_control(TX_INT_DISABLE);
   if ((admitted != TX_SUCCESS) ||
@@ -2043,6 +2068,7 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   (void)pixels;
   (void)width;
   (void)height;
+  (void)rps;
   return TX_NOT_AVAILABLE;
 #endif
 }
@@ -3883,7 +3909,17 @@ static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void)
   }
   if (radio_manager.queues.ble_tof_image_context->state == BLE_TOF_IMAGE_READY)
   {
-    radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_ACTIVE;
+    WifiBle_TofImageContext_t *image = radio_manager.queues.ble_tof_image_context;
+    /* Radio Manager owns encoding; producer only snapshots float pixels. */
+    if (TofImage_Encode(image->payload, sizeof(image->payload), &image->image_info) != 0)
+    {
+      image->stats.errors++;
+      ble_tof_image_drop_active();
+      return;
+    }
+    image->payload_length = image->image_info.payload_length;
+    image->payload_crc32 = image->image_info.payload_crc32;
+    image->state = BLE_TOF_IMAGE_ACTIVE;
   }
   if (radio_manager.queues.ble_tof_image_context->state != BLE_TOF_IMAGE_ACTIVE)
   {
@@ -3918,17 +3954,8 @@ static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void)
     flags |= WIFI_BLE_TOF_FRAGMENT_FLAG_END;
   }
 
-  ble_write_u16(&packet[0], WIFI_BLE_TOF_FRAGMENT_MAGIC);
-  packet[2] = WIFI_BLE_TOF_FRAGMENT_VERSION;
-  packet[3] = flags;
-  ble_write_u32(&packet[4], radio_manager.queues.ble_tof_image_context->frame_id);
-  ble_write_u16(&packet[8], radio_manager.queues.ble_tof_image_context->offset);
-  ble_write_u16(&packet[10], radio_manager.queues.ble_tof_image_context->payload_length);
-  packet[12] = radio_manager.queues.ble_tof_image_context->width;
-  packet[13] = radio_manager.queues.ble_tof_image_context->height;
-  packet[14] = radio_manager.queues.ble_tof_image_context->channel_id;
-  packet[15] = WIFI_BLE_TOF_PIXEL_FORMAT_FLOAT32_LE;
-  ble_write_u32(&packet[16], radio_manager.queues.ble_tof_image_context->payload_crc32);
+  TofImage_Header(packet, &radio_manager.queues.ble_tof_image_context->image_info,
+                  radio_manager.queues.ble_tof_image_context->offset, flags);
   (void)memcpy(&packet[WIFI_BLE_TOF_FRAGMENT_HEADER_SIZE],
                &radio_manager.queues.ble_tof_image_context->payload[radio_manager.queues.ble_tof_image_context->offset],
                chunk_length);
@@ -3982,40 +4009,6 @@ static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void)
             BLE_TOF_IMAGE_WAIT_CLOUD : BLE_TOF_IMAGE_FREE;
   }
   (void)tx_interrupt_control(posture);
-}
-
-static uint32_t __attribute__((optimize("Os")))
-ble_crc32(const void *data, size_t length)
-{
-  const uint8_t *bytes = (const uint8_t *)data;
-  uint32_t crc = 0xFFFFFFFFUL;
-
-  while (length-- != 0U)
-  {
-    crc ^= *bytes++;
-    for (uint32_t bit = 0U; bit < 8U; ++bit)
-    {
-      uint32_t mask = (uint32_t)(-(int32_t)(crc & 1UL));
-      crc = (crc >> 1U) ^ (0xEDB88320UL & mask);
-    }
-  }
-  return ~crc;
-}
-
-static void __attribute__((optimize("Os")))
-ble_write_u16(uint8_t *destination, uint16_t value)
-{
-  destination[0] = (uint8_t)value;
-  destination[1] = (uint8_t)(value >> 8U);
-}
-
-static void __attribute__((optimize("Os")))
-ble_write_u32(uint8_t *destination, uint32_t value)
-{
-  destination[0] = (uint8_t)value;
-  destination[1] = (uint8_t)(value >> 8U);
-  destination[2] = (uint8_t)(value >> 16U);
-  destination[3] = (uint8_t)(value >> 24U);
 }
 
 static void ble_purge_queue(TX_QUEUE *ready_queue, TX_QUEUE *free_queue,

@@ -1819,7 +1819,7 @@ html&gt;body{padding:0}&lt;/style&gt;
   &lt;/style&gt;
   &lt;div class=&quot;arch-header&quot;&gt;
     &lt;h2&gt;N6 · Threads ופריפרלים&lt;/h2&gt;
-    &lt;div class=&quot;text-small&quot;&gt;בנייה M5 ב־RAM · רשימת ThreadX נבדקה ב־GDB · עדיפות קטנה = קדימות גבוהה&lt;/div&gt;
+    &lt;div class=&quot;text-small&quot;&gt;עדכון 17.10.2026 · מיפוי קוד נוכחי ורשימת RAM קודמת · עדיפות קטנה = קדימות גבוהה&lt;/div&gt;
   &lt;/div&gt;
   &lt;div class=&quot;viz-controls arch-controls&quot;&gt;
     &lt;label class=&quot;form-label&quot;&gt;תצוגה
@@ -1834,6 +1834,7 @@ html&gt;body{padding:0}&lt;/style&gt;
         &lt;option value=&quot;overview&quot;&gt;מבט כולל&lt;/option&gt;
         &lt;option value=&quot;tof&quot;&gt;ToF → NPU → תצוגה&lt;/option&gt;
         &lt;option value=&quot;radio&quot;&gt;BLE / Wi-Fi / Cloud&lt;/option&gt;
+&lt;option value=&quot;images&quot;&gt;דחיסת תמונה וסנכרון NPU&lt;/option&gt;
         &lt;option value=&quot;usb&quot;&gt;USB ו־CLI&lt;/option&gt;
         &lt;option value=&quot;debug&quot;&gt;UART ו־Secure&lt;/option&gt;
       &lt;/select&gt;
@@ -1849,14 +1850,14 @@ html&gt;body{padding:0}&lt;/style&gt;
     &lt;div id=&quot;n6-path-note&quot; aria-live=&quot;polite&quot;&gt;&lt;/div&gt;
   &lt;/section&gt;
   &lt;section id=&quot;n6-threads&quot; aria-label=&quot;רשימת threads&quot; hidden&gt;
-    &lt;div class=&quot;arch-caption text-small&quot;&gt;19 ברשימת היצירה בצילום RAM: 18 לא סיימו ואישור הקושחה כבר סיים. Bulk-IN / OUT נוצרים עם CDC.&lt;/div&gt;
+    &lt;div class=&quot;arch-caption text-small&quot;&gt;19 ברשימת היצירה בצילום RAM הקודם (לא מדידה חיה): 18 לא סיימו ואישור הקושחה כבר סיים. Bulk-IN / OUT נוצרים עם CDC.&lt;/div&gt;
     &lt;div class=&quot;table-responsive&quot;&gt;
       &lt;table class=&quot;table table-sm&quot;&gt;
         &lt;thead&gt;&lt;tr&gt;&lt;th scope=&quot;col&quot;&gt;Thread · המתנה ותקשורת&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;עדיפות&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Stack / מקור&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
         &lt;tbody id=&quot;n6-thread-rows&quot;&gt;&lt;/tbody&gt;
       &lt;/table&gt;
     &lt;/div&gt;
-    &lt;div class=&quot;text-small arch-caption&quot;&gt;Cloud מופרד כעת ל־thread. NPU בתוך ToF; Secure NSC בהקשר הקורא. טיימרים ב־System Timer Thread.&lt;/div&gt;
+    &lt;div class=&quot;text-small arch-caption&quot;&gt;Cloud רץ ב־thread נפרד. NPU בתוך ToF; דחיסה בתוך ה־worker המשדר, ללא thread חדש; Secure NSC בהקשר הקורא. טיימרים ב־System Timer Thread.&lt;/div&gt;
   &lt;/section&gt;
   &lt;section id=&quot;n6-memory&quot; aria-label=&quot;בעלות על זיכרון&quot; hidden&gt;
     &lt;div class=&quot;arch-memory&quot;&gt;
@@ -1912,7 +1913,7 @@ html&gt;body{padding:0}&lt;/style&gt;
   &lt;details class=&quot;arch-expand&quot;&gt;
     &lt;summary&gt;מקורות המיפוי והיקף האימות&lt;/summary&gt;
     &lt;div class=&quot;arch-detail text-small arch-source&quot; id=&quot;n6-sources&quot;&gt;&lt;/div&gt;
-    &lt;div class=&quot;text-small&quot;&gt;קוד ובנייה, רשימת threads ב־RAM וצילום התקלה הקודם; אין כאן trace רציף של scheduler או אישור latency תחת Cloud.&lt;/div&gt;
+    &lt;div class=&quot;text-small&quot;&gt;מקורות: app_threadx.c, tof_app.c, wifi_ble_app.c, cloud_relay.c, tof_image_codec.c ו־docs/wireless-image-codec.md. המיפוי כולל את עבודת הדחיסה ו־Header v3; נתוני RAM היסטוריים מסומנים בנפרד. אין כאן trace חי או אישור עמידות ממושכת.&lt;/div&gt;
   &lt;/details&gt;
 &lt;/div&gt;
 &lt;script&gt;
@@ -1926,6 +1927,23 @@ html&gt;body{padding:0}&lt;/style&gt;
   const edge = text =&gt; ({ edge:text });
   const lane = (title, stages) =&gt; ({ title, stages });
   const paths = {
+    images: [
+      lane(&#x27;פריים אחד — שני מסלולי מידע&#x27;, [
+        [n(&#x27;ToF Main · p10&#x27;, &#x27;thread&#x27;, &#x27;Transform → NPU; תוצאה עם מזהה פריים&#x27;), n(&#x27;NPU IRQ&#x27;, &#x27;isr&#x27;, &#x27;מעיר את אותו thread&#x27;)],
+        [n(&#x27;NPU מהיר&#x27;, &#x27;hw&#x27;, &#x27;Notify עצמאי: החלטה, ציון ומספר פריים; אינו ממתין לתמונה&#x27;)],
+        [n(&#x27;Snapshot יחיד ב־SRAM4&#x27;, &#x27;hw&#x27;, &#x27;float pixels + תוצאת NPU של אותו פריים; העתקה לפני שימוש חוזר בזיכרון&#x27;)]
+      ]),
+      lane(&#x27;בעלות ודחיסה&#x27;, [
+        [n(&#x27;CLI · MAP ENCODING&#x27;, &#x27;thread&#x27;, &#x27;RAW / UINT16 / UINT8 / JPEG; הבחירה נלכדת בעת קבלת הפריים&#x27;)],
+        [n(&#x27;Radio Manager · p9&#x27;, &#x27;thread&#x27;, &#x27;מקודד ומשדר כשהיעד BLE&#x27;), n(&#x27;Cloud Relay · p9&#x27;, &#x27;thread&#x27;, &#x27;מקודד ומעלה HTTP כשהיעד Cloud&#x27;)],
+        [n(&#x27;יעד תמונה מרוחק יחיד&#x27;, &#x27;hw&#x27;, &#x27;הבקשה האחרונה קובעת; מחכים לשחרור הבעלים הקודם; אין framebuffer נוסף&#x27;)]
+      ]),
+      lane(&#x27;Header v3 → הדפדפן&#x27;, [
+        [n(&#x27;56 bytes + payload&#x27;, &#x27;hw&#x27;, &#x27;גודל, ערוץ, קידוד, base/step, מזהה פריים, CRC לכותרת ולמידע&#x27;)],
+        [n(&#x27;NPU בתוך Header&#x27;, &#x27;hw&#x27;, &#x27;מצב, החלטה, ציון, פריים, מונה הסקות וזמן הסקה; כבוי/לא מוכן/אין תוצאה מפורשים&#x27;)],
+        [n(&#x27;בדיקת CRC והרכבה&#x27;, &#x27;inline&#x27;, &#x27;BLE fragments או Cloud frame מלא&#x27;), n(&#x27;תמונה + ההחלטה שלה&#x27;, &#x27;hw&#x27;, &#x27;NPU מהיר מוצג בנפרד; תוצאה חדשה לא מחליפה את ההחלטה של תמונה ישנה&#x27;)]
+      ])
+    ],
     overview: [
       lane(&#x27;רכישה ועיבוד&#x27;, [
         [n(&#x27;VL53L9CX · I3C1&#x27;), n(&#x27;DMA completion / error&#x27;, &#x27;isr&#x27;, &#x27;event flags; DMA 0 / 1 / 2&#x27;)],
@@ -2028,9 +2046,10 @@ html&gt;body{padding:0}&lt;/style&gt;
     ]
   };
   const notes = {
-    overview:[&#x27;הפרדה בקוד: רכישה / עיבוד / תצוגה / Cloud; בעלות יחידה על SPI5 ו־USB TX; תורים מוגבלים.&#x27;, &#x27;נקודות תלות שנותרו: AT lock משותף; packets ו־stacks באותו Radio pool; ToF fatal ללא restart.&#x27;],
-    tof:[&#x27;Backpressure: ready queue מוגבל; frames ישנים נזרקים כדי לפנות buffer.&#x27;, &#x27;בנתיב status DMA timeout: Acquisition נכנס ללולאת fatal; העיבוד נשאר ממתין ל־frame חדש. קשר למחסור ברדיו לא הוכח.&#x27;],
-    radio:[&#x27;Cloud הוא כעת בעלים נפרד לרשת; אימות BLE בזמן כשל Cloud עדיין פתוח.&#x27;, &#x27;SPI RX, stacks ו־contexts חולקים 64 KiB; בצילום התקלה הקודם אין מספיק זיכרון לבקשת RX אחת.&#x27;, &#x27;Wi-Fi control בעדיפות 11, נמוכה מ־ToF processing בעדיפות 10: סיכון להשהיה תחת עומס, ללא הוכחת starvation.&#x27;],
+    images:[&#x27;RAW: 9,072 bytes; UINT16: 4,536; UINT8: 2,268 לתמונה 54×42, ללא Header. קוונטיזציה משתמשת ב־base/step; קוד 0 מציין ערך לא תקף.&#x27;, &#x27;JPEG הוא ניסוי תוכנה על המעבד, לא VENC: grayscale עם מפת תקפות. הגודל תלוי בסצנה והוא עלול להיות גדול מ־UINT8; הציון/עומק אינם מדויקים יותר בזכות JPEG.&#x27;, &#x27;USB CDC MAP נשאר בפורמט המקורי. HELP מציג MAP ENCODING RAW|UINT16|UINT8|JPEG. נדרשת פריסת אתר ושרת התומכים ב־v3 לפני טעינת הקושחה החדשה.&#x27;, &#x27;אימות: כל ארבעת המצבים עברו ב־BLE וב־Wi-Fi בדפדפן עם v2. תוספת NPU ב־v3 עברה בדיקות C, פענוח ו־HTTP/SignalR מקומיות; טרם נבדקה מול חומרה בגרסה זו.&#x27;],
+    overview:[&#x27;הפרדה בקוד: רכישה / עיבוד / תצוגה / Cloud; בעלות יחידה על SPI5 ו־USB TX; תורים מוגבלים.&#x27;, &#x27;נקודות תלות: AT lock משותף ותקציב Radio pool מוגבל. קיימת התאוששות מתואמת; בדיקות עומס והשהיה משולבות עדיין פתוחות.&#x27;],
+    tof:[&#x27;Backpressure: ready queue מוגבל; frames ישנים נזרקים כדי לפנות buffer.&#x27;, &#x27;צילום תקלה היסטורי תיעד עצירת רכישה; אינו תיאור של ריצה חיה. בעת אבחון יש לבדוק מוני פריימים, אירועי DMA ומצב התאוששות.&#x27;],
+    radio:[&#x27;Cloud הוא כעת בעלים נפרד לרשת; אימות BLE בזמן כשל Cloud עדיין פתוח.&#x27;, &#x27;SPI RX, stacks ו־contexts חולקים תקציב מוגבל של 64 KiB. מחסור RX נצפה בצילום היסטורי; אינו מדידה נוכחית.&#x27;, &#x27;Wi-Fi control בעדיפות 11, נמוכה מ־ToF processing בעדיפות 10: סיכון להשהיה תחת עומס, ללא הוכחת starvation.&#x27;],
     usb:[&#x27;מסלול פלט מוגבל עם בעלים יחיד ו־completion; map buffers קבועים ללא malloc לכל frame.&#x27;, &#x27;USB נשאר פעיל בצילום התקלה; BLE ו־Wi-Fi חולקים משאב רדיו נפרד.&#x27;],
     debug:[&#x27;Debug UART test הוא thread פעיל של RX diagnostics / watch.&#x27;, &#x27;FSBL ו־Secure boot רצים לפני scheduler; Secure NSC רץ בהקשר הקורא.&#x27;]
   };
@@ -2047,8 +2066,8 @@ html&gt;body{padding:0}&lt;/style&gt;
     [&#x27;USBX Bulk-IN&#x27;,8,&#x27;8 KiB&#x27;,&#x27;USBX 32 KiB arena&#x27;,&#x27;USBX transfer requests → write completion callback&#x27;,&#x27;USBX CDC ACM middleware&#x27;],
     [&#x27;USBX Bulk-OUT&#x27;,8,&#x27;8 KiB&#x27;,&#x27;USBX 32 KiB arena&#x27;,&#x27;USBX transfer requests → read callback → ingress queue&#x27;,&#x27;USBX CDC ACM middleware&#x27;],
     [&#x27;Debug UART test&#x27;,9,&#x27;3 KiB&#x27;,&#x27;Application pool&#x27;,&#x27;RX command event / watch timer; diagnostics snapshot&#x27;,&#x27;Core/Src/app_threadx.c; debug_uart.c&#x27;],
-    [&#x27;ST67 Radio Manager&#x27;,9,&#x27;8 KiB&#x27;,&#x27;Radio pool&#x27;,&#x27;Wi-Fi shadow → Cloud state event; BLE service → sleep 20 ms&#x27;,&#x27;Core/Src/app_threadx.c; wifi_ble_app.c&#x27;],
-    [&#x27;ST67 Cloud Relay&#x27;,9,&#x27;8 KiB&#x27;,&#x27;Static SRAM4&#x27;,&#x27;4 copied controls + event / 20 ms wait; socket / HTTP owner; ToF lease&#x27;,&#x27;Core/Src/app_threadx.c; cloud_relay.c&#x27;],
+    [&#x27;ST67 Radio Manager&#x27;,9,&#x27;8 KiB&#x27;,&#x27;Radio pool&#x27;,&#x27;Wi-Fi shadow; BLE CLI / fast NPU; image codec + bounded fragment pump&#x27;,&#x27;Core/Src/app_threadx.c; wifi_ble_app.c&#x27;],
+    [&#x27;ST67 Cloud Relay&#x27;,9,&#x27;8 KiB&#x27;,&#x27;Static SRAM4&#x27;,&#x27;4 copied controls; socket / HTTP owner; encode borrowed ToF snapshot + immutable NPU header&#x27;,&#x27;Core/Src/app_threadx.c; cloud_relay.c&#x27;],
     [&#x27;USB debug CLI&#x27;,9,&#x27;6 KiB&#x27;,&#x27;Application pool&#x27;,&#x27;delivery / BLE / Cloud queues; shared CLI command execution&#x27;,&#x27;Core/Src/app_threadx.c; CLI broker&#x27;],
     [&#x27;USB CDC RX worker&#x27;,9,&#x27;12 KiB&#x27;,&#x27;Static SRAM3&#x27;,&#x27;ingress queue → delivery queue → CLI&#x27;,&#x27;Core/Src/usb_cdc_transport.c&#x27;],
     [&#x27;USB CDC TX scheduler&#x27;,9,&#x27;12 KiB&#x27;,&#x27;Static SRAM3&#x27;,&#x27;TX slots queue + completion semaphore; async write owner&#x27;,&#x27;Core/Src/usb_cdc_transport.c&#x27;],

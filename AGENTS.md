@@ -1716,8 +1716,10 @@ stack-local version or split the address phase back into a blocking transfer.
   belongs only to the requesting session and feeds the existing Secure
   installer. Do not add transport-specific command allowlists.
 - Preserve the BLE ToF image contract: Notify UUID `7a1e0004-b5a3-f393-e0a9-
-  e50e24dcca9e`, version-1 20-byte little-endian header, float32 payload, complete
-  frame CRC32, and one SRAM4 snapshot. Snapshot the selected transformed channel
+  e50e24dcca9e`, version-3 56-byte little-endian header, selectable RAW/UINT16/UINT8/JPEG,
+  header and payload CRC32, and one SRAM4 snapshot. Capture the matching NPU
+  status with pixels; never fetch the latest inference in a transmitting worker. See docs/wireless-image-codec.md.
+  Only the transmitting Radio/Cloud worker encodes; the producer snapshots float32. Snapshot the selected transformed channel
   before `tof_processing_workspace` is reused. While a frame is in flight, drop
   new frames; never queue partial sensor-frame state. Service at most one image
   fragment per Radio Manager cycle so CLI/XMODEM cannot be starved.

@@ -347,6 +347,10 @@ static const char *const cli_completion_base[] =
   "MAP ON",
   "MAP OFF",
   "MAP CHANNELS",
+  "MAP ENCODING RAW",
+  "MAP ENCODING UINT16",
+  "MAP ENCODING UINT8",
+  "MAP ENCODING JPEG",
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
   "MAP ON SCREEN",
   "MAP OFF SCREEN",
@@ -1672,6 +1676,27 @@ static void cli_command_map(Menu_t *menu, const char *command)
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
 
+  if (argc >= 2 && cli_token_equals(argv[1], "encoding")) {
+    if (argc == 3) {
+      uint8_t mode = cli_token_equals(argv[2], "raw") ? TOF_IMAGE_RAW :
+                     cli_token_equals(argv[2], "uint16") ? TOF_IMAGE_Q16 :
+                     cli_token_equals(argv[2], "uint8") ? TOF_IMAGE_Q8 :
+                     cli_token_equals(argv[2], "jpeg") ? TOF_IMAGE_JPEG : 0U;
+      if (WIFI_BLE_App_SetImageEncoding(mode) != TX_SUCCESS) {
+        (void)Menu_Reply(menu, "Usage: MAP ENCODING RAW|UINT16|UINT8|JPEG"); return;
+      }
+    } else if (argc != 2) {
+      (void)Menu_Reply(menu, "Usage: MAP ENCODING [RAW|UINT16|UINT8|JPEG]"); return;
+    }
+    uint8_t mode = WIFI_BLE_App_GetImageEncoding();
+    (void)Menu_Reply(menu, mode == TOF_IMAGE_RAW ? "Wireless encoding: RAW float32" :
+                          mode == TOF_IMAGE_Q16 ? "Wireless encoding: UINT16 affine" :
+                                                 mode == TOF_IMAGE_Q8 ? "Wireless encoding: UINT8 affine" :
+                                                 "Wireless encoding: JPEG experimental (lossy)");
+    (void)Menu_Reply(menu, "Applies to newly accepted BLE/Cloud frames; USB MAP unchanged.");
+    return;
+  }
+
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
   if ((argc == 3) &&
       (((cli_token_equals(argv[1], "on") != 0U) &&
@@ -1874,7 +1899,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
   else
   {
     (void)Menu_Reply(menu,
-                     "Usage: MAP ON|OFF [SCREEN] | MAP CHANNELS [1..5] | MAP PROCESSING");
+                     "Usage: MAP ON|OFF [SCREEN] | MAP CHANNELS [1..5] | MAP PROCESSING | MAP ENCODING [RAW|UINT16|UINT8|JPEG]");
   }
 }
 
@@ -3222,6 +3247,9 @@ static void cli_show_help(void)
   cli_print("\r\nSensor, display and AI:\r\n"
             "  MAP ON | MAP OFF               ToF stream; dedicated image channel on BLE/Cloud\r\n"
             "  MAP CHANNELS [1..5]            list/toggle channels\r\n"
+            "  MAP ENCODING                   show wireless image compression\r\n"
+            "  MAP ENCODING RAW|UINT16|UINT8|JPEG\r\n"
+            "                                 BLE/Cloud only; JPEG lossy; USB unchanged\r\n"
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
             "  MAP ON|OFF SCREEN|DISPLAY\r\n"
             "  MAP SCREEN|DISPLAY ON|OFF      equivalent syntax\r\n"
