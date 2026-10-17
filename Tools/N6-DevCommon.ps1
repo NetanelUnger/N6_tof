@@ -532,6 +532,21 @@ function Get-N6FileSha256 {
     }
 }
 
+function Get-N6CompletedVersionResponse {
+    param([AllowEmptyString()][string]$Text)
+
+    # Serial reads may split a multi-digit version at any byte. A numeric
+    # prefix (e.g. the first '1' of '11') is not a complete response. Require
+    # the CLI reply's terminating LF, allowing CDC's CRCRLF line endings.
+    $match = [regex]::Match(
+        $Text,
+        '(?im)^[ \t]*(?:n6>[ \t]*)?Firmware version:[ \t]*([0-9]+)[ \t]*\r*\n')
+    if ($match.Success) {
+        return [uint32]$match.Groups[1].Value
+    }
+    return $null
+}
+
 function Wait-N6RunningVersion {
     param(
         [string]$RequestedPort,
@@ -588,11 +603,8 @@ function Wait-N6RunningVersion {
                     # Keep reading until the complete response deadline.
                 }
 
-                $match = [regex]::Match(
-                    $text.ToString(),
-                    'Firmware version:\s*([0-9]+)')
-                if ($match.Success) {
-                    $observedVersion = [uint32]$match.Groups[1].Value
+                $observedVersion = Get-N6CompletedVersionResponse -Text $text.ToString()
+                if ($null -ne $observedVersion) {
                     if ($observedVersion -ne $ExpectedVersion) {
                         throw "The board booted firmware version $observedVersion instead of expected version $ExpectedVersion."
                     }

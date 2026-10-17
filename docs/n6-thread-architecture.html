@@ -1,22 +1,22 @@
 <!doctype html>
-<html lang="he" data-visualize-standalone>
+<html lang="en" dir="ltr" data-visualize-standalone>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
-<title>N6 — Threads, פריפרלים ומסלולי תקשורת</title>
+<title>N6 — Threads, Peripherals and Communication Paths</title>
 <style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
 </head>
 <body>
-<iframe id="codex-visualization" sandbox="allow-scripts" referrerpolicy="no-referrer" title="N6 — Threads, פריפרלים ומסלולי תקשורת" data-srcdoc="&lt;!doctype html&gt;
-&lt;html lang=&quot;he&quot; data-visualize-standalone&gt;
+<iframe id="codex-visualization" sandbox="allow-scripts" referrerpolicy="no-referrer" title="N6 — Threads, Peripherals and Communication Paths" data-srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot; dir=&quot;ltr&quot; data-visualize-standalone&gt;
 &lt;head&gt;
 &lt;meta charset=&quot;utf-8&quot;&gt;
 &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
 &lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
 &lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
-&lt;title&gt;N6 — Threads, פריפרלים ומסלולי תקשורת&lt;/title&gt;
+&lt;title&gt;N6 — Threads, Peripherals and Communication Paths&lt;/title&gt;
 &lt;style&gt;:root {
   color-scheme: light dark;
   background-color: var(
@@ -1780,7 +1780,7 @@ html&gt;body{padding:0}&lt;/style&gt;
   syncTheme();
 })();
 &lt;/script&gt;
-&lt;div id=&quot;n6-architecture&quot; dir=&quot;rtl&quot;&gt;
+&lt;div id=&quot;n6-architecture&quot; dir=&quot;ltr&quot;&gt;
   &lt;style&gt;
     #n6-architecture { color:var(--foreground); }
     #n6-architecture [hidden] { display:none !important; }
@@ -1794,7 +1794,7 @@ html&gt;body{padding:0}&lt;/style&gt;
     #n6-architecture .arch-lane { margin-block:24px; }
     #n6-architecture .arch-flow { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; align-items:start; }
     #n6-architecture .arch-stage { min-width:0; position:relative; }
-    #n6-architecture .arch-stage + .arch-stage::before { content:&#x27;←&#x27;; position:absolute; inset-inline-start:-20px; top:12px; color:var(--muted-foreground); }
+    #n6-architecture .arch-stage + .arch-stage::before { content:&#x27;→&#x27;; position:absolute; inset-inline-start:-20px; top:12px; color:var(--muted-foreground); }
     #n6-architecture .arch-node { padding:8px; margin-block:6px; overflow-wrap:anywhere; }
     #n6-architecture .arch-node-name { font-weight:500; }
     #n6-architecture .arch-edge { padding-block:4px; color:var(--muted-foreground); overflow-wrap:anywhere; }
@@ -1818,102 +1818,102 @@ html&gt;body{padding:0}&lt;/style&gt;
     }
   &lt;/style&gt;
   &lt;div class=&quot;arch-header&quot;&gt;
-    &lt;h2&gt;N6 · Threads ופריפרלים&lt;/h2&gt;
-    &lt;div class=&quot;text-small&quot;&gt;עדכון 17.10.2026 · מיפוי קוד נוכחי ורשימת RAM קודמת · עדיפות קטנה = קדימות גבוהה&lt;/div&gt;
+    &lt;h2&gt;N6 · Threads and Peripherals&lt;/h2&gt;
+    &lt;div class=&quot;text-small&quot;&gt;Updated October 17, 2026 · Current source mapping and an earlier RAM snapshot · Lower priority number = higher scheduling priority&lt;/div&gt;
   &lt;/div&gt;
   &lt;div class=&quot;viz-controls arch-controls&quot;&gt;
-    &lt;label class=&quot;form-label&quot;&gt;תצוגה
+    &lt;label class=&quot;form-label&quot;&gt;Display
       &lt;select class=&quot;form-select&quot; id=&quot;n6-view&quot;&gt;
-        &lt;option value=&quot;paths&quot;&gt;מסלולי תקשורת&lt;/option&gt;
-        &lt;option value=&quot;threads&quot;&gt;כל 19 ה־threads&lt;/option&gt;
-        &lt;option value=&quot;memory&quot;&gt;Stack, תורים והקצאות&lt;/option&gt;
+        &lt;option value=&quot;paths&quot;&gt;Communication paths&lt;/option&gt;
+        &lt;option value=&quot;threads&quot;&gt;All 19 threads&lt;/option&gt;
+        &lt;option value=&quot;memory&quot;&gt;Stacks, queues and allocations&lt;/option&gt;
       &lt;/select&gt;
     &lt;/label&gt;
-    &lt;label class=&quot;form-label&quot; id=&quot;n6-path-label&quot;&gt;מסלול
+    &lt;label class=&quot;form-label&quot; id=&quot;n6-path-label&quot;&gt;Path
       &lt;select class=&quot;form-select&quot; id=&quot;n6-path&quot;&gt;
-        &lt;option value=&quot;overview&quot;&gt;מבט כולל&lt;/option&gt;
-        &lt;option value=&quot;tof&quot;&gt;ToF → NPU → תצוגה&lt;/option&gt;
+        &lt;option value=&quot;overview&quot;&gt;Overview&lt;/option&gt;
+        &lt;option value=&quot;tof&quot;&gt;ToF → NPU → Display&lt;/option&gt;
         &lt;option value=&quot;radio&quot;&gt;BLE / Wi-Fi / Cloud&lt;/option&gt;
-&lt;option value=&quot;images&quot;&gt;דחיסת תמונה וסנכרון NPU&lt;/option&gt;
-        &lt;option value=&quot;usb&quot;&gt;USB ו־CLI&lt;/option&gt;
-        &lt;option value=&quot;debug&quot;&gt;UART ו־Secure&lt;/option&gt;
+&lt;option value=&quot;images&quot;&gt;Image compression and NPU synchronization&lt;/option&gt;
+        &lt;option value=&quot;usb&quot;&gt;USB and CLI&lt;/option&gt;
+        &lt;option value=&quot;debug&quot;&gt;UART and Secure&lt;/option&gt;
       &lt;/select&gt;
     &lt;/label&gt;
   &lt;/div&gt;
-  &lt;section id=&quot;n6-paths&quot; aria-label=&quot;מסלולי תקשורת&quot;&gt;
+  &lt;section id=&quot;n6-paths&quot; aria-label=&quot;Communication paths&quot;&gt;
     &lt;div class=&quot;arch-legend text-small&quot;&gt;
-      &lt;span&gt;&lt;i class=&quot;arch-key arch-thread&quot;&gt;&lt;/i&gt;Thread אמיתי&lt;/span&gt;
+      &lt;span&gt;&lt;i class=&quot;arch-key arch-thread&quot;&gt;&lt;/i&gt;Thread&lt;/span&gt;
       &lt;span&gt;&lt;i class=&quot;arch-key arch-isr&quot;&gt;&lt;/i&gt;IRQ / callback&lt;/span&gt;
-      &lt;span&gt;&lt;i class=&quot;arch-key arch-inline&quot;&gt;&lt;/i&gt;פונקציה בתוך thread&lt;/span&gt;
+      &lt;span&gt;&lt;i class=&quot;arch-key arch-inline&quot;&gt;&lt;/i&gt;Function within a thread&lt;/span&gt;
     &lt;/div&gt;
     &lt;div id=&quot;n6-diagram&quot;&gt;&lt;/div&gt;
     &lt;div id=&quot;n6-path-note&quot; aria-live=&quot;polite&quot;&gt;&lt;/div&gt;
   &lt;/section&gt;
-  &lt;section id=&quot;n6-threads&quot; aria-label=&quot;רשימת threads&quot; hidden&gt;
-    &lt;div class=&quot;arch-caption text-small&quot;&gt;19 ברשימת היצירה בצילום RAM הקודם (לא מדידה חיה): 18 לא סיימו ואישור הקושחה כבר סיים. Bulk-IN / OUT נוצרים עם CDC.&lt;/div&gt;
+  &lt;section id=&quot;n6-threads&quot; aria-label=&quot;Thread list&quot; hidden&gt;
+    &lt;div class=&quot;arch-caption text-small&quot;&gt;The earlier RAM snapshot lists 19 created threads (not a live measurement): 18 had not completed; firmware confirmation had finished. Bulk-IN / OUT are created with CDC.&lt;/div&gt;
     &lt;div class=&quot;table-responsive&quot;&gt;
       &lt;table class=&quot;table table-sm&quot;&gt;
-        &lt;thead&gt;&lt;tr&gt;&lt;th scope=&quot;col&quot;&gt;Thread · המתנה ותקשורת&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;עדיפות&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Stack / מקור&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+        &lt;thead&gt;&lt;tr&gt;&lt;th scope=&quot;col&quot;&gt;Thread · Waiting and communication&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Priority&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Stack / source&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
         &lt;tbody id=&quot;n6-thread-rows&quot;&gt;&lt;/tbody&gt;
       &lt;/table&gt;
     &lt;/div&gt;
-    &lt;div class=&quot;text-small arch-caption&quot;&gt;Cloud רץ ב־thread נפרד. NPU בתוך ToF; דחיסה בתוך ה־worker המשדר, ללא thread חדש; Secure NSC בהקשר הקורא. טיימרים ב־System Timer Thread.&lt;/div&gt;
+    &lt;div class=&quot;text-small arch-caption&quot;&gt;Cloud runs in a separate thread. NPU inference runs inside ToF; compression runs in the transmitting worker without a new thread. Secure NSC runs in the caller context. Timers run in the System Timer Thread.&lt;/div&gt;
   &lt;/section&gt;
-  &lt;section id=&quot;n6-memory&quot; aria-label=&quot;בעלות על זיכרון&quot; hidden&gt;
+  &lt;section id=&quot;n6-memory&quot; aria-label=&quot;Memory ownership&quot; hidden&gt;
     &lt;div class=&quot;arch-memory&quot;&gt;
       &lt;div class=&quot;arch-memory-path&quot;&gt;
-        &lt;div&gt;&lt;div class=&quot;arch-memory-name&quot;&gt;Application pool · 134 KiB&lt;/div&gt;&lt;div class=&quot;text-small&quot;&gt;SRAM4 · הקצאה באתחול&lt;/div&gt;&lt;/div&gt;
+        &lt;div&gt;&lt;div class=&quot;arch-memory-name&quot;&gt;Application pool · 134 KiB&lt;/div&gt;&lt;div class=&quot;text-small&quot;&gt;SRAM4 · Allocated at startup&lt;/div&gt;&lt;/div&gt;
         &lt;div&gt;
-          &lt;div class=&quot;arch-bar&quot; role=&quot;img&quot; aria-label=&quot;130 מתוך 134 KiB מוקצים לסטאקים; 4 KiB נותרים לפני תקורת ההקצאה&quot;&gt;&lt;div class=&quot;arch-bar-stack&quot; style=&quot;width:97.0149%&quot;&gt;&lt;/div&gt;&lt;div class=&quot;arch-bar-rest&quot; style=&quot;width:2.9851%&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;arch-bar&quot; role=&quot;img&quot; aria-label=&quot;130 of 134 KiB allocated to stacks; 4 KiB remain before allocator overhead&quot;&gt;&lt;div class=&quot;arch-bar-stack&quot; style=&quot;width:97.0149%&quot;&gt;&lt;/div&gt;&lt;div class=&quot;arch-bar-rest&quot; style=&quot;width:2.9851%&quot;&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;div&gt;130 KiB stacks → 7 threads&lt;/div&gt;
           &lt;div class=&quot;text-small&quot;&gt;ToF processing: 96 · Acquisition: 16 · CLI: 6 · Display: 4 · UART: 3 + 3 · Confirmation: 2 KiB&lt;/div&gt;
-          &lt;div class=&quot;text-small&quot;&gt;4 KiB לפני תקורת allocator; סיום Confirmation אינו משחרר את ה־stack אוטומטית.&lt;/div&gt;
+          &lt;div class=&quot;text-small&quot;&gt;4 KiB before allocator overhead; completing Confirmation does not automatically free its stack.&lt;/div&gt;
         &lt;/div&gt;
       &lt;/div&gt;
     &lt;/div&gt;
     &lt;div class=&quot;arch-memory&quot;&gt;
       &lt;div class=&quot;arch-memory-path&quot;&gt;
-        &lt;div&gt;&lt;div class=&quot;arch-memory-name&quot;&gt;Cloud stack · 8 KiB&lt;/div&gt;&lt;div class=&quot;text-small&quot;&gt;SRAM4 סטטי · מחוץ ל־pools&lt;/div&gt;&lt;/div&gt;
-        &lt;div&gt;תור בקרה: 4 × 16 B; העתקה ללא המתנה + Event.&lt;br&gt;356 B stack בשלב ללא רשת; מדידת HTTP ועומס עדיין ממתינה.&lt;/div&gt;
+        &lt;div&gt;&lt;div class=&quot;arch-memory-name&quot;&gt;Cloud stack · 8 KiB&lt;/div&gt;&lt;div class=&quot;text-small&quot;&gt;Static SRAM4 · Outside the pools&lt;/div&gt;&lt;/div&gt;
+        &lt;div&gt;Control queue: 4 × 16 B; nonblocking copy + event.&lt;br&gt;Historical stack measurement without networking: 356 B. HTTP/load stack measurements remain pending.&lt;/div&gt;
       &lt;/div&gt;
     &lt;/div&gt;
     &lt;div class=&quot;arch-memory&quot;&gt;
       &lt;div class=&quot;arch-memory-path&quot;&gt;
-        &lt;div&gt;&lt;div class=&quot;arch-memory-name&quot;&gt;Radio pool · 64 KiB&lt;/div&gt;&lt;div class=&quot;text-small&quot;&gt;SRAM4 · קבוע + דינמי&lt;/div&gt;&lt;/div&gt;
+        &lt;div&gt;&lt;div class=&quot;arch-memory-name&quot;&gt;Radio pool · 64 KiB&lt;/div&gt;&lt;div class=&quot;text-small&quot;&gt;SRAM4 · Fixed + dynamic&lt;/div&gt;&lt;/div&gt;
         &lt;div&gt;
           &lt;div&gt;16.75 KiB stacks → Radio / Wi-Fi / Modem / SPI&lt;/div&gt;
-          &lt;div class=&quot;arch-edge&quot;&gt;Contexts + תורים + BLE CLI + Cloud + תמונות&lt;/div&gt;
+          &lt;div class=&quot;arch-edge&quot;&gt;Contexts + queues + BLE CLI + Cloud + images&lt;/div&gt;
           &lt;div class=&quot;arch-edge&quot;&gt;&lt;bdi&gt;pvPortMalloc → tx_byte_allocate(TX_NO_WAIT)&lt;/bdi&gt;&lt;/div&gt;
-          &lt;div&gt;SPI packets · הקצאה ושחרור בזמן ריצה&lt;/div&gt;
-          &lt;div class=&quot;text-small&quot;&gt;RX transaction: לפחות 1,560 B = payload 1,520 + header 8 + descriptor 32; לפני alignment / תקורת pool.&lt;/div&gt;
+          &lt;div&gt;SPI packets · Runtime allocation and release&lt;/div&gt;
+          &lt;div class=&quot;text-small&quot;&gt;RX transaction: at least 1,560 B = payload 1,520 + header 8 + descriptor 32; before alignment / pool overhead.&lt;/div&gt;
         &lt;/div&gt;
       &lt;/div&gt;
-      &lt;div class=&quot;arch-note&quot;&gt;&lt;span class=&quot;arch-note-mark&quot;&gt;●&lt;/span&gt;&lt;span&gt;בצילום התקלה: 1,308 B פנויים, פחות מבקשת RX אחת. בעלות על יתר ההקצאות עדיין לא הוכחה.&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;arch-note&quot;&gt;&lt;span class=&quot;arch-note-mark&quot;&gt;●&lt;/span&gt;&lt;span&gt;Historical fault snapshot: 1,308 B free, less than one RX request. Ownership of the remaining allocations was not established.&lt;/span&gt;&lt;/div&gt;
     &lt;/div&gt;
     &lt;div class=&quot;arch-memory&quot;&gt;
       &lt;div class=&quot;arch-memory-path&quot;&gt;
-        &lt;div&gt;&lt;div class=&quot;arch-memory-name&quot;&gt;USBX 56 KiB · USBPD 16 KiB&lt;/div&gt;&lt;div class=&quot;text-small&quot;&gt;SRAM2 · pools נפרדים&lt;/div&gt;&lt;/div&gt;
-        &lt;div&gt;USBX: arena של 32 KiB, כולל Bulk stacks של 8 + 8 KiB; Manager stack של 16 KiB.&lt;br&gt;USBPD: CAD stack של 8 KiB + אובייקטים.&lt;/div&gt;
+        &lt;div&gt;&lt;div class=&quot;arch-memory-name&quot;&gt;USBX 56 KiB · USBPD 16 KiB&lt;/div&gt;&lt;div class=&quot;text-small&quot;&gt;SRAM2 · Separate pools&lt;/div&gt;&lt;/div&gt;
+        &lt;div&gt;USBX: 32 KiB arena, including 8 + 8 KiB Bulk stacks; 16 KiB Manager stack.&lt;br&gt;USBPD: 8 KiB CAD stack + objects.&lt;/div&gt;
       &lt;/div&gt;
     &lt;/div&gt;
     &lt;div class=&quot;arch-memory&quot;&gt;
       &lt;div class=&quot;arch-memory-path&quot;&gt;
-        &lt;div&gt;&lt;div class=&quot;arch-memory-name&quot;&gt;Static buffers&lt;/div&gt;&lt;div class=&quot;text-small&quot;&gt;SRAM3 · ללא malloc לכל frame&lt;/div&gt;&lt;/div&gt;
-        &lt;div&gt;ToF: שלושה raw buffers × 14,842 B; תורי מצביעים free / ready.&lt;br&gt;USB: שני map slots × 48 KiB; שמונה control slots × 768 B; שני worker stacks × 12 KiB.&lt;/div&gt;
+        &lt;div&gt;&lt;div class=&quot;arch-memory-name&quot;&gt;Static buffers&lt;/div&gt;&lt;div class=&quot;text-small&quot;&gt;SRAM3 · No per-frame malloc&lt;/div&gt;&lt;/div&gt;
+        &lt;div&gt;ToF: three raw buffers × 14,842 B; free / ready pointer queues.&lt;br&gt;USB: two map slots × 48 KiB; eight control slots × 768 B; two worker stacks × 12 KiB.&lt;/div&gt;
       &lt;/div&gt;
     &lt;/div&gt;
     &lt;div class=&quot;arch-memory&quot;&gt;
       &lt;div class=&quot;arch-memory-path&quot;&gt;
-        &lt;div&gt;&lt;div class=&quot;arch-memory-name&quot;&gt;C heap + NPU workspace&lt;/div&gt;&lt;div class=&quot;text-small&quot;&gt;אזורים נפרדים ממאגר הרדיו&lt;/div&gt;&lt;/div&gt;
-        &lt;div&gt;&lt;bdi&gt;malloc&lt;/bdi&gt; של ToF transformation ב־C heap ב־SRAM2; preprocessing ב־SRAM3; NPU input / activations ב־SRAM5, weights ב־SRAM6.&lt;/div&gt;
+        &lt;div&gt;&lt;div class=&quot;arch-memory-name&quot;&gt;C heap + NPU workspace&lt;/div&gt;&lt;div class=&quot;text-small&quot;&gt;Separate regions from the radio pool&lt;/div&gt;&lt;/div&gt;
+        &lt;div&gt;ToF transformation uses &lt;bdi&gt;malloc&lt;/bdi&gt; from the C heap in SRAM2; preprocessing uses SRAM3; NPU input / activations use SRAM5; weights use SRAM6.&lt;/div&gt;
       &lt;/div&gt;
     &lt;/div&gt;
-    &lt;div class=&quot;arch-caption text-small&quot;&gt;מחסור ב־Radio pool אינו הוכחה ל־stack overflow או לתור מלא. כמות הזיכרון החופשי אינה מזהה מי מחזיק בו.&lt;/div&gt;
+    &lt;div class=&quot;arch-caption text-small&quot;&gt;A Radio pool shortage does not establish stack overflow or a full queue. Free memory alone does not identify allocation ownership.&lt;/div&gt;
   &lt;/section&gt;
   &lt;details class=&quot;arch-expand&quot;&gt;
-    &lt;summary&gt;מקורות המיפוי והיקף האימות&lt;/summary&gt;
+    &lt;summary&gt;Mapping sources and validation scope&lt;/summary&gt;
     &lt;div class=&quot;arch-detail text-small arch-source&quot; id=&quot;n6-sources&quot;&gt;&lt;/div&gt;
-    &lt;div class=&quot;text-small&quot;&gt;מקורות: app_threadx.c, tof_app.c, wifi_ble_app.c, cloud_relay.c, tof_image_codec.c ו־docs/wireless-image-codec.md. המיפוי כולל את עבודת הדחיסה ו־Header v3; נתוני RAM היסטוריים מסומנים בנפרד. אין כאן trace חי או אישור עמידות ממושכת.&lt;/div&gt;
+    &lt;div class=&quot;text-small&quot;&gt;Sources: app_threadx.c, tof_app.c, wifi_ble_app.c, cloud_relay.c, tof_image_codec.c and docs/wireless-image-codec.md. The mapping includes compression and Header v3; historical RAM measurements are identified separately. This is not a live trace or an endurance acceptance report.&lt;/div&gt;
   &lt;/details&gt;
 &lt;/div&gt;
 &lt;script&gt;
@@ -1928,29 +1928,29 @@ html&gt;body{padding:0}&lt;/style&gt;
   const lane = (title, stages) =&gt; ({ title, stages });
   const paths = {
     images: [
-      lane(&#x27;פריים אחד — שני מסלולי מידע&#x27;, [
-        [n(&#x27;ToF Main · p10&#x27;, &#x27;thread&#x27;, &#x27;Transform → NPU; תוצאה עם מזהה פריים&#x27;), n(&#x27;NPU IRQ&#x27;, &#x27;isr&#x27;, &#x27;מעיר את אותו thread&#x27;)],
-        [n(&#x27;NPU מהיר&#x27;, &#x27;hw&#x27;, &#x27;Notify עצמאי: החלטה, ציון ומספר פריים; אינו ממתין לתמונה&#x27;)],
-        [n(&#x27;Snapshot יחיד ב־SRAM4&#x27;, &#x27;hw&#x27;, &#x27;float pixels + תוצאת NPU של אותו פריים; העתקה לפני שימוש חוזר בזיכרון&#x27;)]
+      lane(&#x27;One frame — two data paths&#x27;, [
+        [n(&#x27;ToF Main · p10&#x27;, &#x27;thread&#x27;, &#x27;Transform → NPU; result includes sensor frame ID&#x27;), n(&#x27;NPU IRQ&#x27;, &#x27;isr&#x27;, &#x27;Wakes the same thread&#x27;)],
+        [n(&#x27;Fast NPU&#x27;, &#x27;hw&#x27;, &#x27;Independent notification: decision, score and frame ID; does not wait for the image&#x27;)],
+        [n(&#x27;Single snapshot in SRAM4&#x27;, &#x27;hw&#x27;, &#x27;Float pixels + NPU result from the same frame; copied before workspace reuse&#x27;)]
       ]),
-      lane(&#x27;בעלות ודחיסה&#x27;, [
-        [n(&#x27;CLI · MAP ENCODING&#x27;, &#x27;thread&#x27;, &#x27;RAW / UINT16 / UINT8 / JPEG; הבחירה נלכדת בעת קבלת הפריים&#x27;)],
-        [n(&#x27;Radio Manager · p9&#x27;, &#x27;thread&#x27;, &#x27;מקודד ומשדר כשהיעד BLE&#x27;), n(&#x27;Cloud Relay · p9&#x27;, &#x27;thread&#x27;, &#x27;מקודד ומעלה HTTP כשהיעד Cloud&#x27;)],
-        [n(&#x27;יעד תמונה מרוחק יחיד&#x27;, &#x27;hw&#x27;, &#x27;הבקשה האחרונה קובעת; מחכים לשחרור הבעלים הקודם; אין framebuffer נוסף&#x27;)]
+      lane(&#x27;Ownership and compression&#x27;, [
+        [n(&#x27;CLI · MAP ENCODING&#x27;, &#x27;thread&#x27;, &#x27;RAW / UINT16 / UINT8 / JPEG; mode captured when the frame is accepted&#x27;)],
+        [n(&#x27;Radio Manager · p9&#x27;, &#x27;thread&#x27;, &#x27;Encodes and transmits for the BLE destination&#x27;), n(&#x27;Cloud Relay · p9&#x27;, &#x27;thread&#x27;, &#x27;Encodes and uploads over HTTP for the Cloud destination&#x27;)],
+        [n(&#x27;One remote image destination&#x27;, &#x27;hw&#x27;, &#x27;Last request wins; waits for the previous owner to release; no additional framebuffer&#x27;)]
       ]),
-      lane(&#x27;Header v3 → הדפדפן&#x27;, [
-        [n(&#x27;56 bytes + payload&#x27;, &#x27;hw&#x27;, &#x27;גודל, ערוץ, קידוד, base/step, מזהה פריים, CRC לכותרת ולמידע&#x27;)],
-        [n(&#x27;NPU בתוך Header&#x27;, &#x27;hw&#x27;, &#x27;מצב, החלטה, ציון, פריים, מונה הסקות וזמן הסקה; כבוי/לא מוכן/אין תוצאה מפורשים&#x27;)],
-        [n(&#x27;בדיקת CRC והרכבה&#x27;, &#x27;inline&#x27;, &#x27;BLE fragments או Cloud frame מלא&#x27;), n(&#x27;תמונה + ההחלטה שלה&#x27;, &#x27;hw&#x27;, &#x27;NPU מהיר מוצג בנפרד; תוצאה חדשה לא מחליפה את ההחלטה של תמונה ישנה&#x27;)]
+      lane(&#x27;Header v3 → Browser&#x27;, [
+        [n(&#x27;56 bytes + payload&#x27;, &#x27;hw&#x27;, &#x27;Dimensions, channel, encoding, base/step, frame ID, header and payload CRCs&#x27;)],
+        [n(&#x27;NPU in the header&#x27;, &#x27;hw&#x27;, &#x27;State, class, score, frame ID, run counter and inference time; explicit off / not ready / no result states&#x27;)],
+        [n(&#x27;CRC validation and assembly&#x27;, &#x27;inline&#x27;, &#x27;BLE fragments or a complete Cloud frame&#x27;), n(&#x27;Image + its own decision&#x27;, &#x27;hw&#x27;, &#x27;Fast NPU is shown separately; a newer result never replaces the decision attached to an older image&#x27;)]
       ])
     ],
     overview: [
-      lane(&#x27;רכישה ועיבוד&#x27;, [
+      lane(&#x27;Acquisition and processing&#x27;, [
         [n(&#x27;VL53L9CX · I3C1&#x27;), n(&#x27;DMA completion / error&#x27;, &#x27;isr&#x27;, &#x27;event flags; DMA 0 / 1 / 2&#x27;)],
-        [n(&#x27;ToF Acquisition · p7&#x27;, &#x27;thread&#x27;), edge(&#x27;ready queue · 3 מצביעים&#x27;), n(&#x27;ToF Main Thread · p10&#x27;, &#x27;thread&#x27;)],
-        [n(&#x27;Preprocess + NPU&#x27;, &#x27;inline&#x27;, &#x27;בתוך ToF Main Thread&#x27;), edge(&#x27;פרסום frame / snapshot&#x27;), n(&#x27;Display / USB / Radio&#x27;, &#x27;hw&#x27;)]
+        [n(&#x27;ToF Acquisition · p7&#x27;, &#x27;thread&#x27;), edge(&#x27;Ready queue · 3 pointers&#x27;), n(&#x27;ToF Main Thread · p10&#x27;, &#x27;thread&#x27;)],
+        [n(&#x27;Preprocess + NPU&#x27;, &#x27;inline&#x27;, &#x27;Inside ToF Main Thread&#x27;), edge(&#x27;Publish frame / snapshot&#x27;), n(&#x27;Display / USB / Radio&#x27;, &#x27;hw&#x27;)]
       ]),
-      lane(&#x27;רדיו משותף&#x27;, [
+      lane(&#x27;Shared radio&#x27;, [
         [n(&#x27;ST67 · BLE + Wi-Fi · SPI5&#x27;), n(&#x27;SPI-ready EXTI9 + DMA&#x27;, &#x27;isr&#x27;, &#x27;TX 10 / RX 11 → event flags&#x27;)],
         [n(&#x27;spi_xfer_engine · p3&#x27;, &#x27;thread&#x27;), edge(&#x27;RX packet queues&#x27;), n(&#x27;Modem_Process · p2&#x27;, &#x27;thread&#x27;)],
         [n(&#x27;Radio Manager · p9&#x27;, &#x27;thread&#x27;, &#x27;BLE + network-state events&#x27;), n(&#x27;Wi-Fi control · p11&#x27;, &#x27;thread&#x27;, &#x27;request / result queues&#x27;), n(&#x27;Cloud Relay · p9&#x27;, &#x27;thread&#x27;, &#x27;HTTP / socket owner; control queue&#x27;), n(&#x27;CLI broker · p9&#x27;, &#x27;thread&#x27;, &#x27;BLE + Cloud + USB sessions&#x27;)]
@@ -1958,108 +1958,108 @@ html&gt;body{padding:0}&lt;/style&gt;
       lane(&#x27;USB&#x27;, [
         [n(&#x27;CN8 · OTG HS1&#x27;), n(&#x27;USB IRQ → USBX&#x27;, &#x27;isr&#x27;), n(&#x27;UCPD / TCPP → CAD · p1&#x27;, &#x27;thread&#x27;)],
         [n(&#x27;USBX Manager · p8&#x27;, &#x27;thread&#x27;, &#x27;attach / detach / recovery queue&#x27;), n(&#x27;Bulk-IN + Bulk-OUT · p8&#x27;, &#x27;thread&#x27;)],
-        [n(&#x27;CDC RX + TX workers · p9&#x27;, &#x27;thread&#x27;, &#x27;תורי slots + completion&#x27;), n(&#x27;CLI broker · p9&#x27;, &#x27;thread&#x27;)]
+        [n(&#x27;CDC RX + TX workers · p9&#x27;, &#x27;thread&#x27;, &#x27;Slot queues + completion&#x27;), n(&#x27;CLI broker · p9&#x27;, &#x27;thread&#x27;)]
       ]),
-      lane(&#x27;תצוגה&#x27;, [
+      lane(&#x27;Display&#x27;, [
         [n(&#x27;ToF Main Thread · p10&#x27;, &#x27;thread&#x27;), edge(&#x27;snapshot + event flags&#x27;)],
-        [n(&#x27;GC9A01 display · p8&#x27;, &#x27;thread&#x27;, &#x27;בעלים יחיד של SPI4 TX&#x27;)],
-        [n(&#x27;SPI4 → GC9A01&#x27;), n(&#x27;DMA 5 completion / error&#x27;, &#x27;isr&#x27;, &#x27;event flags חוזרים ל־display&#x27;)]
+        [n(&#x27;GC9A01 display · p8&#x27;, &#x27;thread&#x27;, &#x27;Sole owner of SPI4 TX&#x27;)],
+        [n(&#x27;SPI4 → GC9A01&#x27;), n(&#x27;DMA 5 completion / error&#x27;, &#x27;isr&#x27;, &#x27;Event flags return to the display thread&#x27;)]
       ]),
       lane(&#x27;Debug UART&#x27;, [
-        [n(&#x27;USART1 RX interrupt&#x27;, &#x27;isr&#x27;, &#x27;ring של 16 bytes&#x27;)],
-        [n(&#x27;Debug UART test · p9&#x27;, &#x27;thread&#x27;, &#x27;RX diagnostics / watch&#x27;), n(&#x27;כל ה־threads → log queue&#x27;)],
+        [n(&#x27;USART1 RX interrupt&#x27;, &#x27;isr&#x27;, &#x27;16-byte ring&#x27;)],
+        [n(&#x27;Debug UART test · p9&#x27;, &#x27;thread&#x27;, &#x27;RX diagnostics / watch&#x27;), n(&#x27;All threads → log queue&#x27;)],
         [n(&#x27;Debug UART TX · p5&#x27;, &#x27;thread&#x27;, &#x27;USART1 TX interrupt&#x27;), n(&#x27;TX completion&#x27;, &#x27;isr&#x27;, &#x27;event flags → UART TX thread&#x27;)]
       ]),
-      lane(&#x27;אישור קושחה&#x27;, [
-        [n(&#x27;Firmware confirmation · p6&#x27;, &#x27;thread&#x27;, &#x27;מסתיים אחרי אישור&#x27;)],
-        [n(&#x27;Secure NSC&#x27;, &#x27;inline&#x27;, &#x27;קריאה סינכרונית; אין Secure thread&#x27;)],
+      lane(&#x27;Firmware confirmation&#x27;, [
+        [n(&#x27;Firmware confirmation · p6&#x27;, &#x27;thread&#x27;, &#x27;Finishes after confirmation&#x27;)],
+        [n(&#x27;Secure NSC&#x27;, &#x27;inline&#x27;, &#x27;Synchronous call; no Secure thread&#x27;)],
         [n(&#x27;XSPI2 → NOR metadata&#x27;)]
       ])
     ],
     tof: [
       lane(&#x27;VL53L9CX → raw frame&#x27;, [
-        [n(&#x27;VL53L9CX · I3C1&#x27;), n(&#x27;PD9 data-ready&#x27;, &#x27;hw&#x27;, &#x27;poll כל tick; EXTI9 תפוס על ידי רדיו&#x27;)],
-        [n(&#x27;ToF Acquisition · p7&#x27;, &#x27;thread&#x27;, &#x27;DMA read לתוך raw buffer&#x27;), n(&#x27;I3C DMA callbacks&#x27;, &#x27;isr&#x27;, &#x27;event flags; timeout 1,500 ms&#x27;)],
-        [n(&#x27;Static raw pool · 3 buffers&#x27;), edge(&#x27;free queue → acquisition → ready queue&#x27;), n(&#x27;ToF Main Thread · p10&#x27;, &#x27;thread&#x27;, &#x27;מקבל מצביע; מחזיר buffer&#x27;)]
+        [n(&#x27;VL53L9CX · I3C1&#x27;), n(&#x27;PD9 data-ready&#x27;, &#x27;hw&#x27;, &#x27;Polled every tick; EXTI9 is used by the radio&#x27;)],
+        [n(&#x27;ToF Acquisition · p7&#x27;, &#x27;thread&#x27;, &#x27;DMA read into a raw buffer&#x27;), n(&#x27;I3C DMA callbacks&#x27;, &#x27;isr&#x27;, &#x27;event flags; timeout 1,500 ms&#x27;)],
+        [n(&#x27;Static raw pool · 3 buffers&#x27;), edge(&#x27;free queue → acquisition → ready queue&#x27;), n(&#x27;ToF Main Thread · p10&#x27;, &#x27;thread&#x27;, &#x27;Receives a pointer; returns the buffer&#x27;)]
       ]),
-      lane(&#x27;עיבוד → NPU → consumers&#x27;, [
-        [n(&#x27;ToF Main Thread · p10&#x27;, &#x27;thread&#x27;), n(&#x27;Transform + preprocess&#x27;, &#x27;inline&#x27;, &#x27;עיבוד בתוך אותו thread&#x27;)],
-        [n(&#x27;LL_ATON / NeuralART&#x27;, &#x27;inline&#x27;, &#x27;אותו thread ממתין ל־semaphore&#x27;), n(&#x27;NPU IRQ&#x27;, &#x27;isr&#x27;, &#x27;משחרר semaphore&#x27;)],
+      lane(&#x27;Processing → NPU → Consumers&#x27;, [
+        [n(&#x27;ToF Main Thread · p10&#x27;, &#x27;thread&#x27;), n(&#x27;Transform + preprocess&#x27;, &#x27;inline&#x27;, &#x27;Processing within the same thread&#x27;)],
+        [n(&#x27;LL_ATON / NeuralART&#x27;, &#x27;inline&#x27;, &#x27;The same thread waits on a semaphore&#x27;), n(&#x27;NPU IRQ&#x27;, &#x27;isr&#x27;, &#x27;Releases a semaphore&#x27;)],
         [n(&#x27;Display snapshot → p8&#x27;, &#x27;thread&#x27;), n(&#x27;USB map slots → TX p9&#x27;, &#x27;thread&#x27;), n(&#x27;Shared image → BLE / Cloud p9&#x27;, &#x27;thread&#x27;, &#x27;FREE / FILLING / READY / ACTIVE / WAIT_CLOUD&#x27;)]
       ]),
       lane(&#x27;Display completion&#x27;, [
-        [n(&#x27;GC9A01 display · p8&#x27;, &#x27;thread&#x27;, &#x27;row buffer קבוע; SPI4 DMA&#x27;)],
+        [n(&#x27;GC9A01 display · p8&#x27;, &#x27;thread&#x27;, &#x27;Fixed row buffer; SPI4 DMA&#x27;)],
         [n(&#x27;GPDMA channel 5 → SPI4&#x27;), n(&#x27;HAL SPI completion / error&#x27;, &#x27;isr&#x27;)],
-        [n(&#x27;Display event flags&#x27;), n(&#x27;GC9A01 display · p8&#x27;, &#x27;thread&#x27;, &#x27;המשך frame; timeout 2 s&#x27;)]
+        [n(&#x27;Display event flags&#x27;), n(&#x27;GC9A01 display · p8&#x27;, &#x27;thread&#x27;, &#x27;Continue frame; 2 s timeout&#x27;)]
       ])
     ],
     radio: [
-      lane(&#x27;הנתיב הפיזי היחיד של BLE ו־Wi-Fi&#x27;, [
+      lane(&#x27;The shared physical path for BLE and Wi-Fi&#x27;, [
         [n(&#x27;ST67 · SPI5&#x27;), n(&#x27;PE9 SPI-ready + DMA&#x27;, &#x27;isr&#x27;, &#x27;event flags; RX 11 / TX 10&#x27;)],
-        [n(&#x27;spi_xfer_engine · p3&#x27;, &#x27;thread&#x27;, &#x27;TX queue עד 8; הקצאת RX packet&#x27;), edge(&#x27;packet RX queues&#x27;), n(&#x27;Modem_Process · p2&#x27;, &#x27;thread&#x27;, &#x27;AT parser&#x27;)],
-        [n(&#x27;AT response&#x27;, &#x27;hw&#x27;, &#x27;sem_response → caller&#x27;), n(&#x27;Wi-Fi / BLE callbacks&#x27;, &#x27;inline&#x27;, &#x27;בתוך Modem_Process; פרסום אירועים ותורים&#x27;)]
+        [n(&#x27;spi_xfer_engine · p3&#x27;, &#x27;thread&#x27;, &#x27;TX queue up to 8; RX packet allocation&#x27;), edge(&#x27;packet RX queues&#x27;), n(&#x27;Modem_Process · p2&#x27;, &#x27;thread&#x27;, &#x27;AT parser&#x27;)],
+        [n(&#x27;AT response&#x27;, &#x27;hw&#x27;, &#x27;sem_response → caller&#x27;), n(&#x27;Wi-Fi / BLE callbacks&#x27;, &#x27;inline&#x27;, &#x27;Inside Modem_Process; publishes events and queues&#x27;)]
       ]),
-      lane(&#x27;ניהול ועבודת רשת&#x27;, [
-        [n(&#x27;Radio Manager · p9&#x27;, &#x27;thread&#x27;, &#x27;BLE events / image pump&#x27;), edge(&#x27;מצב רשת + Event&#x27;), n(&#x27;CLI broker · p9&#x27;, &#x27;thread&#x27;, &#x27;4 control slots → Cloud&#x27;)],
-        [n(&#x27;Cloud Relay · p9&#x27;, &#x27;thread&#x27;, &#x27;DNS / HTTP / socket; מתעורר ב־Event או כל 20 ms&#x27;), n(&#x27;AT TX lock משותף&#x27;, &#x27;hw&#x27;, &#x27;הפרדת thread אינה מבטלת תחרות ב־modem&#x27;)],
-        [n(&#x27;Cloud input / ACK / output&#x27;), n(&#x27;CLI broker · p9&#x27;, &#x27;thread&#x27;, &#x27;ביצוע פקודות; API ללא המתנה&#x27;), n(&#x27;ToF shared snapshot&#x27;, &#x27;hw&#x27;, &#x27;lease עד סיום send; BLE ממתין לשחרור&#x27;)]
+      lane(&#x27;Management and network processing&#x27;, [
+        [n(&#x27;Radio Manager · p9&#x27;, &#x27;thread&#x27;, &#x27;BLE events / image pump&#x27;), edge(&#x27;Network state + event&#x27;), n(&#x27;CLI broker · p9&#x27;, &#x27;thread&#x27;, &#x27;4 control slots → Cloud&#x27;)],
+        [n(&#x27;Cloud Relay · p9&#x27;, &#x27;thread&#x27;, &#x27;DNS / HTTP / socket; wakes on an event or every 20 ms&#x27;), n(&#x27;Shared AT TX lock&#x27;, &#x27;hw&#x27;, &#x27;Separate threads still contend for the modem&#x27;)],
+        [n(&#x27;Cloud input / ACK / output&#x27;), n(&#x27;CLI broker · p9&#x27;, &#x27;thread&#x27;, &#x27;Command execution; nonblocking API&#x27;), n(&#x27;ToF shared snapshot&#x27;, &#x27;hw&#x27;, &#x27;Lease held until send completes; BLE waits for release&#x27;)]
       ]),
-      lane(&#x27;פקודות Wi-Fi&#x27;, [
+      lane(&#x27;Wi-Fi commands&#x27;, [
         [n(&#x27;CLI broker · p9&#x27;, &#x27;thread&#x27;), edge(&#x27;request queue · 4&#x27;)],
-        [n(&#x27;Wi-Fi control · p11&#x27;, &#x27;thread&#x27;, &#x27;scan / connect / disconnect / query&#x27;), n(&#x27;W6X / AT API&#x27;, &#x27;inline&#x27;, &#x27;ממתין לתגובה; AT TX lock משותף&#x27;)],
+        [n(&#x27;Wi-Fi control · p11&#x27;, &#x27;thread&#x27;, &#x27;scan / connect / disconnect / query&#x27;), n(&#x27;W6X / AT API&#x27;, &#x27;inline&#x27;, &#x27;Waits for a response; shared AT TX lock&#x27;)],
         [n(&#x27;Modem_Process · p2&#x27;, &#x27;thread&#x27;, &#x27;sem_response&#x27;), edge(&#x27;result queue · 4&#x27;), n(&#x27;CLI broker · p9&#x27;, &#x27;thread&#x27;)]
       ])
     ],
     usb: [
-      lane(&#x27;USB attach / detach וניהול מחזור חיים&#x27;, [
+      lane(&#x27;USB attach / detach and lifecycle management&#x27;, [
         [n(&#x27;UCPD1 + TCPP / CC&#x27;), n(&#x27;CAD · p1&#x27;, &#x27;thread&#x27;, &#x27;USBPD attach notification&#x27;)],
-        [n(&#x27;Lifecycle queue · 16 events&#x27;, &#x27;hw&#x27;, &#x27;class / DTR callbacks; health timer ב־Timer thread&#x27;)],
-        [n(&#x27;USBX Device App Thread · p8&#x27;, &#x27;thread&#x27;, &#x27;PHY / PCD start-stop; quiesce; עד 3 recoveries לכל attach&#x27;)]
+        [n(&#x27;Lifecycle queue · 16 events&#x27;, &#x27;hw&#x27;, &#x27;Class / DTR callbacks; health timer in Timer thread&#x27;)],
+        [n(&#x27;USBX Device App Thread · p8&#x27;, &#x27;thread&#x27;, &#x27;PHY / PCD start-stop; quiesce; up to 3 recoveries per attach&#x27;)]
       ]),
-      lane(&#x27;קלט USB → פקודה&#x27;, [
-        [n(&#x27;OTG HS1 IRQ&#x27;, &#x27;isr&#x27;), n(&#x27;USBX Bulk-OUT · p8&#x27;, &#x27;thread&#x27;, &#x27;read callback; אינו hardware ISR&#x27;)],
-        [n(&#x27;Ingress queue · RX slot&#x27;), n(&#x27;CDC RX worker · p9&#x27;, &#x27;thread&#x27;, &#x27;dispatch ל־delivery queue&#x27;)],
-        [n(&#x27;CLI broker · p9&#x27;, &#x27;thread&#x27;, &#x27;USB / BLE / Cloud sessions; בעלים יחיד לביצוע פקודות&#x27;)]
+      lane(&#x27;USB input → Command&#x27;, [
+        [n(&#x27;OTG HS1 IRQ&#x27;, &#x27;isr&#x27;), n(&#x27;USBX Bulk-OUT · p8&#x27;, &#x27;thread&#x27;, &#x27;Read callback; not a hardware ISR&#x27;)],
+        [n(&#x27;Ingress queue · RX slot&#x27;), n(&#x27;CDC RX worker · p9&#x27;, &#x27;thread&#x27;, &#x27;Dispatch to delivery queue&#x27;)],
+        [n(&#x27;CLI broker · p9&#x27;, &#x27;thread&#x27;, &#x27;USB / BLE / Cloud sessions; sole command execution owner&#x27;)]
       ]),
-      lane(&#x27;פלט / MAP → USB&#x27;, [
+      lane(&#x27;Output / MAP → USB&#x27;, [
         [n(&#x27;CLI / ToF producers&#x27;), edge(&#x27;8 control + 2 map slots&#x27;), n(&#x27;TX queue · 10 slots&#x27;)],
-        [n(&#x27;CDC TX scheduler · p9&#x27;, &#x27;thread&#x27;, &#x27;בעלים יחיד של USB_CDC_LL_WriteAsync&#x27;), n(&#x27;USBX Bulk-IN · p8&#x27;, &#x27;thread&#x27;)],
-        [n(&#x27;OTG HS1 completion&#x27;, &#x27;isr&#x27;), n(&#x27;USBX write callback&#x27;, &#x27;inline&#x27;, &#x27;Bulk-IN context → semaphore&#x27;), n(&#x27;CDC TX scheduler · p9&#x27;, &#x27;thread&#x27;, &#x27;שחרור slot; timeout 5 s → manager&#x27;)]
+        [n(&#x27;CDC TX scheduler · p9&#x27;, &#x27;thread&#x27;, &#x27;Sole owner of USB_CDC_LL_WriteAsync&#x27;), n(&#x27;USBX Bulk-IN · p8&#x27;, &#x27;thread&#x27;)],
+        [n(&#x27;OTG HS1 completion&#x27;, &#x27;isr&#x27;), n(&#x27;USBX write callback&#x27;, &#x27;inline&#x27;, &#x27;Bulk-IN context → semaphore&#x27;), n(&#x27;CDC TX scheduler · p9&#x27;, &#x27;thread&#x27;, &#x27;Release slot; 5 s timeout → manager&#x27;)]
       ])
     ],
     debug: [
       lane(&#x27;UART RX → diagnostics&#x27;, [
         [n(&#x27;USART1 RX IRQ&#x27;, &#x27;isr&#x27;, &#x27;16-byte ring + command event&#x27;)],
         [n(&#x27;Debug UART test · p9&#x27;, &#x27;thread&#x27;, &#x27;diagnostics / watch / test commands&#x27;)],
-        [n(&#x27;Status snapshots / watch&#x27;, &#x27;inline&#x27;, &#x27;תשובות diagnostics → log queue&#x27;)]
+        [n(&#x27;Status snapshots / watch&#x27;, &#x27;inline&#x27;, &#x27;Diagnostic replies → log queue&#x27;)]
       ]),
       lane(&#x27;Logs → UART TX&#x27;, [
-        [n(&#x27;כל thread כותב log&#x27;), n(&#x27;Static log slots&#x27;, &#x27;hw&#x27;, &#x27;free / ready queues&#x27;)],
+        [n(&#x27;Any thread can enqueue a log&#x27;), n(&#x27;Static log slots&#x27;, &#x27;hw&#x27;, &#x27;free / ready queues&#x27;)],
         [n(&#x27;Debug UART TX · p5&#x27;, &#x27;thread&#x27;, &#x27;ready queue → USART1 TX IT&#x27;)],
-        [n(&#x27;USART1 TX completion&#x27;, &#x27;isr&#x27;, &#x27;event flags; המתנה מוגבלת&#x27;)]
+        [n(&#x27;USART1 TX completion&#x27;, &#x27;isr&#x27;, &#x27;Event flags; bounded wait&#x27;)]
       ]),
-      lane(&#x27;Secure וכתיבת FLASH&#x27;, [
+      lane(&#x27;Secure and Flash writes&#x27;, [
         [n(&#x27;Firmware confirmation · p6&#x27;, &#x27;thread&#x27;, &#x27;sleep 5 s → confirm boot&#x27;), n(&#x27;CLI broker · p9&#x27;, &#x27;thread&#x27;, &#x27;XMODEM update&#x27;)],
-        [n(&#x27;Secure NSC gateway&#x27;, &#x27;inline&#x27;, &#x27;קריאה סינכרונית מה־thread הקורא; אין ThreadX thread נוסף&#x27;)],
-        [n(&#x27;PKA / RNG / XSPI2&#x27;, &#x27;hw&#x27;, &#x27;אימות חבילה; NOR slots / metadata&#x27;)]
+        [n(&#x27;Secure NSC gateway&#x27;, &#x27;inline&#x27;, &#x27;Synchronous call in the caller thread; no additional ThreadX thread&#x27;)],
+        [n(&#x27;PKA / RNG / XSPI2&#x27;, &#x27;hw&#x27;, &#x27;Package verification; NOR slots / metadata&#x27;)]
       ])
     ]
   };
   const notes = {
-    images:[&#x27;RAW: 9,072 bytes; UINT16: 4,536; UINT8: 2,268 לתמונה 54×42, ללא Header. קוונטיזציה משתמשת ב־base/step; קוד 0 מציין ערך לא תקף.&#x27;, &#x27;JPEG הוא ניסוי תוכנה על המעבד, לא VENC: grayscale עם מפת תקפות. הגודל תלוי בסצנה והוא עלול להיות גדול מ־UINT8; הציון/עומק אינם מדויקים יותר בזכות JPEG.&#x27;, &#x27;USB CDC MAP נשאר בפורמט המקורי. HELP מציג MAP ENCODING RAW|UINT16|UINT8|JPEG. נדרשת פריסת אתר ושרת התומכים ב־v3 לפני טעינת הקושחה החדשה.&#x27;, &#x27;אימות: כל ארבעת המצבים עברו ב־BLE וב־Wi-Fi בדפדפן עם v2. תוספת NPU ב־v3 עברה בדיקות C, פענוח ו־HTTP/SignalR מקומיות; טרם נבדקה מול חומרה בגרסה זו.&#x27;],
-    overview:[&#x27;הפרדה בקוד: רכישה / עיבוד / תצוגה / Cloud; בעלות יחידה על SPI5 ו־USB TX; תורים מוגבלים.&#x27;, &#x27;נקודות תלות: AT lock משותף ותקציב Radio pool מוגבל. קיימת התאוששות מתואמת; בדיקות עומס והשהיה משולבות עדיין פתוחות.&#x27;],
-    tof:[&#x27;Backpressure: ready queue מוגבל; frames ישנים נזרקים כדי לפנות buffer.&#x27;, &#x27;צילום תקלה היסטורי תיעד עצירת רכישה; אינו תיאור של ריצה חיה. בעת אבחון יש לבדוק מוני פריימים, אירועי DMA ומצב התאוששות.&#x27;],
-    radio:[&#x27;Cloud הוא כעת בעלים נפרד לרשת; אימות BLE בזמן כשל Cloud עדיין פתוח.&#x27;, &#x27;SPI RX, stacks ו־contexts חולקים תקציב מוגבל של 64 KiB. מחסור RX נצפה בצילום היסטורי; אינו מדידה נוכחית.&#x27;, &#x27;Wi-Fi control בעדיפות 11, נמוכה מ־ToF processing בעדיפות 10: סיכון להשהיה תחת עומס, ללא הוכחת starvation.&#x27;],
-    usb:[&#x27;מסלול פלט מוגבל עם בעלים יחיד ו־completion; map buffers קבועים ללא malloc לכל frame.&#x27;, &#x27;USB נשאר פעיל בצילום התקלה; BLE ו־Wi-Fi חולקים משאב רדיו נפרד.&#x27;],
-    debug:[&#x27;Debug UART test הוא thread פעיל של RX diagnostics / watch.&#x27;, &#x27;FSBL ו־Secure boot רצים לפני scheduler; Secure NSC רץ בהקשר הקורא.&#x27;]
+    images:[&#x27;RAW: 9,072 bytes; UINT16: 4,536; UINT8: 2,268 for a 54×42 image, excluding the header. Quantization uses base/step; code 0 marks an invalid sample.&#x27;, &#x27;JPEG is an experimental CPU encoder, not VENC: grayscale with a validity bitmap. Size depends on the scene and may exceed UINT8. JPEG does not improve depth or model score accuracy.&#x27;, &#x27;USB CDC MAP retains its original format. HELP lists MAP ENCODING RAW|UINT16|UINT8|JPEG. Deploy a v3-capable website and server before loading the new firmware.&#x27;, &#x27;Validation: all four modes passed physical BLE and Wi-Fi browser tests with v2. The v3 NPU extension passed C, decoder and local HTTP/SignalR tests; physical validation of this version remains pending.&#x27;],
+    overview:[&#x27;Separate acquisition / processing / display / Cloud code; single owners for SPI5 and USB TX; bounded queues.&#x27;, &#x27;Dependencies: shared AT lock and limited Radio pool budget. Coordinated recovery exists; combined load and latency acceptance remains open.&#x27;],
+    tof:[&#x27;Backpressure: bounded ready queue; older frames are dropped to release buffers.&#x27;, &#x27;A historical fault snapshot showed acquisition stopped; this is not live state. Diagnose using frame counters, DMA events and recovery status.&#x27;],
+    radio:[&#x27;Cloud owns network work in a separate thread; BLE acceptance during Cloud failures remains open.&#x27;, &#x27;SPI RX, stacks and contexts share a limited 64 KiB budget. An RX shortage was observed in a historical snapshot; this is not a current measurement.&#x27;, &#x27;Wi-Fi control at priority 11 runs below ToF processing at priority 10: load may cause delays; starvation has not been established.&#x27;],
+    usb:[&#x27;Bounded output path with one owner and completion tracking; fixed map buffers without per-frame malloc.&#x27;, &#x27;USB remained active in the historical fault snapshot; BLE and Wi-Fi share a separate radio resource.&#x27;],
+    debug:[&#x27;Debug UART test is an active RX diagnostics / watch thread.&#x27;, &#x27;FSBL and Secure boot run before the scheduler; Secure NSC runs in the caller context.&#x27;]
   };
   const threads = [
-    [&#x27;System Timer Thread&#x27;,0,&#x27;1 KiB&#x27;,&#x27;ThreadX static&#x27;,&#x27;טיימרים שפגו; מעיר threads או מפרסם events&#x27;,&#x27;ThreadX tx_timer_thread_create.c; RAM GDB snapshot&#x27;],
+    [&#x27;System Timer Thread&#x27;,0,&#x27;1 KiB&#x27;,&#x27;ThreadX static&#x27;,&#x27;Expired timers; wakes threads or publishes events&#x27;,&#x27;ThreadX tx_timer_thread_create.c; RAM GDB snapshot&#x27;],
     [&#x27;CAD&#x27;,1,&#x27;8 KiB&#x27;,&#x27;USBPD pool&#x27;,&#x27;UCPD / TCPP attach; wakeup queue → USB manager&#x27;,&#x27;USBPD/Target/usbpd_dpm_user.c&#x27;],
     [&#x27;Modem_Process&#x27;,2,&#x27;2 KiB&#x27;,&#x27;Radio pool&#x27;,&#x27;SPI RX → AT parser; response semaphore; callbacks → Radio / Wi-Fi&#x27;,&#x27;ThirdParty/W61_at/w61_at_common.c&#x27;],
     [&#x27;spi_xfer_engine&#x27;,3,&#x27;768 B&#x27;,&#x27;Radio pool&#x27;,&#x27;SPI-ready / pending event flags + packet queues; SPI5 DMA owner&#x27;,&#x27;ThirdParty/W61_bus/spi_iface.c&#x27;],
     [&#x27;Debug UART TX&#x27;,5,&#x27;3 KiB&#x27;,&#x27;Application pool&#x27;,&#x27;ready log queue; USART1 TX completion flags&#x27;,&#x27;Core/Src/app_threadx.c; debug_uart.c&#x27;],
-    [&#x27;Firmware confirmation&#x27;,6,&#x27;2 KiB&#x27;,&#x27;Application pool&#x27;,&#x27;sleep 5 s → Secure ConfirmBoot; thread מסיים&#x27;,&#x27;Core/Src/app_threadx.c&#x27;],
+    [&#x27;Firmware confirmation&#x27;,6,&#x27;2 KiB&#x27;,&#x27;Application pool&#x27;,&#x27;Sleep 5 s → Secure ConfirmBoot; thread completes&#x27;,&#x27;Core/Src/app_threadx.c&#x27;],
     [&#x27;ToF Acquisition&#x27;,7,&#x27;16 KiB&#x27;,&#x27;Application pool&#x27;,&#x27;free raw queue + I3C DMA events; ready queue → processing&#x27;,&#x27;Core/Src/app_threadx.c; tof_app.c&#x27;],
     [&#x27;GC9A01 display&#x27;,8,&#x27;4 KiB&#x27;,&#x27;Application pool&#x27;,&#x27;snapshot / event flags + SPI4 DMA completion&#x27;,&#x27;Core/Src/app_threadx.c; gc9a01.c&#x27;],
     [&#x27;USBX Device App Thread&#x27;,8,&#x27;16 KiB&#x27;,&#x27;USBX parent pool&#x27;,&#x27;lifecycle queue; attach / detach / health / recovery&#x27;,&#x27;USBX/App/app_usbx_device.c&#x27;],

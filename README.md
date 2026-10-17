@@ -1,5 +1,13 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Release verifier fix (2026-10-17): post-XMODEM and factory verification now wait
+for a complete `Firmware version:` response line before comparing versions.
+Byte-at-a-time reads previously treated the first digit of v11 as version1.
+72 streamed-response cases pass; live read-only CN8 verification confirms v11.
+The reported v11 transfer needs no reinstall. A complete mismatching version
+still fails verification. Run `powershell.exe -NoProfile -ExecutionPolicy Bypass
+-File hil_tests/test_version_response.ps1` for the hardware-free regression.
+
 New local v3 update: image-bound NPU decision/state/score in the 56-byte header;
 independent fast NPU output preserved. HELP lists MAP ENCODING choices. Builds
 and local protocol/relay tests pass; deploy the site/server before loading v3.

@@ -28,77 +28,13 @@ function Wait-N6InstalledVersion {
         [int]$TimeoutSeconds = 45
     )
 
-    # The confirmation task intentionally waits five seconds before closing the
-    # rollback window. Do not call a trial image verified before that point.
-    Start-Sleep -Seconds 6
-    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
-    $lastError = $null
-
-    while ([DateTime]::UtcNow -lt $deadline) {
-        $candidatePort = $RequestedPort
-        $serial = $null
-        try {
-            if ([string]::IsNullOrWhiteSpace($candidatePort)) {
-                $candidatePort = Find-N6UsbCdcPort
-            }
-
-            $serial = [IO.Ports.SerialPort]::new(
-                $candidatePort,
-                115200,
-                [IO.Ports.Parity]::None,
-                8,
-                [IO.Ports.StopBits]::One)
-            $serial.Handshake = [IO.Ports.Handshake]::None
-            $serial.ReadTimeout = 200
-            $serial.WriteTimeout = 3000
-            $serial.DtrEnable = $true
-            $serial.Open()
-            Start-Sleep -Milliseconds 500
-            $serial.DiscardInBuffer()
-            $serial.Write("version`r")
-
-            $text = [Text.StringBuilder]::new()
-            $responseDeadline = [DateTime]::UtcNow.AddSeconds(5)
-            while ([DateTime]::UtcNow -lt $responseDeadline) {
-                try {
-                    $value = $serial.ReadByte()
-                    if ($value -ge 0) {
-                        [void]$text.Append([char]$value)
-                    }
-                }
-                catch [TimeoutException] {
-                    # Continue until the complete response deadline.
-                }
-
-                $match = [regex]::Match(
-                    $text.ToString(),
-                    'Firmware version:\s*([0-9]+)')
-                if ($match.Success) {
-                    $observedVersion = [uint32]$match.Groups[1].Value
-                    if ($observedVersion -ne $ExpectedVersion) {
-                        throw "The board booted firmware version $observedVersion instead of expected version $ExpectedVersion."
-                    }
-                    Write-Host "Verified running firmware version $observedVersion after reset and the confirmation window."
-                    return
-                }
-            }
-            $lastError = "No version response was received from $candidatePort."
-        }
-        catch {
-            $lastError = $_.Exception.Message
-        }
-        finally {
-            if (($null -ne $serial) -and $serial.IsOpen) {
-                $serial.Close()
-            }
-            if ($null -ne $serial) {
-                $serial.Dispose()
-            }
-        }
-        Start-Sleep -Milliseconds 500
-    }
-
-    throw "The updated application could not be verified after reset. Last error: $lastError"
+    # Share the complete-line parser with the factory verifier. The common
+    # verifier also waits for the trial confirmation window before querying.
+    Wait-N6RunningVersion `
+        -RequestedPort $RequestedPort `
+        -ExpectedVersion $ExpectedVersion `
+        -TimeoutSeconds $TimeoutSeconds `
+        -WaitForTrialConfirmation
 }
 
 $tools = Get-N6DevelopmentTools -IdeRoot $IdeRoot

@@ -375,3 +375,10 @@ at preflight and postflight, and a ToF failure also fails the full gate.
 JPEG experimental: `test_tof_jpeg.py` requires Pillow and MSVC, verifies native C
 output with an independent decoder and emits `--fixtures`. `run_image_codec.py`
 now also exercises JPEG; replay its capture with the website decoder.
+
+
+`test_version_response.ps1` exercises the actual host release/factory response
+parser with every byte boundary of 72 version/line-ending/prompt combinations.
+It reproduces the false v11->v1 match and checks incomplete/malformed lines and
+real older-version detection. Hardware-free; no build, flash or version changes.
+Run with Windows PowerShell `-NoProfile -ExecutionPolicy Bypass -File`.

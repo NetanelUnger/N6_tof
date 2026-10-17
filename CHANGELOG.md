@@ -1,5 +1,12 @@
 # Project change history
 
+## 2026-10-17 - Complete-line release version verification
+
+- Fix false post-XMODEM version1 errors when v11 arrives byte by byte: parse only a newline-terminated application version response, including CDC CRCRLF.
+- Reuse the common verifier in the incremental release installer; factory verification receives the same fix. Keep the trial confirmation delay and genuine version mismatch failure.
+- 72 streamed-response cases pass; actual read-only COM8 verification confirms running v11. No new package, firmware load, reset or persistent write; lease and serial handle released.
+
+
 ## 2026-10-17 - Frame-bound NPU result and compression HELP
 
 - Capture the matching inference with each wireless image; v3/56-byte header carries state, class, score, frame/run IDs and inference duration under CRC.

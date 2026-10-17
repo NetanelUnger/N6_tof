@@ -628,7 +628,7 @@ static const stai_network_info __stai_rps_tof_network_info = {
     .n_weights = STAI_RPS_TOF_WEIGHTS_NUM,
     .n_states = STAI_RPS_TOF_STATES_NUM,
 
-    .c_model_datetime = "2026-09-12 20:08:42",
+    .c_model_datetime = "2026-10-17 16:50:41",
 
     .n_nodes = 31,
 
