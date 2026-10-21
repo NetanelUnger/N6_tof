@@ -362,3 +362,117 @@ Server remains5905a7df14e1b2c486577297e4d741e82011ce3e, deployment39641798300
 SUCCESS. Evidence: m5.json, m5-cloud-routefix-collection.json/log,
 m5-cloud-routefix-reopen-resume.json, m5-routefix-runtime-readback.json and
 protected diagnostics/m5-routefix-size3-wifi. M6 and M7 remain open.
+
+
+## M6 - two measured classifiers and exact RAM NPU validation completed
+
+Isolated `m6-rps` and `m6-depth-two` copies preserve the original project,
+sensor bytes and demo artifacts. The shared project/label service merges the
+measured gesture classes into an object-present class for the two-class task;
+no synthetic optical labels are added. Its spatial-depth profile differs from
+the original RPS silhouette profile. VALIDATE checks source integrity separately
+from target preprocessing; PREPARE requires an explicit host-reprocessing choice
+for incompatible source tensors and retains the original received tensor.
+Capture groups remain indivisible across train/validation/test splits.
+
+Actual BAT stages03-08 ran for both models. Fresh16-epoch training, full integer
+quantization, STEdgeAI4.0.1 generation and firmware integration passed unchanged
+quality/resource gates. Four-class RPS measured macro accuracy90.017%; two-class
+spatial depth99.425%; neither lost measured macro accuracy after quantization.
+The initial spatial quantization failed safely at input scale0.9098039. Explicit
+0/255 calibration-domain anchors now establish scale1/zero0 without modifying
+training or held-out evaluation data. That failure is retained. No CAST/CPU-only
+replacement, quality threshold reduction or budget enlargement was accepted.
+
+Each project records dataset metadata, label/configuration/model hashes and tool
+versions. Generation also binds the exact STEdgeAI executable hash/version.
+Stage10 now builds a guarded RAM candidate, preserves NCP settings, disables
+persistent settings writes, checks heap>=369072, verifies board identity and
+exclusive ownership, and restores source flags/ordinary Debug artifacts. Stage11
+requires those exact unchanged ELF/BIN/MAP identities, rejects another connected
+BLE client rather than disconnecting it, and enforces100 frames within180s.
+
+| Model | TFLite SHA256 | RAM ELF SHA256 | Heap | HIL |
+|---|---|---|---:|---|
+| RPS4 | `95914e94e7c7354b878d48962f43af2880acd16436f581958cd046d9e6bf455a` | `b20e76af678bab52bbc806b3d9abb06a12758c0d903663bcd1abdee5b1d7d415` | 369072 | 100 frames / 50.235s |
+| Spatial2 | `703227a889b57e021a401cef927dc852c7866d75183b21ad1bc1add2ef053fb0` | `f83ffd4985d2156e698595450ea8d34074b1b80b9e3380edfd709315b439b570` | 374832 | 100 frames / 50.219s |
+
+Both real NPU runs passed100/100 frame-matched results, exact Python/device
+input tensors, monotonically advancing inference counters, zero CRC errors,
+decision consistency1.0 and maximum raw score delta0. Sensor-time effective rates
+were3.923/4.116fps. Native acquisition IDs skipped153/142 while the existing
+pipeline processed at about4fps; these are recorded rather than presented as
+continuous acquisition capture. Initial parser framing candidates/discarded CLI
+bytes are retained in the full reports; no CRC failures were hidden.
+
+The stationary scene classified as one task class during each run. This proves
+execution and numerical agreement, not optical recognition across every class
+or field generalization. Accuracy above is from the separate measured held-out
+dataset. Build20.219/18.438s and load40.750/39.906s are separate from HIL time.
+
+The predesignated original demo model59f72382... and contract5137ed48... were
+restored byte-for-byte with all154 original integration files. Protected final
+RAM ELF `6a6a5d1fcd70be9ed1826624b4e3bf97d5ec35758c9f1915772e1fa4b5c8d781`
+has heap369136 (margin496, required baseline432), version11 and four classes.
+Final live audit passes: ToF/NPU ready and advancing, NPU/NCP/SPI errors0,
+Wi-Fi disconnected/noIP, CloudHTTPinactive/sent0, datasetoff and imageNONE.
+All owned COM/debug/GATT handles and hardware leases are released. The original
+Debug ELF/BIN/MAP hashes are unchanged. RAM does not survive power loss.
+
+## M7 - exact package-only release and BAT workflow completed
+
+`12_FLASH_RELEASE.bat --package-only --version12` now requires the same project,
+model and exact100-frame HIL candidate, unchanged ELF/BIN/MAP hashes and the
+already-tested current+1 firmware version. It uses the existing signing tools
+and key, with code/weights together in the existing .n6fw A/B format. It does
+not rebuild different bytes, edit the tracked version, transfer or install.
+Independent verification confirms the trusted payload equals the exact HIL BIN,
+the manifest image hash agrees and the existing creator verified its ECDSA
+signature. Package498400bytes, SHA256:
+`98da723524f82f23e2c91a3cbbdc0442a729cb6b3bd3a81fc097a6a04aa18525`.
+Local artifact:
+`training/projects/m6-rps/generated/release/v12-9394be9480a14ac9a9a12e46ba534646/N6-Firmware-v12.n6fw`.
+
+The first package-only attempt failed before signing/output creation because
+Windows PowerShell lacked Get-FileHash. Equivalent .NET SHA256 fixed that host
+environment issue. Four negative release tests reject changed candidate bytes,
+another reference model, stale project/source proof, wrong version and99-frame
+coverage before signing. The final combined40-case host/native suite passed in13.823s; its log
+is retained as final-host-native-40.log. No new key or persistent credential was created.
+
+`90_PLATFORM_CHECK.bat` supports project/transport selection, unattended execution
+and separate JSON/readable PASS/FAIL/BLOCKED/NOT RUN records. New hardware capture,
+NPU HIL and package-only execution require explicit options. Retained records,
+saved historical acceptance and new HIL are clearly distinguished. Firmware
+source changes make saved RAM/HIL/package acceptance stale instead of reusable.
+The completed demo restoration intentionally makes the test-model deployment
+state stale while preserving its accepted immutable candidates and evidence.
+
+The integrated BAT check passed: actual36-case host/native suite, wizard project
+selection, six class/sample-label widget operations, same-project99 BAT
+continuation, and integrity of the20 already authorized Cloud records. UI work
+used temporary fixtures and real BAT-launched Tk widgets, not a service-only
+claim; native mouse/pixel assertions were not performed. Original fixture bytes
+and real projects remained unchanged. Follow-up runner result checks confirmed
+PASS/exit0 for the retained20 and BLOCKED/exit2 for a missing local session, with
+proper multiline readable reports. These checks performed no new capture or
+additional Cloud transmission. The Hebrew guide documents every BAT, profiles,
+transports, provenance, safe RAM loading, exact packaging and recovery limits.
+
+Automatic approval review rejected a proposed *new persistent-installation
+path* before its process started, because Flash-persistence expansion is outside
+scope. No such installer file was created and no denied operation was retried.
+The approved safer alternative implements only exact package-only generation.
+The existing persistent installer body was verified byte-for-byte unchanged;
+persistent installation is NOT RUN, and is not claimed as exact-package/live
+installation acceptance by this upgrade. No OTP, XIP, Windows Pair/cache,
+credential creation or unrelated infrastructure change occurred.
+
+M1-M7 implementation and the planned package-only smoke acceptance are complete.
+The server stays at5905a7df14e1b2c486577297e4d741e82011ce3e; deployment39641798300
+was rechecked SUCCESS. N6 has no configured Actions workflow/check runs; local
+host/native, BAT/UI and real hardware evidence are reported separately.
+See [sanitized completion results](platform-upgrade-20261021-results.json).
+Detailed ignored reports remain under training/reports/platform_upgrade_20261021,
+project-specific reports/models/generated/state, and protected diagnostics.
+The user's original untracked upgrade-plan file remains unmodified/uncommitted.

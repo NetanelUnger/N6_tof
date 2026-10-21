@@ -16,7 +16,7 @@ from serial import Serial
 from common import (CONFIG_ROOT, MODELS_ROOT, PROJECT_ROOT, REPORTS_ROOT, atomic_json,
                     class_names, load_json, mark_stage,
                     npu_deployment_fingerprint, relative, stage_state,
-                    utc_now)
+                    utc_now, sha256_file)
 from dataset import preprocess_depth
 from protocol import FrameReader
 from radio_hil import (load_feature_flags, load_radio_contract,
@@ -142,17 +142,10 @@ def radio_preflight(serial: Serial, ble_scan_seconds: float) -> tuple[dict, str]
     contract = load_radio_contract(PROJECT_ROOT)
     response = ""
     if flags["ble"]:
-        # A phone/browser left connected makes advertising=off by design and
-        # used to produce a false Stage-11 failure.  Return BLE to a known
-        # disconnected/advertising state, then retain the command transcript
-        # so a real disconnect or restart failure remains diagnosable.
-        serial.reset_input_buffer()
-        serial.write(b"ble disconnect\r")
-        serial.flush()
-        response += read_text(serial, 2.0)
-        serial.write(b"ble adv on\r")
-        serial.flush()
-        response += read_text(serial, 1.5)
+        serial.reset_input_buffer();serial.write(b"ble status\r");serial.flush()
+        response += read_text(serial, 1.2)
+        if re.search(r"link:\s*connected\b", response):
+            raise RadioPreflightError("BLOCKED: another BLE client owns the board; no disconnect attempted.", response)
 
     commands = ["radio hardware", "radio status"]
     if flags["radio"]:
@@ -217,6 +210,13 @@ def main() -> int:
             "Run 10_LOAD_RAM.bat now, do not reset the board, and then run "
             "11_HIL.bat."
         )
+    candidate = ram_state.get("details", {}).get("candidate")
+    if not candidate or candidate.get("status") != "BUILT":
+        raise RuntimeError("BLOCKED: load an exact guarded Stage10 candidate before HIL.")
+    from pathlib import Path
+    for item in candidate["artifacts"].values():
+        if sha256_file(Path(item["path"])) != item["sha256"]:
+            raise RuntimeError("BLOCKED: Stage10 artifact changed since RAM loading.")
     port = find_port(args.port)
     interpreter = None
     input_info = None
@@ -235,6 +235,7 @@ def main() -> int:
     npu_run_counters = []
     exact_model_tensor_frames = 0
     started = time.monotonic()
+    deadline = started + 180.0
 
     # Initialize TensorFlow before Windows Runtime/Bleak starts a Bluetooth
     # discovery session.  On some Windows builds, loading TensorFlow's native
@@ -329,7 +330,10 @@ def main() -> int:
         reader = FrameReader(serial)
         previous = None
         for index in range(args.frames):
-            frame = reader.read_frame(timeout=3.0)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeError("NPU HIL exceeded its180-second budget; no coverage reduction.")
+            frame = reader.read_frame(timeout=min(3.0, remaining))
             if interpreter:
                 expected_contract = load_json(MODELS_ROOT / "model_contract.json")
                 if expected_contract.get("schema") == 3 and (
@@ -497,11 +501,14 @@ def main() -> int:
             f"only {unique_model_tensors} distinct model inputs "
             f"(target {minimum_unique_model_tensors})"
         )
-    pass_gate = (sensor_fps >= required_fps and
+    pass_gate = (elapsed <= 180.0 and sensor_fps >= required_fps and
                  reader.crc_errors == 0 and
                  exact_model_tensor_frames == len(frame_ids) and npu_gate)
     report = {
-        "schema": 2, "created_utc": utc_now(), "port": port,
+        "schema": 3, "created_utc": utc_now(), "port": port,
+        "ram_candidate": candidate,
+        "model_sha256": sha256_file(MODELS_ROOT / "rps_int8.tflite"),
+        "maximum_seconds": 180.0,
         "radio": radio_report,
         "frames": len(frame_ids), "first_frame": frame_ids[0],
         "last_frame": frame_ids[-1], "elapsed_seconds": elapsed,
@@ -597,4 +604,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from guarded_ram import hardware_lease, idle_board
+    with hardware_lease("training-hil"):
+        idle_board()
+        raise SystemExit(main())

@@ -20,6 +20,9 @@ from label_service import load_labels, resolve_label, class_registry
 
 TRAINING_ENTRY_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = TRAINING_ENTRY_ROOT.parent
+# Alternate contexts let the same BAT stages verify an isolated project tree;
+# firmware/tool paths remain bound to this checked-out repository.
+TRAINING_ENTRY_ROOT = Path(os.environ.get("N6_TRAINING_CONTEXT_ROOT", str(TRAINING_ENTRY_ROOT))).resolve()
 
 
 def _shared_arguments() -> tuple[str | None, bool]:
@@ -188,6 +191,24 @@ def stage_state(stage: str) -> dict[str, Any]:
     return value
 
 
+def run_provenance() -> dict[str, Any]:
+    from importlib.metadata import version, PackageNotFoundError
+    versions = {"python": platform.python_version()}
+    for name in ("tensorflow", "numpy", "Pillow"):
+        try:
+            versions[name] = version(name)
+        except PackageNotFoundError:
+            versions[name] = None
+    return {"schema": 1, "tools": versions,
+            "dataset_metadata_sha256": stable_hash(file_fingerprint(RAW_ROOT.glob("*/metadata.jsonl"))),
+            "configuration_sha256": stable_hash(file_fingerprint(CONFIG_ROOT.glob("*.json"))),
+            "label_revision": PROJECT_MANIFEST.get("label_revision") if PROJECT_MANIFEST else None,
+            "label_semantics": PROJECT_MANIFEST.get("label_semantics") if PROJECT_MANIFEST else None,
+            "models": {p.name: sha256_file(p) for p in
+                       (MODELS_ROOT / "rps_float.keras", MODELS_ROOT / "rps_int8.tflite", MODELS_ROOT / "model_contract.json")
+                       if p.is_file()}}
+
+
 def mark_stage(stage: str, *, status: str, inputs: str = "",
                outputs: list[str] | None = None,
                details: dict[str, Any] | None = None) -> None:
@@ -200,6 +221,7 @@ def mark_stage(stage: str, *, status: str, inputs: str = "",
         "input_fingerprint": inputs,
         "outputs": outputs or [],
         "details": details or {},
+        "provenance": run_provenance(),
     })
 
 

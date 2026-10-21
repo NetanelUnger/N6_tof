@@ -44,6 +44,7 @@ def main() -> int:
     relabeled = 0
     device_tensor_records = 0
     host_only_records = 0
+    incompatible_project_tensors = 0
     unlabeled = 0
     for metadata_path in metadata_files:
         for raw_row in iter_jsonl(metadata_path):
@@ -93,10 +94,10 @@ def main() -> int:
                     ).hexdigest()
                     if device_hash and device_hash != observed_device_hash:
                         raise ValueError("device model-input hash differs")
-                    if not np.array_equal(device_tensor, host_tensor) and not row.get("sample_schema"):
-                        raise ValueError(
-                            "device model-input differs from Python preprocessing"
-                        )
+                    if not np.array_equal(device_tensor, host_tensor):
+                        # Preserve and validate received source bytes independently
+                        # of a different target project's preprocessing profile.
+                        incompatible_project_tensors += 1
                 for key in ("depth_png", "preview_png", "model_input_png"):
                     if row.get(key) is not None and not (TRAINING_ROOT / row[key]).exists():
                         raise ValueError(f"missing {key}: {row[key]}")
@@ -128,6 +129,8 @@ def main() -> int:
             f"{host_only_records} sample(s) have no N6DF v3 device tensor; "
             "Stage 04 refuses them unless --allow-host-preprocessing is explicit"
         )
+    if incompatible_project_tensors:
+        warnings.append(f"{incompatible_project_tensors} source tensor(s) differ from this project's preprocessing; Stage04 requires explicit --allow-host-preprocessing and preserves the received tensor")
     minimum = training_cfg["minimum_samples_per_class"]
     for label in class_names():
         if counts[label] < minimum:
@@ -152,6 +155,7 @@ def main() -> int:
         "relabeled_records": relabeled,
         "device_tensor_records": device_tensor_records,
         "host_only_records": host_only_records,
+        "incompatible_project_tensors": incompatible_project_tensors,
         "counts_by_class": dict(counts),
         "counts_by_session": dict(sessions),
         "sessions_by_class": {

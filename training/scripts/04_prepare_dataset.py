@@ -221,7 +221,7 @@ def main() -> int:
     parser.add_argument("--force", action="store_true")
     parser.add_argument(
         "--allow-host-preprocessing", action="store_true",
-        help=("Allow legacy/imported samples without an exact N6DF v3 device "
+        help=("Allow imported samples without a compatible exact device "
               "tensor; the normal guided path refuses them"),
     )
     args = parser.parse_args()
@@ -301,7 +301,7 @@ def main() -> int:
         depth = load_depth_record(row)
         host_tensor = preprocess_depth(depth, pre_cfg)
         device_tensor = load_device_model_input_record(row)
-        incompatible = (device_tensor is not None and row.get('sample_schema') == 1 and
+        incompatible = (device_tensor is not None and
                         not np.array_equal(device_tensor, host_tensor[..., 0]))
         if incompatible:
             incompatible_source_tensors += 1

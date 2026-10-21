@@ -26,6 +26,31 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Platform upgrade M1-M7 package-only acceptance completed2026-10-21. USB20,
+  BLE20+5/reconnect1, approved Cloud20/no-browser/reopen/cursor20 PASS. No
+  additional Cloud collection. RPS4 and spatial2 each pass100 real NPU frames,
+  50.235/50.219s, exact tensors100/100, score delta0, unchanged gates.40 host/
+  native tests plus actual BAT/Tk selection-label-continuation PASS. Exact v12
+  package498400bytes SHA98da723524f82f23e2c91a3cbbdc0442a729cb6b3bd3a81fc097a6a04aa18525
+  contains the HIL BIN; package-only uses existing signing and does not rebuild
+  or install. Proposed new persistent-install path was auto-review DENIED before
+  process start; never created/retried. Approved package-only alternative passed,
+  original persistent-installer body unchanged. No Flash/OTP/XIP/Pair/cache/new
+  credentials. Original demo model59f72382.../contract5137ed48... restored with154
+  exact integration files. Current guarded BLE-only RAM ELF6a6a5d1fcd70be9ed1826624b4e3bf97d5ec35758c9f1915772e1fa4b5c8d781,
+  firmware11/heap369136 (min369072 preserves baseline432); NCPpreserve1/settings
+  writes0. Live audit: four classes/NPUerrors0, ToFadvancing, WiFiIP0/CloudHTTP0,
+  datasetoff/imageNONE/SPI0; handles and leases released. Ordinary Debug hashes
+  unchanged; never substitute it for guarded RAM. RAM loses demo on power loss.
+  Saved test-model deployment becomes stale after intentional demo restoration;
+  retain immutable candidates/HIL reports and re-integrate/reload before reuse.
+  Existing HTTP device demo mode remains insecure; host downloads verify HTTPS.
+  Static scene proves computation, not all-class field recognition. Server5905a7d,
+  deployment39641798300 SUCCESS; N6 has no Actions checks. See platform-upgrade
+  engineering record, sanitized results and training/README_HE.md. Original
+  untracked training/PLATFORM_UPGRADE_PLAN_HE.md is user work: do not stage it.
+
+
 - Morning BLE-only readiness (2026-10-12): corrected nonblocking host hour
   PASS3600.545552s/6920 actual NPU/3673 CRC images/5971 CLI finals;
   p50/p95/p99/max93.40/111.79/126.39/219.73ms,1500ms gate unchanged.

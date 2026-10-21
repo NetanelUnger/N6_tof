@@ -35,8 +35,14 @@ def main() -> int:
         )
     output = GENERATED_ROOT / "st_ai_output"
     network_name = tools["network_name"]
+    version_result = subprocess.run([str(executable), "--version"], capture_output=True,
+                                    text=True, errors="replace", timeout=30)
+    if version_result.returncode:
+        raise RuntimeError("Cannot establish STEdgeAI version before compilation.")
+    tool_identity = {"path": str(executable), "sha256": sha256_file(executable),
+                     "version": (version_result.stdout + version_result.stderr).strip()}
     fingerprint = stable_hash({"model": sha256_file(model),
-                               "tool": str(executable),
+                               "tool": tool_identity,
                                "target": tools["stm32_target"],
                                "network_name": network_name})
     prior = stage_state("07_generate_n6")
@@ -98,7 +104,7 @@ def main() -> int:
         raise RuntimeError("Generated network.c does not appear to target Neural-ART")
     manifest = {
         "schema": 1, "created_utc": utc_now(),
-        "stedgeai": str(executable), "command": command,
+        "stedgeai": str(executable), "tool_identity": tool_identity, "command": command,
         "network_name": network_name,
         "input_model_sha256": sha256_file(model),
         "generated_files": [

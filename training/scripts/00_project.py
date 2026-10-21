@@ -125,6 +125,15 @@ def main():
         import tkinter as tk
         root = tk.Tk()
         if args.class_ui_smoke:
+            # Exercise project selection through the real wizard before the
+            # shared class/label window, using only the guarded temp fixture.
+            selection = ProjectWizard(service, root)
+            root.update_idletasks()
+            selection.source.set(args.id)
+            selection.buttons["select"].invoke()
+            selection_events = list(selection.events)
+            for child in root.winfo_children():
+                child.destroy()
             from class_editor import ClassEditor
             editor = ClassEditor(service, args.id, root)
             original = service.open(args.id)["classes"]
@@ -153,8 +162,9 @@ def main():
                 root.after(100, root.destroy)
             root.after(300, exercise_classes)
             root.mainloop()
-            passed = len(editor.events) == 6 and all(e["result"] == "PASS" for e in editor.events)
-            report = {"schema": 1, "result": "PASS" if passed else "FAIL", "events": editor.events,
+            passed = (len(selection_events) == 1 and selection_events[0]["result"] == "PASS" and
+                      len(editor.events) == 6 and all(e["result"] == "PASS" for e in editor.events))
+            report = {"schema": 1, "result": "PASS" if passed else "FAIL", "selection_events": selection_events, "events": editor.events,
                 "verification": "Actual BAT-launched Tk class editor and button invocations; no native mouse/pixel assertions."}
             if args.report:
                 from project_context import atomic

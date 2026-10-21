@@ -1,0 +1,129 @@
+{
+  "approval_review": "Proposed new persistent-install path was denied before process start; no such file created. Safer package-only alternative executed successfully.",
+  "date": "2026-10-21",
+  "demo_restored": {
+    "cloud_http_active": 0,
+    "contract_sha256": "5137ed48ca591acb0ab595f612a05c475e865c516f3abe8948a8585928b6c82c",
+    "dataset": "off",
+    "handles_and_lease_released": true,
+    "heap": 369136,
+    "image_route": "NONE",
+    "model_sha256": "59f723828dffae236dd9fa37e2d0de9d7d1a3a31bc07fb4847b6a27dc6637d39",
+    "ram_elf_sha256": "6a6a5d1fcd70be9ed1826624b4e3bf97d5ec35758c9f1915772e1fa4b5c8d781",
+    "version": 11,
+    "wifi_ip": false
+  },
+  "host_tests": {
+    "integrated_suite": 36,
+    "release_gate_negative_cases": 4,
+    "total": 40,
+    "final_combined_suite": {
+      "passed": 40,
+      "seconds": 13.823,
+      "log": "training/reports/platform_upgrade_20261021/final-host-native-40.log"
+    }
+  },
+  "limitations": [
+    "Static HIL establishes computation agreement, not field recognition for every class.",
+    "Existing device HTTP demo mode remains; host download uses verified HTTPS.",
+    "Final RAM demo is lost on power loss.",
+    "Prior failed builds/collection/calibration/packaging/audit commands are retained as evidence."
+  ],
+  "milestones": {
+    "M1": "PASS",
+    "M2": "PASS",
+    "M3": "PASS",
+    "M4": "PASS",
+    "M5": "PASS",
+    "M6": "PASS",
+    "M7": "PASS"
+  },
+  "models": [
+    {
+      "build_seconds": 20.219,
+      "classes": 4,
+      "crc_errors": 0,
+      "decision_consistency": 1.0,
+      "exact_input_tensors": 100,
+      "float_macro_accuracy": 0.900173611111111,
+      "frames": 100,
+      "heap": 369072,
+      "hil_seconds": 50.23499999998603,
+      "input_profile": "rps_silhouette_v1",
+      "load_seconds": 40.75,
+      "maximum_score_delta": 0,
+      "missing_acquisition_frame_ids": 153,
+      "model_sha256": "95914e94e7c7354b878d48962f43af2880acd16436f581958cd046d9e6bf455a",
+      "npu_coverage": 1.0,
+      "project": "m6-rps",
+      "quantization_accuracy_drop": 0.0,
+      "quantized_macro_accuracy": 0.900173611111111,
+      "ram_elf_sha256": "b20e76af678bab52bbc806b3d9abb06a12758c0d903663bcd1abdee5b1d7d415",
+      "scene": "static; class recognition coverage not established",
+      "sensor_fps": 3.922656311910611
+    },
+    {
+      "build_seconds": 18.438,
+      "classes": 2,
+      "crc_errors": 0,
+      "decision_consistency": 1.0,
+      "exact_input_tensors": 100,
+      "float_macro_accuracy": 0.9942528735632183,
+      "frames": 100,
+      "heap": 374832,
+      "hil_seconds": 50.21899999998277,
+      "input_profile": "spatial_depth_v1",
+      "load_seconds": 39.906,
+      "maximum_score_delta": 0,
+      "missing_acquisition_frame_ids": 142,
+      "model_sha256": "703227a889b57e021a401cef927dc852c7866d75183b21ad1bc1add2ef053fb0",
+      "npu_coverage": 1.0,
+      "project": "m6-depth-two",
+      "quantization_accuracy_drop": 0.0,
+      "quantized_macro_accuracy": 0.9942528735632183,
+      "ram_elf_sha256": "f83ffd4985d2156e698595450ea8d34074b1b80b9e3380edfd709315b439b570",
+      "scene": "static; class recognition coverage not established",
+      "sensor_fps": 4.115910697210327
+    }
+  ],
+  "package": {
+    "bytes": 498400,
+    "candidate_bin_sha256": "4edcbf3f7c0a820af20dc26187a17c1d1639871f0683687ff85a75e362230428",
+    "ecdsa": "Existing New-FirmwareUpdatePackage.ps1 verified generated signature before publication",
+    "firmware_version": 12,
+    "manifest_image_sha256": "PASS",
+    "package_sha256": "98da723524f82f23e2c91a3cbbdc0442a729cb6b3bd3a81fc097a6a04aa18525",
+    "persistent_installation": false,
+    "status": "PASS",
+    "trusted_payload_equals_exact_hil_bin": true
+  },
+  "persistent_installation": "NOT RUN; existing installer unchanged",
+  "schema": 1,
+  "scope": "classification platform, guarded RAM and package-only acceptance",
+  "server": {
+    "ci_run": 39641798300,
+    "commit": "5905a7df14e1b2c486577297e4d741e82011ce3e",
+    "conclusion": "success"
+  },
+  "transport_hil": {
+    "ble": {
+      "reconnects": 1,
+      "seconds": 45.156,
+      "unique_samples": 25
+    },
+    "cloud": {
+      "additional_collection": false,
+      "browser_attached": false,
+      "reopened": 20,
+      "resumed_duplicates": 0,
+      "seconds": 18.719,
+      "unique_samples": 20
+    },
+    "usb": {
+      "seconds": 4.921,
+      "unique_samples": 20
+    }
+  },
+  "ui": "PASS actual BAT-launched Tk widgets, temporary labels and same-project99 BAT; no native pixel assertions",
+  "xip": "DEFERRED to separately requested follow-on branch"
+}

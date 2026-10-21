@@ -1,5 +1,14 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Platform upgrade M1-M7 completed (2026-10-21): projects/classes, shared lossless
+USB/BLE/Cloud capture, two measured classifiers on the real NPU, guarded RAM
+loading, exact HIL-bound package-only release and BAT/UI checks.40 host/native
+checks pass; each model passes100 same-frame input/score comparisons with
+maximum delta0. Original RPS demo restored in RAM, heap369136, Cloudinactive.
+No persistent installation or XIP change. See the [completion record](docs/platform-upgrade-20261021.md),
+[sanitized results](docs/platform-upgrade-20261021-results.json), and
+[Hebrew BAT guide](training/README_HE.md).
+
 Platform M5: real no-browser Wi-Fi capture20/20 and cursor-resume PASS;
 36 host/native checks pass, protected heap margin432 retained.
 See [evidence and remaining M6-M7](docs/platform-upgrade-20261021.md).

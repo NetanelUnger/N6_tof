@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import re
+from pathlib import Path
 
 from common import (PROJECT_ROOT, mark_stage, npu_deployment_fingerprint, run,
                     stage_state)
@@ -25,6 +26,8 @@ def main() -> int:
     modes.add_argument("--flash", action="store_true")
     parser.add_argument("--version", type=int)
     parser.add_argument("--port")
+    parser.add_argument("--expected-device")
+    parser.add_argument("--board-serial")
     parser.add_argument("--skip-boot-verification", action="store_true")
     parser.add_argument("--package-only", action="store_true")
     args = parser.parse_args()
@@ -37,11 +40,22 @@ def main() -> int:
     powershell = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
                   "-File"]
     if args.ram:
-        command = powershell + [str(PROJECT_ROOT / "Tools" /
-                                    "Debug-NonSecureRam.ps1"), "-Run"]
-        run(command, cwd=PROJECT_ROOT)
+        from guarded_ram import build_candidate, load_candidate
+        candidate = build_candidate(args.version)
+        loaded = load_candidate(candidate, args.expected_device, args.board_serial)
         mark_stage("10_ram", status="complete", inputs=fingerprint,
-                   details={"external_flash_modified": False})
+                   outputs=[str(Path(candidate["folder"]) / "candidate.json")],
+                   details={"external_flash_modified": False, "candidate": candidate,
+                            "target": loaded["target"], "load_seconds": loaded["load_seconds"]})
+        return 0
+    if args.package_only:
+        if args.version is None:
+            raise RuntimeError("BLOCKED: package-only requires an explicit HIL-tested --version.")
+        if args.version != current_version() + 1:
+            raise RuntimeError("Package-only requires the existing current+1 version policy.")
+        from verified_package import package_verified
+        manifest = package_verified(args.version)
+        print("Exact HIL-bound package-only PASS: " + manifest["package"])
         return 0
     if not args.package_only:
         bootstrap = stage_state("09_secure_bootstrap")

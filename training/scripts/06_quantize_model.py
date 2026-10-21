@@ -13,7 +13,7 @@ from common import (CONFIG_ROOT, MODELS_ROOT, PREPARED_ROOT, REPORTS_ROOT,
                     stable_hash, utc_now)
 
 
-QUANTIZATION_CONTRACT_REVISION = 2
+QUANTIZATION_CONTRACT_REVISION = 3
 
 
 def main() -> int:
@@ -54,6 +54,13 @@ def main() -> int:
         )
 
     def representative_dataset():
+        # The declared firmware domain is all uint8 values, even when a
+        # spatial-depth dataset happens not to contain the nearest/farthest
+        # range endpoints. These calibration-only anchors fix that boundary;
+        # they are never training examples or accuracy-evaluation samples.
+        shape = (1, *representative_x.shape[1:])
+        yield [np.zeros(shape, dtype=np.float32)]
+        yield [np.full(shape, 255, dtype=np.float32)]
         # Deterministic stride covers the dataset without loading new copies.
         limit = min(200, len(representative_x))
         indexes = np.linspace(0, len(representative_x) - 1, limit,
@@ -107,7 +114,7 @@ def main() -> int:
             "Unsafe TFLite input contract: expected uint8 scale=1 and "
             f"zero_point=0, got scale={input_scale}, "
             f"zero_point={input_zero}. Refusing a model that cannot consume "
-            "the firmware's exact 0/255 bytes directly."
+            "the firmware's exact uint8 bytes directly."
         )
     operation_names = [
         operation["op_name"] for operation in interpreter._get_ops_details()
@@ -120,6 +127,7 @@ def main() -> int:
     contract = {
         "schema": 2, "created_utc": utc_now(),
         "quantization_contract_revision": QUANTIZATION_CONTRACT_REVISION,
+        "calibration_domain_anchors": [0, 255],
         "model_sha256": sha256_file(output_model),
         "model_size_bytes": output_model.stat().st_size,
         "classes": class_names(),

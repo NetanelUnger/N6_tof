@@ -1,5 +1,18 @@
 # Project change history
 
+## 2026-10-21 - Platform M6/M7 package-only acceptance
+
+- Two measured4/2-class classifiers pass100-frame real NPU HIL each, exact
+  input tensors and score delta0; preserve all quality/resource budgets.
+- Record run/tool provenance, explicit cross-profile preparation and safe uint8
+  calibration boundaries. Stage10 guards RAM/settings/lease/artifact restoration.
+- Bind package-only signing to the unchanged HIL firmware/model/project/version;
+  verify exact payload and signature. Existing persistent installer unchanged.
+- Add90_PLATFORM_CHECK BAT, JSON/readable status reports, BAT/Tk selection-label
+  continuation and Hebrew operating guide.40 host/native checks pass.
+- Restore the original designated RPS demo: guarded RAM11/heap369136, no Cloud
+  traffic, all owned handles/leases released. No persistent installation/XIP/OTP.
+
 ## 2026-10-21 - M5 live capture accepted
 
 - Preserve Cloud ownership through route drains and USB close.
