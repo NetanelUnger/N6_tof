@@ -42,6 +42,7 @@ def main() -> int:
     relabeled = 0
     device_tensor_records = 0
     host_only_records = 0
+    unlabeled = 0
     for metadata_path in metadata_files:
         for raw_row in iter_jsonl(metadata_path):
             total += 1
@@ -56,6 +57,9 @@ def main() -> int:
                     rejected += 1
                     continue
                 label = row["label"]
+                if label is None:
+                    unlabeled += 1
+                    continue
                 if label not in class_names():
                     raise ValueError(f"unknown label {label!r}")
                 depth = load_depth_record(row)
@@ -74,7 +78,8 @@ def main() -> int:
                         raise ValueError(
                             "device model-input shape differs from Python"
                         )
-                    if set(np.unique(device_tensor).tolist()) - {0, 255}:
+                    if (cfg.get("profile", "rps_silhouette_v1") == "rps_silhouette_v1" and
+                            set(np.unique(device_tensor).tolist()) - {0, 255}):
                         raise ValueError(
                             "device model-input violates binary 0/255 contract"
                         )
@@ -139,6 +144,7 @@ def main() -> int:
         "valid_records": sum(counts.values()),
         "reviewed_records": reviewed,
         "rejected_records": rejected,
+        "unlabeled_records": unlabeled,
         "relabeled_records": relabeled,
         "device_tensor_records": device_tensor_records,
         "host_only_records": host_only_records,

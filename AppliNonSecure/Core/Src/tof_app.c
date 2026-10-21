@@ -145,8 +145,8 @@ static void tof_stream_route_step(void)
 #define TOF_DEPTH_PIXEL_COUNT      (TOF_DEPTH_WIDTH * TOF_DEPTH_HEIGHT)
 #define TOF_PIPELINE_READY_FLAG    (1UL << 0)
 #define TOF_DATASET_MAGIC          (0x4644364EUL) /* "N6DF", little-endian */
-#define TOF_DATASET_VERSION        (3U)
-#define TOF_DATASET_HEADER_SIZE    (84U)
+#define TOF_DATASET_VERSION        (4U)
+#define TOF_DATASET_HEADER_SIZE    (132U)
 #define TOF_DATASET_PIXEL_FORMAT   (1U) /* unsigned 16-bit millimetres */
 #define TOF_DATASET_MODEL_FORMAT   (2U) /* unsigned 8-bit model input */
 #define TOF_DATASET_INVALID_MM     (0xFFFFU)
@@ -1720,8 +1720,7 @@ tof_render_frame(const TOF_App_ChannelFrame_t *map_frame,
     pos = append_text(pos, "\033[K\r\n");
     if ((rps_status != NULL) && (rps_status->runs != 0U))
     {
-        pos = append_text(pos,
-                          "NPU probabilities [nothing,rock,paper,scissors] = ");
+        pos = append_text(pos, "NPU probabilities = ");
         for (uint32_t index = 0U; index < RPS_AI_CLASS_COUNT; ++index)
         {
             uint16_t probability_per_mille =
@@ -1730,6 +1729,8 @@ tof_render_frame(const TOF_App_ChannelFrame_t *map_frame,
             {
                 pos = append_text(pos, ", ");
             }
+            pos = append_text(pos, RPS_AI_ClassDisplayName((uint8_t)index));
+            pos = append_text(pos, ":");
             pos = append_u32(pos, probability_per_mille / 10U);
             pos = append_text(pos, ".");
             pos = append_u32(pos, probability_per_mille % 10U);
@@ -1892,26 +1893,32 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
     tof_write_u16(&bytes[38], (uint16_t)processing_filter);
     tof_write_u32(&bytes[40], payload_crc);
     tof_write_u32(&bytes[44], rps.last_frame);
-    for (uint32_t index = 0U; index < RPS_AI_CLASS_COUNT; ++index)
+    for (uint32_t index = 0U; index < N6_MODEL_MAX_CLASSES; ++index)
     {
-        bytes[48U + index] = (uint8_t)rps.scores[index];
+        bytes[48U + index] = (index < RPS_AI_CLASS_COUNT) ? (uint8_t)rps.scores[index] : 128U;
     }
-    bytes[52] = rps.class_id;
-    bytes[53] = (uint8_t)(((rps.ready != 0U) &&
+    bytes[64] = rps.class_id;
+    bytes[65] = (uint8_t)(((rps.ready != 0U) &&
                            (rps.last_frame == frame_counter)) ? 1U : 0U);
-    tof_write_u16(&bytes[54], rps.confidence_per_mille);
-    tof_write_u32(&bytes[56], rps.runs);
-    tof_write_u16(&bytes[60], model_input.width);
-    tof_write_u16(&bytes[62], model_input.height);
-    tof_write_u16(&bytes[64], TOF_DATASET_MODEL_FORMAT);
+    tof_write_u16(&bytes[66], rps.confidence_per_mille);
+    tof_write_u32(&bytes[68], rps.runs);
+    tof_write_u16(&bytes[72], model_input.width);
+    tof_write_u16(&bytes[74], model_input.height);
+    tof_write_u16(&bytes[76], TOF_DATASET_MODEL_FORMAT);
     /* bit 0: exact pre-inference tensor; bit 1: binary 0/255 contract;
      * bit 2: resize/copy path was built with Helium/MVE. */
-    tof_write_u16(&bytes[66], 3U |
+    tof_write_u16(&bytes[78], 1U |
+                  ((N6_MODEL_INPUT_PROFILE == N6_MODEL_PROFILE_SILHOUETTE) ? 2U : 0U) |
                   ((model_input.mve_accelerated != 0U) ? 4U : 0U));
-    tof_write_u32(&bytes[68], (uint32_t)model_payload_size);
-    tof_write_u32(&bytes[72], model_input.frame_id);
-    tof_write_u32(&bytes[76], model_payload_crc);
-    tof_write_u32(&bytes[80], tof_crc32(bytes, 80U));
+    tof_write_u32(&bytes[80], (uint32_t)model_payload_size);
+    tof_write_u32(&bytes[84], model_input.frame_id);
+    tof_write_u32(&bytes[88], model_payload_crc);
+    bytes[92] = (uint8_t)RPS_AI_CLASS_COUNT;
+    bytes[93] = 0U;
+    tof_write_u16(&bytes[94], N6_MODEL_CONTRACT_VERSION);
+    static const uint8_t contract_id[32] = N6_MODEL_CONTRACT_BYTES;
+    (void)memcpy(&bytes[96], contract_id, sizeof(contract_id));
+    tof_write_u32(&bytes[128], tof_crc32(bytes, 128U));
 
     if (App_Console_CommitFrameBuffer(&output, (ULONG)record_size) == TX_SUCCESS)
     {

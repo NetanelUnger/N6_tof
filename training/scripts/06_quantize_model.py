@@ -147,6 +147,10 @@ def main() -> int:
             if float_accuracy is not None else None)
     contract["float_test_macro_accuracy"] = float_accuracy
     contract["quantization_accuracy_drop"] = drop
+    from common import PROJECT_MANIFEST
+    if PROJECT_MANIFEST:
+        from model_contract import create
+        contract = create(PROJECT_MANIFEST, contract, output_model)
     atomic_json(contract_path, contract)
     np.savez_compressed(MODELS_ROOT / "quantized_test_outputs.npz",
                         predictions=predictions_array,

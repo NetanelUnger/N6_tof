@@ -15,11 +15,18 @@
 #include "debug_uart.h"
 #include "main.h"
 #include "npu_shared_memory.h"
+#include "spatial_depth_profile.h"
 
 #if (APP_RPS_NPU_ENABLED == 1U)
 #include "rps_model_weights.h"
 #include "stai.h"
 #include "stai_rps_tof.h"
+_Static_assert(STAI_RPS_TOF_OUT_1_SIZE == N6_MODEL_CLASS_COUNT,
+               "Network output count differs from its generated model contract");
+_Static_assert(STAI_RPS_TOF_IN_1_SIZE == N6_MODEL_INPUT_WIDTH * N6_MODEL_INPUT_HEIGHT,
+               "Network input size differs from its generated model contract");
+_Static_assert(STAI_RPS_TOF_OUT_1_FORMAT == STAI_FORMAT_S8 && STAI_RPS_TOF_IN_1_FORMAT == STAI_FORMAT_U8,
+               "Network boundary types differ from the supported contract");
 #endif
 
 #define RPS_SOURCE_WIDTH             (54U)
@@ -652,6 +659,17 @@ static void rps_flatten_binary(uint8_t *image, uint8_t threshold)
 static void rps_preprocess(const float *depth, uint8_t *output,
                            RPS_AI_ViewSelection_t requested_view)
 {
+#if (N6_MODEL_INPUT_PROFILE == N6_MODEL_PROFILE_SPATIAL_DEPTH)
+  (void)requested_view;
+  N6_SpatialDepthProfile(depth, RPS_SOURCE_WIDTH, RPS_SOURCE_HEIGHT, output,
+      RPS_MODEL_WIDTH, RPS_MODEL_HEIGHT, N6_MODEL_NEAR_MM, N6_MODEL_FAR_MM,
+      N6_MODEL_INVALID_MM);
+  rps_published_view = RPS_AI_VIEW_NPU;
+  rps_published_view_pixels = output;
+  rps_published_view_width = RPS_MODEL_WIDTH;
+  rps_published_view_height = RPS_MODEL_HEIGHT;
+  rps_published_view_is_npu = 1U;
+#else
   RPS_ObjectSelection_t educational_selection;
   RPS_ObjectSelection_t model_selection;
 
@@ -736,6 +754,7 @@ static void rps_preprocess(const float *depth, uint8_t *output,
                                                   RPS_MODEL_HEIGHT;
     rps_published_view_is_npu = 0U;
   }
+#endif
 }
 #endif /* APP_RPS_NPU_ENABLED */
 
@@ -984,16 +1003,16 @@ uint16_t RPS_AI_ScorePerMille(int8_t score)
 
 const char *RPS_AI_ClassName(uint8_t class_id)
 {
-  static const char *const names[RPS_AI_CLASS_COUNT] = {
-    "none", "rock", "paper", "scissors"
-  };
+#if N6_MODEL_LEGACY_RPS
+  static const char *const names[RPS_AI_CLASS_COUNT] = N6_MODEL_CLASS_NAMES;
+#else
+  static const char *const names[RPS_AI_CLASS_COUNT] = N6_MODEL_CLASS_DISPLAY_NAMES;
+#endif
   return (class_id < RPS_AI_CLASS_COUNT) ? names[class_id] : "unknown";
 }
 
 const char *RPS_AI_ClassDisplayName(uint8_t class_id)
 {
-  static const char *const names[RPS_AI_CLASS_COUNT] = {
-    "NOTHING", "ROCK", "PAPER", "SCISSORS"
-  };
+  static const char *const names[RPS_AI_CLASS_COUNT] = N6_MODEL_CLASS_DISPLAY_NAMES;
   return (class_id < RPS_AI_CLASS_COUNT) ? names[class_id] : "UNKNOWN";
 }

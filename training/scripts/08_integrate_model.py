@@ -101,6 +101,10 @@ def main() -> int:
 
     generation = load_json(generation_manifest)
     contract = load_json(contract_path)
+    from common import PROJECT_MANIFEST
+    if PROJECT_MANIFEST:
+        from model_contract import validate
+        validate(contract, manifest=PROJECT_MANIFEST, model_path=MODELS_ROOT / "rps_int8.tflite")
     training_config = load_json(CONFIG_ROOT / "training.json")
     network_name = generation.get("network_name", "rps_tof")
     generated_model_files = (
@@ -169,6 +173,12 @@ def main() -> int:
     device_dir = firmware_ai / "Device"
     library_dir = firmware_ai / "Lib"
     installed: list[Path] = []
+
+    if PROJECT_MANIFEST:
+        from model_contract import generate_header
+        header = PROJECT_ROOT / "AppliNonSecure/Core/Inc/n6_model_contract.h"
+        header.write_text(generate_header(contract), encoding="utf-8")
+        installed.append(header)
 
     model_dir.mkdir(parents=True, exist_ok=True)
     network_source = generated_model_files[0].read_text(

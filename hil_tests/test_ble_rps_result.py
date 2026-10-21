@@ -8,6 +8,7 @@ PREFIX = r'''
 #include <stdio.h>
 #include <string.h>
 typedef struct {uint32_t enabled,ready,last_frame,runs,errors,inference_ms,last_result_tick;int32_t last_error;uint16_t confidence_per_mille;uint8_t class_id;int8_t scores[4];}RPS_AI_Status_t;
+#define N6_MODEL_LEGACY_RPS 1
 #define RPS_AI_CLASS_COUNT 4
 #define BLE_DEBUG_SERVICE_INDEX 1
 #define BLE_RPS_RESULT_CHAR_INDEX 2
@@ -51,5 +52,3 @@ int main(void){
 if __name__ == '__main__':
     src=(ROOT/'AppliNonSecure/Core/Src/wifi_ble_app.c').read_text()
     run_native(PREFIX.replace('#include <stdio.h>','#include <stdio.h>\n#include <stdlib.h>')+function(src.replace('static uint16_t ble_rps_format', 'static uint32_t ble_rps_format'),'ble_rps_format')+function(src,'ble_rps_process_tx')+TEST)
-
-

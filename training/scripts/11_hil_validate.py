@@ -52,6 +52,10 @@ def make_interpreter():
     model = MODELS_ROOT / "rps_int8.tflite"
     if not model.exists():
         return None
+    from common import PROJECT_MANIFEST
+    if PROJECT_MANIFEST:
+        from model_contract import validate
+        validate(load_json(MODELS_ROOT / "model_contract.json"), manifest=PROJECT_MANIFEST, model_path=model)
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore", message=r".*tf\.lite\.Interpreter is deprecated.*"
@@ -326,6 +330,12 @@ def main() -> int:
         previous = None
         for index in range(args.frames):
             frame = reader.read_frame(timeout=3.0)
+            if interpreter:
+                expected_contract = load_json(MODELS_ROOT / "model_contract.json")
+                if expected_contract.get("schema") == 3 and (
+                        frame.contract_sha256 != expected_contract["contract_sha256"] or
+                        frame.class_count != len(class_names())):
+                    raise RuntimeError("Incompatible device model contract/count; no HIL comparison accepted.")
             if previous is not None:
                 delta = (frame.frame_id - previous) & 0xFFFFFFFF
                 if delta == 0 or delta > 1000:

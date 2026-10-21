@@ -42,9 +42,21 @@ class ProjectWizard:
             button.pack(side="left", padx=2)
             self.buttons[action] = button
         ttk.Label(frame, textvariable=self.result, wraplength=620).pack(anchor="w")
+        ttk.Button(frame, text="Classes, labels and input profile / מחלקות ותוויות",
+                   command=self.open_classes).pack(anchor="w", pady=6)
         ttk.Button(frame, text="Close / סגירה", command=root.destroy).pack(anchor="e", pady=10)
         self.events = []
         self.refresh()
+
+    def open_classes(self):
+        try:
+            from class_editor import ClassEditor
+            slug = self.source.get() or resolve_context(self.service.training)[2]["slug"]
+            self.service.open(slug)
+            import tkinter as tk
+            ClassEditor(self.service, slug, tk.Toplevel(self.root))
+        except (OSError, ValueError, TypeError, RuntimeError) as exc:
+            self.result.set(f"BLOCKED: {exc}")
 
     def refresh(self):
         self.selector["values"] = [p["slug"] for p in self.service.list_projects()]
@@ -91,12 +103,13 @@ def main():
     parser.add_argument("--name")
     parser.add_argument("--source")
     parser.add_argument("--ui-smoke", action="store_true", help="Test actual Tk buttons against a temporary fixture only")
+    parser.add_argument("--class-ui-smoke", action="store_true")
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     service = ProjectService(args.training_root)
     try:
         service.recover()
-        if args.ui_smoke:
+        if args.ui_smoke or args.class_ui_smoke:
             # Prevent test automation from creating demo projects in real data.
             import tempfile
             if Path(tempfile.gettempdir()).resolve() not in service.training.parents:
@@ -111,6 +124,43 @@ def main():
             return 0
         import tkinter as tk
         root = tk.Tk()
+        if args.class_ui_smoke:
+            from class_editor import ClassEditor
+            editor = ClassEditor(service, args.id, root)
+            original = service.open(args.id)["classes"]
+            def select(variable, class_id):
+                variable.set(next(k for k, v in editor.mapping.items() if v == class_id))
+            def exercise_classes():
+                select(editor.source, original[0]["stable_id"])
+                editor.names.set("Renamed class")
+                editor.buttons["rename"].invoke()
+                editor.names.set("Added class")
+                editor.buttons["add"].invoke()
+                select(editor.source, original[0]["stable_id"])
+                select(editor.target, original[1]["stable_id"])
+                editor.buttons["merge"].invoke()
+                select(editor.source, original[2]["stable_id"])
+                editor.target.set("UNLABELED / ללא תווית")
+                editor.buttons["delete"].invoke()
+                select(editor.source, original[3]["stable_id"])
+                editor.names.set("Split A | Split B")
+                editor.buttons["split"].invoke()
+                pending = next(i for i, row in enumerate(editor.rows) if row["class_id"] is None)
+                editor.samples.selection_set(pending)
+                added = next(c for c in service.open(args.id)["classes"] if c["display_name"] == "Added class")
+                select(editor.target, added["stable_id"])
+                editor.buttons["label"].invoke()
+                root.after(100, root.destroy)
+            root.after(300, exercise_classes)
+            root.mainloop()
+            passed = len(editor.events) == 6 and all(e["result"] == "PASS" for e in editor.events)
+            report = {"schema": 1, "result": "PASS" if passed else "FAIL", "events": editor.events,
+                "verification": "Actual BAT-launched Tk class editor and button invocations; no native mouse/pixel assertions."}
+            if args.report:
+                from project_context import atomic
+                atomic(args.report, report)
+            print(json.dumps(report))
+            return 0 if passed else 1
         wizard = ProjectWizard(service, root)
         if args.ui_smoke:
             def exercise():

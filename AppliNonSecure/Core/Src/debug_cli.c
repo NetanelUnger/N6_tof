@@ -252,7 +252,9 @@ static void cli_command_map(Menu_t *menu, const char *command);
 static void cli_command_tof(Menu_t *menu, const char *command);
 static void __attribute__((optimize("Os")))
 cli_command_dataset(Menu_t *menu, const char *command);
-static void cli_command_rps(Menu_t *menu, const char *command);
+/* Cold status formatting prefers code size. Sensor/NPU paths retain -O3. */
+static void cli_command_rps(Menu_t *menu, const char *command)
+  __attribute__((optimize("Os")));
 static void cli_command_debug(Menu_t *menu, const char *command);
 static void cli_command_reboot(Menu_t *menu, const char *command);
 static void cli_command_firmware_update(Menu_t *menu, const char *command);
@@ -1943,7 +1945,7 @@ cli_command_dataset(Menu_t *menu, const char *command)
       (cli_token_equals(argv[2], "on") != 0U))
   {
     (void)Menu_Reply(menu,
-                     "Dataset stream enabled: N6DF v3, raw 54x42 depth + exact frame-matched 64x50 NPU input + scores, separately CRC32 protected.");
+                     "Dataset stream enabled: N6DF v4, depth + exact tensor + model contract; CRC32 protected.");
     TOF_App_SetDatasetStreamEnabled(1U);
   }
   else if ((argc == 3) &&
@@ -2004,15 +2006,18 @@ static void cli_command_rps(Menu_t *menu, const char *command)
   RPS_AI_GetStatus(&status);
   cli_print("RPS status: enabled=%" PRIu32 " ready=%" PRIu32
             " frame=%" PRIu32 " class=%s class_id=%u confidence_permille=%u"
-            " scores=%d,%d,%d,%d runs=%" PRIu32 " errors=%" PRIu32
-            " last_error=%" PRId32 " inference_ms=%" PRIu32 "\r\n",
+            " scores=",
             status.enabled, status.ready, status.last_frame,
             RPS_AI_ClassName(status.class_id), (unsigned int)status.class_id,
-            (unsigned int)status.confidence_per_mille,
-            (int)status.scores[0], (int)status.scores[1],
-            (int)status.scores[2], (int)status.scores[3],
+            (unsigned int)status.confidence_per_mille);
+  for (uint32_t index = 0U; index < RPS_AI_CLASS_COUNT; ++index)
+  {
+    cli_print("%s%d", (index == 0U) ? "" : ",", (int)status.scores[index]);
+  }
+  cli_print(" runs=%" PRIu32 " errors=%" PRIu32
+            " last_error=%" PRId32 " inference_ms=%" PRIu32 " classes=%u\r\n",
             status.runs, status.errors, status.last_error,
-            status.inference_ms);
+            status.inference_ms, (unsigned int)RPS_AI_CLASS_COUNT);
 }
 
 static void cli_command_debug(Menu_t *menu, const char *command)

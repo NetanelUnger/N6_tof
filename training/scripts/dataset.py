@@ -117,6 +117,9 @@ def preprocess_depth(depth_mm: np.ndarray,
     expected = (cfg["source_height"], cfg["source_width"])
     if depth.shape != expected:
         raise ValueError(f"depth shape {depth.shape}, expected {expected}")
+    if cfg.get("profile") == "spatial_depth_v1":
+        from spatial_profile import preprocess
+        return preprocess(depth, cfg)
     model_max_distance = int(cfg.get("model_max_distance_mm", cfg["far_mm"]))
     invalid = ((depth == cfg["invalid_mm"]) | (depth == 0) |
                (depth < cfg["near_mm"]) | (depth > model_max_distance))
@@ -322,7 +325,7 @@ def save_depth_sample(session_root: Path, label: str, stem: str,
         "shape": list(depth.shape),
         "dtype": "uint16_mm",
         "model_input_source": (
-            "device_n6df_v3_verified_against_python"
+            f"device_n6df_v{int(metadata.get('protocol_version', 3))}_verified_against_python"
             if exact_device_input is not None else "python_preprocessing"
         ),
         "device_model_input_sha256": (

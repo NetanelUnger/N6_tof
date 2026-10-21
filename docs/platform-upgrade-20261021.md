@@ -1,6 +1,6 @@
 # Platform upgrade — 2026-10-21
 
-M1 implemented and checked. M2–M7 NOT RUN. The original user plan remains
+M1 and M2 implemented and checked; M3–M7 remain open. Two-model NPU HIL remains M6. The original user plan remains
 unchanged at `training/PLATFORM_UPGRADE_PLAN_HE.md` (initially untracked).
 
 ## Baseline
@@ -122,3 +122,48 @@ untested. Drafts are preserved without installation under ignored
 `.local-dependencies/diagnostics/platform-upgrade-20261021/m2-draft/RESUME.txt`.
 M2 firmware/profile/protocol integration and M3–M7 remain open. There is no
 pending approval or identified physical-action blocker at this checkpoint.
+
+## M2 — host and firmware contract completed, full NPU verification deferred to M6
+
+The project wizard now opens a Tk class/label/profile editor; Stage 02 uses the
+same service for project datasets. Add/rename/merge/retire/split operations keep
+stable class UUIDs separate from output indices. Immutable label snapshots,
+sample-specific identity (not depth hash alone), provenance/history and durable
+manifest transactions preserve original sensor files. Deleted/split samples
+remain unlabeled until explicit review; no labels are invented. Existing human
+rejections are preserved. Display-only renames refresh model/display metadata
+without modifying TFLite bytes or requiring retraining; Stage 08 regenerates
+the display definitions before new firmware packaging.
+
+Supported input profiles: existing RPS silhouette and full-field spatial depth.
+Schema-3/model-contract-v1 binds classes/output order, profile/preprocessing,
+project semantics, uint8 input/int8 output quantization and exact model hash.
+Stage 08 rejects incompatible contracts before installation and generates C
+definitions. Source/runtime output counts and boundary types have compile-time
+assertions. N6DF v4 carries bounded score counts and the complete contract ID;
+legacy v1–v3 input remains supported. See n6df-classification-contract.md.
+
+22 host tests PASS, including a two-class configuration through the UI service,
+display-only contract refresh, original byte preservation, interrupted commits,
+strict decoder checks, production C publisher fixtures for two/four classes and
+byte-exact C/Python spatial preprocessing. BAT-launched Tk class UI passes six
+actions. Legacy synthetic CRC/preprocessing and native BLE result sender pass.
+Reusable UI check: training/scripts/check_class_workflow.py. Local evidence:
+training/reports/platform_upgrade_20261021/m2*.json and m2*.log, shared C fixtures
+in its fixtures/ directory. These are host/native checks, not HIL.
+
+First guarded build passed the 368640-byte plan gate but left only 144 bytes
+margin, below the protected 432-byte baseline. It was not loaded. Optimizing
+only the cold CLI status formatter for size and shortening diagnostic text
+produced 497176 bytes / C heap 369104 / margin 464. No budgets, queues, pools,
+stacks, sensor/NPU optimization or transport timeouts were enlarged/relaxed.
+Final source boundary assertions add no runtime code; a final build validates
+them before RAM use. Candidate/build records are under ignored diagnostics
+platform-upgrade-20261021/m2-candidate[-size2]/. No firmware load or Flash write
+occurred during M2. No CubeMX Generate Code is required.
+
+M3 begins next. M4/M5 transport capture and M6 two-model NPU HIL remain open.
+The independent legacy wireless RPS viewer remains RPS-specific and fails
+closed for general inference; it cannot substitute for a training record.
+
+Final M2 protected build: 15.703 s; ELF cc8070778d3d8d39f8dfee9a733b0dfa4f7a90a544216d6437189e12c2c86915; binary 3d781da9a0a308ff8826fe530029214419efb2a8c0b78d799a7b3314485bf447. Heap 369104, margin 464; no hardware load.

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from project_context import resolve_context, semantic_hash
+from label_service import load_labels, resolve_label, class_registry
 
 TRAINING_ENTRY_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = TRAINING_ENTRY_ROOT.parent
@@ -55,6 +56,7 @@ TRAINING_ROOT, CONFIG_ROOT, PROJECT_MANIFEST = resolve_context(
     TRAINING_ENTRY_ROOT, _requested_project)
 PROJECT_ID = PROJECT_MANIFEST["project_id"] if PROJECT_MANIFEST else "legacy-rps"
 PROJECT_SEMANTICS = semantic_hash(PROJECT_MANIFEST) if PROJECT_MANIFEST else "legacy"
+PROJECT_LABELS = load_labels(TRAINING_ROOT, PROJECT_MANIFEST) if PROJECT_MANIFEST else None
 
 if NON_INTERACTIVE:
     import builtins
@@ -160,6 +162,14 @@ def file_fingerprint(paths: Iterable[Path]) -> str:
     records = []
     for path in sorted((Path(p) for p in paths), key=lambda item: str(item)):
         if path.exists() and path.is_file():
+            if path.resolve().parent == CONFIG_ROOT.resolve() and path.suffix == ".json":
+                payload = load_json(path)
+                if path.name == "classes.json":
+                    payload = {"classes": [{k: v for k, v in c.items()
+                                           if k not in {"hebrew", "display_name"}}
+                                          for c in payload["classes"]]}
+                records.append(("config/" + path.name, stable_hash(payload)))
+                continue
             stat = path.stat()
             records.append((str(path.resolve()), stat.st_size,
                             stat.st_mtime_ns, sha256_file(path)))
@@ -218,6 +228,8 @@ def load_review_decisions() -> dict[str, dict[str, Any]]:
         raise RuntimeError(f"Invalid dataset review file: {REVIEW_PATH}")
     decisions: dict[str, dict[str, Any]] = {}
     valid_labels = set(class_names())
+    if PROJECT_MANIFEST:
+        valid_labels.update(c["name"] for c in class_registry(PROJECT_MANIFEST).values())
     for digest, decision in payload["decisions"].items():
         if (not isinstance(digest, str) or len(digest) != 64 or
                 not isinstance(decision, dict)):
@@ -245,6 +257,9 @@ def apply_review(row: dict[str, Any],
         reviewed["accepted"] = decision["accepted"]
         if decision.get("label") is not None:
             reviewed["label"] = decision["label"]
+    if PROJECT_MANIFEST:
+        reviewed = resolve_label(reviewed, PROJECT_MANIFEST, PROJECT_LABELS)
+        reviewed["reviewed"] = reviewed["reviewed"] or reviewed["sample_id"] in PROJECT_LABELS["decisions"]
     return reviewed
 
 
@@ -257,7 +272,7 @@ def reviewed_rows(metadata_paths: Iterable[Path], *,
         for row in iter_jsonl(path)
     ]
     if not include_rejected:
-        rows = [row for row in rows if row.get("accepted", True)]
+        rows = [row for row in rows if row.get("accepted", True) and row.get("label") is not None]
     return rows
 
 
@@ -266,7 +281,8 @@ def dataset_input_fingerprint(metadata_paths: Iterable[Path]) -> str:
     paths = list(metadata_paths)
     if REVIEW_PATH.exists():
         paths.append(REVIEW_PATH)
-    return file_fingerprint(paths)
+    return stable_hash({"files": file_fingerprint(paths),
+                        "labels": PROJECT_MANIFEST.get("label_semantics") if PROJECT_MANIFEST else None})
 
 
 def run(command: list[str], *, cwd: Path | None = None,
@@ -350,6 +366,9 @@ def npu_deployment_fingerprint() -> str:
         PROJECT_ROOT / "AppliNonSecure" / "Core" / "Src" / "tof_app.c",
         PROJECT_ROOT / "AppliNonSecure" / "Core" / "Src" / "npu_shared_memory.c",
         PROJECT_ROOT / "AppliNonSecure" / "Core" / "Inc" / "app_features.h",
+        PROJECT_ROOT / "AppliNonSecure" / "Core" / "Inc" / "rps_ai.h",
+        PROJECT_ROOT / "AppliNonSecure" / "Core" / "Inc" / "n6_model_contract.h",
+        PROJECT_ROOT / "AppliNonSecure" / "Core" / "Inc" / "spatial_depth_profile.h",
         PROJECT_ROOT / "AppliNonSecure" / ".cproject",
         PROJECT_ROOT / "AppliNonSecure" / "STM32N657X0HXQ_LRUN.ld",
         PROJECT_ROOT / "AppliSecure" / "Core" / "Src" / "main.c",

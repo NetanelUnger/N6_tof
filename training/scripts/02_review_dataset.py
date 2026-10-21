@@ -552,6 +552,24 @@ def main() -> int:
     parser.add_argument("--analyze-only", action="store_true",
                         help="Print the automatic analysis summary without opening the UI")
     args = parser.parse_args()
+    from common import PROJECT_MANIFEST, TRAINING_ENTRY_ROOT, NON_INTERACTIVE
+    if PROJECT_MANIFEST and args.analyze_only:
+        from project_context import ProjectService
+        from label_service import LabelService
+        rows = LabelService(ProjectService(TRAINING_ENTRY_ROOT), PROJECT_MANIFEST["slug"]).rows()
+        print(json.dumps({"samples": len(rows), "unlabeled": sum(r["class_id"] is None for r in rows),
+                          "rejected": sum(not r.get("accepted", True) for r in rows)}))
+        return 0
+    if PROJECT_MANIFEST and not args.analyze_only:
+        if NON_INTERACTIVE:
+            print("BLOCKED: use explicit sample IDs through the review service in unattended mode.")
+            return 2
+        from project_context import ProjectService
+        from class_editor import ClassEditor
+        root = tk.Tk()
+        ClassEditor(ProjectService(TRAINING_ENTRY_ROOT), PROJECT_MANIFEST["slug"], root)
+        root.mainloop()
+        return 0
     files = metadata_files()
     records = raw_records(files)
     analysis = build_analysis(records, files, args.skip_model, args.force_analysis)

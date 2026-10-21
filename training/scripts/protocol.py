@@ -14,17 +14,20 @@ MAGIC = b"N6DF"
 VERSION_V1 = 1
 VERSION_V2 = 2
 VERSION_V3 = 3
-VERSION = VERSION_V3
+VERSION_V4 = 4
+VERSION = VERSION_V4
 HEADER_SIZE_V1 = 48
 HEADER_SIZE_V2 = 64
 HEADER_SIZE_V3 = 84
-HEADER_SIZE = HEADER_SIZE_V3
+HEADER_SIZE_V4 = 132
+HEADER_SIZE = HEADER_SIZE_V4
 PIXEL_FORMAT_DEPTH_U16_MM = 1
 PIXEL_FORMAT_MODEL_U8 = 2
 HEADER_PREFIX = struct.Struct("<4sHH")
 HEADER_V1 = struct.Struct("<4sHHIIHHHHIIHHHHII")
 HEADER_V2 = struct.Struct("<4sHHIIHHHHIIHHHHII4bBBHII")
 HEADER_V3 = struct.Struct("<4sHHIIHHHHIIHHHHII4bBBHIHHHHIIII")
+HEADER_V4 = struct.Struct("<4sHHIIHHHHIIHHHHII16bBBHIHHHHIIIBBH32sI")
 
 
 class ProtocolError(RuntimeError):
@@ -51,7 +54,7 @@ class DepthFrame:
     depth_mm: np.ndarray
     protocol_version: int = VERSION_V1
     npu_frame_id: int | None = None
-    npu_scores: tuple[int, int, int, int] | None = None
+    npu_scores: tuple[int, ...] | None = None
     npu_class_id: int | None = None
     npu_valid: bool = False
     npu_confidence_per_mille: int | None = None
@@ -62,6 +65,9 @@ class DepthFrame:
     model_frame_id: int | None = None
     model_flags: int = 0
     model_payload_crc32: int | None = None
+    class_count: int | None = None
+    contract_version: int = 0
+    contract_sha256: str | None = None
 
 
 def crc32(data: bytes | bytearray | memoryview) -> int:
@@ -87,6 +93,9 @@ def decode_record(header: bytes, payload: bytes) -> DepthFrame:
     model_payload_size = 0
     model_frame_id = None
     model_payload_crc32 = None
+    class_count = 4 if version in (VERSION_V2, VERSION_V3) else None
+    contract_version = 0
+    contract_hash = None
     if version == VERSION_V1 and header_size == HEADER_SIZE_V1:
         values = HEADER_V1.unpack(header)
         (magic, version, header_size, frame_id, timestamp_ms, width, height,
@@ -115,6 +124,23 @@ def decode_record(header: bytes, payload: bytes) -> DepthFrame:
         npu_scores = (score0, score1, score2, score3)
         npu_valid = bool(npu_ready) and npu_frame_id == frame_id
         crc_region = header[:80]
+    elif version == VERSION_V4 and header_size == HEADER_SIZE_V4:
+        values = HEADER_V4.unpack(header)
+        (magic, version, header_size, frame_id, timestamp_ms, width, height,
+         pixel_format, flags, payload_size, valid_count, minimum_mm, maximum_mm,
+         invalid_mm, processing_filter, payload_crc32, npu_frame_id) = values[:17]
+        (npu_class_id, npu_ready, npu_confidence, npu_runs, model_width, model_height,
+         model_pixel_format, model_flags, model_payload_size, model_frame_id,
+         model_payload_crc32, class_count, reserved, contract_version,
+         contract_bytes, header_crc32) = values[33:]
+        if not 2 <= class_count <= 16 or reserved or contract_version != 1:
+            raise ProtocolError("unsupported N6DF classifier contract")
+        if not any(contract_bytes) or (npu_ready and npu_class_id >= class_count):
+            raise ProtocolError("invalid N6DF contract identity/result index")
+        contract_hash = contract_bytes.hex()
+        npu_scores = tuple(values[17:17 + class_count])
+        npu_valid = bool(npu_ready) and npu_frame_id == frame_id
+        crc_region = header[:128]
     else:
         raise ProtocolError(
             f"unsupported N6DF version/header {version}/{header_size}"
@@ -142,7 +168,7 @@ def decode_record(header: bytes, payload: bytes) -> DepthFrame:
             f"payload={observed_valid}"
         )
     model_input = None
-    if version == VERSION_V3:
+    if version in (VERSION_V3, VERSION_V4):
         if (flags & 0x2) == 0 or (model_flags & 0x1) == 0:
             raise ProtocolError("N6DF v3 record does not mark an exact model tensor")
         if model_pixel_format != PIXEL_FORMAT_MODEL_U8:
@@ -186,11 +212,13 @@ def decode_record(header: bytes, payload: bytes) -> DepthFrame:
         npu_confidence_per_mille=npu_confidence,
         npu_runs=npu_runs,
         model_input=model_input,
-        model_width=model_width if version == VERSION_V3 else None,
-        model_height=model_height if version == VERSION_V3 else None,
+        model_width=model_width if version in (VERSION_V3, VERSION_V4) else None,
+        model_height=model_height if version in (VERSION_V3, VERSION_V4) else None,
         model_frame_id=model_frame_id,
         model_flags=model_flags,
         model_payload_crc32=model_payload_crc32,
+        class_count=class_count, contract_version=contract_version,
+        contract_sha256=contract_hash,
     )
 
 
@@ -238,6 +266,7 @@ class FrameReader:
                             (VERSION_V1, HEADER_SIZE_V1),
                             (VERSION_V2, HEADER_SIZE_V2),
                             (VERSION_V3, HEADER_SIZE_V3),
+                            (VERSION_V4, HEADER_SIZE_V4),
                         }):
                     raise ProtocolError("implausible header prefix")
                 if len(self.buffer) < header_size:
@@ -248,10 +277,13 @@ class FrameReader:
                     unpacked = HEADER_V1.unpack(header)
                 elif version == VERSION_V2:
                     unpacked = HEADER_V2.unpack(header)
-                else:
+                elif version == VERSION_V3:
                     unpacked = HEADER_V3.unpack(header)
+                else:
+                    unpacked = HEADER_V4.unpack(header)
                 payload_size = unpacked[9]
-                model_payload_size = unpacked[-4] if version == VERSION_V3 else 0
+                model_payload_size = (unpacked[41] if version == VERSION_V4 else
+                                      unpacked[-4] if version == VERSION_V3 else 0)
                 total_payload_size = payload_size + model_payload_size
                 if total_payload_size > self.maximum_payload:
                     raise ProtocolError("implausible header")
@@ -287,11 +319,12 @@ class FrameReader:
 def build_test_record(depth_mm: np.ndarray, frame_id: int = 1,
                       timestamp_ms: int = 100, *,
                       protocol_version: int = VERSION_V1,
-                      npu_scores: tuple[int, int, int, int] = (-128, -128, -128, -128),
+                      npu_scores: tuple[int, ...] = (-128, -128, -128, -128),
                       npu_class_id: int = 0,
                       npu_valid: bool = False,
                       npu_runs: int = 0,
-                      model_input: np.ndarray | None = None) -> bytes:
+                      model_input: np.ndarray | None = None,
+                      contract_sha256: str = "01" * 32) -> bytes:
     depth = np.asarray(depth_mm, dtype="<u2")
     height, width = depth.shape
     payload = depth.tobytes(order="C")
@@ -340,6 +373,23 @@ def build_test_record(depth_mm: np.ndarray, frame_id: int = 1,
             len(model_payload), frame_id, crc32(model_payload), 0,
         )
         header = first[:80] + struct.pack("<I", crc32(first[:80]))
+        return header + payload + model_payload
+    elif protocol_version == VERSION_V4:
+        if not 2 <= len(npu_scores) <= 16:
+            raise ValueError("N6DF v4 supports 2-16 classes")
+        model = np.asarray(np.zeros((50, 64), dtype=np.uint8) if model_input is None else model_input,
+                           dtype=np.uint8, order="C")
+        model_height, model_width = model.shape
+        model_payload = model.tobytes()
+        padded = (*npu_scores, *([-128] * (16 - len(npu_scores))))
+        first = HEADER_V4.pack(MAGIC, VERSION_V4, HEADER_SIZE_V4, frame_id, timestamp_ms,
+            width, height, PIXEL_FORMAT_DEPTH_U16_MM, 3, len(payload), int(valid.sum()),
+            minimum, maximum, 0xffff, 0, crc32(payload), frame_id if npu_valid else 0xffffffff,
+            *padded, npu_class_id, int(npu_valid), ((max(npu_scores) + 128) * 1000) // 256,
+            npu_runs, model_width, model_height, PIXEL_FORMAT_MODEL_U8, 1,
+            len(model_payload), frame_id, crc32(model_payload), len(npu_scores), 0, 1,
+            bytes.fromhex(contract_sha256), 0)
+        header = first[:128] + struct.pack("<I", crc32(first[:128]))
         return header + payload + model_payload
     else:
         raise ValueError(f"unsupported synthetic protocol version {protocol_version}")

@@ -2019,7 +2019,7 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   if (rps && rps->enabled)
   {
     info->npu_state = !rps->ready ? TOF_IMAGE_NPU_NOT_READY : TOF_IMAGE_NPU_NO_RESULT;
-    if (rps->ready && rps->runs && rps->last_error == 0 && rps->last_frame == frame_id &&
+    if (N6_MODEL_LEGACY_RPS && rps->ready && rps->runs && rps->last_error == 0 && rps->last_frame == frame_id &&
         rps->class_id < RPS_AI_CLASS_COUNT && rps->confidence_per_mille <= 1000U)
     {
       info->npu_state = TOF_IMAGE_NPU_VALID;
@@ -4515,6 +4515,7 @@ static uint16_t ble_rps_format(char *line, uint32_t capacity,
                                const RPS_AI_Status_t *s, uint32_t generation,
                                uint32_t now)
 {
+#if N6_MODEL_LEGACY_RPS
   uint32_t age = now - s->last_result_tick;
   uint32_t valid = s->enabled && s->ready && s->runs && !s->last_error &&
                    s->class_id < RPS_AI_CLASS_COUNT && age < 2000U;
@@ -4528,6 +4529,13 @@ static uint16_t ble_rps_format(char *line, uint32_t capacity,
       s->scores[0], s->scores[1], s->scores[2], s->scores[3],
       (unsigned long)age);
   return (n > 0 && (uint32_t)n < capacity) ? (uint16_t)n : 0U;
+#else
+  /* Legacy wireless viewers have fixed RPS semantics. Fail closed rather
+   * than report a generic model using the wrong names or padded scores.
+   * The versioned training-record channel carries the general contract. */
+  (void)line; (void)capacity; (void)s; (void)generation; (void)now;
+  return 0U;
+#endif
 }
 
 static void ble_rps_process_tx(void)

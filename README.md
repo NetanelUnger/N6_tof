@@ -1,5 +1,11 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Platform M2 (2026-10-21): stable class/label UI and provenance, general model
+contracts/C definitions, N6DF v4 and spatial-depth preprocessing are implemented.
+22 host checks, native C fixtures and BAT/Tk UI pass; full two-model NPU HIL is
+reserved for M6. Cold status formatting preserves the baseline heap margin.
+See [current platform record](docs/platform-upgrade-20261021.md).
+
 Platform M1 (2026-10-21): per-project training context and Tk project wizard are
 implemented. Eight service checks, BAT-launched Tk widget automation and the
 isolated status BAT pass; M2–M7 remain open. Original RPS files are preserved,

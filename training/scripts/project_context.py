@@ -93,13 +93,18 @@ def validate_manifest(value):
             raise ValueError(f"Classes require unique nonempty {field} values.")
     if [x["output_index"] for x in classes] != list(range(len(classes))):
         raise ValueError("Output mapping must be contiguous and explicit.")
-    if value["input_profile"] != "rps_silhouette_v1":
-        raise ValueError("This milestone supports the existing RPS input profile only.")
+    if value["input_profile"] not in {"rps_silhouette_v1", "spatial_depth_v1"}:
+        raise ValueError("Unsupported input profile.")
     if value["input_shape"] != [50, 64, 1]:
         raise ValueError("Unsupported model input shape.")
     for field in ("preprocessing", "training", "tools", "capture", "acceptance"):
         if not isinstance(value.get(field), dict):
             raise ValueError(f"Missing project section: {field}")
+    pre = value["preprocessing"]
+    if not (0 < int(pre["near_mm"]) < int(pre["far_mm"]) < int(pre["invalid_mm"]) <= 65535):
+        raise ValueError("Invalid preprocessing distance bounds.")
+    if pre.get("profile", "rps_silhouette_v1") != value["input_profile"]:
+        raise ValueError("Input profile/preprocessing mismatch.")
     return value
 
 
@@ -108,7 +113,8 @@ def semantic_hash(value):
     return digest({k: value[k] for k in ("input_profile", "input_shape",
         "preprocessing", "training", "tools", "capture", "acceptance")} | {
         "classes": [{k: c[k] for k in ("stable_id", "name", "output_index")}
-                    for c in value["classes"]]})
+                    for c in value["classes"]],
+        "labels": value.get("label_semantics", digest({"decisions": {}, "retired": {}}))})
 
 
 def derived_config(value):
@@ -186,7 +192,14 @@ class ProjectService:
                 if current["project_id"] != candidate["project_id"]:
                     raise RuntimeError("BLOCKED: edit transaction identity conflict.")
                 self._write_config(destination, candidate)
+                label_source = journal.parent / "labels.json"
+                if label_source.exists():
+                    labels = read(label_source)
+                    if digest(labels) != candidate.get("label_revision"):
+                        raise RuntimeError("BLOCKED: label transaction hash conflict.")
+                    atomic(destination / "review/labels" / (candidate["label_revision"] + ".json"), labels)
                 atomic(destination / "project.json", candidate)
+                self._refresh_display_contract(destination, candidate)
             else:
                 raise RuntimeError("BLOCKED: unknown recovery operation.")
             if state.get("select"):
@@ -198,6 +211,23 @@ class ProjectService:
     def recover(self):
         with self.locked():
             pass
+
+    def _refresh_display_contract(self, destination, candidate):
+        path = destination / "models/model_contract.json"
+        if not path.exists():
+            return
+        previous = read(path)
+        if (previous.get("schema") != 3 or previous.get("project_id") != candidate["project_id"] or
+                previous.get("project_semantics") != semantic_hash(candidate)):
+            return
+        if previous.get("classes") == candidate["classes"]:
+            return
+        # Only matching semantic identity may reuse existing model bytes.
+        # Stage 08 explicitly regenerates the firmware/display definitions.
+        from model_contract import create
+        model = destination / "models/rps_int8.tflite"
+        if model.exists():
+            atomic(path, create(candidate, previous, model))
 
     def _transaction(self):
         path = self.root / ".transactions" / uuid.uuid4().hex
@@ -225,7 +255,9 @@ class ProjectService:
             "training": training, "capture": training["capture"],
             "acceptance": training["hil"], "tools": read(cfg / "tools.json"),
             "classes": [{"stable_id": str(uuid.uuid4()), "output_index": i,
-                "name": c["name"], "display_name": c.get("hebrew", c["name"]),
+                "name": c["name"], "display_name": (c.get("hebrew", c["name"])
+                    if "?" not in c.get("hebrew", "?") else
+                    "NOTHING" if c["name"] == "none" else c["name"].upper()),
                 "key": c["key"]} for i, c in enumerate(classes)]}
 
     def _publish(self, value, *, source=None, select=True, legacy=False):
@@ -336,6 +368,52 @@ class ProjectService:
                 "project_id": value["project_id"], "select": False})
             self._recover()
             return candidate
+
+    def commit_revision(self, slug, candidate, *, labels=None):
+        """Publish an already-reviewed config/label revision as one transaction.
+
+        Callers do not hold the lock across UI interactions. Recheck the expected
+        revision here so a stale editor cannot overwrite another editor's work.
+        """
+        with self.locked():
+            current = self.open(slug)
+            candidate = deepcopy(candidate)
+            for key in ("schema", "project_id", "slug", "created_utc"):
+                if candidate.get(key) != current.get(key):
+                    raise ValueError("Project identity may not change during edit.")
+            if candidate["revision"] != current["revision"]:
+                raise RuntimeError("BLOCKED: project changed; reopen the editor.")
+            candidate.update(revision=current["revision"] + 1, updated_utc=now())
+            if labels is not None:
+                candidate["label_revision"] = digest(labels)
+                candidate["label_semantics"] = digest({
+                    "decisions": {key: item["class_id"] for key, item in labels["decisions"].items()},
+                    "retired": labels["retired"]})
+            validate_manifest(candidate)
+            candidate["invalidation"] = {
+                "semantic_change": semantic_hash(current) != semantic_hash(candidate),
+                "labels_changed": current.get("label_revision") != candidate.get("label_revision"),
+                "display_metadata_changed": digest(derived_config(current)) != digest(derived_config(candidate))}
+            transaction = self._transaction()
+            atomic(transaction / "backup.json", current)
+            atomic(transaction / "next.json", candidate)
+            if labels is not None:
+                atomic(transaction / "labels.json", labels)
+            atomic(transaction / "journal.json", {"schema": SCHEMA, "operation": "edit",
+                "status": "prepared", "slug": slug, "project_id": current["project_id"], "select": False})
+            self._recover()
+            return candidate
+
+    def set_profile(self, slug, profile):
+        candidate = deepcopy(self.open(slug))
+        if profile not in {"rps_silhouette_v1", "spatial_depth_v1"}:
+            raise ValueError("Unsupported input profile.")
+        # Start from the frozen baseline, so switching back restores exactly
+        # the production silhouette parameters rather than accumulating edits.
+        pre = read(self.training / "config/preprocessing.json")
+        pre["profile"] = profile
+        candidate.update(input_profile=profile, preprocessing=pre)
+        return self.commit_revision(slug, candidate)
 
 
 def resolve_context(training_root, requested=None):

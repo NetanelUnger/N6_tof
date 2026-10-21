@@ -1,5 +1,13 @@
 # Project change history
 
+## 2026-10-21 — Platform upgrade M2
+
+Added stable class/label operations and history, general model contracts and C
+definitions, N6DF v4 with legacy decoding, and byte-exact spatial-depth profile.
+22 host/native checks and BAT/Tk UI pass. Guarded build preserves heap margin
+using size optimization only for cold CLI status formatting. NPU HIL remains M6;
+no hardware load, Flash, settings or pairing change in this milestone.
+
 ## 2026-10-21 — Platform upgrade M1
 
 Added isolated versioned training projects, Tk/BAT wizard, durable recovery

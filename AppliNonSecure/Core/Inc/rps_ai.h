@@ -2,9 +2,10 @@
 #define RPS_AI_H
 
 #include <stdint.h>
+#include "n6_model_contract.h"
 
-#define RPS_AI_MODEL_INPUT_WIDTH  (64U)
-#define RPS_AI_MODEL_INPUT_HEIGHT (50U)
+#define RPS_AI_MODEL_INPUT_WIDTH  N6_MODEL_INPUT_WIDTH
+#define RPS_AI_MODEL_INPUT_HEIGHT N6_MODEL_INPUT_HEIGHT
 
 typedef enum
 {
@@ -12,7 +13,7 @@ typedef enum
   RPS_AI_CLASS_ROCK = 1,
   RPS_AI_CLASS_PAPER = 2,
   RPS_AI_CLASS_SCISSORS = 3,
-  RPS_AI_CLASS_COUNT = 4
+  RPS_AI_CLASS_COUNT = N6_MODEL_CLASS_COUNT
 } RPS_AI_Class_t;
 
 typedef enum

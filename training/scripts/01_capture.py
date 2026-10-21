@@ -25,7 +25,7 @@ from common import (CONFIG_ROOT, RAW_ROOT, append_jsonl, atomic_json,
                     apply_review, class_config, iter_jsonl, load_json,
                     load_review_decisions, mark_stage, relative, utc_now)
 from dataset import preprocess_depth, preview_rgb, save_depth_sample
-from protocol import VERSION_V3, DepthFrame, FrameReader
+from protocol import VERSION_V3, VERSION_V4, DepthFrame, FrameReader
 
 
 def find_n6_port(requested: str | None) -> str:
@@ -288,10 +288,10 @@ class CaptureApp:
             self.root.after(30, self._poll)
 
     def _verified_model_input(self, frame: DepthFrame) -> np.ndarray | None:
-        if (frame.protocol_version != VERSION_V3 or
+        if (frame.protocol_version not in (VERSION_V3, VERSION_V4) or
                 frame.model_input is None or
                 frame.model_frame_id != frame.frame_id or
-                (frame.model_flags & 0x3) != 0x3):
+                (frame.model_flags & 0x1) == 0):
             self._set_stream_fault(
                 "firmware does not provide an exact frame-matched N6DF v3 "
                 "model tensor; load the current RAM firmware before capture"
@@ -361,7 +361,7 @@ class CaptureApp:
             "schema": 1,
             "session_id": self.session_id,
             "burst_id": self.burst_id,
-            "source": "n6df_v3_raw_plus_device_model_cdc",
+            "source": f"n6df_v{frame.protocol_version}_raw_plus_device_model_cdc",
             "captured_utc": utc_now(),
             "firmware_frame_id": frame.frame_id,
             "firmware_timestamp_ms": frame.timestamp_ms,
@@ -375,6 +375,9 @@ class CaptureApp:
             "protocol_flags": frame.flags,
             "model_protocol_flags": frame.model_flags,
             "protocol_version": frame.protocol_version,
+            "device_contract_sha256": frame.contract_sha256,
+            "device_class_count": frame.class_count,
+            "device_inference_scores": frame.npu_scores,
         }, device_model_input=model_tensor)
         append_jsonl(self.metadata_path, record)
         self.counts[self.current_label] += 1
