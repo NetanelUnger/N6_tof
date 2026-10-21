@@ -88,3 +88,37 @@ device ID 0x486, STM32N657 Rev B, 3.28 V. No reset/load was requested. Debug
 access is available; this is not proof of the boot jumper position or a live
 ToF/NCP application. The lease was acquired/released and handles closed.
 The absence of CDC is not currently classified as a physical-action blocker.
+
+## Live baseline and M2 checkpoint
+
+M1 pushed to `main` as `7db2fb3ebcf055a6f19e14585da87fba3acd1d7a`;
+remote SHA matched. GitHub reported zero check runs/Actions runs for that SHA;
+this repository has no CI workflow. Local test evidence is reported separately.
+
+One protected current-source v11 RAM candidate built in 41.437 s and loaded
+through the supported loader in 23.687 s. Exact ELF SHA-256:
+`ef5a1d45606fd5a58f30718c3f3fa4741a623b8a0f361c24d2097292dfccada3`.
+Temporary build flags: W61_CONFIG_PRESERVE=1, APP_DEMO_BLE_ONLY=1;
+settings writes/transition stay 0. No signing, version change or external NOR
+write was requested. Original source defaults and ordinary Debug ELF/bin/map
+were restored and checked against their original hashes. The ordinary Debug
+binary remains config-preserve OFF and must not replace this guarded RAM image.
+
+The loader's FSBL observed confirmed slot B/version 11, metadata sequence 27.
+USB CDC reappeared as COM8/N6TOF001. Runtime version 11, ToF ready and advancing
+at about 4 fps, Neural-ART ready with progressing runs and zero inference errors,
+radio ready, zero SPI/queue/recovery/allocation errors. BLE advertising is command
+ACK evidence only; disconnected, no pairing requested. Static-scene results do
+not establish per-class accuracy. Runtime status/build/load evidence is retained
+under `.local-dependencies/diagnostics/platform-upgrade-20261021/baseline/`.
+The guarded image is 497216 bytes and leaves only 369072 bytes C heap, 432 above
+the enforced 368640 minimum. New firmware must pass that same gate; no budgets
+were increased. All owned serial handles closed; lease released after the check.
+
+M2 is in progress, not accepted: class/label identity/provenance and model-contract
+drafts have small-fixture host checks (3 class checks and one two/four-output
+contract check). Later class-editor and acceptance-preservation additions are
+untested. Drafts are preserved without installation under ignored
+`.local-dependencies/diagnostics/platform-upgrade-20261021/m2-draft/RESUME.txt`.
+M2 firmware/profile/protocol integration and M3–M7 remain open. There is no
+pending approval or identified physical-action blocker at this checkpoint.
