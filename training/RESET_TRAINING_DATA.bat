@@ -20,18 +20,18 @@ echo WARNING: The local deletion is not undone by this script.
 set /p RESET_CONFIRM=Type DELETE to continue: 
 if not "%RESET_CONFIRM%"=="DELETE" (
     echo Reset cancelled. Nothing was changed.
-    pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
     exit /b 1
 )
 
 call "%~dp0_env.bat"
 if errorlevel 1 (
-    pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
     exit /b 1
 )
 
 "%TRAINING_PY%" "%~dp0scripts\reset_training_data.py" --confirm DELETE
 set RESET_RC=%ERRORLEVEL%
 if not "%RESET_RC%"=="0" echo Reset failed with exit code %RESET_RC%.
-pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
 exit /b %RESET_RC%

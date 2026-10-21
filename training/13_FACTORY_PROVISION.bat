@@ -15,5 +15,5 @@ echo Pass -BuildOnly to build and verify artifacts without erasing hardware.
 echo.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%CD%\Tools\Factory-Provision.ps1" %*
 set "RESULT=%ERRORLEVEL%"
-pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
 exit /b %RESULT%

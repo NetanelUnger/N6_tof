@@ -18,8 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-TRAINING_ROOT = Path(__file__).resolve().parents[1]
-PROJECT_ROOT = TRAINING_ROOT.parent
+from common import (TRAINING_ROOT, TRAINING_ENTRY_ROOT, PROJECT_ROOT,
+                    PROJECT_MANIFEST, CONFIG_ROOT)
 TRAINING_TARGETS = (
     TRAINING_ROOT / "data" / "raw",
     TRAINING_ROOT / "data" / "prepared",
@@ -29,7 +29,7 @@ TRAINING_TARGETS = (
     TRAINING_ROOT / "state",
     TRAINING_ROOT / "review",
 )
-EXTERNAL_TARGETS = (PROJECT_ROOT / "st_ai_output",)
+EXTERNAL_TARGETS = (() if PROJECT_MANIFEST else (PROJECT_ROOT / "st_ai_output",))
 KEEP_NAMES = {".gitkeep"}
 DELETE_ATTEMPTS = 10
 DELETE_INITIAL_DELAY_SECONDS = 0.25
@@ -45,6 +45,10 @@ def _validate_targets() -> None:
             raise RuntimeError(f"Unsafe training reset target: {resolved}")
 
     expected_external = (PROJECT_ROOT / "st_ai_output").resolve()
+    if PROJECT_MANIFEST:
+        if EXTERNAL_TARGETS:
+            raise RuntimeError("Project reset may not remove shared firmware artifacts")
+        return
     if len(EXTERNAL_TARGETS) != 1 or EXTERNAL_TARGETS[0].resolve() != expected_external:
         raise RuntimeError("Unsafe external reset target")
     if EXTERNAL_TARGETS[0].is_symlink():
@@ -186,9 +190,9 @@ def main() -> int:
         "total_files": sum(row["files"] for row in rows),
         "total_bytes": sum(row["bytes"] for row in rows),
         "preserved": [
-            str(TRAINING_ROOT / ".venv"),
-            str(TRAINING_ROOT / "scripts"),
-            str(TRAINING_ROOT / "config"),
+            str(TRAINING_ENTRY_ROOT / ".venv"),
+            str(TRAINING_ENTRY_ROOT / "scripts"),
+            str(CONFIG_ROOT),
             str(PROJECT_ROOT / "AppliNonSecure" / "AI"),
         ],
         "note": "The integrated firmware model is preserved only so capture firmware remains runnable; stage 08 replaces it.",

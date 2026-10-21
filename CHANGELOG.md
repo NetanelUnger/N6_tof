@@ -1,5 +1,13 @@
 # Project change history
 
+## 2026-10-21 — Platform upgrade M1
+
+Added isolated versioned training projects, Tk/BAT wizard, durable recovery
+transactions, RPS copy/verification and project-bound stage/deployment identity.
+Eight service checks, real Tk widget automation through BAT, status BAT and
+legacy CRC/preprocessing pass. M2–M7/HIL remain open; no firmware or Flash change.
+See docs/platform-upgrade-20261021.md.
+
 ## 2026-10-17 - Complete-line release version verification
 
 - Fix false post-XMODEM version1 errors when v11 arrives byte by byte: parse only a newline-terminated application version response, including CDC CRCRLF.

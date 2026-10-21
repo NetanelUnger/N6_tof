@@ -2,7 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-call _env.bat || exit /b
+call _env.bat %* || exit /b
 echo ================================================================
 echo Stage 08 - Integrate Neural-ART code and weights into firmware
 echo ================================================================
@@ -13,5 +13,5 @@ echo atomic: app code and its exact weights always install/rollback together.
 echo.
 "%TRAINING_PY%" scripts\08_integrate_model.py %*
 set "RESULT=%ERRORLEVEL%"
-pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
 exit /b %RESULT%

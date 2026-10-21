@@ -2,7 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-call _env.bat || exit /b
+call _env.bat %* || exit /b
 
 echo ================================================================
 echo N6 Training Analysis - interactive Hebrew HTML report
@@ -17,6 +17,6 @@ set "RESULT=%ERRORLEVEL%"
 if not "%RESULT%"=="0" (
   echo.
   echo [FAILED] Analysis returned error code %RESULT%.
-  pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
 )
 exit /b %RESULT%

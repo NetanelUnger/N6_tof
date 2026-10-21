@@ -2,7 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-call _env.bat || exit /b
+call _env.bat %* || exit /b
 echo ================================================================
 echo Stage 11 - Hardware-in-the-loop stream/model test
 echo ================================================================
@@ -21,5 +21,5 @@ echo scene diversity. An unattended/static scene produces a note, not a failure.
 echo.
 "%TRAINING_PY%" scripts\11_hil_validate.py %*
 set "RESULT=%ERRORLEVEL%"
-pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
 exit /b %RESULT%

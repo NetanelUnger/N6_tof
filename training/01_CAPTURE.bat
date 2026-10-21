@@ -2,7 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-call _env.bat || exit /b
+call _env.bat %* || exit /b
 echo ================================================================
 echo Stage 01 - Guided continuous ToF capture
 echo ================================================================
@@ -30,5 +30,5 @@ echo [ARGUMENT MODE] Running capture with: %*
 :FINISH
 set "RESULT=%ERRORLEVEL%"
 if not "%RESULT%"=="0" echo [ERROR] Capture ended with code %RESULT%.
-pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
 exit /b %RESULT%

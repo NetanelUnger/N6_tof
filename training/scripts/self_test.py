@@ -13,13 +13,13 @@ import numpy as np
 from dataset import (flatten_binary_silhouette, load_device_model_input_record,
                      nearest_connected_component, preprocess_depth,
                      resize_nearest_centered, save_depth_sample)
-from common import TRAINING_ROOT, atomic_json, load_json
+from common import CONFIG_ROOT, PROJECT_ROOT, TRAINING_ROOT, atomic_json, load_json
 from protocol import (VERSION_V2, VERSION_V3, FrameReader, build_test_record)
 from radio_hil import load_feature_flags, validate_radio_cli
 
 
 def main() -> int:
-    feature_flags = load_feature_flags(TRAINING_ROOT.parent)
+    feature_flags = load_feature_flags(PROJECT_ROOT)
     assert feature_flags == {"radio": True, "ble": True, "wifi": True}
     radio_text = """
 ST67 hardware baseline:
@@ -109,7 +109,7 @@ Wi-Fi scan: 2 network(s).
     assert resized.shape == (8, 10)
     assert not resized[0].any() and not resized[-1].any()
     assert not resized[:, 0].any() and not resized[:, -1].any()
-    cfg = load_json(TRAINING_ROOT / "config" / "preprocessing.json")
+    cfg = load_json(CONFIG_ROOT / "preprocessing.json")
     assert int(cfg["binary_foreground_threshold"]) == 210
     threshold_probe = np.zeros((5, 9), dtype=np.uint8)
     threshold_probe[1:4, 1:4] = 255

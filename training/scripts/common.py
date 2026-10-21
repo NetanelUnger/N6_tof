@@ -15,9 +15,54 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-TRAINING_ROOT = Path(__file__).resolve().parents[1]
-PROJECT_ROOT = TRAINING_ROOT.parent
-CONFIG_ROOT = TRAINING_ROOT / "config"
+from project_context import resolve_context, semantic_hash
+
+TRAINING_ENTRY_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = TRAINING_ENTRY_ROOT.parent
+
+
+def _shared_arguments() -> tuple[str | None, bool]:
+    requested = os.environ.get("N6_TRAINING_PROJECT") or None
+    unattended = os.environ.get("N6_NON_INTERACTIVE") == "1"
+    remaining = [sys.argv[0]]
+    index = 1
+    while index < len(sys.argv):
+        value = sys.argv[index]
+        if value == "--project":
+            if index + 1 == len(sys.argv):
+                raise SystemExit("BLOCKED: --project requires a project ID.")
+            requested = sys.argv[index + 1]
+            index += 2
+            continue
+        if value.startswith("--project="):
+            requested = value.split("=", 1)[1]
+        elif value == "--non-interactive":
+            unattended = True
+        else:
+            remaining.append(value)
+        index += 1
+    sys.argv[:] = remaining
+    if requested:
+        # Child stages must use the same explicit project as their launcher.
+        os.environ["N6_TRAINING_PROJECT"] = requested
+    if unattended:
+        os.environ["N6_NON_INTERACTIVE"] = "1"
+    return requested, unattended
+
+
+_requested_project, NON_INTERACTIVE = _shared_arguments()
+TRAINING_ROOT, CONFIG_ROOT, PROJECT_MANIFEST = resolve_context(
+    TRAINING_ENTRY_ROOT, _requested_project)
+PROJECT_ID = PROJECT_MANIFEST["project_id"] if PROJECT_MANIFEST else "legacy-rps"
+PROJECT_SEMANTICS = semantic_hash(PROJECT_MANIFEST) if PROJECT_MANIFEST else "legacy"
+
+if NON_INTERACTIVE:
+    import builtins
+
+    def _blocked_input(prompt=""):
+        raise RuntimeError("BLOCKED: this stage needs explicit arguments in unattended mode.")
+
+    builtins.input = _blocked_input
 DATA_ROOT = TRAINING_ROOT / "data"
 RAW_ROOT = DATA_ROOT / "raw"
 PREPARED_ROOT = DATA_ROOT / "prepared"
@@ -125,7 +170,12 @@ def file_fingerprint(paths: Iterable[Path]) -> str:
 
 def stage_state(stage: str) -> dict[str, Any]:
     path = STATE_ROOT / f"{stage}.json"
-    return load_json(path) if path.exists() else {}
+    value = load_json(path) if path.exists() else {}
+    if value and PROJECT_MANIFEST and (
+            value.get("project_id") != PROJECT_ID or
+            value.get("project_semantics") != PROJECT_SEMANTICS):
+        return {**value, "status": "stale", "reason": "Project/configuration association changed."}
+    return value
 
 
 def mark_stage(stage: str, *, status: str, inputs: str = "",
@@ -133,6 +183,8 @@ def mark_stage(stage: str, *, status: str, inputs: str = "",
                details: dict[str, Any] | None = None) -> None:
     atomic_json(STATE_ROOT / f"{stage}.json", {
         "stage": stage,
+        "project_id": PROJECT_ID,
+        "project_semantics": PROJECT_SEMANTICS,
         "status": status,
         "updated_utc": utc_now(),
         "input_fingerprint": inputs,
@@ -309,6 +361,8 @@ def npu_deployment_fingerprint() -> str:
             + ", ".join(missing)
         )
     return stable_hash({
+        "project_id": PROJECT_ID,
+        "project_semantics": PROJECT_SEMANTICS,
         "stage08_inputs": integration.get("input_fingerprint"),
         "files": {relative(path): sha256_file(path) for path in paths},
     })

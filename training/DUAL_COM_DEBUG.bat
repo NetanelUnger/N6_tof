@@ -2,7 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-call _env.bat || exit /b
+call _env.bat %* || exit /b
 echo ================================================================
 echo N6 dual COM capture: ST-LINK INNER + USB CDC CLI
 echo ================================================================

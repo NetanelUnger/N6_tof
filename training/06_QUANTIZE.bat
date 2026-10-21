@@ -2,7 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-call _env.bat || exit /b
+call _env.bat %* || exit /b
 echo ================================================================
 echo Stage 06 - Full-integer TFLite quantization
 echo ================================================================
@@ -14,5 +14,5 @@ echo scales, zero points, class order and preprocessing for the firmware.
 echo.
 "%TRAINING_PY%" scripts\06_quantize_model.py %*
 set "RESULT=%ERRORLEVEL%"
-pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
 exit /b %RESULT%

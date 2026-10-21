@@ -2,7 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-call _env.bat || exit /b
+call _env.bat %* || exit /b
 echo ================================================================
 echo Stage 07 - Compile TFLite for STM32N6 Neural-ART
 echo ================================================================
@@ -17,5 +17,5 @@ rem artifacts are already current, Python asks whether to regenerate them.
 rem Direct script/orchestrator calls remain non-interactive.
 "%TRAINING_PY%" scripts\07_generate_n6.py --ask-force %*
 set "RESULT=%ERRORLEVEL%"
-pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
 exit /b %RESULT%

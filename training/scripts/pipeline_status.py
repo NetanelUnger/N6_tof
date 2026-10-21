@@ -6,6 +6,7 @@ import json
 from collections import Counter, defaultdict
 
 from common import (CONFIG_ROOT, MODELS_ROOT, RAW_ROOT, STATE_ROOT,
+                    PROJECT_MANIFEST, TRAINING_ENTRY_ROOT, stage_state,
                     class_names, load_json, npu_deployment_fingerprint,
                     reviewed_rows)
 
@@ -29,6 +30,8 @@ STAGES = (
 
 
 def main() -> int:
+    print("Active project: " + (f"{PROJECT_MANIFEST['name']} [{PROJECT_MANIFEST['slug']}]"
+                              if PROJECT_MANIFEST else "legacy RPS"))
     counts: Counter[str] = Counter()
     bursts: defaultdict[str, set[str]] = defaultdict(set)
     sessions = 0
@@ -59,7 +62,7 @@ def main() -> int:
     first_action = None
     for stage, bat, legacy_stage in STAGES:
         if (stage == "00_setup" and
-                (STATE_ROOT.parent / ".venv" / "Scripts" /
+                (TRAINING_ENTRY_ROOT / ".venv" / "Scripts" /
                  "python.exe").is_file()):
             print(f"  {stage:20s} complete   environment present  [{bat}]")
             continue
@@ -76,7 +79,7 @@ def main() -> int:
                 first_action = bat
             continue
         try:
-            state = json.loads(state_path.read_text(encoding="utf-8"))
+            state = stage_state(state_path.stem)
             status = state.get("status", "?")
             if (stage in {"10_ram", "11_hil", "12_flash"} and
                     status == "complete" and deployment and

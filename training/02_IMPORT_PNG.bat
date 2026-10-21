@@ -2,7 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-call _env.bat || exit /b
+call _env.bat %* || exit /b
 echo ================================================================
 echo Stage 02 - Import an existing PNG dataset (optional)
 echo ================================================================
@@ -13,6 +13,6 @@ echo is marked approximate. SHA-256 makes reruns skip already imported files.
 echo.
 "%TRAINING_PY%" scripts\02_import_png.py %*
 set "RESULT=%ERRORLEVEL%"
-pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
 exit /b %RESULT%
 

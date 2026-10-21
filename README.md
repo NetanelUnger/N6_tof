@@ -1,5 +1,11 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Platform M1 (2026-10-21): per-project training context and Tk project wizard are
+implemented. Eight service checks, BAT-launched Tk widget automation and the
+isolated status BAT pass; M2–M7 remain open. Original RPS files are preserved,
+and imported historical acceptance is marked stale. See
+[implementation, baseline and evidence](docs/platform-upgrade-20261021.md).
+
 Release verifier fix (2026-10-17): post-XMODEM and factory verification now wait
 for a complete `Firmware version:` response line before comparing versions.
 Byte-at-a-time reads previously treated the first digit of v11 as version1.

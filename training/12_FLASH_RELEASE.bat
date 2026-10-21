@@ -2,7 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-call _env.bat || exit /b
+call _env.bat %* || exit /b
 echo ================================================================
 echo Stage 12 - signed incremental build and CN8 XMODEM flash update
 echo ================================================================
@@ -18,5 +18,5 @@ echo keep the validated RAM image running so XMODEM can install and then reset.
 echo.
 "%TRAINING_PY%" scripts\deploy_firmware.py --flash %*
 set "RESULT=%ERRORLEVEL%"
-pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
 exit /b %RESULT%

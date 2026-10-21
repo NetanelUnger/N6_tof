@@ -53,3 +53,6 @@ Desktop.ini
 !/hil_tests/results/.gitkeep
 __pycache__/
 *.pyc
+
+# Local project data, transactions, models and per-project state
+/training/projects/

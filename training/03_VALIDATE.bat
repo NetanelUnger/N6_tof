@@ -2,7 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-call _env.bat || exit /b
+call _env.bat %* || exit /b
 echo ================================================================
 echo Stage 03 - Validate the raw dataset
 echo ================================================================
@@ -13,6 +13,6 @@ echo No source image is modified or deleted.
 echo.
 "%TRAINING_PY%" scripts\03_validate_dataset.py %*
 set "RESULT=%ERRORLEVEL%"
-pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
 exit /b %RESULT%
 

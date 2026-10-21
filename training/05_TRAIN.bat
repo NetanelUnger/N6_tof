@@ -2,7 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-call _env.bat || exit /b
+call _env.bat %* || exit /b
 echo ================================================================
 echo Stage 05 - Train the float reference model
 echo ================================================================
@@ -66,5 +66,5 @@ echo [NON-INTERACTIVE] Running Stage 05 with arguments: %*
 set "RESULT=%ERRORLEVEL%"
 if "%RESULT%"=="0" echo [DONE] Stage 05 completed successfully.
 if not "%RESULT%"=="0" echo [FAILED] Stage 05 returned error code %RESULT%.
-pause
+if not "%N6_NON_INTERACTIVE%"=="1" pause
 exit /b %RESULT%

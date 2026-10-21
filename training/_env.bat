@@ -2,6 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
+for %%A in (%*) do if /i "%%~A"=="--non-interactive" set "N6_NON_INTERACTIVE=1"
 set "TRAINING_PY=%~dp0.venv\Scripts\python.exe"
 if not exist "%TRAINING_PY%" (
   echo.
@@ -11,6 +12,6 @@ if not exist "%TRAINING_PY%" (
 )
 "%TRAINING_PY%" -c "import sys; assert sys.version_info[:2] == (3,11), sys.version"
 if errorlevel 1 exit /b 3
-endlocal & set "TRAINING_PY=%TRAINING_PY%"
+endlocal & set "TRAINING_PY=%TRAINING_PY%" & set "N6_NON_INTERACTIVE=%N6_NON_INTERACTIVE%"
 exit /b 0
 
