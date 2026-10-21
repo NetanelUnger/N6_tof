@@ -25,17 +25,19 @@ def collect(source, store, *, samples, timeout, label=None, group_size=1,
             except TimeoutError:
                 continue
             now = time.monotonic()
-            if save_fps and now - last_saved < 1. / save_fps:
+            if save_fps and not getattr(source,"lossless_replay",False) and now - last_saved < 1. / save_fps:
                 continue
             depth = sample.frame.depth_mm
-            if near_duplicate_mm is not None and last_depth is not None:
+            if near_duplicate_mm is not None and last_depth is not None and not getattr(source,"lossless_replay",False):
                 valid = (depth != sample.frame.invalid_mm) & (last_depth != sample.frame.invalid_mm)
                 if valid.any() and float(np.abs(depth[valid].astype(np.int32) - last_depth[valid]).mean()) < near_duplicate_mm:
                     content_skips += 1
                     continue
             try:
-                store.commit(sample, label=label, group=f"{group_prefix}-{accepted // group_size}")
+                store.commit(sample, label=label, group=("cloud-"+sample.device_info["cloud_session"] if sample.source=="cloud" else f"{group_prefix}-{accepted // group_size}"))
+                if hasattr(source,"acknowledge"): source.acknowledge(sample)
             except DuplicateSample:
+                if hasattr(source,"acknowledge"): source.acknowledge(sample)
                 duplicates += 1
                 continue
             accepted += 1
@@ -55,5 +57,5 @@ def collect(source, store, *, samples, timeout, label=None, group_size=1,
     return {"status": "FAIL" if error else "PASS", "requested": samples,
             "committed": accepted, "duplicate_identities": duplicates,
             "content_skips": content_skips, "seconds": time.monotonic() - started,
-            "content_filter_enabled": near_duplicate_mm is not None,
+            "content_filter_enabled": near_duplicate_mm is not None and not getattr(source,"lossless_replay",False),
             "source": status, "error": error}

@@ -33,7 +33,7 @@ class NativeDataset(unittest.TestCase):
         source = (project / "AppliNonSecure/Core/Src/tof_app.c").read_text(encoding="utf-8-sig")
         macros = "\n".join(line for line in source.splitlines() if line.startswith("#define TOF_DATASET_"))
         publisher = ''.join(extract(source, name) for name in
-                            ("tof_crc32", "tof_write_u16", "tof_write_u32", "TOF_App_EncodeTrainingRecord", "tof_stream_dataset_frame", "TOF_App_SetMapEnabled", "TOF_App_SetDatasetStreamEnabled"))
+                            ("tof_crc32", "tof_write_u16", "tof_write_u32", "TOF_App_EncodeTrainingRecord", "tof_stream_dataset_frame", "TOF_App_SetMapEnabled", "TOF_App_SetDatasetStreamDestination", "TOF_App_SetDatasetStreamEnabled"))
         prefix = r'''
 #include <stdio.h>
 #include <string.h>
@@ -44,6 +44,7 @@ class NativeDataset(unittest.TestCase):
 #include "rps_ai.h"
 typedef unsigned long ULONG;
 typedef int TOF_ImageFilter_t;
+typedef int TOF_StreamDestination_t;
 typedef struct {void *data; ULONG capacity;} App_Console_FrameBuffer_t;
 #define UX_FALSE 0
 #define TX_SUCCESS 0
@@ -73,6 +74,8 @@ route=TOF_STREAM_CLOUD;TOF_App_SetDatasetStreamEnabled(0);assert(route==TOF_STRE
 TOF_App_SetMapEnabled(0);assert(route==TOF_STREAM_CLOUD);
 TOF_App_SetDatasetStreamEnabled(1);assert(route==TOF_STREAM_USB);
 route=TOF_STREAM_BLE;TOF_App_SetDatasetStreamEnabled(0);assert(route==0);
+TOF_App_SetDatasetStreamDestination(1,TOF_STREAM_CLOUD);assert(route==TOF_STREAM_CLOUD);
+TOF_App_SetDatasetStreamDestination(0,TOF_STREAM_CLOUD);assert(route==0);
 TOF_App_SetDatasetStreamEnabled(1);
 float depth[54*42];for(unsigned i=0;i<54*42;i++)depth[i]=(float)((i*3U)%1300U);
 for(unsigned i=0;i<3200;i++)model[i]=(i%5)?255:0;

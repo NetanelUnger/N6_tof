@@ -87,6 +87,13 @@ uint32_t CloudRelay_IsRadioRecoveryQuiesced(void);
 void CloudRelay_RadioResetComplete(void);
 void CloudRelay_GetStatus(CloudRelay_Status_t *status);
 
+typedef struct {
+  uint32_t active, attempts, acknowledged, failures, pending, goal, remaining_ms;
+  char session[33];
+} CloudRelay_TrainingStatus_t;
+uint32_t CloudRelay_IsTrainingFrameDue(void);
+void CloudRelay_GetTrainingStatus(CloudRelay_TrainingStatus_t *status);
+
 UINT CloudRelay_RequestPair(const char *code);
 UINT CloudRelay_RequestSettingsTransition(void); /* explicit RAM preparation, no exchange */
 UINT CloudRelay_SetEnabled(uint32_t enabled);

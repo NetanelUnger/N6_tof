@@ -249,13 +249,13 @@ static void cli_command_status(Menu_t *menu, const char *command);
 static void cli_command_usb(Menu_t *menu, const char *command);
 static void cli_command_clear(Menu_t *menu, const char *command);
 static void cli_command_map(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
-static void cli_command_tof(Menu_t *menu, const char *command);
+static void cli_command_tof(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static void __attribute__((optimize("Os")))
 cli_command_dataset(Menu_t *menu, const char *command);
 /* Cold status formatting prefers code size. Sensor/NPU paths retain -O3. */
 static void cli_command_rps(Menu_t *menu, const char *command)
   __attribute__((optimize("Os")));
-static void cli_command_debug(Menu_t *menu, const char *command);
+static void cli_command_debug(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static void cli_command_reboot(Menu_t *menu, const char *command);
 static void cli_command_firmware_update(Menu_t *menu, const char *command);
 static void cli_command_unknown(Menu_t *menu, const char *command);
@@ -283,11 +283,11 @@ static void cli_command_cloud(Menu_t *menu, const char *command) __attribute__((
 static const char *cli_cloud_state_name(CloudRelay_State_t state);
 #endif
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
-static void cli_command_wifi(Menu_t *menu, const char *command);
+static void cli_command_wifi(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static void cli_session_clear_credentials(CliSession_t *session);
 #endif
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
-static void cli_command_ble(Menu_t *menu, const char *command);
+static void cli_command_ble(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 #endif
 #if (APP_ST67W6X_ENABLED == 1U)
 static uint32_t cli_radio_is_ready(void);
@@ -1943,7 +1943,7 @@ cli_command_dataset(Menu_t *menu, const char *command)
                                CLI_MAX_ARGUMENTS);
 
   if (argc == 2 && cli_token_equals(argv[1], "capabilities")) {
-    (void)Menu_Reply(menu, "Dataset capabilities: record=N6DF4 lossless=1 exact_tensor=1 usb=1 ble=1 ble_format=5 boot_identity=1"); return;
+    (void)Menu_Reply(menu, "Dataset capabilities: record=N6DF4 lossless=1 exact_tensor=1 usb=1 ble=1 ble_format=5 cloud=1 capture_version=1 boot_identity=1"); return;
   }
   if ((argc == 2 || argc == 3) && cli_token_equals(argv[1], "session"))
   {
@@ -1979,8 +1979,9 @@ cli_command_dataset(Menu_t *menu, const char *command)
   {
     (void)Menu_Reply(menu,
                      "Dataset stream enabled: N6DF v4, depth + exact tensor + model contract; CRC32 protected.");
-    TOF_App_SetDatasetStreamEnabled(1U);
-    if (cli_active_session->route.transport == APP_TRANSPORT_BLE) TOF_App_RequestStream(TOF_STREAM_BLE);
+    TOF_StreamDestination_t destination=cli_active_session->route.transport==APP_TRANSPORT_BLE ? TOF_STREAM_BLE :
+        cli_active_session->route.transport==APP_TRANSPORT_CLOUD ? TOF_STREAM_CLOUD : TOF_STREAM_USB;
+    TOF_App_SetDatasetStreamDestination(1U,destination);
   }
   else if ((argc == 3) &&
            (cli_token_equals(argv[1], "stream") != 0U) &&
@@ -2594,6 +2595,15 @@ static void cli_command_cloud(Menu_t *menu, const char *command)
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
 
+  if (argc==2 && !strcmp(argv[1],"training")) {
+    CloudRelay_TrainingStatus_t training;
+    CloudRelay_GetTrainingStatus(&training);
+    cli_print("Cloud training: active %lu session %s attempts %lu acknowledged %lu pending %lu failures %lu goal %lu remaining_ms %lu\r\n",
+        (unsigned long)training.active,training.session[0]?training.session:"none",
+        (unsigned long)training.attempts,(unsigned long)training.acknowledged,(unsigned long)training.pending,
+        (unsigned long)training.failures,(unsigned long)training.goal,(unsigned long)training.remaining_ms);
+    return;
+  }
   if ((argc == 2) && (strcmp(argv[1], "status") == 0))
   {
     CloudRelay_Status_t status;

@@ -1,5 +1,15 @@
 # Project change history
 
+## 2026-10-21 - M5 prepared, real Cloud export blocked
+
+Deploy the compatible durable receiver in the sibling repo; implement shared
+Cloud setup/download, durable cursors and bounded device control/ACK ownership.
+Host/native coverage36, receiver fixtures10 and existing web tests80 pass.
+Guarded RAM heap369232 preserves baseline margin. Automatic approval review
+denied20 actual samples to the existing NatiLab endpoint before process start;
+no retry/session/collection occurred. Cloud/Wi-Fi quiesced, handles/lease closed.
+M5 HIL is BLOCKED; M6-M7 NOT_RUN. No persistent firmware/credential changes.
+
 ## 2026-10-21 - Platform upgrade M4
 
 Same-window BLE discovery and lossless training capture reuse existing GATT,

@@ -1036,22 +1036,23 @@ const char *TOF_App_GetChannelDescription(TOF_App_Channel_t channel)
 
 uint32_t TOF_App_IsDatasetStreamEnabled(void) { return tof_desired.dataset_stream_enabled; }
 
+void TOF_App_SetDatasetStreamDestination(uint32_t enabled, TOF_StreamDestination_t destination)
+{
+    if (destination < TOF_STREAM_USB || destination > TOF_STREAM_CLOUD) return;
+    UINT posture=tx_interrupt_control(TX_INT_DISABLE);
+    tof_desired.dataset_stream_enabled=enabled?1U:0U;
+    ++tof_desired.revision;
+    if (enabled) {
+        tof_desired.map_enabled=0U;
+        TOF_App_RequestStream(destination);
+    } else if (!tof_desired.map_enabled) TOF_App_ReleaseStream(destination);
+    (void)tx_interrupt_control(posture);
+}
+
 void TOF_App_SetDatasetStreamEnabled(uint32_t enabled)
 {
-    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
-    tof_desired.dataset_stream_enabled = (enabled != 0U) ? 1U : 0U;
-    ++tof_desired.revision;
-    if (enabled != 0U)
-    {
-        /* ANSI maps and binary records must never share the CDC byte stream. */
-        tof_desired.map_enabled = 0U;
-        TOF_App_RequestStream(TOF_STREAM_USB);
-    }
-    else if (tof_desired.map_enabled == 0U) {
-        TOF_App_ReleaseStream(TOF_STREAM_USB);
-        TOF_App_ReleaseStream(TOF_STREAM_BLE);
-    }
-    (void)tx_interrupt_control(posture);
+    TOF_App_SetDatasetStreamDestination(enabled,TOF_STREAM_USB);
+    if (!enabled && !tof_desired.map_enabled) TOF_App_ReleaseStream(TOF_STREAM_BLE);
 }
 
 void TOF_App_SetPaused(uint32_t paused)

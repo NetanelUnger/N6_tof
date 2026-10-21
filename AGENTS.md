@@ -1715,11 +1715,22 @@ stack-local version or split the address phase back into a blocking transfer.
   Cloud records use explicit ACK, sequence and CRC. Signed XMODEM raw mode
   belongs only to the requesting session and feeds the existing Secure
   installer. Do not add transport-specific command allowlists.
+- Platform training extension (2026-10-21 M4/M5): legacy display formats1-4
+  retain sender-side encoding. Training format5 is a complete lossless N6DF4
+  record packed by the ToF producer while the exact same-frame NPU tensor is
+  still live; raw u16 depth plus tensor/header fits the existing9072-byte
+  snapshot. USB and wireless use one encoder. Do not re-encode it as a display
+  image or allocate a second payload buffer. Existing generation/route fencing,
+  GATT fragmentation and bounded queues remain. M5 Cloud retains that snapshot
+  until a matching post-storage ACK; unknown replies retry identical bytes.
+  Control sessions are time/rate/count/volume bounded and use existing tokens.
+  M4 final25-record reconnect HIL passed; M5 Wi-Fi acceptance is recorded in
+  docs/platform-upgrade-20261021.md only after its real check completes.
 - Preserve the BLE ToF image contract: Notify UUID `7a1e0004-b5a3-f393-e0a9-
   e50e24dcca9e`, version-3 56-byte little-endian header, selectable RAW/UINT16/UINT8/JPEG,
   header and payload CRC32, and one SRAM4 snapshot. Capture the matching NPU
   status with pixels; never fetch the latest inference in a transmitting worker. See docs/wireless-image-codec.md.
-  Only the transmitting Radio/Cloud worker encodes; the producer snapshots float32. Snapshot the selected transformed channel
+  For legacy display formats1-4, only the transmitting Radio/Cloud worker encodes; the producer snapshots float32. Snapshot the selected transformed channel
   before `tof_processing_workspace` is reused. While a frame is in flight, drop
   new frames; never queue partial sensor-frame state. Service at most one image
   fragment per Radio Manager cycle so CLI/XMODEM cannot be starved.

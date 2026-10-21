@@ -22,6 +22,8 @@ import json
 from sample_sources import create_source
 from sample_store import SampleStore, DuplicateSample
 from capture_service import collect
+from cloud_sample_source import SourceComplete
+from common import PROJECT_ID, STATE_ROOT
 from common import TRAINING_ROOT, TRAINING_ENTRY_ROOT, PROJECT_MANIFEST, NON_INTERACTIVE
 
 from common import (CONFIG_ROOT, RAW_ROOT, append_jsonl, atomic_json,
@@ -101,7 +103,7 @@ class CaptureApp:
         self.last_fault: str | None = None
         self.stop_event = threading.Event()
         self.frame_queue: queue.Queue[DepthFrame] = queue.Queue(maxsize=2)
-        self.source = create_source(args.transport, port=args.port, expected_device=args.expected_device, address=args.device)
+        self.source = create_source(args.transport, **source_options(args))
         self.store = SampleStore(TRAINING_ROOT, PROJECT_MANIFEST, self.pre_cfg,
                                  self.session_id, contract_roots=[TRAINING_ENTRY_ROOT])
         try:
@@ -111,6 +113,10 @@ class CaptureApp:
             for handler in list(self.logger.handlers):
                 handler.close(); self.logger.removeHandler(handler)
             raise
+        if args.transport == "cloud":
+            self.capturing = True
+            self.warmup_seconds = 0
+            self.burst_id = "cloud-" + self.source.capture_session
         self.reader = self.source.stats
         self.latest_sample = None
         self._write_session_state("active")
@@ -191,6 +197,9 @@ class CaptureApp:
                             self.frame_queue.get_nowait()
                         except queue.Empty:
                             pass
+            except SourceComplete:
+                self.root.after(0, lambda: setattr(self, 'notice_text', 'Cloud capture ended; all available records downloaded. Review stored/missing counts.'))
+                break
             except TimeoutError as exc:
                 if self.stop_event.is_set():
                     break
@@ -249,8 +258,10 @@ class CaptureApp:
             self.frames_received += 1
             self._show_frame(newest, model_tensor)
             self._maybe_save(newest, model_tensor)
+        if newest is None and self.args.transport == 'cloud' and getattr(self.source,'pending',None) is self.latest_sample and self.latest_sample is not None and self.capturing:
+            self._maybe_save(self.latest_sample.frame, preprocess_depth(self.latest_sample.frame.depth_mm, self.pre_cfg)[...,0])
         stale = time.monotonic() - self.last_frame_time
-        if self.last_frame_time and stale > self.capture_cfg["stale_frame_seconds"]:
+        if self.args.transport != "cloud" and self.last_frame_time and stale > self.capture_cfg["stale_frame_seconds"]:
             self._set_stream_fault(
                 f"no valid N6DF frame for {stale:.1f}s; capture paused automatically"
             )
@@ -288,7 +299,7 @@ class CaptureApp:
         if (not self.capturing or now < self.capture_armed_at or
                 now - self.last_saved_time < self.save_period):
             return
-        if self.last_saved_depth is not None and not self.args.disable_content_filter:
+        if self.last_saved_depth is not None and not self.args.disable_content_filter and not getattr(self.source,"lossless_replay",False):
             both_valid = ((frame.depth_mm != frame.invalid_mm) &
                           (self.last_saved_depth != frame.invalid_mm))
             if both_valid.any():
@@ -299,8 +310,11 @@ class CaptureApp:
                     self.frames_rejected_duplicate += 1
                     return
         try:
-            self.store.commit(self.latest_sample, label=self.current_label, group=self.burst_id)
+            self.store.commit(self.latest_sample, label=self.current_label, group=("cloud-"+self.source.capture_session if self.args.transport=="cloud" else self.burst_id))
+            if hasattr(self.source,"acknowledge"): self.source.acknowledge(self.latest_sample)
         except DuplicateSample:
+            if hasattr(self.source,"acknowledge") and getattr(self.source,"pending",None) is self.latest_sample:
+                self.source.acknowledge(self.latest_sample)
             return
         except Exception as exc:
             self._set_stream_fault(str(exc))
@@ -496,6 +510,14 @@ def main() -> int:
     parser.add_argument("--transport", choices=["usb", "ble", "cloud"], default="usb")
     parser.add_argument("--expected-device")
     parser.add_argument("--device", help="BLE address selected from discovery")
+    parser.add_argument("--endpoint")
+    parser.add_argument("--workspace-file", type=Path)
+    parser.add_argument("--cloud-device-id")
+    parser.add_argument("--cloud-session", help="Resume a durable server capture")
+    parser.add_argument("--cloud-duration", type=int, default=90)
+    parser.add_argument("--cloud-rate", type=int, default=2)
+    parser.add_argument("--cloud-count", type=int, default=20)
+    parser.add_argument("--require-no-browser", action="store_true")
     parser.add_argument("--unlabeled", action="store_true")
     parser.add_argument("--samples", type=int, help="Bounded unattended capture count")
     parser.add_argument("--timeout", type=float, default=60)
@@ -528,7 +550,7 @@ def main() -> int:
                             args.session or datetime.now().strftime("%Y%m%d_%H%M%S"),
                             contract_roots=[TRAINING_ENTRY_ROOT])
         try:
-            source = create_source(args.transport, port=args.port, expected_device=args.expected_device, address=args.device)
+            source = create_source(args.transport, **source_options(args))
             report = collect(source, store, samples=args.samples, timeout=args.timeout,
                              label=None if args.unlabeled else args.label,
                              group_size=args.group_size, save_fps=args.save_fps,
@@ -549,20 +571,53 @@ def main() -> int:
     return 0
 
 
+def source_options(args):
+    return dict(port=args.port, expected_device=args.expected_device, address=args.device,
+                endpoint=args.endpoint, workspace_path=args.workspace_file, device_id=args.cloud_device_id,
+                capture_session=args.cloud_session, project_id=PROJECT_ID, state_root=STATE_ROOT,
+                capture_duration=args.cloud_duration, capture_rate=args.cloud_rate,
+                capture_count=args.samples if args.samples is not None else args.cloud_count,
+                require_no_browser=args.require_no_browser)
+
+
 def launch_capture(root, args):
-    from tkinter import ttk
+    from tkinter import ttk, filedialog
+    defaults = dict(endpoint=None, workspace_file=None, cloud_device_id=None, cloud_session=None,
+                    cloud_duration=90, cloud_rate=2, cloud_count=20, require_no_browser=False, samples=None)
+    for key, value in defaults.items():
+        if not hasattr(args,key): setattr(args,key,value)
     root.title("N6 project capture")
     panel = ttk.Frame(root, padding=16); panel.pack()
     source = tk.StringVar(value=args.transport)
     session = tk.StringVar(value=args.session or datetime.now().strftime("%Y%m%d_%H%M%S"))
     device = tk.StringVar(value=args.device or "")
+    setup_path = STATE_ROOT / 'capture_setup.json'
+    setup = load_json(setup_path) if setup_path.exists() else {}
+    endpoint = tk.StringVar(value=args.endpoint or setup.get('endpoint',''))
+    workspace = tk.StringVar(value=str(args.workspace_file or setup.get('workspace_file','')))
+    cloud_device = tk.StringVar(value=args.cloud_device_id or setup.get('cloud_device_id',''))
+    last_verified_device = ''
+    if not args.expected_device and not setup.get('canonical_device'):
+        for path in sorted(RAW_ROOT.glob('*/metadata.jsonl'), key=lambda p:p.stat().st_mtime, reverse=True):
+            for row in reversed(list(iter_jsonl(path))):
+                candidate = row.get('device',{}).get('id','')
+                if re.fullmatch(r'n6:[0-9a-f]{2}(:[0-9a-f]{2}){5}',candidate):
+                    last_verified_device = candidate;break
+            if last_verified_device:break
+    canonical = tk.StringVar(value=args.expected_device or setup.get('canonical_device',last_verified_device))
+    cloud_session = tk.StringVar(value=args.cloud_session or '')
+    cloud_count = tk.StringVar(value=str(args.cloud_count))
+    cloud_duration = tk.StringVar(value=str(args.cloud_duration))
+    cloud_rate = tk.StringVar(value=str(args.cloud_rate))
     unlabeled = tk.BooleanVar(value=args.unlabeled or args.label is None)
     message = tk.StringVar(value="Select a source and session. Existing records are preserved.")
     ttk.Label(panel, text=f"Project: {PROJECT_MANIFEST.get('display_name', PROJECT_MANIFEST.get('name', 'Selected')) if PROJECT_MANIFEST else 'RPS'}").pack(anchor="w")
     ttk.Label(panel, text="Source").pack(anchor="w")
     ttk.Combobox(panel, textvariable=source, values=["usb", "ble", "cloud"], state="readonly").pack(fill="x")
-    ttk.Label(panel, text="BLE device address (Discover selects an advertised N6)").pack(anchor="w")
-    devices = ttk.Combobox(panel, textvariable=device); devices.pack(fill="x")
+    ble_panel = ttk.Frame(panel)
+    ble_panel.pack(fill='x')
+    ttk.Label(ble_panel, text="BLE device address (Discover selects an advertised N6)").pack(anchor="w")
+    devices = ttk.Combobox(ble_panel, textvariable=device); devices.pack(fill="x")
     def discover():
         from ble_sample_source import discover_ble
         message.set("Discovering N6 BLE devices...")
@@ -577,14 +632,53 @@ def launch_capture(root, args):
             except Exception as exc:
                 root.after(0, lambda value=str(exc): message.set(value))
         threading.Thread(target=worker, daemon=True).start()
-    ttk.Button(panel, text="Discover BLE", command=discover).pack(anchor="w")
-    ttk.Label(panel, text="Session (new or resume)").pack(anchor="w")
+    ttk.Button(ble_panel, text="Discover BLE", command=discover).pack(anchor="w")
+    cloud_panel = ttk.LabelFrame(panel, text="Cloud: existing endpoint and authorization", padding=8)
+    cloud_panel.pack(fill='x',pady=8)
+    for title,variable in [('HTTPS endpoint',endpoint),('Existing workspace file',workspace),
+                           ('Workspace device ID',cloud_device),('Verified device identity (n6:MAC)',canonical),
+                           ('Server session (empty creates a bounded capture)',cloud_session),
+                           ('Maximum samples',cloud_count),('Duration seconds',cloud_duration),('Rate Hz (1-4)',cloud_rate)]:
+        ttk.Label(cloud_panel,text=title).pack(anchor='w')
+        ttk.Entry(cloud_panel,textvariable=variable).pack(fill='x')
+    def choose_workspace():
+        path=filedialog.askopenfilename(filetypes=[('N6 workspace','*.n6workspace.json')])
+        if not path:return
+        try:
+            value=json.loads(Path(path).read_text(encoding='utf-8-sig'))
+            if value.get('format')!='n6-workspace-v1':raise ValueError('Invalid existing workspace file.')
+            workspace.set(path)
+            if len(value.get('devices',[]))==1:cloud_device.set(value['devices'][0]['id'])
+            message.set('Existing authorization selected. Tokens are never copied to project records.')
+        except Exception as exc:message.set(str(exc))
+    ttk.Button(cloud_panel,text='Choose existing workspace',command=choose_workspace).pack(anchor='w')
+    ttk.Label(cloud_panel,text='Closing TRAINING preserves the bounded server capture. Resume by server session; review labels locally.',wraplength=500).pack()
+    def source_changed(*_):
+        if source.get()=='ble':ble_panel.pack(fill='x',before=cloud_panel if cloud_panel.winfo_manager() else session_label)
+        else:ble_panel.pack_forget()
+        if source.get()=='cloud':cloud_panel.pack(fill='x',pady=8,before=session_label)
+        else:cloud_panel.pack_forget()
+    session_label = ttk.Label(panel, text="Session (new or resume)")
+    session_label.pack(anchor='w')
+    source.trace_add('write',source_changed)
+    source_changed()
+    ttk.Label(panel, text="").pack(anchor="w")
     ttk.Entry(panel, textvariable=session).pack(fill="x")
     ttk.Checkbutton(panel, text="Collect without labels; review later", variable=unlabeled).pack(anchor="w")
     ttk.Label(panel, textvariable=message, wraplength=500).pack(pady=8)
     def start():
         args.transport, args.session, args.unlabeled = source.get(), session.get(), unlabeled.get()
         args.device = device.get() or None
+        args.endpoint, args.workspace_file = endpoint.get(), Path(workspace.get()) if workspace.get() else None
+        args.cloud_device_id, args.cloud_session = cloud_device.get() or None, cloud_session.get() or None
+        args.expected_device = canonical.get() or args.expected_device
+        try:
+            args.cloud_count,args.cloud_duration,args.cloud_rate=int(cloud_count.get()),int(cloud_duration.get()),int(cloud_rate.get())
+        except ValueError:
+            message.set('Capture count, duration and rate must be integers.');return
+        if args.transport=='cloud':
+            atomic_json(setup_path,{'endpoint':args.endpoint,'workspace_file':str(args.workspace_file or ''),
+                                   'cloud_device_id':args.cloud_device_id,'canonical_device':args.expected_device})
         try:
             app = CaptureApp(root, args)
         except Exception as exc:

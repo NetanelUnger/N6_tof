@@ -12,6 +12,7 @@
 #include "debug_uart.h"
 #include "tof_app.h"
 #include "firmware_build_version.h"
+#include "firmware_update.h"
 #include "main.h"
 #include "w6x_api.h"
 #include "wifi_ble_app.h"
@@ -85,7 +86,9 @@ typedef enum
   CLOUD_HTTP_POLL,
   CLOUD_HTTP_ACK,
   CLOUD_HTTP_OUTPUT,
-  CLOUD_HTTP_TOF
+  CLOUD_HTTP_TOF,
+  CLOUD_HTTP_TRAIN_CONTROL,
+  CLOUD_HTTP_TRAIN_FRAME
 } CloudHttpKind_t;
 
 typedef struct
@@ -208,20 +211,20 @@ static int cloud_decode_response(int *status, uint8_t **body,
                                  size_t *body_length);
 static void cloud_finish_request(void);
 static void cloud_start_next_request(void);
-static int cloud_load_pairing(void);
-static int cloud_save_pairing(void);
-static void cloud_complete_pairing(int status,const uint8_t *body,size_t length);
-static void cloud_clear_pairing(uint32_t delete_file);
-static int cloud_parse_pair_response(const uint8_t *body, size_t length);
+static int cloud_load_pairing(void) __attribute__((optimize("Os")));
+static int cloud_save_pairing(void) __attribute__((optimize("Os")));
+static void cloud_complete_pairing(int status,const uint8_t *body,size_t length) __attribute__((optimize("Os")));
+static void cloud_clear_pairing(uint32_t delete_file) __attribute__((optimize("Os")));
+static int cloud_parse_pair_response(const uint8_t *body, size_t length) __attribute__((optimize("Os")));
 static int cloud_parse_command(const uint8_t *body, size_t length);
 static int json_get_string(const uint8_t *json, size_t length,
-                           const char *key, char *value, size_t capacity);
+                           const char *key, char *value, size_t capacity) __attribute__((optimize("Os")));
 static int json_get_u32(const uint8_t *json, size_t length,
-                        const char *key, uint32_t *value);
+                        const char *key, uint32_t *value) __attribute__((optimize("Os")));
 static int json_get_bool(const uint8_t *json, size_t length,
-                         const char *key, uint32_t *value);
+                         const char *key, uint32_t *value) __attribute__((optimize("Os")));
 static int cloud_json_escape(const uint8_t *source, size_t length,
-                             char *target, size_t capacity);
+                             char *target, size_t capacity) __attribute__((optimize("Os")));
 static int cloud_base64_encode(const uint8_t *source, size_t length,
                                char *target, size_t capacity);
 static int cloud_base64_decode(const char *source, uint8_t *target,
@@ -236,6 +239,8 @@ static UINT cloud_submit_control(const CloudControlRequest_t *request);
 static UINT cloud_apply_control(CloudControlRequest_t *request);
 static UINT cloud_control_queue_self_test(void);
 static UINT cloud_receive_control(CloudControlRequest_t *request);
+
+#include "cloud_training.inc"
 
 UINT CloudRelay_Prepare(void)
 {
@@ -541,7 +546,7 @@ static UINT cloud_control_queue_self_test(void)
   return TX_SUCCESS;
 }
 
-UINT CloudRelay_Initialize(TX_BYTE_POOL *pool, const char *suggested_device_id)
+UINT __attribute__((optimize("Os"))) CloudRelay_Initialize(TX_BYTE_POOL *pool, const char *suggested_device_id)
 {
   void *memory = NULL;
 
@@ -603,10 +608,12 @@ UINT CloudRelay_Initialize(TX_BYTE_POOL *pool, const char *suggested_device_id)
 static void cloud_process(uint32_t wifi_has_ip)
 {
   if (cloud == NULL) return;
+  cloud_training_tick();
 
   if (cloud->network_epoch != cloud_network_epoch)
   {
     cloud->network_epoch = cloud_network_epoch;
+    if (training.active && cloud->tof_pending && cloud->tof_info.mode==TOF_IMAGE_TRAINING_N6DF) ++training.failures;
     cloud_close_socket();
     cloud_release_tof();
     cloud->address_valid = 0U;
@@ -1108,12 +1115,14 @@ UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
                                uint8_t height, const TofImageInfo *info)
 {
   if (cloud_recovery_pause) return TX_NOT_AVAILABLE;
-  uint32_t length = (uint32_t)width * (uint32_t)height * sizeof(float);
+  uint32_t length = (info && info->mode==TOF_IMAGE_TRAINING_N6DF) ? info->payload_length : (uint32_t)width * (uint32_t)height * sizeof(float);
   if ((cloud == NULL) || (payload == NULL) || (info == NULL) || (width == 0U) || (height == 0U) ||
       (width > 54U) || (height > 42U) || (length > UINT16_MAX))
   {
     return TX_PTR_ERROR;
   }
+  if ((info->mode==TOF_IMAGE_TRAINING_N6DF && !CloudRelay_IsTrainingFrameDue()) ||
+      (info->mode!=TOF_IMAGE_TRAINING_N6DF && training.active)) return TX_NOT_AVAILABLE;
   UINT lock_status = tx_mutex_get(&cloud->gate, TX_NO_WAIT);
   if (lock_status != TX_SUCCESS) return lock_status;
   if ((cloud->status.enabled == 0U) ||
@@ -1139,6 +1148,7 @@ UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
   cloud->tof_width = width;
   cloud->tof_height = height;
   cloud->tof_channel_id = channel_id;
+  if (info->mode==TOF_IMAGE_TRAINING_N6DF) training.next_sample=HAL_GetTick()+training.interval;
   cloud->tof_pending = 1U;
   (void)tx_interrupt_control(posture);
   (void)tx_mutex_put(&cloud->gate);
@@ -1578,6 +1588,19 @@ static void cloud_finish_request(void)
   cloud->status.backoff_seconds = 0U;
   cloud->status.last_transport_status = 0;
 
+  if (kind==CLOUD_HTTP_TRAIN_CONTROL || kind==CLOUD_HTTP_TRAIN_FRAME) {
+    cloud->next_action_tick=HAL_GetTick();
+    if (kind==CLOUD_HTTP_TRAIN_CONTROL) cloud_training_control(status,body,body_length);
+    else cloud_training_ack(status,body,body_length);
+    return;
+  }
+  if (status==409 && training.receiver_known && (kind==CLOUD_HTTP_POLL || kind==CLOUD_HTTP_TOF) &&
+      cloud_find_ci(body,body_length,"workspace_inactive")) {
+    cloud->next_action_tick=HAL_GetTick()+1000U;
+    cloud->status.state=CLOUD_RELAY_STATE_POLLING;
+    if (kind==CLOUD_HTTP_TOF) ++cloud->status.tof_frames_dropped;
+    return;
+  }
   if (status == 409)
   {
     cloud->next_action_tick = HAL_GetTick() + 30000U;
@@ -1757,6 +1780,8 @@ static void cloud_start_next_request(void)
     return;
   }
 
+  if (cloud_training_next()) return;
+
   if (cloud->tof_pending != 0U)
   {
     /* The Cloud worker exclusively owns this borrowed snapshot until release. */
@@ -1797,7 +1822,7 @@ static void cloud_start_next_request(void)
 
 /* Accept only exact binary bytes from FS. An empty response is not a defined
  * encoding for NUL, and string tails/padding cannot be inferred from schema. */
-static W6X_Status_t cloud_read_pairing_record(CloudPairingRecord_t *record)
+static W6X_Status_t __attribute__((optimize("Os"))) cloud_read_pairing_record(CloudPairingRecord_t *record)
 {
   W6X_Status_t status;
   (void)memset(record, 0, sizeof(*record));
@@ -2017,6 +2042,7 @@ static int cloud_parse_command(const uint8_t *body, size_t length)
   return 0;
 }
 
+static const uint8_t *json_find_value(const uint8_t *json, size_t length, const char *key) __attribute__((optimize("Os")));
 static const uint8_t *json_find_value(const uint8_t *json, size_t length,
                                       const char *key)
 {
@@ -2246,6 +2272,8 @@ void CloudRelay_GetStatus(CloudRelay_Status_t *status)
 { if (status != NULL) (void)memset(status, 0, sizeof(*status)); }
 UINT CloudRelay_RequestPair(const char *code) { (void)code; return TX_NOT_AVAILABLE; }
 UINT CloudRelay_RequestSettingsTransition(void) { return TX_NOT_AVAILABLE; }
+uint32_t CloudRelay_IsTrainingFrameDue(void) { return 0U; }
+void CloudRelay_GetTrainingStatus(CloudRelay_TrainingStatus_t *status) { if(status) memset(status,0,sizeof(*status)); }
 UINT CloudRelay_SetEnabled(uint32_t enabled) { (void)enabled; return TX_NOT_AVAILABLE; }
 UINT CloudRelay_RequestReconnect(void) { return TX_NOT_AVAILABLE; }
 UINT CloudRelay_Unpair(void) { return TX_NOT_AVAILABLE; }

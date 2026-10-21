@@ -205,5 +205,8 @@ def create_source(kind="usb", **options):
         return UsbSampleSource(**{k:v for k,v in options.items() if k in {"port","expected_device"}})
     if kind == "ble":
         from ble_sample_source import BleSampleSource
-        return BleSampleSource(**options)
+        return BleSampleSource(**{k:v for k,v in options.items() if k in {"port","expected_device","address"}})
+    if kind == "cloud":
+        from cloud_sample_source import CloudSampleSource
+        return CloudSampleSource(**options)
     raise SourceError(f"BLOCKED: {kind} capture adapter is not installed yet.")

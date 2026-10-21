@@ -2011,7 +2011,8 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   (void)tx_interrupt_control(posture);
 
   uint32_t training = TOF_App_IsDatasetStreamEnabled();
-  if (training && TOF_App_GetStreamDestination() != TOF_STREAM_BLE) {
+  if (training && TOF_App_GetStreamDestination() != TOF_STREAM_BLE &&
+      (TOF_App_GetStreamDestination() != TOF_STREAM_CLOUD || !CloudRelay_IsTrainingFrameDue())) {
     radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE; return TX_NOT_AVAILABLE;
   }
   if (training) {

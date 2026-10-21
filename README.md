@@ -2678,6 +2678,17 @@ disconnect records are discarded. Real20+5 reconnect HIL passes on the exact
 guarded RAM image. No Windows Pair/cache changes. See the milestone report and
 [wire contract](docs/n6df-classification-contract.md). Cloud collection is next.
 
+### Durable Cloud capture checkpoint (2026-10-21, M5)
+
+The existing NatiLab receiver is deployed and validated with persistent bounded
+training sessions, existing token authorization and cursor downloads. The same
+capture window configures Cloud and preserves exact records locally before
+acknowledging a cursor. Sender/native/host checks pass; guarded heap369232.
+The real20-sample Cloud HIL is **BLOCKED awaiting explicit export approval**
+after automatic review denied its process before execution. Cloud/Wi-Fi are
+quiesced and hardware ownership released. M6-M7 remain open. See the
+[exact blocker, evidence and safe recovery](docs/platform-upgrade-20261021.md).
+
 ## 14. The project's golden rule
 
 The IOC describes hardware ownership and the generated skeleton. The hand-written code describes product behavior. After every Generate Code operation, verify that both still agree about pins, TrustZone, interrupts, memory regions, task stacks, middleware callbacks, and feature flags.

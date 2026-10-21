@@ -254,3 +254,77 @@ reports folder; protected build/load under ignored m4-candidate-final diagnostic
 
 M5-M7 remain open. The legacy browser/viewer does not interpret training format5
 as a display image. New server training receivers must precede Cloud senders.
+
+## M5 - receiver deployed; sender/client ready; real export approval BLOCKED
+
+Sibling receiver commits7b404b9 and5905a7d are pushed. Exact final head
+5905a7df14e1b2c486577297e4d741e82011ce3e passed GitHub Actions39641798300
+(build, fixture, publish and existing Azure deployment). Live existing endpoint
+returns health/capabilities/auth200 and browserAttached=false using the existing
+workspace file. No new credentials or infrastructure were provisioned.
+Ten local real-HTTP/process-restart/access/rate/volume/idempotence checks and
+80 existing host protocol tests pass. Local restart fixtures are not HIL.
+
+TRAINING Cloud setup now selects an existing HTTPS endpoint/workspace/device,
+creates bounded recoverably idempotent sessions or resumes one, verifies every
+downloaded record and advances the cursor only after durable local commit.
+Interrupted local commits/replays deduplicate without token copies. All durable
+Cloud samples are retained; live-scene similarity/host FPS filtering does not
+discard already accepted server records. One server capture stays one split
+group across downloader reconnects. Closing TRAINING preserves bounded server
+capture. Transport-specific setup shares the existing capture window.
+
+The firmware uses existing paired device authorization and a browser-independent
+control endpoint. The existing radio snapshot carries complete N6DF4, remains
+pinned until a matching stored/frame/time/boot/full-wire-CRC ACK, and retries
+identical bytes on an unknown reply. Native production C state checks prove
+retention, matching ACK release, local duration/count bounds and preservation of
+newer USB/BLE ownership. No new payload buffer/queue or budget enlargement.
+Existing legacy display codecs remain sender encoded. New record packing is
+explicitly documented in AGENTS.md. No CubeMX/TrustZone/linker/XIP changes.
+
+Host/native test coverage36 passes (34-suite plus5 focused Cloud tests including
+two additional creation-recovery cases). Three existing native CLI reply/lease
+scripts and the actual Tk fixture workflow pass. Memory failures367408/367792/
+368464 were retained and NEVER loaded. Size optimization of cold CLI/startup
+and bounded text/JSON routines yields heap369232/margin592, above required432.
+Sensor/NPU/radio loops, pools/stacks and deadlines remain unchanged.
+
+Protected BLE-only candidate8d90f4848653f6422468a550685dadb30a6256581f47505e83591b390d1a8c7b
+is built/not loaded. Protected Wi-Fi candidate
+7dc25492d394cf4ef775bcc09367254260c37b3c81c997cc55dd3520a31a7509 loaded
+successfully with existing saved Wi-Fi/Cloud configuration; IPv4/pairing and
+sensor/radio readiness were observed. Both have heap369232 and binary496952.
+NCP preserve1/settings writes0/transition0; source defaults and ordinary Debug
+artifacts restored. Existing plaintext device Cloud demo mode was not changed;
+the TRAINING client uses verified HTTPS without redirects or TLS bypass.
+
+The subsequent command to collect20 real sensor samples was DENIED BEFORE
+PROCESS START by automatic approval review. Exact target:
+natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net. Review reason:
+upgrade/server authorization did not explicitly authorize exporting actual
+sensor payload and device/workspace association to that destination. No retry
+or indirect execution was attempted. No new training capture session, local
+Cloud sample folder or collection report was created. User export approval is
+pending in the parent thread. Treat the20-sample Wi-Fi/cursor-resume check as
+BLOCKED/NOT_RUN, never PASS based on fixtures or mere Wi-Fi readiness.
+
+Cleanup confirmed Cloud disabled/HTTPinactive, Wi-Fidisconnected/noIP, imageNONE,
+datasetoff and trainingattempts0. Sensor remainsready. All owned serial handles
+and hardware lease are released. Live RAM is the Wi-Fi candidate above in this
+quiesced runtime state. No Flash/install/settings/credentials/WindowsPair/cache
+changes. Existing legacy relay requests during authorized Wi-Fi startup were
+rejected as workspaceinactive; do not claim that the denied collection ran.
+
+Recovery: obtain explicit approval for20 actual depth/tensor/device-project
+records to the named NatiLab endpoint. Inspect blocker/current outcomes first,
+reacquire the lease, restore saved-profile RAM operation as needed, and perform
+one bounded denied-operation retry under the new evidence. Do not repeat it
+without new approval. Preserve existing candidate/build/failed-test records.
+M6(two-model training/integration/100frames each) and M7(exact-bound packaging,
+90_PLATFORM_CHECK and workflow guide) remain NOT_RUN in dependency order.
+
+Local evidence: training/reports/platform_upgrade_20261021/m5*.json/log and
+ignored diagnostics/platform-upgrade-20261021/m5-*; demo-target.json designates
+the existing4-class RPS model before M6. The user requests a separate XIP branch
+only after this upgrade; no branch, memory-map or OTP work was started here.
