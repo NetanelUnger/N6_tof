@@ -18,27 +18,17 @@ from tkinter import messagebox
 
 import numpy as np
 from PIL import Image, ImageTk
-from serial import Serial
-from serial.tools import list_ports
+import json
+from sample_sources import create_source
+from sample_store import SampleStore, DuplicateSample
+from capture_service import collect
+from common import TRAINING_ROOT, TRAINING_ENTRY_ROOT, PROJECT_MANIFEST, NON_INTERACTIVE
 
 from common import (CONFIG_ROOT, RAW_ROOT, append_jsonl, atomic_json,
                     apply_review, class_config, iter_jsonl, load_json,
                     load_review_decisions, mark_stage, relative, utc_now)
 from dataset import preprocess_depth, preview_rgb, save_depth_sample
 from protocol import VERSION_V3, VERSION_V4, DepthFrame, FrameReader
-
-
-def find_n6_port(requested: str | None) -> str:
-    if requested:
-        return requested.upper()
-    candidates = [port.device for port in list_ports.comports()
-                  if port.vid == 0x0483 and port.pid == 0x5740]
-    if len(candidates) != 1:
-        raise RuntimeError(
-            "Expected exactly one CN8 USB CDC device (VID 0483, PID 5740); "
-            f"found {candidates or 'none'}. Pass --port COMx when needed."
-        )
-    return candidates[0]
 
 
 class CaptureApp:
@@ -91,7 +81,7 @@ class CaptureApp:
         )
         self.samples_per_burst = min(configured_burst_limit, group_safe_limit)
         self.duplicate_threshold = self.capture_cfg["near_duplicate_mean_mm"]
-        self.current_label = args.label or self._first_incomplete_label()
+        self.current_label = None if args.unlabeled else (args.label or self._first_incomplete_label())
         self.capturing = False
         self.burst_id: str | None = None
         self.latest: DepthFrame | None = None
@@ -111,20 +101,20 @@ class CaptureApp:
         self.last_fault: str | None = None
         self.stop_event = threading.Event()
         self.frame_queue: queue.Queue[DepthFrame] = queue.Queue(maxsize=2)
-        selected_port = find_n6_port(args.port)
-        self.logger.info(
-            "capture_start session=%s port=%s target_per_class=%d "
-            "samples_per_burst=%d save_fps=%.3f existing_counts=%s",
-            self.session_id, selected_port, self.target,
-            self.samples_per_burst, 1.0 / self.save_period, dict(self.counts),
-        )
-        self.serial = Serial(selected_port, 115200, timeout=0.2,
-                             write_timeout=2)
-        self.serial.dtr = True
-        self.reader = FrameReader(self.serial)
+        self.source = create_source(args.transport, port=args.port, expected_device=args.expected_device)
+        self.store = SampleStore(TRAINING_ROOT, PROJECT_MANIFEST, self.pre_cfg,
+                                 self.session_id, contract_roots=[TRAINING_ENTRY_ROOT])
+        try:
+            self.source.open()
+        except Exception:
+            self.store.close()
+            for handler in list(self.logger.handlers):
+                handler.close(); self.logger.removeHandler(handler)
+            raise
+        self.reader = self.source.stats
+        self.latest_sample = None
         self._write_session_state("active")
         self._build_ui()
-        self._start_stream()
         self.thread = threading.Thread(target=self._reader_loop, daemon=True)
         self.thread.start()
         self.root.after(30, self._poll)
@@ -147,7 +137,7 @@ class CaptureApp:
         model_column.pack(side=tk.LEFT, padx=8)
         tk.Label(raw_column, text="RAW DEPTH (what the sensor sees)",
                  font=("Segoe UI", 10, "bold")).pack()
-        tk.Label(model_column, text="MODEL INPUT (what the NPU learns)",
+        tk.Label(model_column, text="HOST PROJECT PREVIEW (received tensor saved separately)",
                  font=("Segoe UI", 10, "bold")).pack()
         self.image_label = tk.Label(raw_column, bg="black")
         self.image_label.pack()
@@ -161,40 +151,28 @@ class CaptureApp:
                  font=("Consolas", 11), justify="left").pack(pady=8)
         tk.Label(
             self.root,
-            text=("SPACE: start/stop a burst while moving the hand in position and depth\n"
-                  "R/P/S/N: select rock/paper/scissors/none   ESC: safe exit\n"
-                  "Keep the complete gesture visible in MODEL INPUT; use empty scenes for NONE."),
+            text=("SPACE: start/stop a burst   ESC: safe exit\n"
+                  "Select a class below or collect unlabeled samples for later review."),
             font=("Segoe UI", 11), justify="center"
         ).pack(pady=8)
         self.root.bind("<space>", lambda _event: self.toggle_capture())
         self.root.bind("<Escape>", lambda _event: self.close())
+        labels = tk.Frame(self.root); labels.pack()
+        tk.Button(labels, text="Unlabeled", command=lambda: self.set_label(None)).pack(side=tk.LEFT)
         for item in self.classes:
-            self.root.bind(item["key"],
-                           lambda _event, label=item["name"]: self.set_label(label))
-            self.root.bind(item["key"].upper(),
-                           lambda _event, label=item["name"]: self.set_label(label))
+            tk.Button(labels, text=item.get("display_name", item["name"]),
+                      command=lambda label=item["name"]: self.set_label(label)).pack(side=tk.LEFT)
+            if item.get("key"):
+                self.root.bind(item["key"], lambda _event, label=item["name"]: self.set_label(label))
         self._refresh_text()
-
-    def _start_stream(self) -> None:
-        self.logger.info("stream_start_sequence begin")
-        time.sleep(0.35)
-        self.serial.reset_input_buffer()
-        # Stop first and drain any partial record left by an interrupted PC run.
-        # CR is harmless if the menu is already active and restores it after MAP ON.
-        self.serial.write(b"\rDATASET STREAM OFF\rMAP OFF\r")
-        self.serial.flush()
-        time.sleep(0.3)
-        self.serial.reset_input_buffer()
-        self.serial.write(b"DATASET STREAM ON\r")
-        self.serial.flush()
-        self.logger.info("stream_start_sequence complete")
 
     def _reader_loop(self) -> None:
         while not self.stop_event.is_set():
             crc_before = self.reader.crc_errors
             framing_before = self.reader.framing_errors
             try:
-                frame = self.reader.read_frame(timeout=1.0)
+                sample = self.source.read(timeout=1.0)
+                frame = sample.frame
                 crc_delta = self.reader.crc_errors - crc_before
                 framing_delta = self.reader.framing_errors - framing_before
                 if crc_delta or framing_delta:
@@ -206,7 +184,7 @@ class CaptureApp:
                     )
                 while True:
                     try:
-                        self.frame_queue.put_nowait(frame)
+                        self.frame_queue.put_nowait(sample)
                         break
                     except queue.Full:
                         try:
@@ -220,7 +198,7 @@ class CaptureApp:
                 self.logger.warning(
                     "reader_timeout count=%d buffered=%d crc_total=%d "
                     "framing_total=%d last_error=%r detail=%s",
-                    self.reader_timeouts, len(self.reader.buffer),
+                    self.reader_timeouts, self.reader.buffered_bytes,
                     self.reader.crc_errors, self.reader.framing_errors,
                     self.reader.last_error, exc,
                 )
@@ -259,15 +237,8 @@ class CaptureApp:
             except queue.Empty:
                 break
         if newest is not None:
-            if self.latest is not None:
-                delta = (newest.frame_id - self.latest.frame_id) & 0xFFFFFFFF
-                if delta == 0 or delta > 1000:
-                    self._set_stream_fault(
-                        "firmware frame sequence repeated/reversed: "
-                        f"{self.latest.frame_id} -> {newest.frame_id}; "
-                        "capture stopped before saving this frame"
-                    )
-                    newest = None
+            self.latest_sample = newest
+            newest = newest.frame
         if newest is not None:
             model_tensor = self._verified_model_input(newest)
             if model_tensor is None:
@@ -288,35 +259,10 @@ class CaptureApp:
             self.root.after(30, self._poll)
 
     def _verified_model_input(self, frame: DepthFrame) -> np.ndarray | None:
-        if (frame.protocol_version not in (VERSION_V3, VERSION_V4) or
-                frame.model_input is None or
-                frame.model_frame_id != frame.frame_id or
-                (frame.model_flags & 0x1) == 0):
-            self._set_stream_fault(
-                "firmware does not provide an exact frame-matched N6DF v3 "
-                "model tensor; load the current RAM firmware before capture"
-            )
-            return None
-        host = preprocess_depth(frame.depth_mm, self.pre_cfg)[..., 0]
-        if frame.model_input.shape != host.shape:
-            self._set_stream_fault(
-                "device/Python model-input geometry differs: "
-                f"device={frame.model_input.shape}, host={host.shape}"
-            )
-            return None
-        different = frame.model_input != host
-        if np.any(different):
-            mismatch = int(np.count_nonzero(different))
-            maximum_delta = int(np.max(np.abs(
-                frame.model_input.astype(np.int16) - host.astype(np.int16)
-            )))
-            self._set_stream_fault(
-                "device/Python preprocessing is not bit-exact: "
-                f"{mismatch} pixels differ, maximum delta {maximum_delta}; "
-                "capture stopped before saving"
-            )
-            return None
-        return frame.model_input
+        # This preview is explicitly the selected project's host transform.
+        # SampleStore independently checks any known source contract and saves
+        # only the exact source tensor as received, including explicit absence.
+        return preprocess_depth(frame.depth_mm, self.pre_cfg)[..., 0]
 
     def _show_frame(self, frame: DepthFrame,
                     model_tensor: np.ndarray) -> None:
@@ -342,7 +288,7 @@ class CaptureApp:
         if (not self.capturing or now < self.capture_armed_at or
                 now - self.last_saved_time < self.save_period):
             return
-        if self.last_saved_depth is not None:
+        if self.last_saved_depth is not None and not self.args.disable_content_filter:
             both_valid = ((frame.depth_mm != frame.invalid_mm) &
                           (self.last_saved_depth != frame.invalid_mm))
             if both_valid.any():
@@ -352,34 +298,13 @@ class CaptureApp:
                 if mean_delta < self.duplicate_threshold:
                     self.frames_rejected_duplicate += 1
                     return
-        # A firmware reset restarts both counters. The suffix makes resuming an
-        # existing session append-only even if the same counters recur.
-        stem = (f"f{frame.frame_id:010d}_t{frame.timestamp_ms:010d}_"
-                f"{uuid.uuid4().hex[:8]}")
-        record = save_depth_sample(self.session_root, self.current_label, stem,
-                                   frame.depth_mm, {
-            "schema": 1,
-            "session_id": self.session_id,
-            "burst_id": self.burst_id,
-            "source": f"n6df_v{frame.protocol_version}_raw_plus_device_model_cdc",
-            "captured_utc": utc_now(),
-            "firmware_frame_id": frame.frame_id,
-            "firmware_timestamp_ms": frame.timestamp_ms,
-            "payload_crc32": f"{frame.payload_crc32:08x}",
-            "model_payload_crc32": f"{frame.model_payload_crc32:08x}",
-            "model_frame_id": frame.model_frame_id,
-            "valid_count": frame.valid_count,
-            "minimum_mm": frame.minimum_mm,
-            "maximum_mm": frame.maximum_mm,
-            "processing_filter": frame.processing_filter,
-            "protocol_flags": frame.flags,
-            "model_protocol_flags": frame.model_flags,
-            "protocol_version": frame.protocol_version,
-            "device_contract_sha256": frame.contract_sha256,
-            "device_class_count": frame.class_count,
-            "device_inference_scores": frame.npu_scores,
-        }, device_model_input=model_tensor)
-        append_jsonl(self.metadata_path, record)
+        try:
+            self.store.commit(self.latest_sample, label=self.current_label, group=self.burst_id)
+        except DuplicateSample:
+            return
+        except Exception as exc:
+            self._set_stream_fault(str(exc))
+            return
         self.counts[self.current_label] += 1
         if self.burst_id:
             self.bursts_by_class[self.current_label].add(self.burst_id)
@@ -394,7 +319,7 @@ class CaptureApp:
             self.capturing = False
             completed = self.current_label
             self.burst_id = None
-            if target_reached:
+            if target_reached and self.current_label is not None:
                 self.current_label = self._first_incomplete_label()
                 self.notice_text = (
                     f"{completed}: target reached ({self.counts[completed]}). "
@@ -476,7 +401,7 @@ class CaptureApp:
             state = "RECORDING — MOVE THE OBJECT"
         else:
             state = "ready"
-        self.title_var.set(f"{self.current_label.upper()}  [{state}]")
+        self.title_var.set(f"{(self.current_label or 'UNLABELED').upper()}  [{state}]")
         frame = self.latest.frame_id if self.latest else "waiting"
         count_text = "  ".join(
             f"{name}:{self.counts[name]}/{self.target} "
@@ -485,11 +410,11 @@ class CaptureApp:
         )
         if not self.stream_faulted:
             self.status_var.set(
-                f"port={self.serial.port}  session={self.session_id}  frame={frame}\n"
+                f"port={getattr(self.source, 'port', self.args.transport)}  session={self.session_id}  frame={frame}\n"
                 f"{count_text}\nreceived={self.frames_received}  "
                 f"near-duplicates skipped={self.frames_rejected_duplicate}  "
                 f"model foreground={self.model_foreground_ratio:.1%}\n"
-                "N6DF v3 model tensor: DEVICE/PYTHON BIT-EXACT\n"
+                "Preview: HOST project transform; received tensor saved separately\n"
                 f"parser CRC/framing/timeouts={self.reader.crc_errors}/"
                 f"{self.reader.framing_errors}/{self.reader_timeouts}\n"
                 f"{self.notice_text}"
@@ -501,7 +426,7 @@ class CaptureApp:
             "session_id": self.session_id,
             "status": status,
             "updated_utc": utc_now(),
-            "port": getattr(getattr(self, "serial", None), "port", None),
+            "port": getattr(getattr(self, "source", None), "port", None),
             "target_per_class": self.target,
             "samples_per_burst": self.samples_per_burst,
             "minimum_bursts_per_class": self.minimum_bursts_per_class,
@@ -531,17 +456,14 @@ class CaptureApp:
         self.stop_event.set()
         self.logger.info("capture_close requested")
         try:
-            self.serial.write(b"DATASET STREAM OFF\r")
-            self.serial.flush()
-            time.sleep(0.3)
-        except Exception as exc:
-            self.logger.warning("stream_stop_failed: %s", exc)
-        try:
             if hasattr(self, "thread"):
                 self.thread.join(timeout=1.5)
-            self.serial.close()
-            if hasattr(self, "thread") and self.thread.is_alive():
-                self.thread.join(timeout=0.5)
+                if self.thread.is_alive():
+                    self._set_stream_fault("Source reader did not stop within its bounded read timeout.")
+            self.source.stop()
+            if self.source.status().get("restore_error"):
+                self._set_stream_fault(self.source.status()["restore_error"])
+            self.store.close()
         finally:
             final_status = ("closed_with_stream_fault" if self.stream_faulted
                             else "closed")
@@ -571,6 +493,14 @@ class CaptureApp:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port")
+    parser.add_argument("--transport", choices=["usb", "ble", "cloud"], default="usb")
+    parser.add_argument("--expected-device")
+    parser.add_argument("--unlabeled", action="store_true")
+    parser.add_argument("--samples", type=int, help="Bounded unattended capture count")
+    parser.add_argument("--timeout", type=float, default=60)
+    parser.add_argument("--group-size", type=int, default=1)
+    parser.add_argument("--disable-content-filter", action="store_true", help="Disable only the scene-similarity filter; source integrity and identity remain mandatory")
+    parser.add_argument("--report", type=Path)
     parser.add_argument("--session", help="Resume or name a capture session")
     parser.add_argument("--label", choices=[item["name"] for item in class_config()])
     parser.add_argument("--target-per-class", type=int)
@@ -590,10 +520,59 @@ def main() -> int:
         parser.error("--samples-per-burst must be positive")
     if args.save_fps is not None and args.save_fps <= 0:
         parser.error("--save-fps must be positive")
+    if args.samples is not None:
+        cfg = load_json(CONFIG_ROOT / "preprocessing.json")
+        capture_cfg = load_json(CONFIG_ROOT / "training.json")["capture"]
+        store = SampleStore(TRAINING_ROOT, PROJECT_MANIFEST, cfg,
+                            args.session or datetime.now().strftime("%Y%m%d_%H%M%S"),
+                            contract_roots=[TRAINING_ENTRY_ROOT])
+        try:
+            source = create_source(args.transport, port=args.port, expected_device=args.expected_device)
+            report = collect(source, store, samples=args.samples, timeout=args.timeout,
+                             label=None if args.unlabeled else args.label,
+                             group_size=args.group_size, save_fps=args.save_fps,
+                             near_duplicate_mm=None if args.disable_content_filter else capture_cfg["near_duplicate_mean_mm"])
+            report["session"] = store.session
+            report["project_id"] = PROJECT_MANIFEST["project_id"] if PROJECT_MANIFEST else "legacy-rps"
+            if args.report:
+                atomic_json(args.report, report)
+            print(json.dumps(report, ensure_ascii=True, indent=2))
+            return 0 if report["status"] == "PASS" else 1
+        finally:
+            store.close()
+    if NON_INTERACTIVE:
+        raise RuntimeError("BLOCKED: unattended capture requires --samples and a bounded --timeout.")
     root = tk.Tk()
-    CaptureApp(root, args)
+    launch_capture(root, args)
     root.mainloop()
     return 0
+
+
+def launch_capture(root, args):
+    from tkinter import ttk
+    root.title("N6 project capture")
+    panel = ttk.Frame(root, padding=16); panel.pack()
+    source = tk.StringVar(value=args.transport)
+    session = tk.StringVar(value=args.session or datetime.now().strftime("%Y%m%d_%H%M%S"))
+    unlabeled = tk.BooleanVar(value=args.unlabeled or args.label is None)
+    message = tk.StringVar(value="Select a source and session. Existing records are preserved.")
+    ttk.Label(panel, text=f"Project: {PROJECT_MANIFEST.get('display_name', PROJECT_MANIFEST.get('name', 'Selected')) if PROJECT_MANIFEST else 'RPS'}").pack(anchor="w")
+    ttk.Label(panel, text="Source").pack(anchor="w")
+    ttk.Combobox(panel, textvariable=source, values=["usb", "ble", "cloud"], state="readonly").pack(fill="x")
+    ttk.Label(panel, text="Session (new or resume)").pack(anchor="w")
+    ttk.Entry(panel, textvariable=session).pack(fill="x")
+    ttk.Checkbutton(panel, text="Collect without labels; review later", variable=unlabeled).pack(anchor="w")
+    ttk.Label(panel, textvariable=message, wraplength=500).pack(pady=8)
+    def start():
+        args.transport, args.session, args.unlabeled = source.get(), session.get(), unlabeled.get()
+        try:
+            app = CaptureApp(root, args)
+        except Exception as exc:
+            message.set(str(exc))
+            return
+        panel.destroy()
+        root.capture_app = app
+    ttk.Button(panel, text="Start capture", command=start).pack()
 
 
 if __name__ == "__main__":

@@ -322,7 +322,8 @@ class ProjectService:
             source = self.open(source_slug)
             value = deepcopy(source)
             value.update(project_id=str(uuid.uuid4()), slug=slug, name=name.strip(),
-                         revision=1, created_utc=now(), copied_from=source["project_id"])
+                         revision=1, created_utc=now(), copied_from=source["project_id"],
+                         origin_project_ids=sorted({source["project_id"], *source.get("origin_project_ids", [])}))
             return self._publish(value, source=self.root / source_slug, select=select)
 
     def open(self, slug):

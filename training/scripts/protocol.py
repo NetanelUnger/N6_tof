@@ -68,6 +68,7 @@ class DepthFrame:
     class_count: int | None = None
     contract_version: int = 0
     contract_sha256: str | None = None
+    wire_record: bytes | None = None
 
 
 def crc32(data: bytes | bytearray | memoryview) -> int:
@@ -219,6 +220,7 @@ def decode_record(header: bytes, payload: bytes) -> DepthFrame:
         model_payload_crc32=model_payload_crc32,
         class_count=class_count, contract_version=contract_version,
         contract_sha256=contract_hash,
+        wire_record=header + payload,
     )
 
 

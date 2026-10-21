@@ -54,6 +54,33 @@ static volatile uint32_t tof_publication_blocked;
 static volatile TOF_StreamDestination_t tof_stream_active;
 static volatile uint32_t tof_stream_switches;
 static volatile uint32_t tof_stream_drain_frames;
+static char tof_capture_identity[33];
+
+int TOF_App_SetCaptureIdentity(const char *identity)
+{
+    if (identity == NULL || strlen(identity) != 32U) return -1;
+    uint32_t nonzero = 0U;
+    for (size_t i = 0U; i < 32U; ++i)
+    {
+        char c = identity[i];
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return -1;
+        nonzero |= (uint32_t)(c != '0');
+    }
+    if (nonzero == 0U) return -1;
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    int result = 0;
+    if (tof_capture_identity[0] == '\0') memcpy(tof_capture_identity, identity, 33U);
+    else if (strcmp(tof_capture_identity, identity) != 0) result = -1;
+    (void)tx_interrupt_control(posture);
+    return result;
+}
+
+void TOF_App_GetCaptureIdentity(char identity[33])
+{
+    UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+    memcpy(identity, tof_capture_identity, 33U);
+    (void)tx_interrupt_control(posture);
+}
 
 void TOF_App_RequestStream(TOF_StreamDestination_t destination)
 {

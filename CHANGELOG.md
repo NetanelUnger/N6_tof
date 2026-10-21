@@ -1,5 +1,13 @@
 # Project change history
 
+## 2026-10-21 - Platform upgrade M3
+
+Shared capture adapters and atomic lossless sample storage with immutable source
+identity, exact/absent tensor provenance, deduplication and recovery. Desktop/BAT
+USB workflow passes27 regression checks and20 real samples; test-copy labeling,
+VALIDATE/PREPARE pass. Guarded RAM heap370704 preserves baseline margin. No
+persistent firmware or settings changes. BLE/Cloud and M4-M7 remain open.
+
 ## 2026-10-21 — Platform upgrade M2
 
 Added stable class/label operations and history, general model contracts and C

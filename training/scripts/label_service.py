@@ -11,6 +11,11 @@ from project_context import digest, now, read, validate_manifest
 
 
 def sample_id(row):
+    if row.get("sample_schema") == 1:
+        identifier = row.get("sample_id")
+        if identifier != digest(row.get("identity")):
+            raise ValueError("Original source sample identity is invalid.")
+        return identifier
     # Paths identify original sample records; content hashes alone conflate
     # two physically distinct frames whose depth pixels happen to be equal.
     path = str(row.get("npz", "")).replace("\\", "/")

@@ -248,7 +248,7 @@ static void cli_command_version(Menu_t *menu, const char *command);
 static void cli_command_status(Menu_t *menu, const char *command);
 static void cli_command_usb(Menu_t *menu, const char *command);
 static void cli_command_clear(Menu_t *menu, const char *command);
-static void cli_command_map(Menu_t *menu, const char *command);
+static void cli_command_map(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static void cli_command_tof(Menu_t *menu, const char *command);
 static void __attribute__((optimize("Os")))
 cli_command_dataset(Menu_t *menu, const char *command);
@@ -261,23 +261,25 @@ static void cli_command_firmware_update(Menu_t *menu, const char *command);
 static void cli_command_unknown(Menu_t *menu, const char *command);
 static void cli_print(const char *format, ...);
 static void cli_prompt(void);
-static void cli_show_help(void);
-static void cli_show_status(void);
-static void cli_show_tof_status(void);
+static void cli_show_help(void) __attribute__((optimize("Os")));
+static void cli_show_status(void) __attribute__((optimize("Os")));
+static void cli_show_tof_status(void) __attribute__((optimize("Os")));
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
-static void cli_show_display_status(void);
+static void cli_show_display_status(void) __attribute__((optimize("Os")));
 #endif
-static void cli_show_usb_status(void);
-static void cli_show_map_channels(void);
-static void cli_show_map_processing(void);
+static void cli_show_usb_status(void) __attribute__((optimize("Os")));
+static void cli_show_map_channels(void) __attribute__((optimize("Os")));
+static void cli_show_map_processing(void) __attribute__((optimize("Os")));
 static const TOF_ImageFilterDescriptor_t *cli_find_map_filter(
     int argc, char *const argv[], size_t *filter_argument_count);
 static const char *cli_tof_state_name(TOF_App_State_t state);
 static const char *cli_radio_state_name(WifiBle_State_t state);
 static const char *cli_log_level_name(uint32_t level);
-static void cli_command_radio(Menu_t *menu, const char *command);
+/* Cold inspection/formatting only; radio/CLI worker hot paths stay at -O3. */
+static void cli_command_radio(Menu_t *menu, const char *command)
+  __attribute__((optimize("Os")));
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
-static void cli_command_cloud(Menu_t *menu, const char *command);
+static void cli_command_cloud(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static const char *cli_cloud_state_name(CloudRelay_State_t state);
 #endif
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
@@ -1939,6 +1941,34 @@ cli_command_dataset(Menu_t *menu, const char *command)
   char *argv[CLI_MAX_ARGUMENTS];
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
+
+  if ((argc == 2 || argc == 3) && cli_token_equals(argv[1], "session"))
+  {
+    char identity[33];
+    if (argc == 3 && TOF_App_SetCaptureIdentity(argv[2]) != 0)
+    {
+      (void)Menu_Reply(menu, "Capture identity invalid or already assigned.");
+      return;
+    }
+    TOF_App_GetCaptureIdentity(identity);
+    cli_print("Dataset session: %s\r\n", identity[0] ? identity : "unassigned");
+    return;
+  }
+  if (argc == 3 && cli_token_equals(argv[1], "route"))
+  {
+    static const char *const names[] = {"none", "usb", "ble", "cloud"};
+    for (uint32_t i = 0U; i <= (uint32_t)TOF_STREAM_CLOUD; ++i)
+    {
+      if (cli_token_equals(argv[2], names[i]))
+      {
+        TOF_App_RequestStream((TOF_StreamDestination_t)i);
+        (void)Menu_Reply(menu, "Capture route restored.");
+        return;
+      }
+    }
+    (void)Menu_Reply(menu, "Invalid capture route.");
+    return;
+  }
 
   if ((argc == 3) &&
       (cli_token_equals(argv[1], "stream") != 0U) &&

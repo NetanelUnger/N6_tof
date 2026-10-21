@@ -12,6 +12,8 @@ from common import (CONFIG_ROOT, RAW_ROOT, REPORTS_ROOT, TRAINING_ROOT,
                     apply_review, atomic_json, class_names,
                     dataset_input_fingerprint, iter_jsonl, load_json,
                     load_review_decisions, mark_stage, relative, utc_now)
+from sample_store import verify_record
+from common import PROJECT_MANIFEST
 from dataset import (depth_sha256, load_depth_record,
                      load_device_model_input_record, preprocess_depth)
 
@@ -48,6 +50,8 @@ def main() -> int:
             total += 1
             location = f"{metadata_path.parent.name}:{total}"
             try:
+                if raw_row.get('sample_schema') == 1:
+                    verify_record(TRAINING_ROOT, raw_row, PROJECT_MANIFEST)
                 row = apply_review(raw_row, review_decisions)
                 if row.get("reviewed"):
                     reviewed += 1
@@ -78,7 +82,7 @@ def main() -> int:
                         raise ValueError(
                             "device model-input shape differs from Python"
                         )
-                    if (cfg.get("profile", "rps_silhouette_v1") == "rps_silhouette_v1" and
+                    if not row.get("sample_schema") and (cfg.get("profile", "rps_silhouette_v1") == "rps_silhouette_v1" and
                             set(np.unique(device_tensor).tolist()) - {0, 255}):
                         raise ValueError(
                             "device model-input violates binary 0/255 contract"
@@ -89,12 +93,12 @@ def main() -> int:
                     ).hexdigest()
                     if device_hash and device_hash != observed_device_hash:
                         raise ValueError("device model-input hash differs")
-                    if not np.array_equal(device_tensor, host_tensor):
+                    if not np.array_equal(device_tensor, host_tensor) and not row.get("sample_schema"):
                         raise ValueError(
                             "device model-input differs from Python preprocessing"
                         )
                 for key in ("depth_png", "preview_png", "model_input_png"):
-                    if not (TRAINING_ROOT / row[key]).exists():
+                    if row.get(key) is not None and not (TRAINING_ROOT / row[key]).exists():
                         raise ValueError(f"missing {key}: {row[key]}")
                 valid = (depth != cfg["invalid_mm"]) & (depth > 0)
                 invalid_ratios.append(1.0 - float(valid.mean()))

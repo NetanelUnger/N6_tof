@@ -167,3 +167,46 @@ The independent legacy wireless RPS viewer remains RPS-specific and fails
 closed for general inference; it cannot substitute for a training record.
 
 Final M2 protected build: 15.703 s; ELF cc8070778d3d8d39f8dfee9a733b0dfa4f7a90a544216d6437189e12c2c86915; binary 3d781da9a0a308ff8826fe530029214419efb2a8c0b78d799a7b3314485bf447. Heap 369104, margin 464; no hardware load.
+
+## M3 - shared source and lossless USB capture completed
+
+Serial access is confined to UsbSampleSource. The existing 01_CAPTURE.bat
+opens a Tk source/session selector and supports bounded unattended collection.
+The shared source/store contract preserves original N6DF bytes, numeric u16 mm
+NPZ/PNG, separate preview, exact received tensor or explicit absence, source
+model contract/inference, original device time and host reception clocks.
+CRC validation precedes atomic publication. File hashes, immutable metadata,
+SQLite deduplication and recovery are checked on reopen. A RAM-only once-per-
+MCU-boot UUID plus native frame counter, original device timestamp and channel
+distinguish resets from retries. Label revisions preserve that source identity.
+Project copies retain explicit origin association. PREPARE requires an explicit
+host-preprocessing override for absent/incompatible source tensors.
+
+27 host/native regression tests pass; actual Tk Start/record/close controls pass
+with a fixture adapter. Real USB HIL through BAT committed20 unique unlabeled
+samples, reception span4.921s, all original CRCs/file hashes and source-contract
+exact tensors verified on reopen. Static scene tests transport/computation, not
+classification accuracy. The initial command failed only while printing its
+completed report through cp1252; existing records and runtime were inspected
+before proceeding, with no repeated collection. Reports now save before ASCII-
+safe printing. No hardware operation has an uncertain outcome.
+
+An isolated copy labels the20 new samples as a workflow fixture: VALIDATE992,
+990 usable,0errors/warnings; PREPARE693/150/147 with unchanged quality gates and
+intact group splits. Original20 remain unlabeled. Existing real RPS data supplies
+class balance; the test labels do not establish optical truth. Active RPS also
+passes VALIDATE with unlabeled integrity checks.
+
+Protected M3 RAM image ELF d450f373623279560be66e779c549871a9a652fa4e0d8fa05780742690ab275d,
+binary495536 bytes, heap370704 (margin2064; required baseline432). Earlier
+below-baseline-margin candidates were never loaded. Size optimization is limited
+to cold CLI parsing/status formatting; no budgets, pools, queues, stacks or
+timeouts were raised. Source defaults and ordinary Debug artifacts are restored.
+RAM loader passed; datasetoff/CLOUD route restored, NPUerrors0, all handles and
+hardware lease released. No NOR/settings/signing/version/WindowsPair changes.
+Evidence: training/reports/platform_upgrade_20261021/m3*.json/log; raw20 under
+ignored projects/rps/data/raw/platform-usb-20261021; local protected build/load
+records under ignored diagnostics/platform-upgrade-20261021/m3-candidate-size5.
+
+M4 begins next; BLE/Cloud choices currently fail closed until their adapters
+and capability checks are implemented. M4-M7 are not accepted by this report.

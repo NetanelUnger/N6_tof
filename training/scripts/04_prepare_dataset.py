@@ -12,7 +12,8 @@ import numpy as np
 from common import (CONFIG_ROOT, PREPARED_ROOT, RAW_ROOT, REPORTS_ROOT,
                     atomic_json, class_names, dataset_input_fingerprint,
                     file_fingerprint, is_stage_current, load_json, mark_stage,
-                    relative, reviewed_rows, stable_hash, utc_now)
+                    relative, reviewed_rows, stable_hash, utc_now, TRAINING_ROOT, PROJECT_MANIFEST, iter_jsonl)
+from sample_store import verify_record
 from dataset import (load_depth_record, load_device_model_input_record,
                      preprocess_depth)
 
@@ -241,7 +242,7 @@ def main() -> int:
                  CONFIG_ROOT / "training.json", CONFIG_ROOT / "classes.json"]
     fingerprint = stable_hash({
         "metadata_and_review": current_metadata_fingerprint,
-        "raw_npz": file_fingerprint(RAW_ROOT.glob("*/*/*.npz")),
+        "raw_npz": file_fingerprint(TRAINING_ROOT / r["npz"] for p in metadata_files for r in iter_jsonl(p)),
         "configs": file_fingerprint(cfg_paths),
         "input_contract": "n6df_v3_device_tensor_bit_exact_v1",
         "allow_host_preprocessing": bool(args.allow_host_preprocessing),
@@ -284,7 +285,10 @@ def main() -> int:
     buckets: defaultdict[str, list[tuple[np.ndarray, int, str, str]]] = defaultdict(list)
     device_tensor_records = 0
     host_only_records = 0
+    incompatible_source_tensors = 0
     for row in rows:
+        if row.get('sample_schema') == 1:
+            verify_record(TRAINING_ROOT, row, PROJECT_MANIFEST)
         burst = row.get("burst_id")
         session = row.get("session_id")
         if burst:
@@ -297,11 +301,15 @@ def main() -> int:
         depth = load_depth_record(row)
         host_tensor = preprocess_depth(depth, pre_cfg)
         device_tensor = load_device_model_input_record(row)
-        if device_tensor is None:
+        incompatible = (device_tensor is not None and row.get('sample_schema') == 1 and
+                        not np.array_equal(device_tensor, host_tensor[..., 0]))
+        if incompatible:
+            incompatible_source_tensors += 1
+        if device_tensor is None or incompatible:
             host_only_records += 1
             if not args.allow_host_preprocessing:
                 raise RuntimeError(
-                    "Training sample has no exact N6DF v3 device tensor: "
+                    "Training sample has no exact tensor compatible with this project: "
                     f"{row.get('npz')}. Capture it again with the current "
                     "firmware, or explicitly use --allow-host-preprocessing "
                     "for legacy/imported data without bit-exact device proof."
@@ -369,6 +377,7 @@ def main() -> int:
         ),
         "device_tensor_records": device_tensor_records,
         "host_only_records": host_only_records,
+        "received_but_incompatible_source_tensors": incompatible_source_tensors,
         "device_tensor_coverage": device_tensor_records / len(rows),
         "host_preprocessing_override": bool(args.allow_host_preprocessing),
         "counts": counts,

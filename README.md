@@ -2659,6 +2659,16 @@ On hardware the credential error disappeared, but the NCP then rejected
 retry attempts still run in the Radio Manager and raised its observed maximum
 loop gap to 7150 ms. Paired delivery and the Milestone 5 gate remain open.
 
+### Platform capture upgrade (2026-10-21, M3)
+
+`training/01_CAPTURE.bat` uses a shared source/store layer, a desktop source/session
+selector, and bounded `--samples N --timeout S --non-interactive` runs. USB stores
+original N6DF records and lossless numeric depth with exact received tensors,
+boot/frame identity, integrity checks and resumable deduplication. Unlabeled data
+can be reviewed later. The20-sample USB HIL and isolated VALIDATE/PREPARE pass;
+BLE/Cloud adapters and M6 NPU acceptance remain open. See
+[milestone evidence](docs/platform-upgrade-20261021.md).
+
 ## 14. The project's golden rule
 
 The IOC describes hardware ownership and the generated skeleton. The hand-written code describes product behavior. After every Generate Code operation, verify that both still agree about pins, TrustZone, interrupts, memory regions, task stacks, middleware callbacks, and feature flags.

@@ -121,6 +121,10 @@ uint32_t TOF_App_GetMapChannelMask(void);
 const char *TOF_App_GetChannelName(TOF_App_Channel_t channel);
 const char *TOF_App_GetChannelDescription(TOF_App_Channel_t channel);
 void TOF_App_SetDatasetStreamEnabled(uint32_t enabled);
+/* Host-assigned once per MCU boot; sample identity only, never credentials or
+ * persistent settings. The same value survives transport reconnects in RAM. */
+int TOF_App_SetCaptureIdentity(const char *identity);
+void TOF_App_GetCaptureIdentity(char identity[33]);
 void TOF_App_SetPaused(uint32_t paused);
 void TOF_App_GetStatus(TOF_App_Status_t *status);
 TOF_ImageProcessingStatus_t TOF_App_SelectMapFilter(
