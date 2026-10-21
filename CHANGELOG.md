@@ -1,5 +1,11 @@
 # Project change history
 
+## 2026-10-21 - M5 live capture accepted
+
+- Preserve Cloud ownership through route drains and USB close.
+- Authorized20-sample no-browser Cloud capture, lossless reopen and cursor resume pass.
+- 36 host/native tests pass; heap369072 preserves baseline margin432.
+
 ## 2026-10-21 - M5 prepared, real Cloud export blocked
 
 Deploy the compatible durable receiver in the sibling repo; implement shared

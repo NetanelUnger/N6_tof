@@ -449,8 +449,7 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
       usb_cdc_active = 0U;
       usb_cdc_current_instance = UX_NULL;
       usb_cdc_dtr_asserted = UX_FALSE;
-      TOF_App_SetMapEnabled(0U);
-      TOF_App_SetDatasetStreamEnabled(0U);
+      TOF_App_StopUsbStreams();
       usb_device_started = 0U;
       Debug_UART_Log("USBX", "USB device stopped");
     }
@@ -483,8 +482,7 @@ static VOID app_ux_device_thread_entry(ULONG thread_input)
       usb_cdc_current_instance = UX_NULL;
       usb_cdc_dtr_asserted = UX_FALSE;
       USB_CDC_Transport_SetHostReady(UX_FALSE);
-      TOF_App_SetMapEnabled(0U);
-      TOF_App_SetDatasetStreamEnabled(0U);
+      TOF_App_StopUsbStreams();
       Debug_UART_Log("CDC", "CDC ACM deactivated; RX/TX data plane idle");
     }
     else if (event.type == APP_USB_CDC_DEBUG_PROBE)
@@ -649,8 +647,7 @@ UINT App_USBX_Device_NotifyCdcParameterChange(VOID *cdc_acm_instance)
      * closes.  DTR is the session boundary: stop high-rate producers before
      * an unread endpoint can strand or fill the asynchronous TX data plane.
      * ToF acquisition/processing intentionally continues in the background. */
-    TOF_App_SetMapEnabled(0U);
-    TOF_App_SetDatasetStreamEnabled(0U);
+    TOF_App_StopUsbStreams();
   }
 
   /* Hosts commonly emit a burst of class-control requests while opening a

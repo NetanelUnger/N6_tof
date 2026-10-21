@@ -1,5 +1,9 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Platform M5: real no-browser Wi-Fi capture20/20 and cursor-resume PASS;
+36 host/native checks pass, protected heap margin432 retained.
+See [evidence and remaining M6-M7](docs/platform-upgrade-20261021.md).
+
 Platform M2 (2026-10-21): stable class/label UI and provenance, general model
 contracts/C definitions, N6DF v4 and spatial-depth preprocessing are implemented.
 22 host checks, native C fixtures and BAT/Tk UI pass; full two-model NPU HIL is

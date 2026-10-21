@@ -34,7 +34,7 @@ static void cloud_training_stop(uint32_t failed)
     ++training.failures; cloud_release_tof();
   }
   /* A newer USB/BLE owner must never be overwritten by capture cleanup. */
-  if (TOF_App_GetStreamDestination()==TOF_STREAM_CLOUD && TOF_App_IsDatasetStreamEnabled()) {
+  if (TOF_App_GetRequestedStreamDestination()==TOF_STREAM_CLOUD && TOF_App_IsDatasetStreamEnabled()) {
     TOF_App_SetDatasetStreamDestination(0U,TOF_STREAM_CLOUD);
     TOF_App_RequestStream(training.previous_route);
   }
@@ -43,7 +43,7 @@ static void cloud_training_stop(uint32_t failed)
 static void cloud_training_tick(void)
 {
   if (training.active && ((int32_t)(HAL_GetTick()-training.deadline)>=0 ||
-      TOF_App_GetStreamDestination()!=TOF_STREAM_CLOUD)) cloud_training_stop(0U);
+      TOF_App_GetRequestedStreamDestination()!=TOF_STREAM_CLOUD)) cloud_training_stop(0U);
 }
 
 uint32_t CloudRelay_IsTrainingFrameDue(void)
@@ -94,7 +94,7 @@ static void cloud_training_control(int status,const uint8_t *body,size_t length)
   training.receiver_known=1U;
   if (training.active && strcmp(training.session,session)) cloud_training_stop(0U);
   if (!training.active) {
-    TOF_StreamDestination_t destination=TOF_App_GetStreamDestination();
+    TOF_StreamDestination_t destination=TOF_App_GetRequestedStreamDestination();
     if ((destination!=TOF_STREAM_NONE && destination!=TOF_STREAM_CLOUD) || TOF_App_IsDatasetStreamEnabled() || Firmware_Update_IsActive()) return;
     if (TOF_App_SetCaptureIdentity(boot)!=0) {++training.failures;return;}
     cloud_release_tof();

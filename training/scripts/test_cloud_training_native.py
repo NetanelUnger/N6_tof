@@ -19,6 +19,7 @@ enum {CLOUD_HTTP_NONE,CLOUD_HTTP_TRAIN_CONTROL=6,CLOUD_HTTP_TRAIN_FRAME=7};
 #define TOF_IMAGE_TRAINING_N6DF 5
 #define TX_INT_DISABLE 1
 typedef struct {uint32_t active,attempts,acknowledged,failures,pending,goal,remaining_ms;char session[33];}CloudRelay_TrainingStatus_t;
+static unsigned draining;
 static unsigned now=100,route,dataset,cloud_wifi_has_ip=1,released,backoffs;
 static char tof_capture_identity[33];
 static struct {int http_kind;unsigned tof_pending,tof_frame_id,tof_payload_length;
@@ -27,7 +28,8 @@ static struct {int http_kind;unsigned tof_pending,tof_frame_id,tof_payload_lengt
 static uint32_t HAL_GetTick(void){return now;}
 static UINT tx_interrupt_control(UINT p){return p;}
 static int Firmware_Update_IsActive(void){return 0;}
-static int TOF_App_GetStreamDestination(void){return route;}
+static int TOF_App_GetStreamDestination(void){return draining?0:route;}
+static int TOF_App_GetRequestedStreamDestination(void){return route;}
 static int TOF_App_IsDatasetStreamEnabled(void){return dataset;}
 static void TOF_App_SetDatasetStreamDestination(unsigned enabled,int destination){dataset=!!enabled;if(enabled)route=destination;else if(route==(unsigned)destination)route=0;}
 static void TOF_App_RequestStream(int next){route=next;}
@@ -44,10 +46,10 @@ static int cloud_begin_request(int kind,const char*method,const char*path,const 
 TESTS=r'''
 static const char*control="{\"sessionId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bootId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"remainingMs\":60000,\"rateHz\":2,\"remainingSamples\":2,\"protocol\":\"N6DF4\",\"captureVersion\":1}";
 static const char*ack="{\"stored\":true,\"frameId\":7,\"timestampMs\":100,\"wireCrc32\":4660,\"bootId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}";
-static void reset(void){memset(&mock,0,sizeof mock);memset(&training,0,sizeof training);memset(tof_capture_identity,0,33);now=100;route=dataset=released=backoffs=0;}
+static void reset(void){memset(&mock,0,sizeof mock);memset(&training,0,sizeof training);memset(tof_capture_identity,0,33);now=100;route=dataset=released=backoffs=draining=0;}
 static void start(void){cloud_training_control(200,(const uint8_t*)control,strlen(control));assert(training.active && route==TOF_STREAM_CLOUD && dataset);}
 int main(void){
- reset();start();assert(CloudRelay_IsTrainingFrameDue());
+ reset();draining=1;start();cloud_training_tick();assert(training.active && dataset && route==TOF_STREAM_CLOUD);draining=0;assert(CloudRelay_IsTrainingFrameDue());
  uint8_t bytes[]={1,2,3,4};mock.tof_payload=bytes;mock.tof_payload_length=sizeof bytes;mock.tof_pending=1;
  mock.tof_frame_id=7;mock.tof_info.mode=5;mock.tof_info.timestamp_ms=100;mock.tof_info.payload_crc32=4660;
  assert(cloud_training_next());assert(sent_pointer==bytes && sent_length==sizeof bytes && mock.tof_pending && !released);

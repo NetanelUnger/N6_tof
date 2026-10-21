@@ -245,8 +245,8 @@ static int cli_completion_candidate(size_t index, char *candidate,
                                     size_t capacity);
 static void cli_command_help(Menu_t *menu, const char *command);
 static void cli_command_version(Menu_t *menu, const char *command);
-static void cli_command_status(Menu_t *menu, const char *command);
-static void cli_command_usb(Menu_t *menu, const char *command);
+static void cli_command_status(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
+static void cli_command_usb(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static void cli_command_clear(Menu_t *menu, const char *command);
 static void cli_command_map(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static void cli_command_tof(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
@@ -256,8 +256,8 @@ cli_command_dataset(Menu_t *menu, const char *command);
 static void cli_command_rps(Menu_t *menu, const char *command)
   __attribute__((optimize("Os")));
 static void cli_command_debug(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
-static void cli_command_reboot(Menu_t *menu, const char *command);
-static void cli_command_firmware_update(Menu_t *menu, const char *command);
+static void cli_command_reboot(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
+static void cli_command_firmware_update(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static void cli_command_unknown(Menu_t *menu, const char *command);
 static void cli_print(const char *format, ...);
 static void cli_prompt(void);

@@ -328,3 +328,37 @@ Local evidence: training/reports/platform_upgrade_20261021/m5*.json/log and
 ignored diagnostics/platform-upgrade-20261021/m5-*; demo-target.json designates
 the existing4-class RPS model before M6. The user requests a separate XIP branch
 only after this upgrade; no branch, memory-map or OTP work was started here.
+
+## M5 - approved live collection and cursor resume completed
+
+The initial export rejection was resolved by explicit human approval naming the
+existing NatiLab host and20 depth/tensor/device-project records. The denied
+command had not started. Its single authorized retry executed, but expired
+with0 records/0 MCU upload attempts. This failure is retained. Native tests
+exposed the requested CLOUD route being mistaken for effective NONE during its
+drain interval. Training now follows requested ownership; closing USB stops only
+USB-owned streams and preserves BLE/Cloud capture. No pairing/settings changes.
+
+The corrected exact guarded RAM candidate1737db08348e09e4a00f9322d9d6aaa32807bf3b71af928c40978e4dfe253129
+passed preflight/load, then real no-browser Cloud capture committed20 unique
+records in18.719s (120s limit). All20 reopen with original N6DF CRC/file SHA,
+u16 depth, exact received tensor and device/boot/project association intact.
+A separately reopened downloader resumed at durable cursor20 and returned0 new
+records; server stored20/inactive, browserAttachedfalse. No production restart,
+new credentials, Flash/settings/OTP or Windows Pair operations occurred.
+
+36 host/native regression tests pass. The first fixed build heap369040 missed
+the protected baseline by32bytes and was NEVER loaded. Cold CLI size optimization
+produced heap369072, preserving exactly the original432byte margin. No budgets
+or hot sensor/NPU/driver loops changed. Ordinary Debug artifacts/source defaults
+are restored. Final runtime: Cloud disabled/HTTPidle, Wi-Fi disconnected, image
+NONE, training inactive/pending0/failures0, ToF/NPU advancing and NCP/SPI errors0.
+Firmware status shows its final13-record segment; it is not a lifetime total.
+The server and independently reopened local store establish the20-record count.
+The cleanup assertion expecting a lifetime20 counter failed after quiescing;
+readback confirmed idle state and retained that distinction, without recapture.
+
+Server remains5905a7df14e1b2c486577297e4d741e82011ce3e, deployment39641798300
+SUCCESS. Evidence: m5.json, m5-cloud-routefix-collection.json/log,
+m5-cloud-routefix-reopen-resume.json, m5-routefix-runtime-readback.json and
+protected diagnostics/m5-routefix-size3-wifi. M6 and M7 remain open.

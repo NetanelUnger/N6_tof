@@ -1034,6 +1034,24 @@ const char *TOF_App_GetChannelDescription(TOF_App_Channel_t channel)
                                   "no channel selected";
 }
 
+TOF_StreamDestination_t TOF_App_GetRequestedStreamDestination(void)
+{
+    UINT posture=tx_interrupt_control(TX_INT_DISABLE);
+    TOF_StreamDestination_t destination=tof_desired.destination;
+    (void)tx_interrupt_control(posture);
+    return destination;
+}
+
+void TOF_App_StopUsbStreams(void)
+{
+    UINT posture=tx_interrupt_control(TX_INT_DISABLE);
+    if (tof_desired.destination==TOF_STREAM_USB) {
+        TOF_App_SetMapEnabled(0U);
+        TOF_App_SetDatasetStreamEnabled(0U);
+    }
+    (void)tx_interrupt_control(posture);
+}
+
 uint32_t TOF_App_IsDatasetStreamEnabled(void) { return tof_desired.dataset_stream_enabled; }
 
 void TOF_App_SetDatasetStreamDestination(uint32_t enabled, TOF_StreamDestination_t destination)

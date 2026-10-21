@@ -33,7 +33,7 @@ class NativeDataset(unittest.TestCase):
         source = (project / "AppliNonSecure/Core/Src/tof_app.c").read_text(encoding="utf-8-sig")
         macros = "\n".join(line for line in source.splitlines() if line.startswith("#define TOF_DATASET_"))
         publisher = ''.join(extract(source, name) for name in
-                            ("tof_crc32", "tof_write_u16", "tof_write_u32", "TOF_App_EncodeTrainingRecord", "tof_stream_dataset_frame", "TOF_App_SetMapEnabled", "TOF_App_SetDatasetStreamDestination", "TOF_App_SetDatasetStreamEnabled"))
+                            ("tof_crc32", "tof_write_u16", "tof_write_u32", "TOF_App_EncodeTrainingRecord", "tof_stream_dataset_frame", "TOF_App_SetMapEnabled", "TOF_App_SetDatasetStreamDestination", "TOF_App_SetDatasetStreamEnabled", "TOF_App_StopUsbStreams"))
         prefix = r'''
 #include <stdio.h>
 #include <string.h>
@@ -58,7 +58,7 @@ static int route=1;
 static void TOF_App_RequestStream(int next){route=next;}
 static void TOF_App_ReleaseStream(int expected){if(route==expected)route=0;}
 static unsigned char buffer[16384], model[3200]; static size_t committed;
-static struct {unsigned dataset_stream_enabled,map_enabled,revision;} tof_desired={1};
+static struct {unsigned dataset_stream_enabled,map_enabled,revision,destination;} tof_desired={1};
 static struct {struct {unsigned dataset_frames_submitted,dataset_frames_dropped,dataset_last_frame,dataset_last_crc32;}counters;}tof_context;
 static int TOF_App_GetStreamDestination(void){return route;}
 static int App_Console_IsReady(void){return 1;}
@@ -75,6 +75,8 @@ TOF_App_SetMapEnabled(0);assert(route==TOF_STREAM_CLOUD);
 TOF_App_SetDatasetStreamEnabled(1);assert(route==TOF_STREAM_USB);
 route=TOF_STREAM_BLE;TOF_App_SetDatasetStreamEnabled(0);assert(route==0);
 TOF_App_SetDatasetStreamDestination(1,TOF_STREAM_CLOUD);assert(route==TOF_STREAM_CLOUD);
+tof_desired.destination=TOF_STREAM_CLOUD;TOF_App_StopUsbStreams();assert(route==TOF_STREAM_CLOUD && tof_desired.dataset_stream_enabled);
+tof_desired.destination=TOF_STREAM_BLE;TOF_App_StopUsbStreams();assert(tof_desired.dataset_stream_enabled);
 TOF_App_SetDatasetStreamDestination(0,TOF_STREAM_CLOUD);assert(route==0);
 TOF_App_SetDatasetStreamEnabled(1);
 float depth[54*42];for(unsigned i=0;i<54*42;i++)depth[i]=(float)((i*3U)%1300U);
