@@ -39,7 +39,7 @@ with tempfile.TemporaryDirectory(prefix='n6-capture-ui-') as temporary:
     ui.mark_stage = lambda *a, **kw: None
     source = FixtureSource()
     ui.create_source = lambda *a, **kw: source
-    args = argparse.Namespace(transport='usb', port=None, expected_device=None, session='ui-fixture',
+    args = argparse.Namespace(transport='usb', port=None, expected_device=None, device=None, session='ui-fixture',
                               unlabeled=True, label=None, target_per_class=50, samples_per_burst=3,
                               save_fps=20, disable_content_filter=True)
     root = tk.Tk(); errors = []; counts = []

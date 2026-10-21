@@ -1973,7 +1973,7 @@ uint32_t WIFI_BLE_App_IsTofImageIdle(void)
 UINT __attribute__((optimize("Os")))
 WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
                              const float *pixels, uint8_t width,
-                             uint8_t height, const RPS_AI_Status_t *rps)
+                             uint8_t height, const RPS_AI_Status_t *rps, uint32_t timestamp_ms)
 {
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   size_t pixel_count;
@@ -2010,13 +2010,22 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   radio_manager.queues.ble_tof_image_context->generation = radio_manager.shadow.ble_session_generation;
   (void)tx_interrupt_control(posture);
 
-  (void)memcpy(radio_manager.queues.ble_tof_image_context->payload, pixels, payload_length);
+  uint32_t training = TOF_App_IsDatasetStreamEnabled();
+  if (training && TOF_App_GetStreamDestination() != TOF_STREAM_BLE) {
+    radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE; return TX_NOT_AVAILABLE;
+  }
+  if (training) {
+    payload_length = TOF_App_EncodeTrainingRecord(radio_manager.queues.ble_tof_image_context->payload,
+        sizeof(radio_manager.queues.ble_tof_image_context->payload), pixels, width, height,
+        frame_id, timestamp_ms, TOF_IMAGE_FILTER_NONE);
+    if (!payload_length) { radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE; return TX_SIZE_ERROR; }
+  } else (void)memcpy(radio_manager.queues.ble_tof_image_context->payload, pixels, payload_length);
   radio_manager.queues.ble_tof_image_context->frame_id = frame_id;
   radio_manager.queues.ble_tof_image_context->image_info = (TofImageInfo){
-      .frame_id=frame_id, .timestamp_ms=HAL_GetTick(), .width=width,
-      .height=height, .channel=channel_id, .mode=image_encoding };
+      .frame_id=frame_id, .timestamp_ms=timestamp_ms, .width=width,
+      .height=height, .channel=channel_id, .mode=training ? TOF_IMAGE_TRAINING_N6DF : image_encoding };
   TofImageInfo *info = &radio_manager.queues.ble_tof_image_context->image_info;
-  if (rps && rps->enabled)
+  if (!training && rps && rps->enabled)
   {
     info->npu_state = !rps->ready ? TOF_IMAGE_NPU_NOT_READY : TOF_IMAGE_NPU_NO_RESULT;
     if (N6_MODEL_LEGACY_RPS && rps->ready && rps->runs && rps->last_error == 0 && rps->last_frame == frame_id &&
@@ -2029,6 +2038,10 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
       info->npu_runs = rps->runs;
       info->npu_inference_ms = rps->inference_ms;
     }
+  }
+  if (training) {
+    info->payload_length = (uint16_t)payload_length;
+    info->payload_crc32 = TofImage_Crc32(radio_manager.queues.ble_tof_image_context->payload, payload_length);
   }
   radio_manager.queues.ble_tof_image_context->payload_length = (uint16_t)payload_length;
   radio_manager.queues.ble_tof_image_context->offset = 0U;
@@ -2069,6 +2082,7 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   (void)width;
   (void)height;
   (void)rps;
+  (void)timestamp_ms;
   return TX_NOT_AVAILABLE;
 #endif
 }
@@ -3911,7 +3925,8 @@ static void __attribute__((optimize("Os"))) ble_tof_image_process_tx(void)
   {
     WifiBle_TofImageContext_t *image = radio_manager.queues.ble_tof_image_context;
     /* Radio Manager owns encoding; producer only snapshots float pixels. */
-    if (TofImage_Encode(image->payload, sizeof(image->payload), &image->image_info) != 0)
+    if (image->image_info.mode != TOF_IMAGE_TRAINING_N6DF &&
+        TofImage_Encode(image->payload, sizeof(image->payload), &image->image_info) != 0)
     {
       image->stats.errors++;
       ble_tof_image_drop_active();

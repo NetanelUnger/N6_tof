@@ -372,7 +372,8 @@ class LatencyProbeCollector:
 class TofFrameAssembler:
     """Reassemble one atomic N6 ToF frame from ordered BLE notifications."""
 
-    def __init__(self) -> None:
+    def __init__(self, retain_payload: bool = False) -> None:
+        self.retain_payload = retain_payload
         self.pending: dict[str, Any] | None = None
         self.completed = 0
         self.dropped = 0
@@ -421,12 +422,13 @@ class TofFrameAssembler:
         valid_header = (
             magic == TOF_IMAGE_MAGIC
             and version in (1, 2, 3)
-            and pixel_format in ((1,) if version == 1 else (1, 2, 3, 4))
+            and pixel_format in ((1,) if version == 1 else (1, 2, 3, 4, 5))
             and 0 < width <= 54 and 0 < height <= 42 and 1 <= channel <= 5
             and flags & ~3 == 0
             and bool(flags & 1) == (offset == 0)
             and bool(flags & 2) == (offset + len(fragment) == total)
-            and ((pixel_format == 4 and total > (width * height + 7) // 8 + 4) or
+            and ((pixel_format == 5 and version == 3 and total == 132 + width * height * 2 + 3200) or
+                 (pixel_format == 4 and total > (width * height + 7) // 8 + 4) or
                  total == width * height * {1: 4, 2: 2, 3: 1}.get(pixel_format, 0))
             and total <= TOF_IMAGE_MAX_PAYLOAD
             and offset + len(fragment) <= total
@@ -481,6 +483,8 @@ class TofFrameAssembler:
 
         result = {key: value for key, value in pending.items()
                   if key != "payload"}
+        if self.retain_payload:
+            result["payload"] = bytes(pending["payload"])
         self.completed += 1
         self.reset()
         return result

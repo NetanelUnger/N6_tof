@@ -210,3 +210,47 @@ records under ignored diagnostics/platform-upgrade-20261021/m3-candidate-size5.
 
 M4 begins next; BLE/Cloud choices currently fail closed until their adapters
 and capability checks are implemented. M4-M7 are not accepted by this report.
+
+## M4 - nonbonded BLE collection completed
+
+The same capture window adds BLE discovery/address selection and capability
+checks. BleSampleSource uses the existing N6 CLI/ToF GATT UUIDs, bounded2-record
+host queue, and TofFrameAssembler. A documented format5 carries a complete
+lossless N6DF4 record inside existing version3 ToF fragments. Firmware uses the
+same encoder as USB and the existing9072-byte radio snapshot/notification pump,
+with generation/route fencing and no added MCU buffer or enlarged budget.
+The outer NPU fields remain absent; the complete general inference/contract is
+inside N6DF. A new capability query must explicitly advertise format5 support.
+The desktop workflow and bounded unattended BAT collection share storage and
+labeling. Unsupported Cloud remains explicit until M5.
+
+Host/native coverage30 checks: production C encoder for2/4classes, preserved
+Cloud/USB/BLE route ownership, actual callback decoding, shared C fixture byte
+equality, CRC/order rejection and partial-disconnect discard. The Tk fixture
+workflow remains PASS. Portable fixture/provenance: training/testdata/.
+
+Final exact-candidate HIL PASS:20 real records, owned software disconnect,
+reconnect,5 more, 45.156s total (limit120). All25 reopen with verified
+original N6DF CRCs, numeric bytes, file hashes and source-contract exact tensors.
+Two distinct connection/session IDs share one MCU boot identity;25unique sample
+IDs. CRC/callback/queue-drop errors0; PairFalse/Windows pairedfalse. Static scene
+is transport/computational evidence, not task accuracy. Existing assembler
+fixture separately proves partial records cannot cross a disconnect.
+
+First attempt FAIL1/20: the adapter incorrectly polled complete BytesIO packets
+as a serial stream;46host decode timeouts, outerCRCerrors0. Records/reports
+retained. Direct datagram decoding fixes it without raising timeouts. Intermediate
+20+5 PASS45.219s. Final diff review found an overly broad route-release change;
+native C assertions now preserve unrelated Cloud ownership, and the corrected
+image was rebuilt, reloaded and retested20+5 before acceptance.
+
+Final protected ELF bd50befb4e57d12adcd108740b0413e607eccff0793123a94f49a70c646bf94a,
+binary495976, heap370256/margin1616 (baseline requirement432). Source/default
+Debug restored. Datasetoff, pre-test CLOUD route restored after existing BLE
+connection setup releases it, NPUerrors0/SPI faults0, BLEdisconnected. All owned
+handles and lease released. No Flash/settings/credentials/signing/version/Pair/
+cache changes or CubeMX generation. Local evidence m4*.json/log under the same
+reports folder; protected build/load under ignored m4-candidate-final diagnostics.
+
+M5-M7 remain open. The legacy browser/viewer does not interpret training format5
+as a display image. New server training receivers must precede Cloud senders.

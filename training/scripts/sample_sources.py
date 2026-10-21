@@ -202,5 +202,8 @@ class UsbSampleSource:
 
 def create_source(kind="usb", **options):
     if kind == "usb":
-        return UsbSampleSource(**options)
+        return UsbSampleSource(**{k:v for k,v in options.items() if k in {"port","expected_device"}})
+    if kind == "ble":
+        from ble_sample_source import BleSampleSource
+        return BleSampleSource(**options)
     raise SourceError(f"BLOCKED: {kind} capture adapter is not installed yet.")

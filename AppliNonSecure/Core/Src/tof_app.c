@@ -903,10 +903,11 @@ void TOF_App_Process(void)
          * otherwise this sensor frame is deliberately dropped for BLE. */
         if ((ble_image_requested != 0U) && (map_frame.pixels != NULL))
         {
+            uint32_t training = tof_desired.dataset_stream_enabled;
             (void)WIFI_BLE_App_PublishTofImage(
-                map_frame.frame_id, (uint8_t)map_frame.channel_id,
-                map_frame.pixels, (uint8_t)map_frame.width,
-                (uint8_t)map_frame.height, &rps_status);
+                map_frame.frame_id, training ? 1U : (uint8_t)map_frame.channel_id,
+                training ? tof_workspace.depth_data : map_frame.pixels, (uint8_t)map_frame.width,
+                (uint8_t)map_frame.height, &rps_status, now);
         }
 #endif
         /* When an auxiliary map is selected, render it before this shared
@@ -1033,6 +1034,8 @@ const char *TOF_App_GetChannelDescription(TOF_App_Channel_t channel)
                                   "no channel selected";
 }
 
+uint32_t TOF_App_IsDatasetStreamEnabled(void) { return tof_desired.dataset_stream_enabled; }
+
 void TOF_App_SetDatasetStreamEnabled(uint32_t enabled)
 {
     UINT posture = tx_interrupt_control(TX_INT_DISABLE);
@@ -1044,8 +1047,10 @@ void TOF_App_SetDatasetStreamEnabled(uint32_t enabled)
         tof_desired.map_enabled = 0U;
         TOF_App_RequestStream(TOF_STREAM_USB);
     }
-    else if (tof_desired.map_enabled == 0U)
+    else if (tof_desired.map_enabled == 0U) {
         TOF_App_ReleaseStream(TOF_STREAM_USB);
+        TOF_App_ReleaseStream(TOF_STREAM_BLE);
+    }
     (void)tx_interrupt_control(posture);
 }
 
@@ -1827,12 +1832,11 @@ tof_render_frame(const TOF_App_ChannelFrame_t *map_frame,
  * Payload 1 is width*height uint16 millimetres; 0xFFFF means invalid.
  * Payload 2 immediately follows it and is the exact 64x50 uint8 NPU input.
  */
-static void __attribute__((optimize("Os")))
-tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
+uint32_t __attribute__((optimize("Os")))
+TOF_App_EncodeTrainingRecord(void *buffer, uint32_t capacity, const float *depth, uint8_t width, uint8_t height,
                          uint32_t frame_counter, uint32_t timestamp_ms,
                          TOF_ImageFilter_t processing_filter)
 {
-    App_Console_FrameBuffer_t output = { 0 };
     RPS_AI_Status_t rps = { 0 };
     RPS_AI_ImageView_t model_input = { 0 };
     uint8_t *bytes;
@@ -1846,12 +1850,7 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
     uint32_t payload_crc;
     uint32_t model_payload_crc;
 
-    if ((tof_desired.dataset_stream_enabled == 0U) ||
-        (TOF_App_GetStreamDestination() != TOF_STREAM_USB) ||
-        (App_Console_IsReady() == UX_FALSE))
-    {
-        return;
-    }
+    if (!buffer || !depth || !width || width > 54U || !height || height > 42U) return 0U;
     if ((RPS_AI_GetModelInputView(&model_input) != 0) ||
         (model_input.pixels == NULL) ||
         (model_input.frame_id != frame_counter) ||
@@ -1859,23 +1858,12 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
         (model_input.height != RPS_AI_MODEL_INPUT_HEIGHT) ||
         (model_input.is_npu_input == 0U))
     {
-        ++tof_context.counters.dataset_frames_dropped;
-        return;
+        return 0U;
     }
     model_payload_size = (size_t)model_input.width * model_input.height;
     record_size = TOF_DATASET_HEADER_SIZE + payload_size + model_payload_size;
-    if ((App_Console_AcquireFrameBuffer(&output) != TX_SUCCESS) ||
-        ((size_t)output.capacity < record_size))
-    {
-        if (output.data != NULL)
-        {
-            App_Console_CancelFrameBuffer(&output);
-        }
-        ++tof_context.counters.dataset_frames_dropped;
-        return;
-    }
-
-    bytes = (uint8_t *)output.data;
+    if (capacity < record_size) return 0U;
+    bytes = (uint8_t *)buffer;
     for (size_t index = 0U; index < pixel_count; ++index)
     {
         uint16_t millimetres = TOF_DATASET_INVALID_MM;
@@ -1947,16 +1935,28 @@ tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
     (void)memcpy(&bytes[96], contract_id, sizeof(contract_id));
     tof_write_u32(&bytes[128], tof_crc32(bytes, 128U));
 
-    if (App_Console_CommitFrameBuffer(&output, (ULONG)record_size) == TX_SUCCESS)
-    {
+    return (uint32_t)record_size;
+}
+
+static void __attribute__((optimize("Os")))
+tof_stream_dataset_frame(const float *depth, uint8_t width, uint8_t height,
+                         uint32_t frame_counter, uint32_t timestamp_ms,
+                         TOF_ImageFilter_t processing_filter)
+{
+    if (!tof_desired.dataset_stream_enabled || TOF_App_GetStreamDestination() != TOF_STREAM_USB || !App_Console_IsReady()) return;
+    App_Console_FrameBuffer_t output = {0};
+    if (App_Console_AcquireFrameBuffer(&output) != TX_SUCCESS) {
+        ++tof_context.counters.dataset_frames_dropped; return;
+    }
+    uint32_t size = TOF_App_EncodeTrainingRecord(output.data, output.capacity, depth, width, height,
+                                                frame_counter, timestamp_ms, processing_filter);
+    if (!size) { App_Console_CancelFrameBuffer(&output); ++tof_context.counters.dataset_frames_dropped; return; }
+    uint32_t crc = tof_crc32((uint8_t *)output.data + TOF_DATASET_HEADER_SIZE, (size_t)width * height * 2U);
+    if (App_Console_CommitFrameBuffer(&output, (ULONG)size) == TX_SUCCESS) {
         ++tof_context.counters.dataset_frames_submitted;
         tof_context.counters.dataset_last_frame = frame_counter;
-        tof_context.counters.dataset_last_crc32 = payload_crc;
-    }
-    else
-    {
-        ++tof_context.counters.dataset_frames_dropped;
-    }
+        tof_context.counters.dataset_last_crc32 = crc;
+    } else ++tof_context.counters.dataset_frames_dropped;
 }
 
 static uint32_t __attribute__((optimize("Os")))

@@ -42,3 +42,17 @@ uses nearest-neighbour pixel-center sampling to 64x50, clips valid distances to
 the configured near/far range, maps them into 1..255 with integer rounding, and
 encodes invalid depth as 0. It does not crop/select/dilate an object. The
 production C helper and Python implementation are byte-exact in native tests.
+
+## BLE training envelope (M4)
+
+Existing ToF characteristic0004 and v3/56-byte fragment headers are reused.
+Pixel format5 means a complete N6DF4 training record. Payload length is
+132 + width*height*2 +3200 (7868 at54x42). Outer base/step and NPU fields arezero;
+inner N6DF carries exact tensor/contract/general scores. Outer frame/timestamp
+must equal inner identifiers. Header/payload CRCs, ordered offsets and existing
+START/END flags remain mandatory. Queues/snapshots stay bounded. Drop partial
+records at disconnect and start a fresh connection identity. Require
+DATASET CAPABILITIES record=N6DF4 ble=1 ble_format=5 boot_identity=1 before start.
+DATASET STREAM ON on the BLE CLI selects BLE; OFF stops only training USB/BLE
+owners, preserving unrelated Cloud/MAP intent. Capture restores its prior route.
+Legacy viewers reject format5; it is not a lossy display message.

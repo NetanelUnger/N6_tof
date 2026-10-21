@@ -2669,6 +2669,15 @@ can be reviewed later. The20-sample USB HIL and isolated VALIDATE/PREPARE pass;
 BLE/Cloud adapters and M6 NPU acceptance remain open. See
 [milestone evidence](docs/platform-upgrade-20261021.md).
 
+### BLE training capture (2026-10-21, M4)
+
+The same `01_CAPTURE.bat` window discovers N6 BLE devices and collects lossless
+training records through existing nonbonded GATT. `--transport ble --device MAC`
+supports bounded automation. Capability/CRC/identity checks precede save; partial
+disconnect records are discarded. Real20+5 reconnect HIL passes on the exact
+guarded RAM image. No Windows Pair/cache changes. See the milestone report and
+[wire contract](docs/n6df-classification-contract.md). Cloud collection is next.
+
 ## 14. The project's golden rule
 
 The IOC describes hardware ownership and the generated skeleton. The hand-written code describes product behavior. After every Generate Code operation, verify that both still agree about pins, TrustZone, interrupts, memory regions, task stacks, middleware callbacks, and feature flags.

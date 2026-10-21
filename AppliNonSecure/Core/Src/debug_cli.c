@@ -1942,6 +1942,9 @@ cli_command_dataset(Menu_t *menu, const char *command)
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
 
+  if (argc == 2 && cli_token_equals(argv[1], "capabilities")) {
+    (void)Menu_Reply(menu, "Dataset capabilities: record=N6DF4 lossless=1 exact_tensor=1 usb=1 ble=1 ble_format=5 boot_identity=1"); return;
+  }
   if ((argc == 2 || argc == 3) && cli_token_equals(argv[1], "session"))
   {
     char identity[33];
@@ -1977,6 +1980,7 @@ cli_command_dataset(Menu_t *menu, const char *command)
     (void)Menu_Reply(menu,
                      "Dataset stream enabled: N6DF v4, depth + exact tensor + model contract; CRC32 protected.");
     TOF_App_SetDatasetStreamEnabled(1U);
+    if (cli_active_session->route.transport == APP_TRANSPORT_BLE) TOF_App_RequestStream(TOF_STREAM_BLE);
   }
   else if ((argc == 3) &&
            (cli_token_equals(argv[1], "stream") != 0U) &&

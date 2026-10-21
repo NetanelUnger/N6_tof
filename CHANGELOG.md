@@ -1,5 +1,13 @@
 # Project change history
 
+## 2026-10-21 - Platform upgrade M4
+
+Same-window BLE discovery and lossless training capture reuse existing GATT,
+snapshot, fragment assembly and shared USB encoder. Host/native coverage30;
+exact final RAM candidate passes20+5 real samples with reconnect and unchanged
+memory budgets. Preserve unrelated route owners and reject partial records.
+No Pair/cache, credentials, settings or Flash changes. M5-M7 remain open.
+
 ## 2026-10-21 - Platform upgrade M3
 
 Shared capture adapters and atomic lossless sample storage with immutable source

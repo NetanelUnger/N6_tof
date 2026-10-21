@@ -12,6 +12,7 @@
 #define TOF_IMAGE_Q16 2U
 #define TOF_IMAGE_Q8 3U
 #define TOF_IMAGE_JPEG 4U
+#define TOF_IMAGE_TRAINING_N6DF 5U
 /* Quantized code 0 is invalid; codes 1..max decode as base+(code-1)*step.
  * RAW preserves all float bits. Other modes preserve finite nonnegative values
  * (depth must be positive), rounded to the nearest affine level. JPEG then

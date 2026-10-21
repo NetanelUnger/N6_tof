@@ -348,7 +348,7 @@ uint32_t WIFI_BLE_App_IsTofImageSubscribed(void);
 uint32_t WIFI_BLE_App_IsTofImageIdle(void);
 UINT WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
                                   const float *pixels, uint8_t width,
-                                  uint8_t height, const RPS_AI_Status_t *rps);
+                                  uint8_t height, const RPS_AI_Status_t *rps, uint32_t timestamp_ms);
 
 
 /* Wireless encoding setting; captured once when accepting a frame. */

@@ -16,7 +16,7 @@ from protocol import FrameReader
 
 def extract(source, name):
     source = source.replace('__attribute__((optimize("Os")))', '')
-    match = re.search(r"static\s+(?:void|uint32_t)\s+" + name + r"\s*\([^;{]*\)\s*\{", source)
+    match = re.search(r"(?:static\s+)?(?:void|uint32_t)\s+" + name + r"\s*\([^;{]*\)\s*\{", source)
     if not match:
         raise ValueError(f"Missing production function: {name}")
     depth, end = 1, match.end()
@@ -33,7 +33,7 @@ class NativeDataset(unittest.TestCase):
         source = (project / "AppliNonSecure/Core/Src/tof_app.c").read_text(encoding="utf-8-sig")
         macros = "\n".join(line for line in source.splitlines() if line.startswith("#define TOF_DATASET_"))
         publisher = ''.join(extract(source, name) for name in
-                            ("tof_crc32", "tof_write_u16", "tof_write_u32", "tof_stream_dataset_frame"))
+                            ("tof_crc32", "tof_write_u16", "tof_write_u32", "TOF_App_EncodeTrainingRecord", "tof_stream_dataset_frame", "TOF_App_SetMapEnabled", "TOF_App_SetDatasetStreamEnabled"))
         prefix = r'''
 #include <stdio.h>
 #include <string.h>
@@ -48,10 +48,18 @@ typedef struct {void *data; ULONG capacity;} App_Console_FrameBuffer_t;
 #define UX_FALSE 0
 #define TX_SUCCESS 0
 #define TOF_STREAM_USB 1
+#define TOF_STREAM_BLE 2
+#define TOF_STREAM_CLOUD 3
+#define TX_INT_DISABLE 0
+typedef unsigned UINT;
+static UINT tx_interrupt_control(UINT p){return p;}
+static int route=1;
+static void TOF_App_RequestStream(int next){route=next;}
+static void TOF_App_ReleaseStream(int expected){if(route==expected)route=0;}
 static unsigned char buffer[16384], model[3200]; static size_t committed;
-static struct {unsigned dataset_stream_enabled;} tof_desired={1};
+static struct {unsigned dataset_stream_enabled,map_enabled,revision;} tof_desired={1};
 static struct {struct {unsigned dataset_frames_submitted,dataset_frames_dropped,dataset_last_frame,dataset_last_crc32;}counters;}tof_context;
-static int TOF_App_GetStreamDestination(void){return 1;}
+static int TOF_App_GetStreamDestination(void){return route;}
 static int App_Console_IsReady(void){return 1;}
 static int App_Console_AcquireFrameBuffer(App_Console_FrameBuffer_t *out){out->data=buffer;out->capacity=sizeof buffer;return 0;}
 static int App_Console_CommitFrameBuffer(App_Console_FrameBuffer_t *out,ULONG n){assert(out->data==buffer);committed=n;return 0;}
@@ -60,7 +68,13 @@ int RPS_AI_GetModelInputView(RPS_AI_ImageView_t *out){out->pixels=model;out->fra
 void RPS_AI_GetStatus(RPS_AI_Status_t *out){memset(out,0,sizeof *out);out->ready=out->enabled=1;out->last_frame=123;out->runs=42;out->class_id=RPS_AI_CLASS_COUNT-1;for(unsigned i=0;i<RPS_AI_CLASS_COUNT;i++)out->scores[i]=(int8_t)(-100+(int)i);}
 '''
         main = r'''
-int main(void){float depth[54*42];for(unsigned i=0;i<54*42;i++)depth[i]=(float)((i*3U)%1300U);
+int main(void){
+route=TOF_STREAM_CLOUD;TOF_App_SetDatasetStreamEnabled(0);assert(route==TOF_STREAM_CLOUD);
+TOF_App_SetMapEnabled(0);assert(route==TOF_STREAM_CLOUD);
+TOF_App_SetDatasetStreamEnabled(1);assert(route==TOF_STREAM_USB);
+route=TOF_STREAM_BLE;TOF_App_SetDatasetStreamEnabled(0);assert(route==0);
+TOF_App_SetDatasetStreamEnabled(1);
+float depth[54*42];for(unsigned i=0;i<54*42;i++)depth[i]=(float)((i*3U)%1300U);
 for(unsigned i=0;i<3200;i++)model[i]=(i%5)?255:0;
 tof_stream_dataset_frame(depth,54,42,123,456,0);assert(committed && tof_context.counters.dataset_frames_submitted==1);
 _setmode(_fileno(stdout),_O_BINARY);return fwrite(buffer,1,committed,stdout)==committed?0:1;}

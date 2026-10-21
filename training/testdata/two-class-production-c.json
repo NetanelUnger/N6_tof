@@ -1,0 +1,6 @@
+{
+  "fixture": "two-class-production-c.n6df",
+  "sha256": "e5e9f85e482bc728e584322e64222086ca50635edc7a1615e10498a12c89cad0",
+  "origin": "test_n6df_c_encoder.py: actual production C encoder compiled and executed with mocked hardware boundaries",
+  "scope": "Synthetic numeric fixture; not HIL and not model accuracy evidence"
+}

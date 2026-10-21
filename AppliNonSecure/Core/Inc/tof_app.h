@@ -120,6 +120,9 @@ uint32_t TOF_App_ToggleMapChannel(TOF_App_Channel_t channel);
 uint32_t TOF_App_GetMapChannelMask(void);
 const char *TOF_App_GetChannelName(TOF_App_Channel_t channel);
 const char *TOF_App_GetChannelDescription(TOF_App_Channel_t channel);
+uint32_t TOF_App_IsDatasetStreamEnabled(void);
+uint32_t TOF_App_EncodeTrainingRecord(void *buffer, uint32_t capacity, const float *depth,
+    uint8_t width, uint8_t height, uint32_t frame, uint32_t timestamp, TOF_ImageFilter_t filter);
 void TOF_App_SetDatasetStreamEnabled(uint32_t enabled);
 /* Host-assigned once per MCU boot; sample identity only, never credentials or
  * persistent settings. The same value survives transport reconnects in RAM. */

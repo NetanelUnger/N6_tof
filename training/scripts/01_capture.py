@@ -101,7 +101,7 @@ class CaptureApp:
         self.last_fault: str | None = None
         self.stop_event = threading.Event()
         self.frame_queue: queue.Queue[DepthFrame] = queue.Queue(maxsize=2)
-        self.source = create_source(args.transport, port=args.port, expected_device=args.expected_device)
+        self.source = create_source(args.transport, port=args.port, expected_device=args.expected_device, address=args.device)
         self.store = SampleStore(TRAINING_ROOT, PROJECT_MANIFEST, self.pre_cfg,
                                  self.session_id, contract_roots=[TRAINING_ENTRY_ROOT])
         try:
@@ -495,6 +495,7 @@ def main() -> int:
     parser.add_argument("--port")
     parser.add_argument("--transport", choices=["usb", "ble", "cloud"], default="usb")
     parser.add_argument("--expected-device")
+    parser.add_argument("--device", help="BLE address selected from discovery")
     parser.add_argument("--unlabeled", action="store_true")
     parser.add_argument("--samples", type=int, help="Bounded unattended capture count")
     parser.add_argument("--timeout", type=float, default=60)
@@ -527,7 +528,7 @@ def main() -> int:
                             args.session or datetime.now().strftime("%Y%m%d_%H%M%S"),
                             contract_roots=[TRAINING_ENTRY_ROOT])
         try:
-            source = create_source(args.transport, port=args.port, expected_device=args.expected_device)
+            source = create_source(args.transport, port=args.port, expected_device=args.expected_device, address=args.device)
             report = collect(source, store, samples=args.samples, timeout=args.timeout,
                              label=None if args.unlabeled else args.label,
                              group_size=args.group_size, save_fps=args.save_fps,
@@ -554,17 +555,36 @@ def launch_capture(root, args):
     panel = ttk.Frame(root, padding=16); panel.pack()
     source = tk.StringVar(value=args.transport)
     session = tk.StringVar(value=args.session or datetime.now().strftime("%Y%m%d_%H%M%S"))
+    device = tk.StringVar(value=args.device or "")
     unlabeled = tk.BooleanVar(value=args.unlabeled or args.label is None)
     message = tk.StringVar(value="Select a source and session. Existing records are preserved.")
     ttk.Label(panel, text=f"Project: {PROJECT_MANIFEST.get('display_name', PROJECT_MANIFEST.get('name', 'Selected')) if PROJECT_MANIFEST else 'RPS'}").pack(anchor="w")
     ttk.Label(panel, text="Source").pack(anchor="w")
     ttk.Combobox(panel, textvariable=source, values=["usb", "ble", "cloud"], state="readonly").pack(fill="x")
+    ttk.Label(panel, text="BLE device address (Discover selects an advertised N6)").pack(anchor="w")
+    devices = ttk.Combobox(panel, textvariable=device); devices.pack(fill="x")
+    def discover():
+        from ble_sample_source import discover_ble
+        message.set("Discovering N6 BLE devices...")
+        def worker():
+            try:
+                found = discover_ble()
+                def update():
+                    devices.configure(values=[d['address'] for d in found])
+                    if len(found) == 1: device.set(found[0]['address'])
+                    message.set("; ".join(d['name']+" "+d['address'] for d in found) or "No N6 devices advertised. No Pair operation performed.")
+                root.after(0, update)
+            except Exception as exc:
+                root.after(0, lambda value=str(exc): message.set(value))
+        threading.Thread(target=worker, daemon=True).start()
+    ttk.Button(panel, text="Discover BLE", command=discover).pack(anchor="w")
     ttk.Label(panel, text="Session (new or resume)").pack(anchor="w")
     ttk.Entry(panel, textvariable=session).pack(fill="x")
     ttk.Checkbutton(panel, text="Collect without labels; review later", variable=unlabeled).pack(anchor="w")
     ttk.Label(panel, textvariable=message, wraplength=500).pack(pady=8)
     def start():
         args.transport, args.session, args.unlabeled = source.get(), session.get(), unlabeled.get()
+        args.device = device.get() or None
         try:
             app = CaptureApp(root, args)
         except Exception as exc:
