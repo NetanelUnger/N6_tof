@@ -332,6 +332,27 @@ static void NonSecure_Init(void)
     /* Only the authenticated active image becomes Non-Secure. The controller,
      * inactive slot, boot chain and metadata remain Secure. No OTP/locks. */
     uint32_t base = cached_non_secure_vector - FW_STM32_IMAGE_VECTOR_OFFSET;
+    /* ST Template_Isolation_XIP assigns the XSPI2 AXI aperture to RISAF12.
+     * Use three disjoint volatile regions: Secure prefix, read-only NS active
+     * slot, Secure suffix. Controller registers remain Secure in RISC. */
+    uint32_t slot_offset = base - FW_FLASH_BASE_ADDRESS;
+    RISAF_BaseRegionConfig_t flash_region = {0};
+    flash_region.Filtering = RISAF_FILTER_ENABLE;
+    flash_region.ReadWhitelist = RIF_CID_MASK;
+    flash_region.WriteWhitelist = RIF_CID_MASK;
+    flash_region.PrivWhitelist = RIF_CID_MASK;
+    flash_region.Secure = RIF_ATTRIBUTE_SEC;
+    flash_region.StartAddress = 0U;
+    flash_region.EndAddress = slot_offset - 1U;
+    HAL_RIF_RISAF_ConfigBaseRegion(RISAF12, RISAF_REGION_1, &flash_region);
+    flash_region.StartAddress = slot_offset + FW_SLOT_SIZE;
+    flash_region.EndAddress = RISAF12_LIMIT_ADDRESS_SPACE_SIZE;
+    HAL_RIF_RISAF_ConfigBaseRegion(RISAF12, RISAF_REGION_3, &flash_region);
+    flash_region.StartAddress = slot_offset;
+    flash_region.EndAddress = slot_offset + FW_SLOT_SIZE - 1U;
+    flash_region.Secure = RIF_ATTRIBUTE_NSEC;
+    flash_region.WriteWhitelist = RIF_CID_NONE;
+    HAL_RIF_RISAF_ConfigBaseRegion(RISAF12, RISAF_REGION_2, &flash_region);
     SAU->RNR = 3U;
     SAU->RBAR = base & SAU_RBAR_BADDR_Msk;
     SAU->RLAR = ((base + FW_SLOT_SIZE - 1U) & SAU_RLAR_LADDR_Msk) | SAU_RLAR_ENABLE_Msk;
@@ -610,6 +631,27 @@ static void NonSecure_StartCached(void)
     /* Only the authenticated active image becomes Non-Secure. The controller,
      * inactive slot, boot chain and metadata remain Secure. No OTP/locks. */
     uint32_t base = cached_non_secure_vector - FW_STM32_IMAGE_VECTOR_OFFSET;
+    /* ST Template_Isolation_XIP assigns the XSPI2 AXI aperture to RISAF12.
+     * Use three disjoint volatile regions: Secure prefix, read-only NS active
+     * slot, Secure suffix. Controller registers remain Secure in RISC. */
+    uint32_t slot_offset = base - FW_FLASH_BASE_ADDRESS;
+    RISAF_BaseRegionConfig_t flash_region = {0};
+    flash_region.Filtering = RISAF_FILTER_ENABLE;
+    flash_region.ReadWhitelist = RIF_CID_MASK;
+    flash_region.WriteWhitelist = RIF_CID_MASK;
+    flash_region.PrivWhitelist = RIF_CID_MASK;
+    flash_region.Secure = RIF_ATTRIBUTE_SEC;
+    flash_region.StartAddress = 0U;
+    flash_region.EndAddress = slot_offset - 1U;
+    HAL_RIF_RISAF_ConfigBaseRegion(RISAF12, RISAF_REGION_1, &flash_region);
+    flash_region.StartAddress = slot_offset + FW_SLOT_SIZE;
+    flash_region.EndAddress = RISAF12_LIMIT_ADDRESS_SPACE_SIZE;
+    HAL_RIF_RISAF_ConfigBaseRegion(RISAF12, RISAF_REGION_3, &flash_region);
+    flash_region.StartAddress = slot_offset;
+    flash_region.EndAddress = slot_offset + FW_SLOT_SIZE - 1U;
+    flash_region.Secure = RIF_ATTRIBUTE_NSEC;
+    flash_region.WriteWhitelist = RIF_CID_NONE;
+    HAL_RIF_RISAF_ConfigBaseRegion(RISAF12, RISAF_REGION_2, &flash_region);
     SAU->RNR = 3U;
     SAU->RBAR = base & SAU_RBAR_BADDR_Msk;
     SAU->RLAR = ((base + FW_SLOT_SIZE - 1U) & SAU_RLAR_LADDR_Msk) | SAU_RLAR_ENABLE_Msk;
