@@ -1,0 +1,345 @@
+{
+  "schema": 1,
+  "date": "2026-10-22",
+  "status": "BLOCKED_HARDWARE_RECONNECT_PENDING",
+  "branch": "feature/n6-xip-ota-usb",
+  "baseline": "80f2b511029be6d87f9e72c32b00515457671f89",
+  "image_code_commit": "e69666c4dc78d6430093b933c0b27c284c9dbe67",
+  "main_unchanged": true,
+  "main_pushed_or_merged": false,
+  "server_changes_or_deployment": false,
+  "artifacts": [
+    {
+      "slot": "B",
+      "version": 12,
+      "folder": ".local-dependencies/xip/v12-B-checked",
+      "source_commit": "e69666c4dc78d6430093b933c0b27c284c9dbe67",
+      "budgets": {
+        "ram": {
+          "stack_limit": "0x241ff800",
+          "heap_capacity_bytes": 369008,
+          "heap_start": "0x241a5690"
+        },
+        "application": {
+          "stack_limit": "0x241ff800",
+          "heap_capacity_bytes": 862256,
+          "heap_start": "0x2412cfd0"
+        }
+      },
+      "files": {
+        "application-trusted.bin": {
+          "sha256": "917B09557B21D2713B19E68C1EB0DC9C9DF8D246A1977108A847744111F7FCE4",
+          "bytes": 498208
+        },
+        "application.bin": {
+          "sha256": "2D8BF789F27613D9592820FB83B7CD83F1D04D81A8959B3BF603EE39E98B29D6",
+          "bytes": 497180
+        },
+        "application.elf": {
+          "sha256": "524C91DFE4A3921B977E81AE1D871A20A2B7EBDDB616A370E9C0FCBE6DB11B7F",
+          "bytes": 9217744
+        },
+        "application.map": {
+          "sha256": "29429822510F24D252E307CE16BE44775FCEF37E0A162EF4E1FD44A0BE9E9783",
+          "bytes": 5413523
+        },
+        "AppliSecure-trusted.bin": {
+          "sha256": "CB9F2AF73B256BE48CDB0D25C9BE1D5198588A3B4CB04D0EB04A47EDC7D8AA07",
+          "bytes": 65376
+        },
+        "AppliSecure.bin": {
+          "sha256": "2E808FD9E57970A2A36BF42D99569E32B0F3B2C4953F0F0EDD0221CA905A2B75",
+          "bytes": 64352
+        },
+        "AppliSecure.elf": {
+          "sha256": "20B52B294F436FE9DFA5AD1795D105F5E682ADE4A30CFC1AC2404D16FA94CD4C",
+          "bytes": 3034284
+        },
+        "AppliSecure.map": {
+          "sha256": "B2B015A0A4E5181FA514402D912181356B525307A9277E263255F1CE3472CCAE",
+          "bytes": 643260
+        },
+        "FSBL-trusted.bin": {
+          "sha256": "F7A526DE5600C3581C3F0ECFFDB37BBEFB61A45327B7806344882E38717DCCA3",
+          "bytes": 86752
+        },
+        "FSBL.bin": {
+          "sha256": "0EB49B9E50EFCC742085011E4EB34E86FC9F1C3A57F90C8ED5FB23880522C52A",
+          "bytes": 85728
+        },
+        "FSBL.elf": {
+          "sha256": "DE7F3C84C656527B8FE594704982FA84E22D4B0F6E5C8A8FBF6B0E30D3D644F7",
+          "bytes": 3106252
+        },
+        "FSBL.map": {
+          "sha256": "67707504488814F1D16098E254CC5710EF7B144E71A75DED584C3568CF233052",
+          "bytes": 768060
+        },
+        "N6-XIP-B-v12.n6fw": {
+          "sha256": "45DA1ADF5738D8F8EF154D40F6A120FA67B3321581DDA420EDB8BE671AB32C46",
+          "bytes": 498464
+        },
+        "ram.map": {
+          "sha256": "0D8000105E44FBC8A52CFDA60D625AF371280D09055EB598B45447521B0ED53A",
+          "bytes": 5412758
+        }
+      },
+      "source_hashes_verified": 1080
+    },
+    {
+      "slot": "A",
+      "version": 13,
+      "folder": ".local-dependencies/xip/v13-A-checked",
+      "source_commit": "e69666c4dc78d6430093b933c0b27c284c9dbe67",
+      "budgets": {
+        "ram": {
+          "stack_limit": "0x241ff800",
+          "heap_capacity_bytes": 369008,
+          "heap_start": "0x241a5690"
+        },
+        "application": {
+          "stack_limit": "0x241ff800",
+          "heap_capacity_bytes": 862256,
+          "heap_start": "0x2412cfd0"
+        }
+      },
+      "files": {
+        "application-trusted.bin": {
+          "sha256": "5FED4DB94741087BB80FA073FEBBD569525E7EFA9824C051F635ABA662E10D5E",
+          "bytes": 498208
+        },
+        "application.bin": {
+          "sha256": "2D7C794A8D8276C0EC11E4D4D9667A5393756A54238D528E491F303EB4339B3A",
+          "bytes": 497180
+        },
+        "application.elf": {
+          "sha256": "4640A7F368961F0F11AC2BC7590E14D2992C5034A4B1D0EE08370F8D63ECC1AA",
+          "bytes": 9217744
+        },
+        "application.map": {
+          "sha256": "779B7A2CB4E15EC13521AE765D494B8BB90A65100ACA73C03474D6254CC3670C",
+          "bytes": 5413523
+        },
+        "AppliSecure-trusted.bin": {
+          "sha256": "90CCEF2A474E10B7DF106521FF4190920E5BDF45203A3605BFF638A3DD03F9F7",
+          "bytes": 65376
+        },
+        "AppliSecure.bin": {
+          "sha256": "2E808FD9E57970A2A36BF42D99569E32B0F3B2C4953F0F0EDD0221CA905A2B75",
+          "bytes": 64352
+        },
+        "AppliSecure.elf": {
+          "sha256": "20B52B294F436FE9DFA5AD1795D105F5E682ADE4A30CFC1AC2404D16FA94CD4C",
+          "bytes": 3034284
+        },
+        "AppliSecure.map": {
+          "sha256": "B2B015A0A4E5181FA514402D912181356B525307A9277E263255F1CE3472CCAE",
+          "bytes": 643260
+        },
+        "FSBL-trusted.bin": {
+          "sha256": "E096FC52C75490DB2B51224061719049AD078FF321BFDDBEBED3E8017DA0D48E",
+          "bytes": 86752
+        },
+        "FSBL.bin": {
+          "sha256": "0EB49B9E50EFCC742085011E4EB34E86FC9F1C3A57F90C8ED5FB23880522C52A",
+          "bytes": 85728
+        },
+        "FSBL.elf": {
+          "sha256": "DE7F3C84C656527B8FE594704982FA84E22D4B0F6E5C8A8FBF6B0E30D3D644F7",
+          "bytes": 3106252
+        },
+        "FSBL.map": {
+          "sha256": "67707504488814F1D16098E254CC5710EF7B144E71A75DED584C3568CF233052",
+          "bytes": 768060
+        },
+        "N6-XIP-A-v13.n6fw": {
+          "sha256": "C28C77173F11A212BBD76DF69282BD5A646A85FC0C9D6C3028DEAA63BF4EC9D6",
+          "bytes": 498464
+        },
+        "ram.map": {
+          "sha256": "0D8000105E44FBC8A52CFDA60D625AF371280D09055EB598B45447521B0ED53A",
+          "bytes": 5412758
+        }
+      },
+      "source_hashes_verified": 1080
+    }
+  ],
+  "proof": {
+    "elf_map_xip_layout": "PASS_STATIC_ONLY",
+    "hardware_pc_samples": "NOT_RUN",
+    "heap_runtime_measurement": "NOT_RUN",
+    "same_source_static_heap_gain_bytes": 493248,
+    "original_guarded_ram_heap_bytes": 369136,
+    "current_guarded_ram_companion_heap_bytes": 369008,
+    "xip_heap_bytes": 862256,
+    "original_ram_artifact_and_ordinary_debug_hashes_preserved": true
+  },
+  "tests": {
+    "initial_commands": [
+      {
+        "name": "boot_actual_c",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 3.182,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\boot_actual_c.log"
+      },
+      {
+        "name": "secure_actual_c",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 2.863,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\secure_actual_c.log"
+      },
+      {
+        "name": "package_negative_public_key",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 1.037,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\package_negative_public_key.log"
+      },
+      {
+        "name": "cloud_real_package_simulation",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 0.166,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\cloud_real_package_simulation.log"
+      },
+      {
+        "name": "cloud_existing_8",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 0.388,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\cloud_existing_8.log"
+      },
+      {
+        "name": "firmware_update_drain_5",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 2.637,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\firmware_update_drain_5.log"
+      },
+      {
+        "name": "spatial_profile_c_python",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 2.918,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\spatial_profile_c_python.log"
+      },
+      {
+        "name": "model_contract",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 0.349,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\model_contract.log"
+      },
+      {
+        "name": "boot_chain_hash_guards",
+        "status": "FAIL",
+        "exit_code": 1,
+        "seconds": 0.684,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\boot_chain_hash_guards.log"
+      },
+      {
+        "name": "version_stream_parser",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 0.593,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\version_stream_parser.log"
+      }
+    ],
+    "boot_guard_followup": {
+      "status": "PASS",
+      "process_exit": 0,
+      "functional_cases": 5,
+      "change": "Disposable fixtures moved from Dropbox to system TEMP; assertions unchanged",
+      "retained_failures": [
+        "boot_chain_hash_guards.log",
+        "boot-chain-followup.log"
+      ]
+    },
+    "build_lock": "PASS",
+    "artifact_source_hashes": "PASS",
+    "case_counts": {
+      "actual_c_boot_vector_cases": 21,
+      "additional_actual_secure_scenario_groups": 5,
+      "public_key_package_cases": 9,
+      "existing_cloud_sender_tests": 8,
+      "real_xip_package_cloud_sender_simulation": {
+        "bytes": 498464,
+        "crc_blocks": 487,
+        "retry": true,
+        "sequence_wrap": true
+      },
+      "firmware_drain_cases": 5,
+      "spatial_profile_byte_exact_test": 1,
+      "model_contract_test": 1,
+      "streamed_version_replies": 72
+    }
+  },
+  "transport_acceptance": {
+    "USB": {
+      "host_parser_drain": "PASS",
+      "actual_transfer_install_boot": "NOT_RUN"
+    },
+    "OTA": {
+      "existing_sender_actual_package_simulation": "PASS",
+      "actual_server_device_transfer_boot": "NOT_RUN"
+    },
+    "BLE_ToF_NPU_USB_xip_regressions": "NOT_RUN",
+    "hardware_rollback_interruption_corrupt_packages": "NOT_RUN",
+    "physical_power_cycle": "NOT_RUN"
+  },
+  "hardware_block": {
+    "action": "Read-only 4MiB NOR recovery backup via existing STM32 external loader under reset",
+    "target": "ST-LINK 000C00344142501620353451; NOR 0x70000000..0x703fffff",
+    "reason": "Data read failed after reset; GDB reports Target unknown error32; COM8 open timed out",
+    "reset_executed": true,
+    "backup_outcome": "FAILED_NO_VALID_NOR_BACKUP",
+    "ram_restore": "FAILED_BEFORE_DOWNLOAD",
+    "board_runtime": "UNKNOWN",
+    "approval_denial": false,
+    "handles_and_lease_released": true,
+    "pending": "Explicit physical full-power disconnect/reconnect in DEV confirmation; no more hardware probes until confirmation"
+  },
+  "persistent_actions": {
+    "nor_erase_program_commands_sent": false,
+    "otp_fuses_security_lifecycle_debug_locks": false,
+    "credential_config_pair_cache_changes": false,
+    "new_sensor_uploads": 0
+  },
+  "recovery": {
+    "artifact_folder": ".local-dependencies/recovery-20261022",
+    "guarded_elf_sha256": "6a6a5d1fcd70be9ed1826624b4e3bf97d5ec35758c9f1915772e1fa4b5c8d781",
+    "complete_current_nor_backup_available": false,
+    "before_first_nor_write": [
+      "Explicit DEV reconnect confirmation and exclusive shared ownership",
+      "Restore exact guarded RAM demo through supported ROM/ST-LINK path and prove current health",
+      "Read NOR boot chain/slots/metadata twice and compare hashes; authenticate current confirmed recovery and identify inactive slot",
+      "Preserve confirmed slot and configuration; matching signed FSBL/Secure; no full erase/factory metadata reset"
+    ]
+  },
+  "npu_assessment": {
+    "processed_sensor_grid": [
+      54,
+      42
+    ],
+    "current_input": [
+      1,
+      50,
+      64,
+      1
+    ],
+    "input_bytes": 3200,
+    "output_bytes": 4,
+    "activation_pool_bytes_from_generated_network": 17408,
+    "weight_bytes": 55425,
+    "weight_runtime_bank": "SRAM6 at0x24350000",
+    "weight_bank_capacity_bytes": 458752,
+    "integration_weight_budget_bytes": 65536,
+    "cpu_sram2_savings_are_not_automatic_npu_pool": true,
+    "existing_full_field_profile": "spatial_depth_v1; C/Python agreement PASS; previous100-frame hardware evidence historical",
+    "rps_model_or_dataset_changed": false,
+    "optical_autofocus_evidence": "Not established by current code; closest component crop is software preprocessing",
+    "larger_native_shape_requires": "Contract/training/quantization/code generation/linker/pool reservation and new HIL"
+  }
+}

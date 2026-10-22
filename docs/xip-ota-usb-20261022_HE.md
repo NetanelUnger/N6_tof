@@ -202,6 +202,23 @@ git branch --show-current  # חייב להיות feature/n6-xip-ota-usb
    power-cycle האמיתי; לא להמציא בדיקה תוכנתית במקומם. כל הזרמה של תמונות
    לענן נשארת כבויה; OTA מורשה דרך השרת הקיים אינו אישור ל־sensor uploads.
 
+## דוח הקבלה השמור
+
+הדוח [xip-ota-usb-20261022-results.json](xip-ota-usb-20261022-results.json) מכיל
+את commit הקוד המדויק, hashes של שני ה־builds בתיקיות `*-checked`, ה־budgets,
+תוצאות כל בדיקה והפרדה מפורשת בין host ל־HIL. כל hashes של artifacts ושל
+מקורות הבנייה האפקטיביים אומתו שוב, ו־ordinary Debug המקורי זהה ל־hashes
+השמורים מהקבלה הקודמת. artifacts ביניים נשמרו לצורך בירור ואינם יעד התקנה.
+
+עברו21 מקרי vectors/boot בקוד C בפועל וחמש קבוצות תרחישי Secure נוספים עם
+NOR/PKA/CMSE/HAL מדומים;9 בדיקות חבילה,8 בדיקות Cloud קיימות, העברת החבילה
+האמיתית במשדר Cloud מדומה ב־487 בלוקים,5 בדיקות drain, בדיקות spatial ו־contract,
+ו־72 תגובות version מפוצלות. גם חסימת build מקביל אומתה לפני שינוי headers.
+בדיקת boot-chain הישנה עברה את חמשת assertions, אך cleanup נכשל בשתי הרצות
+בגלל directory handle נעול בתוך Dropbox. הכישלונות נשמרו. העברת fixture זמני
+ל־system TEMP, ללא שינוי assertions, החזירה process exit0; זו התאמת harness,
+לא שינוי firmware או הסתרת כישלון חומרה.
+
 ## מקורות רשמיים
 
 נבדקו תבנית ST [Template_FSBL_XIP](https://github.com/STMicroelectronics/STM32CubeN6/blob/main/Projects/NUCLEO-N657X0-Q/Templates/Template_FSBL_XIP/README.md)

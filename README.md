@@ -5,7 +5,8 @@ execution contracts and Secure RAM flash gating build/sign successfully. Static
 heap capacity rises to862256 bytes; actual XIP/USB/OTA hardware acceptance is
 BLOCKED by ST-LINK/CDC recovery. A reset/read backup failed; NOR backup is not
 validated and current board runtime is unverified. Main was not changed or pushed.
-See the [Hebrew design, evidence and recovery guide](docs/xip-ota-usb-20261022_HE.md).
+See the [Hebrew design, evidence and recovery guide](docs/xip-ota-usb-20261022_HE.md)
+and [sanitized acceptance results](docs/xip-ota-usb-20261022-results.json).
 
 Platform upgrade M1-M7 completed (2026-10-21): projects/classes, shared lossless
 USB/BLE/Cloud capture, two measured classifiers on the real NPU, guarded RAM
