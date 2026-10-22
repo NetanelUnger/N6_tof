@@ -614,6 +614,12 @@ static void NonSecure_StartCached(void)
     MPU_NS->RLAR = ((base + FW_SLOT_SIZE - 1U) & MPU_RLAR_LIMIT_Msk) | MPU_RLAR_EN_Msk;
     MPU_NS->CTRL = MPU_CTRL_PRIVDEFENA_Msk | MPU_CTRL_ENABLE_Msk;
     __DSB(); __ISB();
+    /* Set the NS cache bank from the Secure handoff. RAM binaries retain their
+     * previous startup footprint and never enable XIP-only cache policy. */
+    SCB_NS->ICIALLU = 0U;
+    __DSB(); __ISB();
+    SCB_NS->CCR |= SCB_CCR_IC_Msk;
+    __DSB(); __ISB();
     if (EXTMEM_MemoryMappedMode(EXTMEMORY_1, EXTMEM_ENABLE) != EXTMEM_OK)
       Error_Handler();
     Secure_TraceHex("[SECURE] XIP NonSecure vector = ", cached_non_secure_vector);

@@ -33,6 +33,12 @@
 #define APP_DEMO_BLE_ONLY (0U)
 #endif
 
+/* Existing demos may opt into an automatic image route on pairing. XIP OTA
+ * validation explicitly disables this independently from Cloud CLI/updates. */
+#ifndef APP_CLOUD_AUTO_MAP_ENABLED
+#define APP_CLOUD_AUTO_MAP_ENABLED (1U)
+#endif
+
 /* Outbound Cloud Relay CLI and independent ToF upload path. */
 #ifndef APP_ST67W6X_CLOUD_RELAY_ENABLED
 #define APP_ST67W6X_CLOUD_RELAY_ENABLED (1U)

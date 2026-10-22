@@ -388,8 +388,10 @@ static void cloud_publish_status(void)
   cloud->status.control_rejected = cloud_control_rejected;
   if ((cloud->status.paired != 0U) && (cloud->status.enabled != 0U))
   {
+#if (APP_CLOUD_AUTO_MAP_ENABLED == 1U)
     if ((cloud_status_snapshot.paired == 0U) || (cloud_status_snapshot.enabled == 0U))
       TOF_App_RequestStream(TOF_STREAM_CLOUD);
+#endif
   }
   else TOF_App_ReleaseStream(TOF_STREAM_CLOUD);
   cloud_status_snapshot = cloud->status;

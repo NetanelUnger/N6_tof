@@ -11,11 +11,18 @@ import msvcrt
 import os
 from pathlib import Path
 import sys
+import subprocess
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--owner-thread', required=True)
+parser.add_argument('--scope', choices=('ram','xip-update'), default='ram')
 args = parser.parse_args()
-folder = Path(__file__).resolve().parents[1] / '.local-dependencies/diagnostics'
+repository = Path(__file__).resolve().parents[1]
+# Every linked worktree must coordinate with legacy tests in the primary
+# checkout, rather than accidentally creating an independent hardware lease.
+common = subprocess.check_output(['git','-c','safe.directory='+str(repository),
+    '-C',str(repository),'rev-parse','--path-format=absolute','--git-common-dir'], text=True).strip()
+folder = Path(common).parent / '.local-dependencies/diagnostics' 
 folder.mkdir(exist_ok=True, parents=True)
 marker = folder / 'n6-hardware-owner.lock'
 status = folder / 'n6-hardware-owner.json'
@@ -27,7 +34,8 @@ except FileExistsError:
     raise SystemExit('BLOCKED: existing N6 lease; coordinate before hardware access.')
 owner = {'thread': args.owner_thread, 'pid': os.getpid(),
          'started_utc': datetime.now(timezone.utc).isoformat(),
-         'scope': 'protected RAM-only tests; no persistent writes'}
+         'scope': ('protected RAM-only tests; no persistent writes' if args.scope == 'ram' else
+                   'authorized recoverable XIP/USB/OTA NOR validation; no OTP, settings, credential or pairing writes')}
 try:
     handle.write(b'1'); handle.flush(); handle.seek(0)
     msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)

@@ -23,7 +23,7 @@ $buildLock = [IO.File]::Open($lockPath,[IO.FileMode]::CreateNew,[IO.FileAccess]:
 try {
 $headers = @('Common/Update/firmware_build_version.h','AppliNonSecure/Core/Inc/w61_driver_config.h',
     'FSBL/.settings/language.settings.xml','AppliSecure/.settings/language.settings.xml',
-    'AppliNonSecure/.settings/language.settings.xml')
+    'AppliNonSecure/.settings/language.settings.xml','AppliNonSecure/Core/Inc/app_features.h')
 $saved = @{}
 foreach ($relative in $headers) { $saved[$relative] = [IO.File]::ReadAllBytes((Join-Path $root $relative)) }
 $suffix = if ($Label) { "-$Label" } else { "" }
@@ -43,6 +43,10 @@ try {
     $config = $config.Replace('#define W61_CONFIG_PRESERVE       (0)','#define W61_CONFIG_PRESERVE       (1)')
     if ($config -notmatch '#define W61_CONFIG_PRESERVE\s+\(1\)') { throw 'Cannot establish preserve-settings build.' }
     [IO.File]::WriteAllText((Join-Path $root $headers[1]),$config,[Text.UTF8Encoding]::new($false))
+    $featurePath = Join-Path $root 'AppliNonSecure/Core/Inc/app_features.h'
+    $features = [IO.File]::ReadAllText($featurePath).Replace('#define APP_CLOUD_AUTO_MAP_ENABLED (1U)','#define APP_CLOUD_AUTO_MAP_ENABLED (0U)')
+    if ($features -notmatch '#define APP_CLOUD_AUTO_MAP_ENABLED \(0U\)') { throw 'Cloud image auto-route must be disabled.' }
+    [IO.File]::WriteAllText($featurePath,$features,[Text.UTF8Encoding]::new($false))
     # First use: generate makefiles in an isolated IDE workspace, never the main workspace.
     if (-not (Test-Path (Join-Path $root 'AppliNonSecure/Debug/makefile'))) {
         $workspace = Join-Path $root '.local-dependencies/ide-workspace'
@@ -73,7 +77,9 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Boot-chain signing failed: $context" }
     }
     # Keep this exact guarded RAM map for a like-for-like before/after budget.
-    Copy-Item (Join-Path $root 'AppliNonSecure/Debug/N6_AppliNonSecure.map') (Join-Path $output 'ram.map')
+    foreach ($extension in @('elf','bin','map')) {
+        Copy-Item (Join-Path $root "AppliNonSecure/Debug/N6_AppliNonSecure.$extension") (Join-Path $output "ram.$extension")
+    }
     $build = Join-Path $root 'AppliNonSecure/Debug'
     $base = if ($Slot -eq 'A') {'0x70180000'} else {'0x70280000'}
     $elf = Join-Path $output 'application.elf'
@@ -100,7 +106,7 @@ try {
         $stackMatch = [regex]::Match($text,'(?m)^\s*(0x[0-9a-fA-F]+)\s+_sstack = ')
         if (-not $endMatch.Success -or -not $stackMatch.Success) { throw 'Heap bounds absent from map.' }
         $heap = [Convert]::ToUInt64($stackMatch.Groups[1].Value.Substring(2),16) - [Convert]::ToUInt64($endMatch.Groups[1].Value.Substring(2),16)
-        if ($heap -lt 360KB) { throw 'Preserved 360 KiB heap requirement failed.' }
+        if ($heap -lt 369072) { throw 'Preserved guarded heap requirement369072 failed.' }
         $budgets[$mode] = @{heap_capacity_bytes=$heap;heap_start=$endMatch.Groups[1].Value;stack_limit=$stackMatch.Groups[1].Value}
     }
     $binaryBytes = [IO.File]::ReadAllBytes($bin)
@@ -124,7 +130,7 @@ try {
     foreach ($item in Get-ChildItem $output -File | Where-Object Extension -in '.elf','.map','.bin','.n6fw') {
         $hashes[$item.Name] = @{sha256=Get-N6FileSha256 $item.FullName;bytes=$item.Length}
     }
-    $result = [ordered]@{status='BUILT_NOT_INSTALLED';branch='feature/n6-xip-ota-usb';source_commit=(& git -c "safe.directory=$root" -C $root rev-parse HEAD);slot=$Slot;version=$FirmwareVersion;execution_base=$base;ncp_preserve=$true;settings_writes=$false;budgets=$budgets;source_sha256=$sourceHashes;hashes=$hashes}
+    $result = [ordered]@{status='BUILT_NOT_INSTALLED';branch='feature/n6-xip-ota-usb';source_commit=(& git -c "safe.directory=$root" -C $root rev-parse HEAD);slot=$Slot;version=$FirmwareVersion;execution_base=$base;ncp_preserve=$true;settings_writes=$false;cloud_auto_map=$false;budgets=$budgets;source_sha256=$sourceHashes;hashes=$hashes}
     Assert-XipBranch
     [IO.File]::WriteAllText((Join-Path $output 'build.json'),($result | ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
     Write-Host "XIP build/package ready: $output. Hardware installation and HIL have not run."
