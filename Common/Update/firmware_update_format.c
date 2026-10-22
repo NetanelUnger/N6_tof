@@ -34,7 +34,7 @@ uint32_t FW_ManifestIsWellFormed(const FW_UpdateManifest_t *manifest)
       (manifest->header_size != FW_UPDATE_MANIFEST_SIZE) ||
       (manifest->target_id != FW_UPDATE_TARGET_STM32N657) ||
       (manifest->image_type != FW_UPDATE_IMAGE_NONSECURE) ||
-      (manifest->flags != 0U) ||
+      (manifest->flags > FW_EXECUTION_XIP_B) ||
       (manifest->firmware_version == 0U))
   {
     return 0U;
@@ -119,4 +119,31 @@ void FW_BootRecordSeal(FW_BootRecord_t *record)
   {
     record->crc32 = FW_CRC32(record, offsetof(FW_BootRecord_t, crc32));
   }
+}
+
+uint32_t FW_ExecutionMatchesSlot(uint32_t execution, uint32_t slot)
+{
+  if (FW_SlotOffset(slot) == UINT32_MAX) return 0U;
+  return ((execution == FW_EXECUTION_RAM) ||
+          ((execution == FW_EXECUTION_XIP_A) && (slot == FW_SLOT_A)) ||
+          ((execution == FW_EXECUTION_XIP_B) && (slot == FW_SLOT_B))) ? 1U : 0U;
+}
+
+uint32_t FW_ImageVectorsAreValid(uint32_t execution, uint32_t slot,
+                                  uint32_t image_size, uint32_t signed_size,
+                                  uint32_t msp, uint32_t reset_handler)
+{
+  uint32_t base, end;
+  if ((FW_ExecutionMatchesSlot(execution, slot) == 0U) ||
+      (image_size < FW_STM32_IMAGE_VECTOR_OFFSET + 8U) ||
+      (image_size > FW_SLOT_SIZE) ||
+      (signed_size != image_size - FW_STM32_IMAGE_PREFIX_SIZE) ||
+      (msp <= FW_NS_RAM_START) || (msp > FW_NS_RAM_END) ||
+      ((msp & 7U) != 0U) || ((reset_handler & 1U) == 0U)) return 0U;
+  base = (execution == FW_EXECUTION_RAM) ? FW_NS_RAM_START :
+         FW_FLASH_BASE_ADDRESS + FW_SlotOffset(slot);
+  end = base + image_size;
+  reset_handler &= ~1UL;
+  return ((reset_handler >= base + FW_STM32_IMAGE_VECTOR_OFFSET) &&
+          (reset_handler < end)) ? 1U : 0U;
 }

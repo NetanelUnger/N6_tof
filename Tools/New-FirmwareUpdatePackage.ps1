@@ -9,6 +9,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Output,
 
+    [ValidateSet('RAM', 'XIP-A', 'XIP-B')]
+    [string]$ExecutionMode = 'RAM',
+
     [string]$PrivateKeyPath
 )
 
@@ -36,6 +39,16 @@ if ($encodedSize -ne $imageBytes.Length) {
     throw "STM32 header size $encodedSize does not match file size $($imageBytes.Length)."
 }
 
+$executionFlag = @{ 'RAM' = 0; 'XIP-A' = 1; 'XIP-B' = 2 }[$ExecutionMode]
+$vectorBase = @{ 'RAM' = 0x24100000; 'XIP-A' = 0x70180000; 'XIP-B' = 0x70280000 }[$ExecutionMode]
+$msp = [BitConverter]::ToUInt32($imageBytes, 0x400)
+$reset = [BitConverter]::ToUInt32($imageBytes, 0x404)
+if (($msp -le 0x24100000) -or ($msp -gt 0x24200000) -or (($msp -band 7) -ne 0) -or
+    (($reset -band 1) -eq 0) -or (($reset -band 4294967294L) -lt ($vectorBase + 0x400)) -or
+    (($reset -band 4294967294L) -ge ($vectorBase + $imageBytes.Length))) {
+    throw "Vectors do not match selected execution mode $ExecutionMode. Build the correct physical slot."
+}
+
 $sha256 = [System.Security.Cryptography.SHA256]::Create()
 $key = $null
 $ecdsa = $null
@@ -57,7 +70,7 @@ try {
     Set-U32 $manifest 12 1
     Set-U32 $manifest 16 $imageBytes.Length
     Set-U32 $manifest 20 $FirmwareVersion
-    Set-U32 $manifest 24 0
+    Set-U32 $manifest 24 $executionFlag
     [Array]::Copy($imageHash, 0, $manifest, 28, 32)
 
     $signedFields = New-Object byte[] 60
@@ -104,3 +117,5 @@ finally {
 Write-Host "Signed firmware update package created: $Output"
 Write-Host "Firmware version: $FirmwareVersion"
 Write-Host "Package bytes: $($manifestSize + $imageBytes.Length)"
+
+Write-Host "Execution mode: $ExecutionMode (signed flags $executionFlag)"

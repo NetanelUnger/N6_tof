@@ -75,10 +75,11 @@ void *pSecureErrorCallback = NULL;   /* Pointer to secure error callback in Non-
 
     /* Secure SysTick is intentionally suspended while NonSecure owns the CPU.
      * Every updater operation below uses HAL drivers with bounded timeouts, so
-     * restore the Secure HAL timebase only for the duration of the NSC call. */
-    HAL_ResumeTick();
+     * the flash gate owns the Secure timebase until executable mapping returns. */
+    status = SecureFirmwareUpdate_EnterFlash();
+    if (status != SECURE_FW_UPDATE_OK) return status;
     status = SecureFirmwareUpdate_Begin(manifest, session);
-    HAL_SuspendTick();
+    SecureFirmwareUpdate_LeaveFlash();
     return status;
   }
 
@@ -87,9 +88,10 @@ void *pSecureErrorCallback = NULL;   /* Pointer to secure error callback in Non-
   {
     uint32_t status;
 
-    HAL_ResumeTick();
+    status = SecureFirmwareUpdate_EnterFlash();
+    if (status != SECURE_FW_UPDATE_OK) return status;
     status = SecureFirmwareUpdate_Write(session, data, length);
-    HAL_SuspendTick();
+    SecureFirmwareUpdate_LeaveFlash();
     return status;
   }
 
@@ -97,9 +99,10 @@ void *pSecureErrorCallback = NULL;   /* Pointer to secure error callback in Non-
   {
     uint32_t status;
 
-    HAL_ResumeTick();
+    status = SecureFirmwareUpdate_EnterFlash();
+    if (status != SECURE_FW_UPDATE_OK) return status;
     status = SecureFirmwareUpdate_Finalize(session);
-    HAL_SuspendTick();
+    SecureFirmwareUpdate_LeaveFlash();
     return status;
   }
 
@@ -107,9 +110,10 @@ void *pSecureErrorCallback = NULL;   /* Pointer to secure error callback in Non-
   {
     uint32_t status;
 
-    HAL_ResumeTick();
+    status = SecureFirmwareUpdate_EnterFlash();
+    if (status != SECURE_FW_UPDATE_OK) return status;
     status = SecureFirmwareUpdate_Abort(session);
-    HAL_SuspendTick();
+    SecureFirmwareUpdate_LeaveFlash();
     return status;
   }
 
@@ -117,9 +121,10 @@ void *pSecureErrorCallback = NULL;   /* Pointer to secure error callback in Non-
   {
     uint32_t status;
 
-    HAL_ResumeTick();
+    status = SecureFirmwareUpdate_EnterFlash();
+    if (status != SECURE_FW_UPDATE_OK) return status;
     status = SecureFirmwareUpdate_ConfirmBoot();
-    HAL_SuspendTick();
+    SecureFirmwareUpdate_LeaveFlash();
     return status;
   }
 

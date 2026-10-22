@@ -1,5 +1,14 @@
 # Project change history
 
+## 2026-10-22 - Experimental XIP A/B feature branch
+
+- Add physical-slot XIP linker, signed execution/slot validation and FSBL vector-only handoff.
+- Keep indirect writer in Secure SRAM; gate NS interrupts/DMA and restore executable mapping before return.
+- Build/sign both slots; record static heap862256 and host rollback/package/transport simulations.
+- Hardware BLOCKED: reset/read NOR backup failed and RAM restore could not connect; current runtime unverified.
+- Preserve exact recovery artifacts, main, credentials and production server; no NOR erase/program or OTP.
+- Document full-field spatial profile and the separate CPU/NPU memory budgets; no model/dataset replacement.
+
 ## 2026-10-21 - Platform M6/M7 package-only acceptance
 
 - Two measured4/2-class classifiers pass100-frame real NPU HIL each, exact

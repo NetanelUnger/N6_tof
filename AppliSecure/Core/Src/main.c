@@ -24,6 +24,8 @@
 
 #include "secure_firmware_update.h"
 #include "boot_splash.h"
+#include "stm32_extmem.h"
+#include "stm32_extmem_conf.h"
 #include <arm_cmse.h>
 
 /* USER CODE END Includes */
@@ -51,6 +53,7 @@
 
 /* USER CODE BEGIN PV */
 
+static uint32_t cached_non_secure_vector = VTOR_TABLE_NS_START_ADDR;
 static uint32_t cached_non_secure_msp;
 static uint32_t cached_non_secure_reset_handler;
 
@@ -317,7 +320,36 @@ static void NonSecure_Init(void)
 {
   funcptr_NS NonSecure_ResetHandler;
 
-  SCB_NS->VTOR = VTOR_TABLE_NS_START_ADDR;
+  if ((cached_non_secure_reset_handler >= FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET) &&
+      (cached_non_secure_reset_handler < FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET + FW_SLOT_SIZE))
+    cached_non_secure_vector = FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET + FW_STM32_IMAGE_VECTOR_OFFSET;
+  else if ((cached_non_secure_reset_handler >= FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET) &&
+           (cached_non_secure_reset_handler < FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET + FW_SLOT_SIZE))
+    cached_non_secure_vector = FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET + FW_STM32_IMAGE_VECTOR_OFFSET;
+
+  if (cached_non_secure_vector != VTOR_TABLE_NS_START_ADDR)
+  {
+    /* Only the authenticated active image becomes Non-Secure. The controller,
+     * inactive slot, boot chain and metadata remain Secure. No OTP/locks. */
+    uint32_t base = cached_non_secure_vector - FW_STM32_IMAGE_VECTOR_OFFSET;
+    SAU->RNR = 3U;
+    SAU->RBAR = base & SAU_RBAR_BADDR_Msk;
+    SAU->RLAR = ((base + FW_SLOT_SIZE - 1U) & SAU_RLAR_LADDR_Msk) | SAU_RLAR_ENABLE_Msk;
+    /* Normal write-back cacheable, read-only executable active-slot window.
+     * All other privileged accesses retain the architectural default map. */
+    if (MPU_NS->CTRL != 0U) Error_Handler();
+    MPU_NS->MAIR0 = 0xFFU;
+    MPU_NS->RNR = 0U;
+    MPU_NS->RBAR = (base & MPU_RBAR_BASE_Msk) | (3U << MPU_RBAR_AP_Pos);
+    MPU_NS->RLAR = ((base + FW_SLOT_SIZE - 1U) & MPU_RLAR_LIMIT_Msk) | MPU_RLAR_EN_Msk;
+    MPU_NS->CTRL = MPU_CTRL_PRIVDEFENA_Msk | MPU_CTRL_ENABLE_Msk;
+    __DSB(); __ISB();
+    if (EXTMEM_MemoryMappedMode(EXTMEMORY_1, EXTMEM_ENABLE) != EXTMEM_OK)
+      Error_Handler();
+    Secure_TraceHex("[SECURE] XIP NonSecure vector = ", cached_non_secure_vector);
+  }
+  SecureFirmwareUpdate_SetExecutionVector(cached_non_secure_vector);
+  SCB_NS->VTOR = cached_non_secure_vector;
 
   /* Set non-secure main stack (MSP_NS) */
   __TZ_set_MSP_NS((*(uint32_t *)VTOR_TABLE_NS_START_ADDR));
@@ -566,7 +598,36 @@ static void NonSecure_StartCached(void)
   Secure_TraceHex("[SECURE] cached NonSecure Reset_Handler = ",
                   cached_non_secure_reset_handler);
 
-  SCB_NS->VTOR = VTOR_TABLE_NS_START_ADDR;
+  if ((cached_non_secure_reset_handler >= FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET) &&
+      (cached_non_secure_reset_handler < FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET + FW_SLOT_SIZE))
+    cached_non_secure_vector = FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET + FW_STM32_IMAGE_VECTOR_OFFSET;
+  else if ((cached_non_secure_reset_handler >= FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET) &&
+           (cached_non_secure_reset_handler < FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET + FW_SLOT_SIZE))
+    cached_non_secure_vector = FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET + FW_STM32_IMAGE_VECTOR_OFFSET;
+
+  if (cached_non_secure_vector != VTOR_TABLE_NS_START_ADDR)
+  {
+    /* Only the authenticated active image becomes Non-Secure. The controller,
+     * inactive slot, boot chain and metadata remain Secure. No OTP/locks. */
+    uint32_t base = cached_non_secure_vector - FW_STM32_IMAGE_VECTOR_OFFSET;
+    SAU->RNR = 3U;
+    SAU->RBAR = base & SAU_RBAR_BADDR_Msk;
+    SAU->RLAR = ((base + FW_SLOT_SIZE - 1U) & SAU_RLAR_LADDR_Msk) | SAU_RLAR_ENABLE_Msk;
+    /* Normal write-back cacheable, read-only executable active-slot window.
+     * All other privileged accesses retain the architectural default map. */
+    if (MPU_NS->CTRL != 0U) Error_Handler();
+    MPU_NS->MAIR0 = 0xFFU;
+    MPU_NS->RNR = 0U;
+    MPU_NS->RBAR = (base & MPU_RBAR_BASE_Msk) | (3U << MPU_RBAR_AP_Pos);
+    MPU_NS->RLAR = ((base + FW_SLOT_SIZE - 1U) & MPU_RLAR_LIMIT_Msk) | MPU_RLAR_EN_Msk;
+    MPU_NS->CTRL = MPU_CTRL_PRIVDEFENA_Msk | MPU_CTRL_ENABLE_Msk;
+    __DSB(); __ISB();
+    if (EXTMEM_MemoryMappedMode(EXTMEMORY_1, EXTMEM_ENABLE) != EXTMEM_OK)
+      Error_Handler();
+    Secure_TraceHex("[SECURE] XIP NonSecure vector = ", cached_non_secure_vector);
+  }
+  SecureFirmwareUpdate_SetExecutionVector(cached_non_secure_vector);
+  SCB_NS->VTOR = cached_non_secure_vector;
   __TZ_set_MSP_NS(cached_non_secure_msp);
   non_secure_reset_handler =
       (funcptr_NS)cached_non_secure_reset_handler;

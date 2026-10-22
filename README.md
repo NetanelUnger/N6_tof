@@ -1,5 +1,12 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Experimental XIP branch (2026-10-22): explicit physical A/B link targets, signed
+execution contracts and Secure RAM flash gating build/sign successfully. Static
+heap capacity rises to862256 bytes; actual XIP/USB/OTA hardware acceptance is
+BLOCKED by ST-LINK/CDC recovery. A reset/read backup failed; NOR backup is not
+validated and current board runtime is unverified. Main was not changed or pushed.
+See the [Hebrew design, evidence and recovery guide](docs/xip-ota-usb-20261022_HE.md).
+
 Platform upgrade M1-M7 completed (2026-10-21): projects/classes, shared lossless
 USB/BLE/Cloud capture, two measured classifiers on the real NPU, guarded RAM
 loading, exact HIL-bound package-only release and BAT/UI checks.40 host/native

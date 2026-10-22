@@ -195,6 +195,8 @@ uint32_t SecureFirmwareUpdate_Begin(const FW_UpdateManifest_t *manifest_ns,
   Secure_TraceHex("[SECURE-UPDATE] HAL tick = ", HAL_GetTick());
 
   if ((manifest_ns == NULL) || (session_ns == NULL) ||
+      ((uintptr_t)manifest_ns < FW_NS_RAM_START) ||
+      ((uintptr_t)manifest_ns > FW_NS_RAM_END - sizeof(manifest)) ||
       (secure_flash_ready == 0U) || (secure_update.active != 0U))
   {
     Secure_Trace("[SECURE-UPDATE] Begin rejected by entry state check\r\n");
@@ -264,6 +266,12 @@ uint32_t SecureFirmwareUpdate_Begin(const FW_UpdateManifest_t *manifest_ns,
     return SECURE_FW_UPDATE_ERROR_PARAMETER;
   }
 
+  if (FW_ExecutionMatchesSlot(manifest.flags, secure_update.target_slot) == 0U)
+  {
+    secure_update_clear();
+    return SECURE_FW_UPDATE_ERROR_PARAMETER;
+  }
+
   secure_update_next_session++;
   if (secure_update_next_session == 0U)
   {
@@ -296,6 +304,8 @@ uint32_t SecureFirmwareUpdate_Write(uint32_t session,
   }
   if ((data_ns == NULL) || (length == 0U) ||
       (length > SECURE_UPDATE_CHUNK_MAX) ||
+      ((uintptr_t)data_ns < FW_NS_RAM_START) ||
+      ((uintptr_t)data_ns > FW_NS_RAM_END - length) ||
       (length > (secure_update.manifest.image_size -
                  secure_update.bytes_written)) ||
       (cmse_check_address_range((void *)data_ns, length,
@@ -364,15 +374,10 @@ static uint32_t secure_validate_stm32_image(uint32_t slot_offset,
     return 0U;
   }
 
+  uint32_t slot = (slot_offset == FW_SLOT_A_OFFSET) ? FW_SLOT_A : FW_SLOT_B;
   if ((magic != FW_STM32_IMAGE_MAGIC) ||
-      (expected_size < FW_STM32_IMAGE_PREFIX_SIZE) ||
-      (expected_size > FW_SLOT_SIZE) ||
-      (signed_size > (FW_SLOT_SIZE - FW_STM32_IMAGE_PREFIX_SIZE)) ||
-      (signed_size != (expected_size - FW_STM32_IMAGE_PREFIX_SIZE)) ||
-      (msp <= NONSECURE_RAM_START) || (msp > NONSECURE_RAM_END) ||
-      ((msp & 0x7U) != 0U) || ((reset_handler & 1U) == 0U) ||
-      ((reset_handler & ~1UL) < NONSECURE_RAM_START) ||
-      ((reset_handler & ~1UL) >= NONSECURE_RAM_END))
+      (FW_ImageVectorsAreValid(secure_update.manifest.flags, slot, expected_size,
+                                signed_size, msp, reset_handler) == 0U))
   {
     return 0U;
   }
@@ -524,4 +529,87 @@ static void secure_update_clear(void)
 {
   (void)memset(&secure_update, 0, sizeof(secure_update));
   (void)memset(secure_flash_buffer, 0, sizeof(secure_flash_buffer));
+}
+
+/* Secure code, constants, stack, drivers and timebase live in SRAM1. Only
+ * Non-Secure interrupts are masked; Secure SysTick keeps HAL timeouts bounded.
+ * State is established before the NS jump, never inferred from mutable VTOR_NS. */
+static uint32_t secure_xip_active;
+static uint32_t secure_flash_gate;
+static uint32_t secure_saved_primask_ns;
+
+void SecureFirmwareUpdate_SetExecutionVector(uint32_t vector)
+{
+  secure_xip_active = ((vector == FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET + FW_STM32_IMAGE_VECTOR_OFFSET) ||
+                       (vector == FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET + FW_STM32_IMAGE_VECTOR_OFFSET));
+}
+
+static uint32_t secure_dma_uses_external(DMA_Channel_TypeDef *first, uintptr_t stride)
+{
+  for (uint32_t i = 0U; i < 16U; ++i)
+  {
+    DMA_Channel_TypeDef *channel = (DMA_Channel_TypeDef *)((uintptr_t)first + i * stride);
+    if (((channel->CCR & DMA_CCR_EN) != 0U) &&
+        ((channel->CSAR >= 0x60000000UL) || (channel->CDAR >= 0x60000000UL) ||
+         (channel->CLLR != 0U))) return 1U;
+  }
+  return 0U;
+}
+
+uint32_t SecureFirmwareUpdate_EnterFlash(void)
+{
+  if ((secure_flash_gate != 0U) ||
+      ((SCB->AIRCR & SCB_AIRCR_BFHFNMINS_Msk) != 0U))
+    return SECURE_FW_UPDATE_ERROR_STATE;
+  HAL_ResumeTick();
+  secure_saved_primask_ns = __TZ_get_PRIMASK_NS();
+  __TZ_set_PRIMASK_NS(1U);
+  __DSB(); __ISB();
+  if ((secure_xip_active != 0U) &&
+      (((__HAL_RCC_GPDMA1_IS_CLK_ENABLED() != 0U) &&
+        (secure_dma_uses_external(GPDMA1_Channel0,
+           (uintptr_t)GPDMA1_Channel1 - (uintptr_t)GPDMA1_Channel0) != 0U)) ||
+       ((__HAL_RCC_HPDMA1_IS_CLK_ENABLED() != 0U) &&
+        (secure_dma_uses_external(HPDMA1_Channel0,
+           (uintptr_t)HPDMA1_Channel1 - (uintptr_t)HPDMA1_Channel0) != 0U))))
+  {
+    HAL_SuspendTick();
+    __TZ_set_PRIMASK_NS(secure_saved_primask_ns);
+    return SECURE_FW_UPDATE_ERROR_STATE;
+  }
+  secure_flash_gate = 1U;
+  if (secure_xip_active != 0U)
+  {
+    SCB_CleanInvalidateDCache();
+    __DSB();
+    if (EXTMEM_MemoryMappedMode(EXTMEMORY_1, EXTMEM_DISABLE) != EXTMEM_OK)
+    {
+      /* The controller state is uncertain; try to re-establish the executable
+       * mapping before any NS return. LeaveFlash fails closed if it cannot. */
+      SecureFirmwareUpdate_LeaveFlash();
+      return SECURE_FW_UPDATE_ERROR_FLASH;
+    }
+  }
+  return SECURE_FW_UPDATE_OK;
+}
+
+void SecureFirmwareUpdate_LeaveFlash(void)
+{
+  if (secure_flash_gate == 0U) return;
+  if (secure_xip_active != 0U)
+  {
+    if (EXTMEM_MemoryMappedMode(EXTMEMORY_1, EXTMEM_ENABLE) != EXTMEM_OK)
+    {
+      /* Do not run an NS callback or return to unmapped Flash. Recovery uses
+       * ST-LINK/ROM, with the confirmed slot untouched. */
+      for (;;) { __WFI(); }
+    }
+    SCB_CleanInvalidateDCache();
+    SCB_InvalidateICache();
+    __DSB(); __ISB();
+  }
+  HAL_SuspendTick();
+  secure_flash_gate = 0U;
+  __TZ_set_PRIMASK_NS(secure_saved_primask_ns);
+  __ISB();
 }

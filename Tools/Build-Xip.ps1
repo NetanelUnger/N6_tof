@@ -1,0 +1,128 @@
+param(
+    [Parameter(Mandatory=$true)][ValidateSet('A','B')][string]$Slot,
+    [Parameter(Mandatory=$true)][ValidateRange(1,[uint32]::MaxValue)][uint32]$FirmwareVersion,
+    [ValidatePattern("^[a-zA-Z0-9-]*$")][string]$Label = ""
+)
+$ErrorActionPreference = 'Stop'
+$root = Split-Path -Parent $PSScriptRoot
+function Assert-XipBranch {
+    if ((& git -c "safe.directory=$root" -C $root branch --show-current) -ne 'feature/n6-xip-ota-usb') {
+        throw 'XIP builds require feature/n6-xip-ota-usb. No main writes are permitted.'
+    }
+}
+Assert-XipBranch
+. (Join-Path $PSScriptRoot 'N6-DevCommon.ps1')
+$tools = Get-N6DevelopmentTools
+Enable-N6DevelopmentToolPath $tools
+Assert-N6NonSecureBuildSafety $root
+$headers = @('Common/Update/firmware_build_version.h','AppliNonSecure/Core/Inc/w61_driver_config.h',
+    'FSBL/.settings/language.settings.xml','AppliSecure/.settings/language.settings.xml',
+    'AppliNonSecure/.settings/language.settings.xml')
+$saved = @{}
+foreach ($relative in $headers) { $saved[$relative] = [IO.File]::ReadAllBytes((Join-Path $root $relative)) }
+$suffix = if ($Label) { "-$Label" } else { "" }
+$output = Join-Path $root ".local-dependencies/xip/v$FirmwareVersion-$Slot$suffix"
+if (Test-Path (Join-Path $output 'build.json')) { throw 'Immutable build already exists; choose another version or archive explicitly.' }
+New-Item -ItemType Directory -Force $output | Out-Null
+$settings = [IO.File]::ReadAllText((Join-Path $root 'AppliNonSecure/Core/Inc/app_settings.h'))
+if ($settings -notmatch '#define APP_SETTINGS_WRITES_ENABLED 0U' -or
+    $settings -notmatch '#define APP_SETTINGS_TRANSITION_ENABLED 0U') { throw 'Settings writes must remain disabled.' }
+try {
+    Assert-XipBranch
+    $versionText = [Text.Encoding]::UTF8.GetString($saved[$headers[0]])
+    $versionText = [regex]::Replace($versionText,'(NATI_LAB_FIRMWARE_VERSION\s+\()\d+(UL\))',"`${1}$FirmwareVersion`${2}")
+    $versionText = [regex]::Replace($versionText,'(NATI_LAB_FIRMWARE_VERSION_TEXT\s+")\d+(")',"`${1}$FirmwareVersion`${2}")
+    [IO.File]::WriteAllText((Join-Path $root $headers[0]),$versionText,[Text.UTF8Encoding]::new($false))
+    $config = [Text.Encoding]::UTF8.GetString($saved[$headers[1]])
+    $config = $config.Replace('#define W61_CONFIG_PRESERVE       (0)','#define W61_CONFIG_PRESERVE       (1)')
+    if ($config -notmatch '#define W61_CONFIG_PRESERVE\s+\(1\)') { throw 'Cannot establish preserve-settings build.' }
+    [IO.File]::WriteAllText((Join-Path $root $headers[1]),$config,[Text.UTF8Encoding]::new($false))
+    # First use: generate makefiles in an isolated IDE workspace, never the main workspace.
+    if (-not (Test-Path (Join-Path $root 'AppliNonSecure/Debug/makefile'))) {
+        $workspace = Join-Path $root '.local-dependencies/ide-workspace'
+        & (Join-Path $tools.IdeRoot 'headless-build.bat') -data $workspace `
+            -import (Join-Path $root 'FSBL') -import (Join-Path $root 'AppliSecure') `
+            -import (Join-Path $root 'AppliNonSecure') -build N6_FSBL/Debug `
+            -build N6_AppliSecure/Debug -build N6_AppliNonSecure/Debug *> (Join-Path $output 'generate.log')
+        # CubeIDE may trip on its generated Windows drive-colon dependencies.
+        # The direct make steps below repair them and must independently succeed.
+    }
+    foreach ($context in @('FSBL','AppliSecure','AppliNonSecure')) {
+        Assert-XipBranch
+        $build = Join-Path $root "$context/Debug"
+        $makeText = [IO.File]::ReadAllText((Join-Path $build 'makefile'))
+        if (-not $makeText.Contains($root)) { throw "Build provenance does not match worktree: $context" }
+        Repair-N6MakeDependencyFiles -BuildRoot $build -ProjectRoot $root
+        Push-Location $build
+        try {
+            & $tools.Make -j8 "N6_$context.elf" "N6_$context.bin" *> (Join-Path $output "$context-build.log")
+            if ($LASTEXITCODE -ne 0) { throw "Build failed: $context" }
+        } finally { Pop-Location }
+    }
+    foreach ($context in @('FSBL','AppliSecure')) {
+        foreach ($extension in @('elf','map','bin')) {
+            Copy-Item (Join-Path $root "$context/Debug/N6_$context.$extension") (Join-Path $output "$context.$extension")
+        }
+        & $tools.SigningTool -bin (Join-Path $output "$context.bin") -nk -of 0x80000000 -t fsbl -o (Join-Path $output "$context-trusted.bin") -hv 2.3 -align -dump (Join-Path $output "$context-trusted.bin") -s *> (Join-Path $output "$context-signing.log")
+        if ($LASTEXITCODE -ne 0) { throw "Boot-chain signing failed: $context" }
+    }
+    # Keep this exact guarded RAM map for a like-for-like before/after budget.
+    Copy-Item (Join-Path $root 'AppliNonSecure/Debug/N6_AppliNonSecure.map') (Join-Path $output 'ram.map')
+    $build = Join-Path $root 'AppliNonSecure/Debug'
+    $base = if ($Slot -eq 'A') {'0x70180000'} else {'0x70280000'}
+    $elf = Join-Path $output 'application.elf'
+    $map = Join-Path $output 'application.map'
+    $bin = Join-Path $output 'application.bin'
+    Push-Location $build
+    try {
+        $linkArgs = @('-o',$elf,'@objects.list',(Join-Path $root 'AppliSecure/Debug/secure_nsclib.o'),
+            '-lm','-l:USBPDCORE_NOPD_CM55_wc32.a','-l:NetworkRuntime1201_CM55_GCC.a','-mcpu=cortex-m55',
+            "-Wl,--defsym=N6_XIP_BASE=$base",'-T'+(Join-Path $root 'AppliNonSecure/STM32N657X0HXQ_XIP.ld'),
+            '--specs=nosys.specs',"-Wl,-Map=$map",'-Wl,--gc-sections','-static',
+            '-L../../Middlewares/ST/STM32_USBPD_Library/Core/lib','-L../AI/Lib','--specs=nano.specs',
+            '-mfpu=fpv5-d16','-mfloat-abi=hard','-mthumb','-Wl,--start-group','-lc','-lm','-Wl,--end-group')
+        & (Join-Path $tools.GnuBin 'arm-none-eabi-gcc.exe') @linkArgs *> (Join-Path $output 'xip-link.log')
+        if ($LASTEXITCODE -ne 0) { throw 'XIP link failed.' }
+        & (Join-Path $tools.GnuBin 'arm-none-eabi-objcopy.exe') -O binary $elf $bin
+        if ($LASTEXITCODE -ne 0) { throw 'XIP binary generation failed.' }
+    } finally { Pop-Location }
+    # Measure actual linker capacity; this is not a live malloc/high-water claim.
+    $budgets = [ordered]@{}
+    foreach ($mode in @('ram','application')) {
+        $text = [IO.File]::ReadAllText((Join-Path $output "$mode.map"))
+        $endMatch = [regex]::Match($text,'(?m)^\s*(0x[0-9a-fA-F]+)\s+PROVIDE \(_end = \.\)')
+        $stackMatch = [regex]::Match($text,'(?m)^\s*(0x[0-9a-fA-F]+)\s+_sstack = ')
+        if (-not $endMatch.Success -or -not $stackMatch.Success) { throw 'Heap bounds absent from map.' }
+        $heap = [Convert]::ToUInt64($stackMatch.Groups[1].Value.Substring(2),16) - [Convert]::ToUInt64($endMatch.Groups[1].Value.Substring(2),16)
+        if ($heap -lt 360KB) { throw 'Preserved 360 KiB heap requirement failed.' }
+        $budgets[$mode] = @{heap_capacity_bytes=$heap;heap_start=$endMatch.Groups[1].Value;stack_limit=$stackMatch.Groups[1].Value}
+    }
+    $binaryBytes = [IO.File]::ReadAllBytes($bin)
+    if ([Text.Encoding]::ASCII.GetString($binaryBytes).IndexOf("Firmware version: $FirmwareVersion") -lt 0) {
+        throw 'Requested version does not appear in the compiled application.'
+    }
+    $trusted = Join-Path $output 'application-trusted.bin'
+    & $tools.SigningTool -bin $bin -nk -of 0x80000000 -t fsbl -o $trusted -hv 2.3 -align -dump $trusted -s *> (Join-Path $output 'signing.log')
+    if ($LASTEXITCODE -ne 0) { throw 'STM32 header signing failed.' }
+    & (Join-Path $PSScriptRoot 'New-FirmwareUpdatePackage.ps1') -Image $trusted `
+        -FirmwareVersion $FirmwareVersion -ExecutionMode "XIP-$Slot" `
+        -Output (Join-Path $output "N6-XIP-$Slot-v$FirmwareVersion.n6fw")
+    & (Join-Path $PSScriptRoot 'Test-XipPackage.ps1') -Package (Join-Path $output "N6-XIP-$Slot-v$FirmwareVersion.n6fw") -ExpectedSlot $Slot -ExpectedVersion $FirmwareVersion | Out-Null
+    $sourceHashes = [ordered]@{}
+    foreach ($relative in (& git -c "safe.directory=$root" -C $root ls-files FSBL AppliSecure AppliNonSecure Common Drivers Middlewares ThirdParty Secure_nsclib)) {
+        if ($relative -match '/\.settings/') { continue }
+        $sourceHashes[$relative] = Get-N6FileSha256 (Join-Path $root $relative)
+    }
+    $sourceHashes['AppliNonSecure/STM32N657X0HXQ_XIP.ld'] = Get-N6FileSha256 (Join-Path $root 'AppliNonSecure/STM32N657X0HXQ_XIP.ld')
+    $hashes = [ordered]@{}
+    foreach ($item in Get-ChildItem $output -File | Where-Object Extension -in '.elf','.map','.bin','.n6fw') {
+        $hashes[$item.Name] = @{sha256=Get-N6FileSha256 $item.FullName;bytes=$item.Length}
+    }
+    $result = [ordered]@{status='BUILT_NOT_INSTALLED';branch='feature/n6-xip-ota-usb';source_commit=(& git -c "safe.directory=$root" -C $root rev-parse HEAD);slot=$Slot;version=$FirmwareVersion;execution_base=$base;ncp_preserve=$true;settings_writes=$false;budgets=$budgets;source_sha256=$sourceHashes;hashes=$hashes}
+    Assert-XipBranch
+    [IO.File]::WriteAllText((Join-Path $output 'build.json'),($result | ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
+    Write-Host "XIP build/package ready: $output. Hardware installation and HIL have not run."
+} finally {
+    Assert-XipBranch
+    foreach ($relative in $headers) { [IO.File]::WriteAllBytes((Join-Path $root $relative),$saved[$relative]) }
+}

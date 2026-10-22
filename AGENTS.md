@@ -26,6 +26,22 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- XIP feature branch checkpoint (2026-10-22): isolated feature/n6-xip-ota-usb
+  from verified80f2b511; main/user plan preserved. Physical-slot XIP linker,
+  signed RAM/A/B execution flags, shared vector checks, FSBL vector-only
+  handoff and Secure SRAM indirect-flash gate build/sign offline. Map heap862256
+  vs matching RAM369008; original guarded recovery heap369136 preserved.
+  No XIP PC/USB/OTA/power-loss HIL acceptance. Preflight demo11 healthy, then
+  debug/CDC connection failures; NOR backup attempt performed reset but read
+  failed, no valid NOR backup. Exact guarded6a6a5d1f... recovery artifacts saved;
+  supported RAM restore failed before download. Current board runtime UNKNOWN.
+  All owned processes/handles/lease released; wait for explicit physical
+  reconnect confirmation in DEV before any further hardware acquisition.
+  No NOR erase/program, OTP, Pair/cache, credential mutation, server change,
+  deployment, merge or push. See docs/xip-ota-usb-20261022_HE.md. This checkpoint
+  is experimental and does not replace the previous validated RAM deliverable.
+
+
 - Platform upgrade M1-M7 package-only acceptance completed2026-10-21. USB20,
   BLE20+5/reconnect1, approved Cloud20/no-browser/reopen/cursor20 PASS. No
   additional Cloud collection. RPS4 and spatial2 each pass100 real NPU frames,
@@ -1170,6 +1186,7 @@ These require explicit review after every Generate Code:
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | OS_CAD_STACK_SIZE maps to N6_USBPD_CAD_STACK_SIZE |
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | UCPD register diagnostics, wake counter, and 250 ms polling fallback |
 | AppliNonSecure/Core/Startup/startup_stm32n657x0hxq.s | Early Debug_UART_StartupTrace calls |
+| AppliNonSecure/Core/Src/system_stm32n6xx_ns.c | Explicit-slot XIP enables instruction cache; preserve on generation. XIP uses the alternative STM32N657X0HXQ_XIP.ld through Build-Xip, not the RAM IDE configuration |
 | FSBL/Core/Src/extmem.c | Exact image-size and dynamic Non-Secure source hooks |
 | FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c/.h | Dynamic A/B source and pre-jump XSPI handover hook; functional vendor edits outside USER blocks |
 | AppliSecure/Core/Src/main.c | Diagnostic trace plus Neural-ART clocks, RIF/RISAF, CACHEAXI, and NPU interrupt ownership |

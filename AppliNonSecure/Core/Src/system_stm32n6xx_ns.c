@@ -172,6 +172,13 @@ void SystemInit(void)
   SCB->VTOR = INTVECT_START;
 #endif  /* USER_VECT_TAB_ADDRESS */
 
+  /* XIP needs instruction caching; retain the existing data-cache policy.
+   * Mutable data is initialized from its Flash LMA by Reset_Handler. */
+  if ((SCB->VTOR == 0x70180400UL) || (SCB->VTOR == 0x70280400UL))
+  {
+    SCB_EnableICache();
+  }
+
   /* Non-secure main application shall call SystemCoreClockUpdate() to update */
   /* the SystemCoreClock variable to insure non-secure application relies on  */
   /* the initial clock reference set by secure application.                   */
