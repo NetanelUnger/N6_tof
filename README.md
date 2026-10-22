@@ -4,10 +4,13 @@ Latest measured2026-10-22: cold A12 XIP runtime HIL100 PASS; full signed USB
 update from XIP A12 to B13 completed498720bytes with automatic boot. Independent
 header-only replay proves confirmed version13 after the first harness closed UART
 too early. CPU PC702CF144/VTOR70280400 measured. B11 is now HOST BACKUP ONLY,
-A12 remains fallback. B13 software reboot refused safely before reset (XSPI1
+B13 is protected during the subsequent A14 OTA (A12 now host backup). B13 software reboot refused safely before reset (XSPI1
 CLKP1); signed A14 fixes the guard/switch, host16+5checks PASS/hardware pending.
-Existing Cloud CLI5commands PASS, zero sensor uploads; full OTA is in progress.
-One natural SPI fault and BLE driver error observed; causes not isolated.
+Existing Cloud CLI5commands PASS; actual OTA498720bytes/488blocks/EOT ACK and
+candidate commit PASS, but B13 reset refused BEFORE SYSRESETREQ. A14 activation
+requires coordinated cold boot; do not resend package. Sensor uploads0.
+SPI fault1, BLE driver errors5/ADV retry exhausted, UART drops21/timeouts2 observed;
+causes not isolated. ToF resumed once; acquired13685->14227/NPU5105->5306/errors0.
 Older board-state paragraphs below are historical. Main unchanged. See
 [current Hebrew usage/recovery guide](docs/xip-current-usage_HE.md).
 

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-22",
-  "status": "USB_XIP_B13_CONFIRMED_CLOUD_CLI_PASS_OTA_A14_IN_PROGRESS",
+  "status": "OTA_EOT_AND_COMMIT_VERIFIED_ACTIVATION_PENDING",
   "branch": "feature/n6-xip-ota-usb",
   "baseline": "80f2b511029be6d87f9e72c32b00515457671f89",
   "image_code_commit": "8f74056c9c01c19504dccbb992952e2c16c409b4",
@@ -1110,9 +1110,25 @@
     "old_B11": "HOST_BACKUP_ONLY; B overwritten by v13",
     "fallback_before_OTA": "A12",
     "SPI_fault_count": 1,
-    "BLE_driver_error_count": 1,
+    "BLE_driver_error_count": 5,
     "causes": "Not isolated",
-    "sensor_cloud_exports": 0
+    "sensor_cloud_exports": 0,
+    "version_response": "version\r\nFirmware version: 13\r\nn6>",
+    "tof_ready": true,
+    "image_route_NONE": true,
+    "sensor_cloud_exports_zero": true,
+    "dataset_off": true,
+    "inactive_slot": "A14 candidate after OTA; A12 now host backup",
+    "debug_uart": "debug uart\r\nDebug UART: initialized=1 queued=4292 sent=4290 dropped=21 queue_full=19 pool_full=19 contention=0 oversize=0 context=0 transport=2 internal=0 timeouts=2 hal_errors=0 in_use=0 capacity=32 high_water=32 stack_bytes=3072 stack_min_free=2860\r\nST-LINK input: rx_overruns=0 rx_errors=0 watch=0 (0=off)\r\nDebug UART test: state=idle kind=none run=0 completed=0 attempted=0 queued_delta=0 sent_delta=0 dropped_delta=0 queue_full_delta=0 pool_full_delta=0 contention_delta=0 oversize_delta=0 timeout_delta=0 hal_error_delta=0 flush=0\r\nST67 logging: submitted=94 buffer_exhaustions=0 interrupt_rejections=0 format_errors=0\r\nn6> ",
+    "npu": "rps status\r\nRPS status: enabled=1 ready=1 frame=537 class=paper class_id=2 confidence_permille=980 scores=-128,-128,123,-123 runs=5306 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> ",
+    "radio": "radio status\r\n[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: ready, advertising: on, link: disconnected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=105782 last_ms=1596280 max_gap_ms=799\r\n  BLE TX pump: last_ms=1596280 max_gap_ms=28980\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=0 op=5 submitted=107 completed=107 deferred=63 stale=1 queue_max=299 ms call_max=534 ms last=0\r\n  NCP recovery: state=0 stage=0 attempts=1 ready=1 failed=0 elapsed=28685 ms owners radio/cloud=0/1 last=0\r\n  SPI fault: count=6 tick=1528893 source=1 phase=1 len=36 HAL_error=00000004 SR=0000105a TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=1 pending=1 old_generation=0 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> ",
+    "ToF_resume_command": "tof resume\r\nToF autonomous stream resumed.\r\nn6> ",
+    "BLE": "ble status\r\nBLE GATT: ready, link: disconnected, advertising: on, MTU: 23\r\nBLE advertising desired: on; manager init 1/0 fail, advertising 5/3 fail, disconnect fail 0, driver errors 5 (last 2)\r\nBLE ADV evidence: UNKNOWN (not RF proof), retry 3/3; mode/link confirmed 1/1, recovery pending 0\r\nBLE probes: mode 52, link 52, failed 1, corrected 0, last tick 1593400/status 0; BLE repair 0/0 fail; ADV exhausted 1\r\nBLE init stage: 14, last W6X status: 0\r\nName: N6-MAINT-B8FB\r\nAddress: 40:82:7B:03:B8:FB\r\nCLI TX notifications: off; DEBUG TX notifications: off; ToF image notifications: off\r\nStream transport: ready, generation 1, ATT payload 20 bytes\r\nRadio SRAM4 pool: 4300 bytes available, 34 fragments\r\nCLI RX: queued 0/0 high-water, accepted 0 events/0 bytes, dropped 0/0\r\nCLI TX: queued 0/0 high-water, accepted 0 messages/0 bytes, sent 0, dropped 0/0, retries 0, errors 0\r\nCLI TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nDEBUG RX: disabled by policy, dropped 0 events/0 bytes\r\nDEBUG TX: queued 0/0 high-water, accepted 0 messages/0 bytes, sent 0, dropped 0/0, retries 0, errors 0\r\nDEBUG TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nStale generation drops: CLI 0, DEBUG 0; total GATT writes 0, discarded bytes 0\r\nToF image: submitted 0, complete 0, busy drops 0, aborted 0; fragments 0, payload bytes 0, retries 0, errors 0; last 0/0\r\nToF TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nn6> ",
+    "BLE_health": "NOT_ACCEPTED: ADV retry exhausted, RF not proven",
+    "acquired_before_resume": 13685,
+    "acquired_after_resume": 14227,
+    "NPU_runs_before_resume": 5105,
+    "NPU_runs_after_resume": 5306
   },
   "USB_full_update_from_XIP": {
     "aggregate_passed": true,
@@ -1160,12 +1176,60 @@
     "evidence": ".local-dependencies/xip/cloud-probe-b13-pathfixed/result.json"
   },
   "OTA_current": {
-    "state": "IN_PROGRESS",
-    "source": "B13 confirmed",
-    "target": "A14",
-    "fallback_protected": "B13",
-    "no_whole_transfer_retry": true,
-    "uart_capture": "DTR/RTSoff; no serial writes",
-    "hardware_lease": "n6-xip-live-1959"
-  }
+    "mode": "OTA_UPDATE",
+    "sourceVersion": 13,
+    "targetVersion": 14,
+    "packageBytes": 498720,
+    "packageSha256": "ca60030663b4919d4aa72a5263ac20942d9ddebcc32eb21310b2d20c7dcbb778",
+    "probePassed": true,
+    "lastSubmitted": {
+      "sequence": 489,
+      "offset": 498720,
+      "completed": true
+    },
+    "percent": 100,
+    "eotAcknowledged": true,
+    "targetRunning": false,
+    "passed": false,
+    "error": null,
+    "postUpdateError": null,
+    "blocker": "Candidate EOT acknowledged; target boot not established. Inspect USB/UART before retry/reset.",
+    "connectionClosed": true,
+    "candidate_commit_UART": true,
+    "reset_refusal_UART": true,
+    "protected_confirmed_image": "B13",
+    "sensor_stream_requested": false,
+    "new_credentials": false,
+    "server_changed": false,
+    "uart_sha256": "7527664e592a118ff39d4a1add0d0678b445bbbd1ac9267f6822fc5b5c784d75",
+    "raw_metadata_bank_read": false,
+    "whole_transfer_retry": false
+  },
+  "measured_dynamic_memory_partial": {
+    "debug_UART_thread_stack_bytes": 3072,
+    "debug_UART_stack_min_free": 2860,
+    "scope": "only UART thread; not all-thread stack/heap high-water",
+    "UART_drops": 21,
+    "UART_timeouts": 2,
+    "critical_commit_and_reset_refusal_lines_captured": true
+  },
+  "host_followup_checks": {
+    "reset_actual_C": 16,
+    "update_drain": 5,
+    "Secure_boot_vector_cases": 21,
+    "Secure_scenario_groups": 5,
+    "recovery_reader_mocked": 10,
+    "bootchain_writer_mocked": 5,
+    "import_denial_tests": 7,
+    "new_python_helper_imports_effects": 0,
+    "node_preflight_effects": 0,
+    "Cloud_sender_simulation": "488CRCblocks, sequence wrap, NAK, padding/EOT; same actual A14 package"
+  },
+  "remaining_acceptance": [
+    "A14 actual boot/confirmation and corrected clock-reset hardware proof",
+    "full OTA including activation",
+    "persistent restart with A14",
+    "new-chain forced rollback and physical power-loss coverage",
+    "full dynamic heap/stack high-water and larger-model memory validation"
+  ]
 }

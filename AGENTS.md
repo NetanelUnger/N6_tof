@@ -31,10 +31,15 @@ Work must be technically correct and educational. Explain in Hebrew what changed
  CPU PC702CF144/VTOR70280400. First update harness false result retained:
  UART closed too early; separate confirmation supersedes that gap. Interrupted
  valid-manifest/768image-byte transfer preserved A12. B11 now HOST BACKUP ONLY;
- A12 remains fallback. B13 reboot refused BEFORE reset on XSPI1SEL1=CLKP.
+ A12 was fallback before OTA; A14 OTA now overwrites A, confirmed B13 protected.
+ B13 reboot refused BEFORE reset on XSPI1SEL1=CLKP.
  A14 fixes guarded RAM routine, signed/offline verified;16+5host cases PASS,
- not hardware proven. Cloud CLI5commands PASS/no sensor images; OTA in progress.
- One SPI fault/BLE driver error observed. No SWD attach during running NS.
+ not hardware proven. Cloud CLI5commands PASS/no sensor images; OTA498720bytes/
+ 488blocks/EOT ACK and candidate commit PASS; reset refused BEFORE SYSRESETREQ.
+ A14 activation pending physical cold boot; DO NOT resend. tof resume once,
+ acquired13685->14227/NPU5105->5306/errors0. UART drops21/timeouts2, UART stack
+ minfree2860/3072 only. SPI fault1/BLE driver errors5+ADV retry exhausted;
+ BLE health NOT accepted. No SWD attach during running NS.
  Older recorder/DEV/noUSB states below historical. Main80f2b511 untouched.
 
 - Host-only recorder recovery2026-10-22: PID35376 disappeared before deadline,
