@@ -26,6 +26,15 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Reconnect check23:24UTC: still B13, PONG uptime9800228ms (consistent with
+ previous uninterrupted runtime), A14 boot/confirmation NOT observed. AppCOM8 and
+ STLINKCOM6 enumerate; only USB read status, no UART/debug/reset/write/update.
+ ToFready/NPU35817/errors0/Cloudsent0/datasetoff/imageNONE. SPI17/NCP2ready0fail/
+ BLEdriver8 observed; no cause proven, no RF success claimed. A14 last known pending
+ after prior full OTA commit, no fresh metadata bank read. Need user readiness,
+ then verified passive recorder and actual all-sources cold boot, FLASH both1-2.
+ No recorder active; do not resend OTA or attach SWD to running NS.
+
 - Latest XIP2026-10-22: FLASH jumpers both1-2, confirmed B13 runs after signed
  498720byte USB update from XIP A12. Header-only replay reports confirmed13;
  CPU PC702CF144/VTOR70280400. First update harness false result retained:

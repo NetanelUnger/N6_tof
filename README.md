@@ -1,5 +1,13 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+23:24UTC reconnect check: USB still reports B13, PONG uptime9800228ms, consistent
+with uninterrupted previous runtime. A14 boot/confirmation NOT observed; no prior
+boot recorder existed. ToF ready/NPU35817/errors0/imageNONE/Cloudsent0/datasetoff.
+SPI fault count17/NCP recovery2ready0failed/BLEdriver8 observed; cause not isolated.
+Only USB status reads this turn; no reset/debugger/OTA retransmit. Need coordinated
+actual all-sources cold power-on in FLASH after user readiness and recorder ready.
+No recorder active at end. Earlier checkpoints below remain historical evidence.
+
 Latest measured2026-10-22: cold A12 XIP runtime HIL100 PASS; full signed USB
 update from XIP A12 to B13 completed498720bytes with automatic boot. Independent
 header-only replay proves confirmed version13 after the first harness closed UART
