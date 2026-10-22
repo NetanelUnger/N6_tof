@@ -34,8 +34,13 @@ class GdbMI:
         self.lines = queue.Queue()
         self.log = log
         self.token = 0
+        self.running = False
         def read():
             for line in self.process.stdout:
+                if line.startswith('*running'):
+                    self.running = True
+                elif line.startswith('*stopped'):
+                    self.running = False
                 self.log.write(line)
                 self.log.flush()
                 self.lines.put(line.rstrip())
@@ -58,6 +63,8 @@ class GdbMI:
     def command(self, command, timeout=15):
         self.token += 1
         token = str(self.token)
+        self.log.write('>> ' + token + command + '\n')
+        self.log.flush()
         self.process.stdin.write(token + command + '\n')
         self.process.stdin.flush()
         result = self.until(lambda line: line.startswith(token + '^'), timeout)
@@ -104,9 +111,14 @@ def read_at_prepare(mi, fsbl, output, symbols):
         mi.console('file ' + fsbl.as_posix())
         mi.command('-target-select extended-remote localhost:61444')
         pc = mi.value('$pc')
+        evidence['initial_pc'] = hex(pc)
+        if not 0x18000000 <= pc < 0x18040000:
+            # In NS runtime even a diagnostic Secure-alias read can fail the
+            # debug transport. Reject from the PC alone before reading BOOTSR.
+            raise RuntimeError('Requires verified DEV Boot ROM; refusing RAM load')
         bootsr = mi.value('*(unsigned int*)0x56008100')
-        evidence.update(initial_pc=hex(pc), bootsr=bootsr)
-        if not 0x18000000 <= pc < 0x18040000 or bootsr & 3 != 2:
+        evidence['bootsr'] = bootsr
+        if bootsr & 3 != 2:
             raise RuntimeError('Requires verified DEV Boot ROM; refusing RAM load')
         mi.console('load', timeout=30)
         loaded = True
@@ -125,7 +137,7 @@ def read_at_prepare(mi, fsbl, output, symbols):
         for name in ('nor-first.bin', 'nor-second.bin'):
             mi.console('dump binary memory ' + (output / name).as_posix() +
                        ' 0x70000000 0x70400000', timeout=30)
-        if mi.value('(int)EXTMEM_MemoryMappedMode(0,0)') != 0:
+        if mi.value('(int)EXTMEM_MemoryMappedMode(0,EXTMEM_DISABLE)') != 0:
             raise RuntimeError('Unmap failed; FSBL remains parked')
         first = (output / 'nor-first.bin').read_bytes()
         second = (output / 'nor-second.bin').read_bytes()
@@ -138,10 +150,12 @@ def read_at_prepare(mi, fsbl, output, symbols):
         if loaded:
             # Interactive MI remains alive after a missing symbol or failed
             # memory read. Never detach unless parking was read back.
-            try:
-                mi.command('-exec-interrupt --all', timeout=3)
-            except Exception:
-                pass
+            if getattr(mi, 'running', False):
+                try:
+                    mi.command('-exec-interrupt --all', timeout=3)
+                    mi.until(lambda line: line.startswith('*stopped'), timeout=3)
+                except Exception:
+                    pass
             mi.console('set $pc = 0x%x' % symbols['Error_Handler'])
             if mi.value('$pc') != symbols['Error_Handler']:
                 raise RuntimeError('Cannot verify Secure parking; no detach sent')

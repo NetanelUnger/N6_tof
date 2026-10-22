@@ -50,6 +50,9 @@ class FakeMI:
             return 2
         if value == '(int)MapMemory()' and self.fail == 'symbol':
             raise RuntimeError('No symbol MapMemory')
+        if value.startswith('(int)EXTMEM_MemoryMappedMode'):
+            if value != '(int)EXTMEM_MemoryMappedMode(0,EXTMEM_DISABLE)':
+                raise AssertionError('Enable is 0; cleanup must use the vendor DISABLE enum')
         return 0
 
 
@@ -67,6 +70,7 @@ class RecoveryReaderTests(unittest.TestCase):
         park = 'set $pc = 0x34180020'
         self.assertEqual(mi.calls[-3:], [park, '$pc', '-target-detach'])
         self.assertEqual(mi.calls.count('-exec-continue'), 1)
+        self.assertNotIn('-exec-interrupt --all', mi.calls)
 
     def test_missing_symbol_stays_interactive_and_parks(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -92,6 +96,7 @@ class RecoveryReaderTests(unittest.TestCase):
                 self.run_reader(mi, Path(tmp))
             self.assertNotIn('load', mi.calls)
             self.assertNotIn('-exec-continue', mi.calls)
+            self.assertNotIn('*(unsigned int*)0x56008100', mi.calls)
 
     def test_unverified_park_never_sends_detach(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -150,6 +155,20 @@ class RecoveryReaderTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('Missing FSBL symbol', result.stderr)
             self.assertFalse(output.exists())
+
+    def test_vendor_disable_enum_from_actual_fsbl_dwarf(self):
+        fsbl = MODULE.parents[1] / '.local-dependencies/xip/v12-A-no-export/FSBL.elf'
+        plugins = Path('C:/ST/STM32CubeIDE_2.2.0/STM32CubeIDE/plugins')
+        paths = list(plugins.glob('com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.*/tools/bin/arm-none-eabi-gdb.exe'))
+        if not fsbl.exists() or not paths:
+            self.skipTest('local FSBL/GDB unavailable')
+        mi = reader.GdbMI(paths[0], io.StringIO())
+        try:
+            mi.console('file ' + fsbl.as_posix())
+            self.assertEqual(mi.value('(int)EXTMEM_ENABLE'), 0)
+            self.assertEqual(mi.value('(int)EXTMEM_DISABLE'), 1)
+        finally:
+            mi.close()
 
 
 if __name__ == '__main__':

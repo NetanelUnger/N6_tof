@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-22",
-  "status": "BLOCKED_PHYSICAL_RESET_DID_NOT_RESTORE_AP1",
+  "status": "BLOCKED_AFTER_HOST_IMPORT_TRIGGERED_NS_DEBUG_ATTACH",
   "branch": "feature/n6-xip-ota-usb",
   "baseline": "80f2b511029be6d87f9e72c32b00515457671f89",
   "image_code_commit": "8f74056c9c01c19504dccbb992952e2c16c409b4",
@@ -201,7 +201,35 @@
     "current_guarded_ram_companion_heap_bytes": 369136,
     "xip_heap_bytes": 862256,
     "original_ram_artifact_and_ordinary_debug_hashes_preserved": true,
-    "matching_ram_installer_health": "PASS USB/ToF/NPU/radio; image route NONE, sensor sent0; Wi-Fi restored with existing pairing"
+    "matching_ram_installer_health": "PASS USB/ToF/NPU/radio; image route NONE, sensor sent0; Wi-Fi restored with existing pairing",
+    "actual_XIP_application_operation": {
+      "main_proof": {
+        "pc": "0x70191588",
+        "lr": "0x701a1817",
+        "sp": "0x24200000",
+        "slot": "A",
+        "version": 12,
+        "run_authorized": true,
+        "no_NS_image_RAM_copy": true
+      },
+      "application_startup": "PASS",
+      "boot_confirmation_UART_tick_ms": 10208,
+      "boot_confirmation": "PASS normal Secure service and its metadata readback while XIP executes",
+      "observed_pretrial_record": "seq31/PENDING2/confirmedB11/pendingA12",
+      "expected_after_confirmation": "seq33/CONFIRMED/A12/fallbackB11; independent read pending",
+      "USB_version": 12,
+      "ToF_frame": 143,
+      "NPU_runs": 56,
+      "NPU_errors": 0,
+      "inference_ms": 4,
+      "BLE": "GATT ready/advertising ACK/disconnected; RF/reconnect NOT_RUN",
+      "image_route": "NONE",
+      "dataset": "off",
+      "Cloud_ToF_sent_at_tick20162": 0,
+      "later_UART": "WiFi IP acquired; HTTP409 workspace_inactive; no Cloud stream requested",
+      "weights_UART": "55425bytes copied to SRAM6",
+      "runtime_at_end": "UNKNOWN after accidental debugger attach"
+    }
   },
   "tests": {
     "initial_commands": [
@@ -317,7 +345,8 @@
       "backup.py noninteractive GDB block timeout; corrected with command file",
       "backup2.py unsupported monitor reset-halt syntax rejected; removed while DEV ROM verified",
       "XIP trial debugger detach E31 after intentional AIRCR reset; actual Flash PC evidence retained"
-    ]
+    ],
+    "recovery_MI_host": "10PASS; actual double-read/guard PASS; initial cleanup failed then corrected manually on hardware"
   },
   "transport_acceptance": {
     "USB": {
@@ -326,31 +355,32 @@
       "bytes": 498336,
       "package_sha256": "6861ba66f5222043683f76730c3dd502b01200cc6d152b306d1a3a79f8b66f24",
       "trial_boot_to_flash_main": "PASS",
-      "boot_confirmation": "NOT_RUN intentional reset first",
-      "update_while_executing_XIP": "NOT_RUN",
-      "both_directions": "NOT_RUN"
+      "boot_confirmation": "PASS UART10208 normal XIP service; independent post-confirm record read pending",
+      "update_while_executing_XIP": "Full package NOT_RUN; normal boot-confirmation metadata erase/program from XIP PASS",
+      "both_directions": "NOT_RUN",
+      "latest_restage_after_verified_rollback": "PASS498336bytes signedA12"
     },
     "OTA": {
       "existing_sender_simulation": "PASS from prior phase",
       "actual_server_device_transfer_boot": "NOT_RUN"
     },
-    "BLE_ToF_NPU_USB_xip_regressions": "NOT_RUN (RAM installer health is separate)",
-    "hardware_rollback_interruption_corrupt_packages": "Actual pre-confirm reset then FSBL authenticated rollback B11 observed; independent metadata dump and corrupted/interrupted transfer hardware tests still incomplete",
+    "BLE_ToF_NPU_USB_xip_regressions": "Basic XIP runtime PASS;100-frame oracle/BLE RF/long soak NOT_RUN",
+    "hardware_rollback_interruption_corrupt_packages": "Rollback independently PASS seq30 CRC/B11 hash and entire1MiB preservation. Corrupt/interrupted transfers NOT_RUN.",
     "physical_power_cycle": "Human confirmed full disconnect/reconnect12:45UTC; initial ROM/DEV attach PASS"
   },
   "hardware_block": {
-    "action": "No-reset AP1 attach after confirmed physical RESET",
+    "action": "Recover after unintended NS debug attach caused by host import collision",
     "target": "ST-LINK000C00344142501620353451, NUCLEO-N657X0-Q",
-    "reason": "Physical RESET did not restore AP1; error32 before GDB connection or RAM load. AP0 identifies486/revZ/3.28V but documented NS memory read fails.",
+    "reason": "Secure-alias reads failed, detach E31, USB open blocked; AP1 coreID unavailable before no-reset resume",
     "reset_executed": true,
     "approval_denial": false,
     "rollback_operation_executed": true,
-    "board_runtime": "UNKNOWN; unable to read PC/BOOTSR after human physical RESET",
-    "last_verified_boot_state": "Actual FSBL read TRIAL seq29, committed rollback (internal readback) and authenticated/selected B11; independent seq30 dump not obtained",
+    "board_runtime": "UNKNOWN after debug access failure; last measured A12 XIP operating/boot-confirmed",
+    "last_verified_boot_state": "XIP boot confirmation UART10208; expected seq33/A12/fallbackB11, not independently read",
     "nor_boot_chain_written": false,
     "handles_and_lease_released": true,
-    "pending": "Full removal of all connected supplies and reconnect in DEV, awaiting new human confirmation. Physical RESET result is already measured; do not repeat the same reset sequence. Then use guarded reader first, no legacy app entry.",
-    "root_cause": "UNKNOWN; physical RESET did not restore AP1, unlike prior full-power reconnect. No debug unlock or security change attempted."
+    "pending": "New all-power reconnect in DEV requested. First corrected reader should inspect confirmedA12/fallbackB11, then boot already-stored A12 with matching RAM chain; NO USB rewrite. No NS debugger probe; run no-hardware HIL preflight first.",
+    "root_cause": "Unexpected attach cause PROVEN host import collision; failed NS debug resume mechanism UNPROVEN. Avoid NS debugger probes."
   },
   "persistent_actions": {
     "nor_erase_program_commands_sent": true,
@@ -362,7 +392,7 @@
   "recovery": {
     "artifact_folder": ".local-dependencies/recovery-20261022",
     "guarded_elf_sha256": "6a6a5d1fcd70be9ed1826624b4e3bf97d5ec35758c9f1915772e1fa4b5c8d781",
-    "complete_current_nor_backup_available": true,
+    "complete_current_nor_backup_available": false,
     "before_first_nor_write": [
       "COM/shared ownership and DEV BOOTSR2 verified",
       "Two identical4MiB NOR reads; metadata CRCs and both image hashes/signatures verified",
@@ -400,7 +430,53 @@
     },
     "backup_folder": ".local-dependencies/xip/resume-20261022",
     "recovery_signatures": "PASS independent existing public-key validation B/v11 and A/v10",
-    "known_guarded_ram_restore": "PASS supported loader, original6a6a5d1f...; later matching RAM installer also boots"
+    "known_guarded_ram_restore": "PASS supported loader, original6a6a5d1f...; later matching RAM installer also boots",
+    "independent_rollback_verified": {
+      "bytes": 4194304,
+      "double_read_identical": true,
+      "sha256": "8a7bca4efc889a65b2928b5b8b0dbba46357a1862bb0323e43a31b0b73ffaf30",
+      "records": [
+        {
+          "bank": 0,
+          "words": [
+            1380070990,
+            1,
+            30,
+            1,
+            1,
+            11,
+            4294967295,
+            0
+          ],
+          "crc_valid": true
+        },
+        {
+          "bank": 1,
+          "words": [
+            1380070990,
+            1,
+            29,
+            3,
+            1,
+            11,
+            0,
+            12
+          ],
+          "crc_valid": true
+        }
+      ],
+      "confirmed_slot": "B",
+      "confirmed_version": 11,
+      "newest_sequence": 30,
+      "state": "CONFIRMED",
+      "pending_slot": null,
+      "B_slot_all_1MiB_unchanged": true,
+      "NOR_boot_chain_unchanged": true,
+      "A12_exact_signed_package_payload": true,
+      "cleanup": "Failed: host passed ENABLE0 instead of DISABLE1, then invalid-hex error parking after interrupt. No application continue sent; actual PC after cleanup not yet checked."
+    },
+    "last_complete_backup_available": true,
+    "last_complete_backup_checkpoint": "seq30 before A12 re-stage; image contents preserved, latest metadata changed afterward"
   },
   "npu_assessment": {
     "processed_sensor_grid": [
@@ -484,6 +560,114 @@
       "finding": "ST documents a .stldr DeInit mapped-mode bug causing reprogramming errors needing power cycle. No external loader was used in this failed attach/resume, so causal relevance NOT_ESTABLISHED. Do not infer this is the root cause."
     },
     "pending": "Full removal of all connected supplies and reconnect in DEV, awaiting new human confirmation. Physical RESET result is already measured; do not repeat the same reset sequence. Then use guarded reader first, no legacy app entry.",
+    "handles_and_shared_lease_released": true
+  },
+  "resume_1641": {
+    "starting_commit": "d47d2aad633521ba8c7daeaa46767dfa72023425",
+    "human_full_reconnect_confirmed": true,
+    "initial_AP1_ROM": "PASS PC18003514/BOOTSR2",
+    "independent_rollback_read": {
+      "bytes": 4194304,
+      "double_read_identical": true,
+      "sha256": "8a7bca4efc889a65b2928b5b8b0dbba46357a1862bb0323e43a31b0b73ffaf30",
+      "records": [
+        {
+          "bank": 0,
+          "words": [
+            1380070990,
+            1,
+            30,
+            1,
+            1,
+            11,
+            4294967295,
+            0
+          ],
+          "crc_valid": true
+        },
+        {
+          "bank": 1,
+          "words": [
+            1380070990,
+            1,
+            29,
+            3,
+            1,
+            11,
+            0,
+            12
+          ],
+          "crc_valid": true
+        }
+      ],
+      "confirmed_slot": "B",
+      "confirmed_version": 11,
+      "newest_sequence": 30,
+      "state": "CONFIRMED",
+      "pending_slot": null,
+      "B_slot_all_1MiB_unchanged": true,
+      "NOR_boot_chain_unchanged": true,
+      "A12_exact_signed_package_payload": true,
+      "cleanup": "Failed: host passed ENABLE0 instead of DISABLE1, then invalid-hex error parking after interrupt. No application continue sent; actual PC after cleanup not yet checked."
+    },
+    "reader_teardown": {
+      "initial": "FAIL host used ENABLE0 instead of DISABLE1, returned-3; PC update after unconditional interrupt failed Invalid hex digit83",
+      "actual_followup": "AP1 available, PC34182906/Error_Handler+26, NS vectors0/BOOTSR2; no legacy application entry",
+      "corrected_hardware_cleanup": "PASS actual DISABLE1 returns0; Secure parking PC341828ec readback verified",
+      "actual_nonROM_guard": "PASS refuses RAM load and disconnects",
+      "source_fix": "Use EXTMEM_DISABLE enum, avoid interrupt when halted, log MI commands; reject non-ROM PC before any Secure BOOTSR alias read",
+      "host_tests": "10 PASS including actual FSBL enum DWARF and GDB error recovery"
+    },
+    "guarded_RAM_restore": "PASS matched v12 artifacts, ToF/NPU healthy, imageNONE/ToFsent0/datasetoff",
+    "USB_restage": {
+      "reason": "Independent seq30/B11/no pending allows exact signed A12 re-stage through existing authenticated path",
+      "bytes": 498336,
+      "sha256": "6861ba66f5222043683f76730c3dd502b01200cc6d152b306d1a3a79f8b66f24",
+      "finalization": "PASS",
+      "B_or_boot_chain_written": false
+    },
+    "XIP_runtime": {
+      "main_proof": {
+        "pc": "0x70191588",
+        "lr": "0x701a1817",
+        "sp": "0x24200000",
+        "slot": "A",
+        "version": 12,
+        "run_authorized": true,
+        "no_NS_image_RAM_copy": true
+      },
+      "application_startup": "PASS",
+      "boot_confirmation_UART_tick_ms": 10208,
+      "boot_confirmation": "PASS normal Secure service and its metadata readback while XIP executes",
+      "observed_pretrial_record": "seq31/PENDING2/confirmedB11/pendingA12",
+      "expected_after_confirmation": "seq33/CONFIRMED/A12/fallbackB11; independent read pending",
+      "USB_version": 12,
+      "ToF_frame": 143,
+      "NPU_runs": 56,
+      "NPU_errors": 0,
+      "inference_ms": 4,
+      "BLE": "GATT ready/advertising ACK/disconnected; RF/reconnect NOT_RUN",
+      "image_route": "NONE",
+      "dataset": "off",
+      "Cloud_ToF_sent_at_tick20162": 0,
+      "later_UART": "WiFi IP acquired; HTTP409 workspace_inactive; no Cloud stream requested",
+      "weights_UART": "55425bytes copied to SRAM6",
+      "runtime_at_end": "UNKNOWN after accidental debugger attach"
+    },
+    "hundred_frame_attempt": {
+      "accepted_frames": 0,
+      "stream_ON_sent": false,
+      "result": "NOT_RUN imports failed before serial acquisition",
+      "cause": "Local helper inspect.py shadowed stdlib inspect when dataclasses imported it, executing unintended debugger attach/Secure-alias reads; inspect.signature AttributeError",
+      "retained_PC": "701aedd0/HAL_TIM_IRQHandler from exact ELF",
+      "detach": "E31",
+      "USB_followup": "Open blocked; owned helper terminated",
+      "no_reset_resume": "FAIL AP1 coreID unavailable before run",
+      "fixed": "Renamed probe_dev_rom_attach.py and added main guard; HIL excludes helper directory and verifies stdlib inspect path; --preflight-only validates TensorFlow, original model and contract without hardware; historical probe direct execution disabled",
+      "fixed_host_preflight": "PASS model59f72382.../contract5137ed48...",
+      "root_cause_remaining": "Unexpected attach cause PROVEN host import collision; failed NS debug resume mechanism UNPROVEN. Avoid NS debugger probes."
+    },
+    "pending": "New all-power reconnect in DEV requested. First corrected reader should inspect confirmedA12/fallbackB11, then boot already-stored A12 with matching RAM chain; NO USB rewrite. No NS debugger probe; run no-hardware HIL preflight first. Preserve B11 until a valid persistent A12 boot/recovery is established.",
     "handles_and_shared_lease_released": true
   }
 }

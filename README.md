@@ -1,19 +1,21 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
-XIP16:22 checkpoint (2026-10-22, feature/n6-xip-ota-usb): confirmed physical
-RESET in DEV did not restore AP1; no-reset attach fails error32 before loading
-code. AP0 identifies486/revZ/3.28V, but memory reads fail. No new RAM load, probe
-reset or NOR write this resume. All owned handles/shared lease released. A new
-interactive GDB/MI recovery reader has9 host checks PASS and exact FSBL preflight;
-actual hardware use is pending full-power DEV reconnect. It reads NOR while
-parked in FSBL before boot selection, avoiding legacy app entry on read errors.
-Prior USB A12/flash-main PC70191588 and authenticated rollback to B11 remain
-valid; independent rollback metadata/full XIP runtime/confirmation/OTA/persistent
-boot remain incomplete. Root cause unknown; prior legacy Cloud activity remains
-unverified. Original double4MiB backup hashes rechecked exact; main unchanged.
-See [Hebrew guide](docs/xip-ota-usb-20261022_HE.md),
-[current results](docs/xip-ota-usb-20261022-results.json), and
-[guarded recovery reader](Tools/read_xip_recovery.py).
+XIP16:41 resume (2026-10-22, feature/n6-xip-ota-usb): cold reconnect restored
+AP1/DEV ROM. Independent double4MiB read proves seq30/CONFIRMED/B11/no pending,
+valid CRCs, entire B slot and original NOR boot chain unchanged. Reader cleanup
+enum corrected; disable1 returned0/Secure parking verified. Exact signed A12
+re-staged after verified rollback through USB498336bytes PASS. RAM matching FSBL/
+Secure reached flash main PC70191588; full XIP USB/ToF/NPU56/errors0 PASS, normal
+boot confirmation at tick10208 PASS. ImageNONE/ToFsent0/datasetoff verified.
+100-frame attempt accepted0: helper inspect.py shadowed stdlib and unexpectedly
+attached debugger; NS Secure-alias reads/detachE31 left USB/AP1 unavailable.
+Helper renamed/main-guarded; HIL import path isolated/no-hardware model preflight
+PASS. New cold reconnect pending; no NS debugger probes on next runtime.
+Reader10host tests PASS; all handles/shared lease released. Current runtime UNKNOWN.
+NOR boot chain remains original. OTA/full image update from XIP/persistent boot/
+100-frame/BLE regressions incomplete. Main unchanged. See the
+[Hebrew guide](docs/xip-ota-usb-20261022_HE.md) and
+[current results](docs/xip-ota-usb-20261022-results.json).
 
 Platform upgrade M1-M7 completed (2026-10-21): projects/classes, shared lossless
 USB/BLE/Cloud capture, two measured classifiers on the real NPU, guarded RAM

@@ -26,6 +26,26 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- XIP16:41 resume: AP1/DEV cold attach PASS; independent double4MiB SHA8a7bca4e...
+  seq30/CONFIRMED/B11/no pending/valid CRCs, entire1MiB B and NOR chain unchanged.
+  Host cleanup0 was ENABLE; actual corrected DISABLE1 returns0/Secure parking
+  verified, no legacy entry. Reader corrected/running-aware/MI inputs logged,
+  10host tests PASS; actual nonROM guard refuses before load. Exact A12 re-stage
+  via authenticated USB498336bytes PASS after state proof. RAM matching chain
+  flash main PC70191588; XIP USB/ToF/NPU56/errors0 PASS; boot-confirm UART10208
+  PASS. Expected seq33 confirmedA12/fallbackB11 NOT independently read. ImageNONE/
+  datasetoff/ToFsent0 verified; later WiFi IP/Cloud409 inactive. 100-frame accepted0:
+  local inspect.py shadowed stdlib on dataclasses import and ran unwanted NS
+  debugger probe; Secure reads fail/detachE31/USB blocked/AP1 coreID unavailable.
+  Renamed probe_dev_rom_attach.py/main-guarded; HIL excludes helper dir/asserts
+  stdlib inspect; TensorFlow/oracle/model host preflight PASS. NO NS debugger
+  probes next runtime. Failed NS resume mechanism still unknown. New cold
+  reconnect pending, all handles/shared lease released, runtime UNKNOWN.
+  Do not re-stage A12 blindly: first corrected reader should prove confirmation,
+  then boot stored A12 with matching RAM chain. NOR chain remains original/main
+  unchanged. OTA/USB-package-from-XIP/persistent boot/regressions still open.
+
+
 - XIP16:22 checkpoint: human physical RESET-in-DEV confirmed, no-reset AP1
   attach still error32 before RAM load. AP0 identifies486/revZ/3.28V but NS
   DBGMCU read fails; PC/BOOTSR/runtime unknown. No new RAM load, probe reset or
