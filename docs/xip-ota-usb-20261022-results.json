@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-22",
-  "status": "BLOCKED_WAITING_FRESH_COLD_POWER_CONFIRMATION_CAPTURE_INACTIVE",
+  "status": "COLD_CONFIRMATION_RECEIVED_NO_APP_USB_NEW_PASSIVE_CAPTURE_READY",
   "branch": "feature/n6-xip-ota-usb",
   "baseline": "80f2b511029be6d87f9e72c32b00515457671f89",
   "image_code_commit": "8f74056c9c01c19504dccbb992952e2c16c409b4",
@@ -344,8 +344,8 @@
     "physical_power_cycle": "Human confirmed full disconnect/reconnect12:45UTC; initial ROM/DEV attach PASS"
   },
   "hardware_block": {
-    "action": "Await fresh user cold-power notification; no capture active",
-    "reason": "Prior passive recorder ended unexpectedly before deadline; root cause unknown. No confirmed cold FLASH boot or app runtime.",
+    "action": "Await coordinated cold power step during hardened passive capture",
+    "reason": "User cold confirmation arrived without active recorder; present appUSB absent. No persistent runtime evidence yet.",
     "state": "PENDING_USER_PHYSICAL_ACTION; stale own lease archived using verified host-only mechanism",
     "board_runtime": "UNKNOWN after external-boot NRST, not verified prior parked DEV state",
     "last_verified_app": "A12 XIP/new compatible Secure RAM runtime, ToF/NPU300/errors0, Cloud sent0, datasetoff; all COM/GDB handles closed",
@@ -353,8 +353,8 @@
     "B11_preserved": true,
     "cloud_workspace": "inactive409; do not activate OTA/browser sensor stream before verified A12",
     "next": "Passive UART/USB external boot observation; no NS debug attach; then rejected/cancelled package and full USB/OTA update tests when recovery is established",
-    "handles_and_shared_lease_released": true,
-    "capture_waiting": false
+    "handles_and_shared_lease_released": false,
+    "capture_waiting": "PID31480/session50225, owner n6-xip-passive-cold-1934, deadline19:40:55UTC, DTR/RTSoff"
   },
   "persistent_actions": {
     "nor_erase_program_commands_sent": true,
@@ -987,5 +987,35 @@
       "full_duration_external_executor_soak": "NOT_RUN; deadline tests use a simulated clock. No hardware capture was started."
     },
     "pending": "User must notify before fresh cold test; do not assume old recording is running or auto-rearm. Flash jumpers user-reported1-2/1-2; current runtime and silicon revision remain unresolved."
+  },
+  "cold_confirmation_1934": {
+    "user_confirmation_utc": "2026-10-22T19:34Z",
+    "actual_power_action_time": "UNKNOWN; previous recorder inactive, cold boot not captured",
+    "nonintrusive_inventory": "COM6/STLINK000C00344142501620353451 only; appUSB N6TOF001 absent",
+    "debugger_reset_flash_actions": false,
+    "old_logs": "unchanged; old UART0bytes",
+    "new_capture": {
+      "thread": "n6-xip-passive-cold-1934",
+      "pid": 31480,
+      "started_utc": "2026-10-22T19:35:55.494818+00:00",
+      "scope": "XIP passive COM6 UART capture only; no serial writes, debugger, resets or flash activity",
+      "process_created_utc": "2026-10-22T19:35:55.242884+00:00",
+      "status": "READY",
+      "port": "COM6",
+      "baud": 115200,
+      "serial_number": "000C00344142501620353451",
+      "dtr": false,
+      "rts": false,
+      "maximum_seconds": 300,
+      "serial_writes": 0,
+      "bytes": 0,
+      "waiting_for_physical_change": true
+    },
+    "capture_output": ".local-dependencies/xip/passive-cold-flash-1934/uart.log",
+    "capture_session": 50225,
+    "hardened_code_commit": "ae773f18523fd6c4ae15d66d6cde046dbe7f81c2",
+    "scope": "passive UART only, no serial writes, no debugger/reset/flash. Fresh physical step must follow verified readiness.",
+    "runtime": "UNKNOWN; no application status available, persistent XIP acceptance incomplete",
+    "future_physical_instruction": "Before19:40:55UTC, cold-disconnect all sources then reconnect, retainBOOT0=1-2/BOOT1=1-2; noDEV change; inspect captured logs before any further action"
   }
 }
