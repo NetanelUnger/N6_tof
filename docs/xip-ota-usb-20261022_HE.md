@@ -1,5 +1,57 @@
 # XIP ועדכוני USB / OTA — ענף ניסוי 2026-10-22
 
+## עדכון חומרה — הקבלה עדיין חלקית
+
+ה־checkpoint הראשוני בהמשך מתאר את המצב לפני חיבור הכבל מחדש. מאז התקדם:
+
+- גישה ל־ROM ו־BOOTSR=2 (DEV) אומתה. שתי קריאות NOR של4 MiB זהות; SHA256
+  `cb3d9e4ffee29d832c7ca0cb516f06232dba2c4c5598e77fd6c81ce7feb9f05a`.
+  שני CRCs תקינים וחתימות/hash של B/v11 המאושר ו־A/v10 הקודם אומתו עצמאית.
+  ELF השחזור המקורי גם נטען מחדש והוכיח USB/ToF/NPU ורדיו תקינים.
+- הותקן ב־RAM runtime תואם ויישום התקנה עם heap369136, config-preserve1,
+  settings-writes0 ו־Cloud auto-map0. Wi-Fi קיבל IP וה־pairing הקיים נשמר;
+  destinationNONE, datasetoff, ToFsent0. בדיקת C של auto-map0/1 עברה בשני modes.
+- **כן בוצעה כתיבת Flash מורשית:** נתיב USB/XMODEM המקורי העביר498336 בתים של
+  `N6-XIP-A-v12.n6fw`, SHA256
+  `6861ba66f5222043683f76730c3dd502b01200cc6d152b306d1a3a79f8b66f24`.
+  Secure אימת וכתב רק inactive A ו־metadata חלופי, וסיים finalization בהצלחה.
+  B/v11 ו־FSBL/Secure ב־NOR לא תוכנתו. זה עדיין אינו אישור boot/confirmation.
+- FSBL/Secure תואמים נטענו ל־RAM וה־trial הגיע ל־NS main עם
+  **PC0x70191588, LR0x701A1817, SP0x24200000**. UART הוכיח את רצף ה־startup,
+  vector0x70180400 ו־`no NS code copy`. זו הוכחת XIP אמיתית עד תחילת main;
+  אין עדיין קבלת יישום מלא, tensors/100-frame NPU, heap runtime או cache/MPU
+  readback. קריאות SCS דרך debug alias החזירו0 והן מסומנות inconclusive.
+- בוצע GDB AIRCR reset יזום לפני confirmation. ניסיון rollback הבא לא התחיל:
+  ST-LINK חזר לשגיאה32 גם ב־connect-under-reset. אין להסיק שזהו כשל של reset
+  ב־production/OTA: זהו מסלול בדיקה שונה והסיבה אינה מוכחת. המצב האחרון שאומת
+  הוא trial של A12 עם B11 מאושר שנשמר; מצב הריצה אחרי reset אינו ידוע.
+- כל ידיות החומרה וה־lease שוחררו. נדרשת הודעה מפורשת שכל מקורות המתח נותקו,
+  כולל ST-LINK/CN8/מתח חיצוני אם קיימים, וחוברו שוב ב־DEV. עד אז אין probes
+  נוספים. אין דחיית automatic approval review בסבב הזה.
+
+אחרי החיבור יש קודם להריץ את ה־FSBL החדש ב־RAM ולוודא rollback וכניסה ל־B11
+לפני קוד תצורה; אין להשתמש ב־FSBL הישן כדי לבחון XIP pending. אחר כך אפשר
+לחזור ליישום ההתקנה ב־RAM ולנסות שוב **אותה חבילת A12 בדיוק**, שעדיין לא אושרה
+כגרסה released, או לבחור גרסה גבוהה חדשה באופן מפורש. יש לבדוק XIP מלא ואישור,
+להתקין boot chain תואם רק אחרי אימות recovery, ולעבור פיזית ל־external boot
+לבדיקת reset מתמשך. OTA אמיתי ל־B הבא ובדיקות עדכון תוך כדי XIP עדיין NOT RUN.
+יש לבחור slot לפי metadata טרי: לפני הכתיבה הראשונה B/v11 היה המאושר, ולכן
+ה־builds המוקדמים B12/A13 מתאימים לבדיקה סטטית בלבד ולא היו סדר ההתקנה הנכון.
+
+ה־artifacts שבשימוש נמצאים ב־`.local-dependencies/xip/v12-A-no-export` וב־
+`v13-B-no-export`; ה־RAM companion נשמר כ־ram.elf/bin/map. כל hashes של1080
+קובצי המקור האפקטיביים בשתי הבניות אומתו מול הקוד שנשמר ב־8f74056c. ה־heap
+התואם הוא369136 מול862256 ב־XIP, כלומר493120 בתים סטטיים פנויים יותר. הפעלת
+instruction cache נמצאת כעת ב־Secure handoff, בלי תוספת לקוד startup של RAM.
+ברירת המחדל של דמו ישן נשארה auto-map1; רק builder ה־XIP משתמש ב־auto-map0.
+ה־lease החדש משתמש ב־Git common directory כדי לחלוק בעלות עם ה־checkout
+המקורי, ו־`--scope xip-update` מתעד כתיבות NOR מורשות; אין בכך הרשאת OTP/credentials.
+
+הדוח הנוכחי הוא [results](xip-ota-usb-20261022-results.json). הדוח הישן נשמר
+בנפרד כ־[initial results](xip-ota-usb-20261022-initial-results.json); הטבלאות
+והמספרים בהמשך הם תיעוד של שלב הבנייה הראשוני, ולא מצב החומרה הנוכחי.
+
+
 ## מצב אמיתי
 
 העבודה נמצאת רק ב־`feature/n6-xip-ota-usb`, ב־worktree
@@ -63,7 +115,7 @@ vector words של XIP דרך אזור ה־handoff הקיים ב־SRAM2. הוא �
 ל־slot הפעיל, ומגדיר MPU לקריאה/הרצה בו. RISAF12 מגן על חלון ה־XSPI2 בשלושה
 אזורים שאינם חופפים: prefix Secure, ה־slot הפעיל NS לקריאה בלבד, ו־suffix
 Secure. הגדרות אלה volatile, ללא fuse או lock. XSPI2/XSPIM וה־slot השני אינם נפתחים
-ב־SAU. ה־NS מפעיל instruction cache; מדיניות data cache הקיימת נשמרת.
+ב־SAU. ה־Secure handoff מפעיל את instruction cache של ה־NS; מדיניות data cache הקיימת נשמרת.
 בדיקת SAU/MPU/RIF/attributes בפועל ו־PC sampling עדיין נדרשות על חומרה.
 
 ## כתיבה כשהקוד נמצא באותו שבב NOR

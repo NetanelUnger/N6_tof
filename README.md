@@ -1,12 +1,16 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
-Experimental XIP branch (2026-10-22): explicit physical A/B link targets, signed
-execution contracts and Secure RAM flash gating build/sign successfully. Static
-heap capacity rises to862256 bytes; actual XIP/USB/OTA hardware acceptance is
-BLOCKED by ST-LINK/CDC recovery. A reset/read backup failed; NOR backup is not
-validated and current board runtime is unverified. Main was not changed or pushed.
-See the [Hebrew design, evidence and recovery guide](docs/xip-ota-usb-20261022_HE.md)
-and [sanitized acceptance results](docs/xip-ota-usb-20261022-results.json).
+XIP hardware checkpoint (2026-10-22, separate feature/n6-xip-ota-usb): two identical
+4MiB NOR backups and original B/v11 + A/v10 signatures verified; exact guarded
+RAM recovery succeeds. Existing USB XMODEM authenticated inactive A/v12, then
+RAM-loaded matching FSBL/Secure reached actual XIP main at PC0x70191588.
+Confirmed B/v11 and NOR boot chain were not programmed. Intentional pre-confirm
+GDB reset was followed by ST-LINK error32 even under reset; rollback/confirmation,
+full XIP regressions and OTA remain BLOCKED awaiting explicit full-power DEV
+reconnect. All hardware handles and the shared lease are released. Current runtime
+is unverified. CPU static heap862256 vs matching RAM369136; no extra sensor uploads.
+Main remains unchanged/unpushed. See the [Hebrew guide](docs/xip-ota-usb-20261022_HE.md)
+and [current results](docs/xip-ota-usb-20261022-results.json).
 
 Platform upgrade M1-M7 completed (2026-10-21): projects/classes, shared lossless
 USB/BLE/Cloud capture, two measured classifiers on the real NPU, guarded RAM

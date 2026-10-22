@@ -1,66 +1,67 @@
 {
   "schema": 1,
   "date": "2026-10-22",
-  "status": "BLOCKED_HARDWARE_RECONNECT_PENDING",
+  "status": "BLOCKED_POST_TRIAL_RESET_DEBUG_RECONNECT",
   "branch": "feature/n6-xip-ota-usb",
   "baseline": "80f2b511029be6d87f9e72c32b00515457671f89",
-  "image_code_commit": "e69666c4dc78d6430093b933c0b27c284c9dbe67",
+  "image_code_commit": "8f74056c9c01c19504dccbb992952e2c16c409b4",
   "main_unchanged": true,
   "main_pushed_or_merged": false,
   "server_changes_or_deployment": false,
   "artifacts": [
     {
-      "slot": "B",
+      "slot": "A",
       "version": 12,
-      "folder": ".local-dependencies/xip/v12-B-checked",
-      "source_commit": "e69666c4dc78d6430093b933c0b27c284c9dbe67",
+      "folder": ".local-dependencies/xip/v12-A-no-export",
+      "built_before_commit_record": "dcb04faf6a8dece70bf8171f531bd35065d2dca1",
+      "effective_sources_verified_against_current_commit": true,
       "budgets": {
         "ram": {
-          "stack_limit": "0x241ff800",
-          "heap_capacity_bytes": 369008,
-          "heap_start": "0x241a5690"
+          "heap_start": "0x241a5610",
+          "heap_capacity_bytes": 369136,
+          "stack_limit": "0x241ff800"
         },
         "application": {
-          "stack_limit": "0x241ff800",
+          "heap_start": "0x2412cfd0",
           "heap_capacity_bytes": 862256,
-          "heap_start": "0x2412cfd0"
+          "stack_limit": "0x241ff800"
         }
       },
       "files": {
         "application-trusted.bin": {
-          "sha256": "917B09557B21D2713B19E68C1EB0DC9C9DF8D246A1977108A847744111F7FCE4",
-          "bytes": 498208
+          "sha256": "1F6ED8ECAF1124421DEF02D250B9879681A41056997A5EB6C71BD8DEAD0BC988",
+          "bytes": 498080
         },
         "application.bin": {
-          "sha256": "2D8BF789F27613D9592820FB83B7CD83F1D04D81A8959B3BF603EE39E98B29D6",
-          "bytes": 497180
+          "sha256": "D5E40F722E371D870116392B285D2EDBAAA47F04EB6DF16F015184938093C8B4",
+          "bytes": 497052
         },
         "application.elf": {
-          "sha256": "524C91DFE4A3921B977E81AE1D871A20A2B7EBDDB616A370E9C0FCBE6DB11B7F",
-          "bytes": 9217744
+          "sha256": "00F8E6DDEAD5B1213A7FC62812FCB2822809AFC817836636EF44B6975692A322",
+          "bytes": 9217336
         },
         "application.map": {
-          "sha256": "29429822510F24D252E307CE16BE44775FCEF37E0A162EF4E1FD44A0BE9E9783",
-          "bytes": 5413523
+          "sha256": "2680A399E4D0AA88C09220EB7F1C941FFFC9E89DB1E7CFC1D7F6753D4D71B148",
+          "bytes": 5413485
         },
         "AppliSecure-trusted.bin": {
-          "sha256": "CB9F2AF73B256BE48CDB0D25C9BE1D5198588A3B4CB04D0EB04A47EDC7D8AA07",
-          "bytes": 65376
+          "sha256": "D6E4B6C301E003794EFEBC77490BB14A3A8DB986890C11162BF3672B38619454",
+          "bytes": 65408
         },
         "AppliSecure.bin": {
-          "sha256": "2E808FD9E57970A2A36BF42D99569E32B0F3B2C4953F0F0EDD0221CA905A2B75",
-          "bytes": 64352
+          "sha256": "965DBD58033A6AE652E85FBD561FB736DCBBB66259847C49165F169D3586417C",
+          "bytes": 64384
         },
         "AppliSecure.elf": {
-          "sha256": "20B52B294F436FE9DFA5AD1795D105F5E682ADE4A30CFC1AC2404D16FA94CD4C",
-          "bytes": 3034284
+          "sha256": "1F92A394C5AB4F519E2E85635B0E7BAC5778433F13DFDB3F0292FE024C852EA5",
+          "bytes": 3034444
         },
         "AppliSecure.map": {
-          "sha256": "B2B015A0A4E5181FA514402D912181356B525307A9277E263255F1CE3472CCAE",
-          "bytes": 643260
+          "sha256": "4091BB8AAD8387A6F1374682DFFC114994C21BB73FA6DA85F191AD8E3816719D",
+          "bytes": 643220
         },
         "FSBL-trusted.bin": {
-          "sha256": "F7A526DE5600C3581C3F0ECFFDB37BBEFB61A45327B7806344882E38717DCCA3",
+          "sha256": "DC6072D66CA06CDAC01A120A8BE44405D56E178BA865B8A8F7405CDFFA52DCAB",
           "bytes": 86752
         },
         "FSBL.bin": {
@@ -75,69 +76,78 @@
           "sha256": "67707504488814F1D16098E254CC5710EF7B144E71A75DED584C3568CF233052",
           "bytes": 768060
         },
-        "N6-XIP-B-v12.n6fw": {
-          "sha256": "45DA1ADF5738D8F8EF154D40F6A120FA67B3321581DDA420EDB8BE671AB32C46",
-          "bytes": 498464
+        "N6-XIP-A-v12.n6fw": {
+          "sha256": "6861BA66F5222043683F76730C3DD502B01200CC6D152B306D1A3A79F8B66F24",
+          "bytes": 498336
+        },
+        "ram.bin": {
+          "sha256": "19E27CAC86A60FE2E35E17F7AAB7C657EC602E8439060505DD3BB7717A3918CA",
+          "bytes": 497056
+        },
+        "ram.elf": {
+          "sha256": "A898F9D92AD0D9002F4D9FA7AD8F057315D12DF7ED6688C1896518E2A5F6A4F9",
+          "bytes": 9214828
         },
         "ram.map": {
-          "sha256": "0D8000105E44FBC8A52CFDA60D625AF371280D09055EB598B45447521B0ED53A",
-          "bytes": 5412758
+          "sha256": "21FFA4C836CA709E6B03DE4725A0E92021D560DAA8EDBCDAE7800DDD81229F0C",
+          "bytes": 5412718
         }
       },
       "source_hashes_verified": 1080
     },
     {
-      "slot": "A",
+      "slot": "B",
       "version": 13,
-      "folder": ".local-dependencies/xip/v13-A-checked",
-      "source_commit": "e69666c4dc78d6430093b933c0b27c284c9dbe67",
+      "folder": ".local-dependencies/xip/v13-B-no-export",
+      "built_before_commit_record": "dcb04faf6a8dece70bf8171f531bd35065d2dca1",
+      "effective_sources_verified_against_current_commit": true,
       "budgets": {
         "ram": {
-          "stack_limit": "0x241ff800",
-          "heap_capacity_bytes": 369008,
-          "heap_start": "0x241a5690"
+          "heap_start": "0x241a5610",
+          "heap_capacity_bytes": 369136,
+          "stack_limit": "0x241ff800"
         },
         "application": {
-          "stack_limit": "0x241ff800",
+          "heap_start": "0x2412cfd0",
           "heap_capacity_bytes": 862256,
-          "heap_start": "0x2412cfd0"
+          "stack_limit": "0x241ff800"
         }
       },
       "files": {
         "application-trusted.bin": {
-          "sha256": "5FED4DB94741087BB80FA073FEBBD569525E7EFA9824C051F635ABA662E10D5E",
-          "bytes": 498208
+          "sha256": "CAFCED759EE7C146C31ADA3D9F99B6578E2BCFF0839F727297B74919FF8970FE",
+          "bytes": 498080
         },
         "application.bin": {
-          "sha256": "2D7C794A8D8276C0EC11E4D4D9667A5393756A54238D528E491F303EB4339B3A",
-          "bytes": 497180
+          "sha256": "53FAD514E6FD6059CC52918FF1131E9BC13CE8FDE35DE9FEABB7F319CD0FC320",
+          "bytes": 497052
         },
         "application.elf": {
-          "sha256": "4640A7F368961F0F11AC2BC7590E14D2992C5034A4B1D0EE08370F8D63ECC1AA",
-          "bytes": 9217744
+          "sha256": "0EC32B12BF07AE8726186AAF5FC175994A3A92A103173C140319ACFCC34CC60A",
+          "bytes": 9217336
         },
         "application.map": {
-          "sha256": "779B7A2CB4E15EC13521AE765D494B8BB90A65100ACA73C03474D6254CC3670C",
-          "bytes": 5413523
+          "sha256": "69E21D407900C15447466C741DD30349A40F6EE2CDB171FD4126B41CB05D09E1",
+          "bytes": 5413485
         },
         "AppliSecure-trusted.bin": {
-          "sha256": "90CCEF2A474E10B7DF106521FF4190920E5BDF45203A3605BFF638A3DD03F9F7",
-          "bytes": 65376
+          "sha256": "2C2E3A5F490CAB4C5EE46819832B24CE21786E310234785BA1DF74AB8B66D3BC",
+          "bytes": 65408
         },
         "AppliSecure.bin": {
-          "sha256": "2E808FD9E57970A2A36BF42D99569E32B0F3B2C4953F0F0EDD0221CA905A2B75",
-          "bytes": 64352
+          "sha256": "965DBD58033A6AE652E85FBD561FB736DCBBB66259847C49165F169D3586417C",
+          "bytes": 64384
         },
         "AppliSecure.elf": {
-          "sha256": "20B52B294F436FE9DFA5AD1795D105F5E682ADE4A30CFC1AC2404D16FA94CD4C",
-          "bytes": 3034284
+          "sha256": "1F92A394C5AB4F519E2E85635B0E7BAC5778433F13DFDB3F0292FE024C852EA5",
+          "bytes": 3034444
         },
         "AppliSecure.map": {
-          "sha256": "B2B015A0A4E5181FA514402D912181356B525307A9277E263255F1CE3472CCAE",
-          "bytes": 643260
+          "sha256": "4091BB8AAD8387A6F1374682DFFC114994C21BB73FA6DA85F191AD8E3816719D",
+          "bytes": 643220
         },
         "FSBL-trusted.bin": {
-          "sha256": "E096FC52C75490DB2B51224061719049AD078FF321BFDDBEBED3E8017DA0D48E",
+          "sha256": "E5BA19EE01459EB7FBA80FDCFA7FA1494C0ADFA30B7933401011483BEA21CA97",
           "bytes": 86752
         },
         "FSBL.bin": {
@@ -152,13 +162,21 @@
           "sha256": "67707504488814F1D16098E254CC5710EF7B144E71A75DED584C3568CF233052",
           "bytes": 768060
         },
-        "N6-XIP-A-v13.n6fw": {
-          "sha256": "C28C77173F11A212BBD76DF69282BD5A646A85FC0C9D6C3028DEAA63BF4EC9D6",
-          "bytes": 498464
+        "N6-XIP-B-v13.n6fw": {
+          "sha256": "027A2EEAB2D84913FFB8E5D8226CF783441AA8A22FB9B296911AB60ADDEDD571",
+          "bytes": 498336
+        },
+        "ram.bin": {
+          "sha256": "38CC7802FAB3EFE157987D1C828326449912666D2596E919C7296F5600553456",
+          "bytes": 497056
+        },
+        "ram.elf": {
+          "sha256": "275C1DB9239BEABB8B720CC04491B053C3891749A24F7DA9A3CD7C184008D12E",
+          "bytes": 9214828
         },
         "ram.map": {
-          "sha256": "0D8000105E44FBC8A52CFDA60D625AF371280D09055EB598B45447521B0ED53A",
-          "bytes": 5412758
+          "sha256": "21FFA4C836CA709E6B03DE4725A0E92021D560DAA8EDBCDAE7800DDD81229F0C",
+          "bytes": 5412718
         }
       },
       "source_hashes_verified": 1080
@@ -166,13 +184,24 @@
   ],
   "proof": {
     "elf_map_xip_layout": "PASS_STATIC_ONLY",
-    "hardware_pc_samples": "NOT_RUN",
-    "heap_runtime_measurement": "NOT_RUN",
-    "same_source_static_heap_gain_bytes": 493248,
+    "hardware_pc_samples": {
+      "status": "PASS_AT_TRIAL_MAIN_ONLY",
+      "pc": "0x70191588",
+      "lr": "0x701a1817",
+      "sp": "0x24200000",
+      "elf": ".local-dependencies/xip/v12-A-no-export/application.elf",
+      "uart_vector_evidence": "0x70180400",
+      "ns_full_code_copy": false,
+      "scs_debug_alias_reads": "INCONCLUSIVE: zero-valued debug reads; not cache/MPU readback acceptance",
+      "log": ".local-dependencies/xip/resume-20261022/xip-trial-readback.log"
+    },
+    "heap_runtime_measurement": "NOT_RUN_ON_XIP",
+    "same_source_static_heap_gain_bytes": 493120,
     "original_guarded_ram_heap_bytes": 369136,
-    "current_guarded_ram_companion_heap_bytes": 369008,
+    "current_guarded_ram_companion_heap_bytes": 369136,
     "xip_heap_bytes": 862256,
-    "original_ram_artifact_and_ordinary_debug_hashes_preserved": true
+    "original_ram_artifact_and_ordinary_debug_hashes_preserved": true,
+    "matching_ram_installer_health": "PASS USB/ToF/NPU/radio; image route NONE, sensor sent0; Wi-Fi restored with existing pairing"
   },
   "tests": {
     "initial_commands": [
@@ -274,49 +303,104 @@
       "spatial_profile_byte_exact_test": 1,
       "model_contract_test": 1,
       "streamed_version_replies": 72
-    }
+    },
+    "cloud_image_auto_map_policy": {
+      "status": "PASS",
+      "variants": [
+        0,
+        1
+      ],
+      "method": "Actual cloud_publish_status compiled; explicit-image mode preserves CLI readiness and legacy opt-in default",
+      "hardware": "RAM installer paired/Wi-Fi IP and imageNONE/sent0 verified"
+    },
+    "retained_resume_host_failures": [
+      "backup.py noninteractive GDB block timeout; corrected with command file",
+      "backup2.py unsupported monitor reset-halt syntax rejected; removed while DEV ROM verified",
+      "XIP trial debugger detach E31 after intentional AIRCR reset; actual Flash PC evidence retained"
+    ]
   },
   "transport_acceptance": {
     "USB": {
-      "host_parser_drain": "PASS",
-      "actual_transfer_install_boot": "NOT_RUN"
+      "ram_installer_to_inactive_A12_transfer": "PASS",
+      "authenticated_finalize": "PASS",
+      "bytes": 498336,
+      "package_sha256": "6861ba66f5222043683f76730c3dd502b01200cc6d152b306d1a3a79f8b66f24",
+      "trial_boot_to_flash_main": "PASS",
+      "boot_confirmation": "NOT_RUN intentional reset first",
+      "update_while_executing_XIP": "NOT_RUN",
+      "both_directions": "NOT_RUN"
     },
     "OTA": {
-      "existing_sender_actual_package_simulation": "PASS",
+      "existing_sender_simulation": "PASS from prior phase",
       "actual_server_device_transfer_boot": "NOT_RUN"
     },
-    "BLE_ToF_NPU_USB_xip_regressions": "NOT_RUN",
-    "hardware_rollback_interruption_corrupt_packages": "NOT_RUN",
-    "physical_power_cycle": "NOT_RUN"
+    "BLE_ToF_NPU_USB_xip_regressions": "NOT_RUN (RAM installer health is separate)",
+    "hardware_rollback_interruption_corrupt_packages": "INCOMPLETE: reset-before-confirm issued; next FSBL rollback blocked by debugger access",
+    "physical_power_cycle": "PENDING explicit confirmation"
   },
   "hardware_block": {
-    "action": "Read-only 4MiB NOR recovery backup via existing STM32 external loader under reset",
-    "target": "ST-LINK 000C00344142501620353451; NOR 0x70000000..0x703fffff",
-    "reason": "Data read failed after reset; GDB reports Target unknown error32; COM8 open timed out",
+    "action": "Post-trial-reset FSBL rollback verification",
+    "target": "ST-LINK000C00344142501620353451, NUCLEO-N657X0-Q",
+    "reason": "Normal and supported connect-under-reset both fail Target unknown error32 after direct GDB AIRCR reset",
     "reset_executed": true,
-    "backup_outcome": "FAILED_NO_VALID_NOR_BACKUP",
-    "ram_restore": "FAILED_BEFORE_DOWNLOAD",
-    "board_runtime": "UNKNOWN",
     "approval_denial": false,
+    "rollback_operation_executed": false,
+    "board_runtime": "UNKNOWN after test reset; no successful post-reset attach",
+    "last_verified_boot_state": "FSBL authenticated A/v12 and committed TRIAL; B/v11 retained confirmed. Expected trial sequence29 follows observed PENDING sequence28",
+    "nor_boot_chain_written": false,
     "handles_and_lease_released": true,
-    "pending": "Explicit physical full-power disconnect/reconnect in DEV confirmation; no more hardware probes until confirmation"
+    "pending": "Explicit full-power removal including all connected supplies/cables and reconnect in DEV; no more hardware probes until confirmation",
+    "root_cause": "UNKNOWN; this is not proof that production firmware NVIC_SystemReset or OTA reset fails"
   },
   "persistent_actions": {
-    "nor_erase_program_commands_sent": false,
+    "nor_erase_program_commands_sent": true,
     "otp_fuses_security_lifecycle_debug_locks": false,
     "credential_config_pair_cache_changes": false,
-    "new_sensor_uploads": 0
+    "new_sensor_uploads": 0,
+    "scope": "Only authenticated inactive A/v12 and alternating metadata via existing Secure updater. FSBL/Secure NOR and confirmed B/v11 not programmed."
   },
   "recovery": {
     "artifact_folder": ".local-dependencies/recovery-20261022",
     "guarded_elf_sha256": "6a6a5d1fcd70be9ed1826624b4e3bf97d5ec35758c9f1915772e1fa4b5c8d781",
-    "complete_current_nor_backup_available": false,
+    "complete_current_nor_backup_available": true,
     "before_first_nor_write": [
-      "Explicit DEV reconnect confirmation and exclusive shared ownership",
-      "Restore exact guarded RAM demo through supported ROM/ST-LINK path and prove current health",
-      "Read NOR boot chain/slots/metadata twice and compare hashes; authenticate current confirmed recovery and identify inactive slot",
-      "Preserve confirmed slot and configuration; matching signed FSBL/Secure; no full erase/factory metadata reset"
-    ]
+      "COM/shared ownership and DEV BOOTSR2 verified",
+      "Two identical4MiB NOR reads; metadata CRCs and both image hashes/signatures verified",
+      "Exact guarded original RAM baseline successfully restored and healthy",
+      "Confirmed B/v11 identified and preserved; only inactive A selected for first USB update"
+    ],
+    "backup": {
+      "backup_sha256": "cb3d9e4ffee29d832c7ca0cb516f06232dba2c4c5598e77fd6c81ce7feb9f05a",
+      "two_reads_identical": true,
+      "bytes": 4194304,
+      "metadata_words": [
+        1380070990,
+        1,
+        27,
+        1,
+        1,
+        11,
+        0,
+        10
+      ],
+      "images": [
+        {
+          "slot": "B",
+          "version": 11,
+          "bytes": 497952,
+          "sha256": "9c8b0516281fe19bc684700f7922a7437afa22b14be00e2f9e2559a70a8386d4"
+        },
+        {
+          "slot": "A",
+          "version": 10,
+          "bytes": 494272,
+          "sha256": "f4510a6809f7317d76f002c9529c4135b9c8265093ca6707ce8828c1b0e76bc8"
+        }
+      ]
+    },
+    "backup_folder": ".local-dependencies/xip/resume-20261022",
+    "recovery_signatures": "PASS independent existing public-key validation B/v11 and A/v10",
+    "known_guarded_ram_restore": "PASS supported loader, original6a6a5d1f...; later matching RAM installer also boots"
   },
   "npu_assessment": {
     "processed_sensor_grid": [
@@ -341,5 +425,6 @@
     "rps_model_or_dataset_changed": false,
     "optical_autofocus_evidence": "Not established by current code; closest component crop is software preprocessing",
     "larger_native_shape_requires": "Contract/training/quantization/code generation/linker/pool reservation and new HIL"
-  }
+  },
+  "previous_offline_checkpoint": "xip-ota-usb-20261022-initial-results.json"
 }

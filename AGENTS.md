@@ -26,6 +26,34 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- XIP resumed hardware checkpoint (2026-10-22; supersedes the initial blocked
+  feature-branch notes below): main80f2b511 unchanged; user cable reconnect let
+  AP1 read ROM PC/BOOTSR2. Exact guarded6a6a5d1f... RAM recovery and matching new
+  installer RAM health PASS, heap369136, preserve1/settings writes0, Wi-Fi IP,
+  pairing retained, imageNONE/sent0. Two4MiB NOR reads identical SHA256
+  cb3d9e4ffee29d832c7ca0cb516f06232dba2c4c5598e77fd6c81ce7feb9f05a;
+  both metadata CRCs and existing confirmed B/v11 + fallback A/v10 image
+  hashes/signatures verify. Existing USB XMODEM writes/authenticates inactive
+  A/v12 (498336bytes/SHA6861ba66...); new FSBL/Secure loaded only in RAM,
+  actual NS main PC70191588/LR701a1817/SP24200000, UART vector70180400 and
+  explicit no-NS-code-copy prove XIP entry. Generic inherited copied-size log
+  describes handoff and is not an additional full-copy claim. Direct SCS debug
+  alias reads returned zero and are NOT MPU/cache readback acceptance.
+  Intentional GDB AIRCR reset before confirmation; subsequent normal and
+  supported under-reset attaches fail error32 before rollback code executes.
+  Current runtime UNKNOWN; last authenticated trial A12, retained confirmed B11.
+  All owned handles/processes/shared lease released. WAIT for explicit all-power
+  removal/DEV reconnection before further hardware acquisition. Rollback, full
+  XIP app/NPU/USB/BLE, confirmation, reboot and OTA remain NOT ACCEPTED.
+  Only inactive A and alternating metadata were written; NOR FSBL/Secure and B11
+  were not programmed. No OTP/fuse/locks, Pair/cache/credentials, new sensor
+  uploads, server edits/deploy, merge or push. XIP builds now disable automatic
+  Cloud image routing; default legacy opt-in behavior remains unchanged. Cache
+  enablement moved into Secure handoff to preserve the guarded RAM heap floor.
+  New worktree-aware lease shares primary marker and has explicit XIP scope.
+  See docs/xip-ota-usb-20261022_HE.md and current/initial JSON evidence.
+
+
 - XIP feature branch checkpoint (2026-10-22): isolated feature/n6-xip-ota-usb
   from verified80f2b511; main/user plan preserved. Physical-slot XIP linker,
   signed RAM/A/B execution flags, shared vector checks, FSBL vector-only
@@ -1186,7 +1214,7 @@ These require explicit review after every Generate Code:
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | OS_CAD_STACK_SIZE maps to N6_USBPD_CAD_STACK_SIZE |
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | UCPD register diagnostics, wake counter, and 250 ms polling fallback |
 | AppliNonSecure/Core/Startup/startup_stm32n657x0hxq.s | Early Debug_UART_StartupTrace calls |
-| AppliNonSecure/Core/Src/system_stm32n6xx_ns.c | Explicit-slot XIP enables instruction cache; preserve on generation. XIP uses the alternative STM32N657X0HXQ_XIP.ld through Build-Xip, not the RAM IDE configuration |
+| AppliNonSecure/STM32N657X0HXQ_XIP.ld | Alternative physical-slot linker selected only by Build-Xip. Secure cached handoff configures XIP SAU/RISAF12/MPU/NS instruction cache; ordinary RAM startup remains unchanged |
 | FSBL/Core/Src/extmem.c | Exact image-size and dynamic Non-Secure source hooks |
 | FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c/.h | Dynamic A/B source and pre-jump XSPI handover hook; functional vendor edits outside USER blocks |
 | AppliSecure/Core/Src/main.c | Diagnostic trace plus Neural-ART clocks, RIF/RISAF, CACHEAXI, and NPU interrupt ownership |
