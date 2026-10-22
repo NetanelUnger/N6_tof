@@ -26,8 +26,9 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
-- Reconnect check23:24UTC: still B13, PONG uptime9800228ms (consistent with
- previous uninterrupted runtime), A14 boot/confirmation NOT observed. AppCOM8 and
+- Chronology corrected: quoted reconnect message was19:59:07UTC, before OTA,
+ not a fresh23:22 action. USB read23:24UTC reports B13/PONG9800228ms; no inference
+ about a new physical reconnect/reset outcome. A14 boot/confirmation NOT observed. AppCOM8 and
  STLINKCOM6 enumerate; only USB read status, no UART/debug/reset/write/update.
  ToFready/NPU35817/errors0/Cloudsent0/datasetoff/imageNONE. SPI17/NCP2ready0fail/
  BLEdriver8 observed; no cause proven, no RF success claimed. A14 last known pending

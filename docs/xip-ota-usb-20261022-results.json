@@ -1238,15 +1238,15 @@
     "observed_UTC": "2026-10-22T23:24:00Z approximate; lease started23:23:53Z",
     "source_commit": "0830bcebca54c09206c11b5da237349e6f684699",
     "branch_verified": true,
-    "user_reconnect_reported": true,
+    "user_reconnect_reported": false,
     "prior_boot_recorded": false,
     "AppUSB": "COM8/N6TOF001",
     "STLINK_UART_enumerated": "COM6/000C00344142501620353451; not opened this turn",
     "version": 13,
     "PONG_uptime_ms": 9800228,
-    "interpretation": "Uptime consistent with continued previous B13 runtime; reconnect is not evidence of MCU reset or A14 boot",
+    "interpretation": "Valid23:24USB snapshot of B13 uptime9800228ms; no conclusion about outcome of any new physical reconnect or reset after21:09",
     "A14_confirmed": false,
-    "A14_metadata": "Last observed committed pending; not independently reread after reconnect",
+    "A14_metadata": "Last observed committed pending; no new metadata bank read",
     "ToF_ready": true,
     "NPU_runs": 35817,
     "NPU_errors": 0,
@@ -1266,6 +1266,12 @@
     "hardware_actions": "Read-only USB CLI; no reset, debugger, update command or flash write",
     "blocker": "Need actual coordinated all-sources cold boot in FLASH to activate pending A14; do not resend OTA",
     "next_step": "Ask user readiness first; arm and monitor passive UART before physical all-power removal. No recorder active now",
-    "evidence": ".local-dependencies/xip/a14-reconnect-current.json"
+    "evidence": ".local-dependencies/xip/a14-reconnect-current.json",
+    "quoted_user_message_id": "Sentinel_523a8fc512548191bce9345fbb4cf1a3",
+    "quoted_user_message_UTC": "2026-10-22T19:59:07Z",
+    "chronology_correction": "Parent verified original message timestamp; delegation describing it as a new reconnect at23:22 was mistaken",
+    "new_post_OTA_reconnect_confirmation": false,
+    "hardware_actions_during_chronology_correction": "NONE; documentation only",
+    "waiting_for": "Fresh user readiness before arming passive capture; no hardware action authorized by stale reconnect evidence"
   }
 }

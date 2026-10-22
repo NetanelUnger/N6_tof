@@ -1,7 +1,8 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
-23:24UTC reconnect check: USB still reports B13, PONG uptime9800228ms, consistent
-with uninterrupted previous runtime. A14 boot/confirmation NOT observed; no prior
+Chronology correction: the quoted user reconnect was19:59:07UTC, before OTA,
+not a new reconnect at23:22. The23:24UTC USB read reports B13/PONG9800228ms;
+it proves no outcome of a new post-OTA physical action. A14 boot/confirmation NOT observed; no prior
 boot recorder existed. ToF ready/NPU35817/errors0/imageNONE/Cloudsent0/datasetoff.
 SPI fault count17/NCP recovery2ready0failed/BLEdriver8 observed; cause not isolated.
 Only USB status reads this turn; no reset/debugger/OTA retransmit. Need coordinated
