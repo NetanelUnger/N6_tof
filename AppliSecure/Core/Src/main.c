@@ -320,57 +320,7 @@ static void NonSecure_Init(void)
 {
   funcptr_NS NonSecure_ResetHandler;
 
-  if ((cached_non_secure_reset_handler >= FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET) &&
-      (cached_non_secure_reset_handler < FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET + FW_SLOT_SIZE))
-    cached_non_secure_vector = FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET + FW_STM32_IMAGE_VECTOR_OFFSET;
-  else if ((cached_non_secure_reset_handler >= FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET) &&
-           (cached_non_secure_reset_handler < FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET + FW_SLOT_SIZE))
-    cached_non_secure_vector = FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET + FW_STM32_IMAGE_VECTOR_OFFSET;
-
-  if (cached_non_secure_vector != VTOR_TABLE_NS_START_ADDR)
-  {
-    /* Only the authenticated active image becomes Non-Secure. The controller,
-     * inactive slot, boot chain and metadata remain Secure. No OTP/locks. */
-    uint32_t base = cached_non_secure_vector - FW_STM32_IMAGE_VECTOR_OFFSET;
-    /* ST Template_Isolation_XIP assigns the XSPI2 AXI aperture to RISAF12.
-     * Use three disjoint volatile regions: Secure prefix, read-only NS active
-     * slot, Secure suffix. Controller registers remain Secure in RISC. */
-    uint32_t slot_offset = base - FW_FLASH_BASE_ADDRESS;
-    RISAF_BaseRegionConfig_t flash_region = {0};
-    flash_region.Filtering = RISAF_FILTER_ENABLE;
-    flash_region.ReadWhitelist = RIF_CID_MASK;
-    flash_region.WriteWhitelist = RIF_CID_MASK;
-    flash_region.PrivWhitelist = RIF_CID_MASK;
-    flash_region.Secure = RIF_ATTRIBUTE_SEC;
-    flash_region.StartAddress = 0U;
-    flash_region.EndAddress = slot_offset - 1U;
-    HAL_RIF_RISAF_ConfigBaseRegion(RISAF12, RISAF_REGION_1, &flash_region);
-    flash_region.StartAddress = slot_offset + FW_SLOT_SIZE;
-    flash_region.EndAddress = RISAF12_LIMIT_ADDRESS_SPACE_SIZE;
-    HAL_RIF_RISAF_ConfigBaseRegion(RISAF12, RISAF_REGION_3, &flash_region);
-    flash_region.StartAddress = slot_offset;
-    flash_region.EndAddress = slot_offset + FW_SLOT_SIZE - 1U;
-    flash_region.Secure = RIF_ATTRIBUTE_NSEC;
-    flash_region.WriteWhitelist = RIF_CID_NONE;
-    HAL_RIF_RISAF_ConfigBaseRegion(RISAF12, RISAF_REGION_2, &flash_region);
-    SAU->RNR = 3U;
-    SAU->RBAR = base & SAU_RBAR_BADDR_Msk;
-    SAU->RLAR = ((base + FW_SLOT_SIZE - 1U) & SAU_RLAR_LADDR_Msk) | SAU_RLAR_ENABLE_Msk;
-    /* Normal write-back cacheable, read-only executable active-slot window.
-     * All other privileged accesses retain the architectural default map. */
-    if (MPU_NS->CTRL != 0U) Error_Handler();
-    MPU_NS->MAIR0 = 0xFFU;
-    MPU_NS->RNR = 0U;
-    MPU_NS->RBAR = (base & MPU_RBAR_BASE_Msk) | (3U << MPU_RBAR_AP_Pos);
-    MPU_NS->RLAR = ((base + FW_SLOT_SIZE - 1U) & MPU_RLAR_LIMIT_Msk) | MPU_RLAR_EN_Msk;
-    MPU_NS->CTRL = MPU_CTRL_PRIVDEFENA_Msk | MPU_CTRL_ENABLE_Msk;
-    __DSB(); __ISB();
-    if (EXTMEM_MemoryMappedMode(EXTMEMORY_1, EXTMEM_ENABLE) != EXTMEM_OK)
-      Error_Handler();
-    Secure_TraceHex("[SECURE] XIP NonSecure vector = ", cached_non_secure_vector);
-  }
-  SecureFirmwareUpdate_SetExecutionVector(cached_non_secure_vector);
-  SCB_NS->VTOR = cached_non_secure_vector;
+  SCB_NS->VTOR = VTOR_TABLE_NS_START_ADDR;
 
   /* Set non-secure main stack (MSP_NS) */
   __TZ_set_MSP_NS((*(uint32_t *)VTOR_TABLE_NS_START_ADDR));

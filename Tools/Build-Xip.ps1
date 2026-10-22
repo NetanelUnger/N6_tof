@@ -15,6 +15,12 @@ Assert-XipBranch
 $tools = Get-N6DevelopmentTools
 Enable-N6DevelopmentToolPath $tools
 Assert-N6NonSecureBuildSafety $root
+$lockPath = Join-Path $root '.local-dependencies/xip-build.lock'
+New-Item -ItemType Directory -Force (Split-Path -Parent $lockPath) | Out-Null
+# All contexts share generated objects and temporary headers. Never build slots
+# concurrently or steal an existing build marker after an interrupted process.
+$buildLock = [IO.File]::Open($lockPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+try {
 $headers = @('Common/Update/firmware_build_version.h','AppliNonSecure/Core/Inc/w61_driver_config.h',
     'FSBL/.settings/language.settings.xml','AppliSecure/.settings/language.settings.xml',
     'AppliNonSecure/.settings/language.settings.xml')
@@ -22,7 +28,7 @@ $saved = @{}
 foreach ($relative in $headers) { $saved[$relative] = [IO.File]::ReadAllBytes((Join-Path $root $relative)) }
 $suffix = if ($Label) { "-$Label" } else { "" }
 $output = Join-Path $root ".local-dependencies/xip/v$FirmwareVersion-$Slot$suffix"
-if (Test-Path (Join-Path $output 'build.json')) { throw 'Immutable build already exists; choose another version or archive explicitly.' }
+if (Test-Path -LiteralPath $output) { throw 'Immutable build already exists; choose another version or archive explicitly.' }
 New-Item -ItemType Directory -Force $output | Out-Null
 $settings = [IO.File]::ReadAllText((Join-Path $root 'AppliNonSecure/Core/Inc/app_settings.h'))
 if ($settings -notmatch '#define APP_SETTINGS_WRITES_ENABLED 0U' -or
@@ -125,4 +131,9 @@ try {
 } finally {
     Assert-XipBranch
     foreach ($relative in $headers) { [IO.File]::WriteAllBytes((Join-Path $root $relative),$saved[$relative]) }
+}
+
+} finally {
+    $buildLock.Dispose()
+    [IO.File]::Delete($lockPath)
 }

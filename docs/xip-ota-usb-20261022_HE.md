@@ -60,7 +60,9 @@ BootROM וה־FSBL עדיין זקוקים ל־RAM. ה־Secure runtime, שירו
 ה־FSBL מאמת manifest/hash/vectors, מעתיק את Secure, ומוסר ל־Secure רק שני
 vector words של XIP דרך אזור ה־handoff הקיים ב־SRAM2. הוא אינו מעתיק את קוד
 ה־NS. Secure שומר את ה־vectors לפני שה־startup משתמש ב־SRAM2, פותח SAU רק
-ל־slot הפעיל, ומגדיר MPU לקריאה/הרצה בו. XSPI2/XSPIM וה־slot השני אינם נפתחים
+ל־slot הפעיל, ומגדיר MPU לקריאה/הרצה בו. RISAF12 מגן על חלון ה־XSPI2 בשלושה
+אזורים שאינם חופפים: prefix Secure, ה־slot הפעיל NS לקריאה בלבד, ו־suffix
+Secure. הגדרות אלה volatile, ללא fuse או lock. XSPI2/XSPIM וה־slot השני אינם נפתחים
 ב־SAU. ה־NS מפעיל instruction cache; מדיניות data cache הקיימת נשמרת.
 בדיקת SAU/MPU/RIF/attributes בפועל ו־PC sampling עדיין נדרשות על חומרה.
 
@@ -203,7 +205,10 @@ git branch --show-current  # חייב להיות feature/n6-xip-ota-usb
 ## מקורות רשמיים
 
 נבדקו תבנית ST [Template_FSBL_XIP](https://github.com/STMicroelectronics/STM32CubeN6/blob/main/Projects/NUCLEO-N657X0-Q/Templates/Template_FSBL_XIP/README.md)
-והמקור המקומי של STM32CubeN6 V1.4.0. התבנית מזהירה מפני VDDIO3_HSLV OTP בלתי
+והמקור המקומי של STM32CubeN6 V1.4.0. תבנית
+[Template_Isolation_XIP](https://github.com/STMicroelectronics/STM32CubeN6/blob/main/Projects/NUCLEO-N657X0-Q/Templates/Template_Isolation_XIP/README.md)
+מאשרת ש־RISAF12 מגן על חלון ה־XSPI2; מזה נלקח שיוך החומרה, תוך התאמה
+ל־Secure runtime ב־RAM ול־slot הפעיל בלבד. התבנית מזהירה מפני VDDIO3_HSLV OTP בלתי
 הפיך; `OTP_Config` שלה לא הועתק ולא הופעל. קצב/מצב XSPI של הפרויקט נשמרו.
 ראו גם [AN5050](https://www.st.com/resource/en/application_note/an5050-getting-started-with-octospi-hexadecaspi-and-xspi-interfaces-on-stm32-mcus-stmicroelectronics.pdf)
 ל־memory mapped access ו־bus masters. סקירת מקור אינה תחליף למדידה על לוח זה.
