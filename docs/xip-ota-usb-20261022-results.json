@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-22",
-  "status": "BLOCKED_AP1_ACCESS_AFTER_AUTHENTICATED_ROLLBACK",
+  "status": "BLOCKED_PHYSICAL_RESET_DID_NOT_RESTORE_AP1",
   "branch": "feature/n6-xip-ota-usb",
   "baseline": "80f2b511029be6d87f9e72c32b00515457671f89",
   "image_code_commit": "8f74056c9c01c19504dccbb992952e2c16c409b4",
@@ -339,18 +339,18 @@
     "physical_power_cycle": "Human confirmed full disconnect/reconnect12:45UTC; initial ROM/DEV attach PASS"
   },
   "hardware_block": {
-    "action": "AP1 access recovery after actual authenticated rollback",
+    "action": "No-reset AP1 attach after confirmed physical RESET",
     "target": "ST-LINK000C00344142501620353451, NUCLEO-N657X0-Q",
-    "reason": "AP0 identifies target, AP1 cannot get coreID/error32; pin-pulse and AP0 hardware-reset report did not restore AP1",
+    "reason": "Physical RESET did not restore AP1; error32 before GDB connection or RAM load. AP0 identifies486/revZ/3.28V but documented NS memory read fails.",
     "reset_executed": true,
     "approval_denial": false,
     "rollback_operation_executed": true,
-    "board_runtime": "UNKNOWN after failed probe reset; legacy RAM B11 startup was observed earlier",
+    "board_runtime": "UNKNOWN; unable to read PC/BOOTSR after human physical RESET",
     "last_verified_boot_state": "Actual FSBL read TRIAL seq29, committed rollback (internal readback) and authenticated/selected B11; independent seq30 dump not obtained",
     "nor_boot_chain_written": false,
     "handles_and_lease_released": true,
-    "pending": "Press physical RESET once in DEV to distinguish probe NRST path from core/power state; awaiting human completion, no more probes now.",
-    "root_cause": "UNKNOWN. Failure recurred during legacy RAM B11 without another direct AIRCR write, so direct AIRCR alone is not established cause."
+    "pending": "Full removal of all connected supplies and reconnect in DEV, awaiting new human confirmation. Physical RESET result is already measured; do not repeat the same reset sequence. Then use guarded reader first, no legacy app entry.",
+    "root_cause": "UNKNOWN; physical RESET did not restore AP1, unlike prior full-power reconnect. No debug unlock or security change attempted."
   },
   "persistent_actions": {
     "nor_erase_program_commands_sent": true,
@@ -460,6 +460,30 @@
     },
     "pending_physical_action": "Press physical RESET once in DEV to distinguish probe NRST path from core/power state; awaiting human completion, no more probes now.",
     "evidence_folder": ".local-dependencies/xip/resume-20261022",
+    "handles_and_shared_lease_released": true
+  },
+  "resume_1622": {
+    "human_physical_RESET_in_DEV_confirmed": true,
+    "starting_commit": "6ce33283135389a284be5b56a2b3f638d37137e9",
+    "no_reset_AP1_attach": "FAIL Target unknown error32 before GDB connection/RAM load",
+    "AP0_read_nonsecure_DBGMCU_alias": "Target486/revZ/3.28V identified;44001000 read failed. No status or core state obtained",
+    "new_RAM_load": false,
+    "new_slot_or_metadata_write": false,
+    "new_probe_reset": false,
+    "current_boot_or_runtime": "UNKNOWN; unable to read PC/BOOTSR after human physical RESET",
+    "root_cause": "UNKNOWN; physical RESET did not restore AP1, unlike prior full-power reconnect. No debug unlock or security change attempted.",
+    "host_controller": {
+      "path": "Tools/read_xip_recovery.py",
+      "tests": "9 PASS hil_tests/test_xip_recovery_reader.py; includes real installed GDB MI error recovery",
+      "actual_FSBL_hash_and_four_symbols": "PASS preflight only",
+      "hardware_execution": "NOT_RUN blocked by AP1",
+      "contract": "Require current feature branch, exact FSBL hash, four FSBL symbols, shared XIP lease and observed DEV ROM before RAM load. Interactive MI handles failures, parks in Secure Error_Handler before mapped reads, verifies park before detach; cleanup requests disconnect before exit. No reset/erase/security/application-start commands. Actual dead-link outcome remains unknown if parking fails."
+    },
+    "reference_lead": {
+      "ST_article": "https://community.st.com/stm32-mcus-60/how-to-debug-stm32n6-using-stm32cubeide-151187",
+      "finding": "ST documents a .stldr DeInit mapped-mode bug causing reprogramming errors needing power cycle. No external loader was used in this failed attach/resume, so causal relevance NOT_ESTABLISHED. Do not infer this is the root cause."
+    },
+    "pending": "Full removal of all connected supplies and reconnect in DEV, awaiting new human confirmation. Physical RESET result is already measured; do not repeat the same reset sequence. Then use guarded reader first, no legacy app entry.",
     "handles_and_shared_lease_released": true
   }
 }

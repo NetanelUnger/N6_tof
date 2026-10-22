@@ -1,18 +1,19 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
-XIP resume checkpoint (2026-10-22, feature/n6-xip-ota-usb): after confirmed full
-power reconnect, ROM PC18003514/BOOTSR2 were read. Actual FSBL consumed TRIAL
-seq29, committed rollback and authenticated B/v11 (signature/hash PASS). A host
-GDB symbol error prevented the independent metadata dump; later detach resumed
-legacy B11, whose ToF/radio startup was observed. AP1 access then failed again
-without another direct AIRCR write. AP0 still identifies device486/revZ/3.28V;
-reported hardware reset did not restore AP1. Await physical RESET once in DEV;
-root cause remains unknown. Legacy NCP setters/Cloud activity in that interval
-are unverified. No new slot or NOR boot-chain programming this resume. Prior
-USB A/v12 + actual flash main PC70191588 proof remain valid; full XIP runtime,
-confirmation, OTA and persistent boot remain incomplete. Main unchanged.
-See [Hebrew guide](docs/xip-ota-usb-20261022_HE.md) and
-[current results](docs/xip-ota-usb-20261022-results.json).
+XIP16:22 checkpoint (2026-10-22, feature/n6-xip-ota-usb): confirmed physical
+RESET in DEV did not restore AP1; no-reset attach fails error32 before loading
+code. AP0 identifies486/revZ/3.28V, but memory reads fail. No new RAM load, probe
+reset or NOR write this resume. All owned handles/shared lease released. A new
+interactive GDB/MI recovery reader has9 host checks PASS and exact FSBL preflight;
+actual hardware use is pending full-power DEV reconnect. It reads NOR while
+parked in FSBL before boot selection, avoiding legacy app entry on read errors.
+Prior USB A12/flash-main PC70191588 and authenticated rollback to B11 remain
+valid; independent rollback metadata/full XIP runtime/confirmation/OTA/persistent
+boot remain incomplete. Root cause unknown; prior legacy Cloud activity remains
+unverified. Original double4MiB backup hashes rechecked exact; main unchanged.
+See [Hebrew guide](docs/xip-ota-usb-20261022_HE.md),
+[current results](docs/xip-ota-usb-20261022-results.json), and
+[guarded recovery reader](Tools/read_xip_recovery.py).
 
 Platform upgrade M1-M7 completed (2026-10-21): projects/classes, shared lossless
 USB/BLE/Cloud capture, two measured classifiers on the real NPU, guarded RAM

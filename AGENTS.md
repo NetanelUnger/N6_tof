@@ -26,6 +26,21 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- XIP16:22 checkpoint: human physical RESET-in-DEV confirmed, no-reset AP1
+  attach still error32 before RAM load. AP0 identifies486/revZ/3.28V but NS
+  DBGMCU read fails; PC/BOOTSR/runtime unknown. No new RAM load, probe reset or
+  NOR write; all owned handles/shared lease released. Do not keep retrying reset.
+  Await explicit all-power removal/reconnect in DEV; then guarded reader FIRST,
+  no legacy app entry. Tools/read_xip_recovery.py interactive MI controller9host
+  tests PASS (actual GDB error recovery included), FSBL hash/four symbols preflight
+  PASS; hardware NOT_RUN. Parks in Secure Error_Handler before mapped calls,
+  verifies park before detach, disconnects before GDB exit on error; dead-link
+  board outcome remains unknown. Exact original double4MiB backup hashes remain.
+  Main unchanged. Prior authenticated rollback B11 still lacks independent
+  metadata dump; prior legacy NCP/Cloud interval unverified. ST .stldr DeInit bug
+  is a lead only, no loader used in this failed attach; cause NOT_ESTABLISHED.
+
+
 - XIP12:45 resume supersedes the blocked checkpoint below: human full-power
   reconnect confirmed; ROM PC18003514/BOOTSR2 PASS. Matching FSBL actually read
   TRIAL seq29/A12, committed rollback and authenticated/copied B11 signature/hash
