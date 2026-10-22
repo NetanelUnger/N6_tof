@@ -91,7 +91,17 @@ try {
     $bin = Join-Path $output 'application.bin'
     Push-Location $build
     try {
+        # Keep ordinary guarded RAM behavior/budget intact. Override only the
+        # shared weak reset entry for XIP, with copied executable SRAM code.
+        $resetObject = Join-Path $output 'xip-reset.o'
+        & (Join-Path $tools.GnuBin 'arm-none-eabi-gcc.exe') -c (Join-Path $root 'Tools/xip_system_reset.c') `
+            -o $resetObject -mcpu=cortex-m55 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard `
+            -std=gnu11 -O3 -Wall -ffunction-sections -fdata-sections -DSTM32N657xx `
+            '-I../Core/Inc' '-I../../Drivers/CMSIS/Device/ST/STM32N6xx/Include' '-I../../Drivers/CMSIS/Include' `
+            *> (Join-Path $output 'xip-reset-build.log')
+        if ($LASTEXITCODE -ne 0) { throw 'XIP reset override compilation failed.' }
         $linkArgs = @('-o',$elf,'@objects.list',(Join-Path $root 'AppliSecure/Debug/secure_nsclib.o'),
+            $resetObject,
             '-lm','-l:USBPDCORE_NOPD_CM55_wc32.a','-l:NetworkRuntime1201_CM55_GCC.a','-mcpu=cortex-m55',
             "-Wl,--defsym=N6_XIP_BASE=$base",'-T'+(Join-Path $root 'AppliNonSecure/STM32N657X0HXQ_XIP.ld'),
             '--specs=nosys.specs',"-Wl,-Map=$map",'-Wl,--gc-sections','-static',
@@ -101,6 +111,15 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'XIP link failed.' }
         & (Join-Path $tools.GnuBin 'arm-none-eabi-objcopy.exe') -O binary $elf $bin
         if ($LASTEXITCODE -ne 0) { throw 'XIP binary generation failed.' }
+        $resetSymbols = (& $tools.Nm --defined-only $elf) -join "`n"
+        $resetMatch = [regex]::Match($resetSymbols,'(?m)^([0-9a-fA-F]+)\s+T\s+N6_SystemReset$')
+        if (-not $resetMatch.Success) { throw 'Strong XIP reset override absent.' }
+        $resetAddress = [Convert]::ToUInt32($resetMatch.Groups[1].Value,16)
+        if ($resetAddress -lt 0x24100000 -or $resetAddress -ge 0x241FF800) {
+            throw 'XIP reset implementation must execute from application SRAM.'
+        }
+        @{status='RAM_RESET_ENTRY_VERIFIED';address=('0x{0:X8}' -f $resetAddress);hardware_reset_test='NOT_RUN'} |
+            ConvertTo-Json | Set-Content (Join-Path $output 'reset-entry.json') -Encoding utf8
     } finally { Pop-Location }
     # Measure actual linker capacity; this is not a live malloc/high-water claim.
     $budgets = [ordered]@{}
@@ -130,6 +149,7 @@ try {
         $sourceHashes[$relative] = Get-N6FileSha256 (Join-Path $root $relative)
     }
     $sourceHashes['AppliNonSecure/STM32N657X0HXQ_XIP.ld'] = Get-N6FileSha256 (Join-Path $root 'AppliNonSecure/STM32N657X0HXQ_XIP.ld')
+    $sourceHashes['Tools/xip_system_reset.c'] = Get-N6FileSha256 (Join-Path $root 'Tools/xip_system_reset.c')
     $hashes = [ordered]@{}
     foreach ($item in Get-ChildItem $output -File | Where-Object Extension -in '.elf','.map','.bin','.n6fw') {
         $hashes[$item.Name] = @{sha256=Get-N6FileSha256 $item.FullName;bytes=$item.Length}

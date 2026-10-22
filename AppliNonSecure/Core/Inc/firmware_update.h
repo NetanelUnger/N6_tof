@@ -23,6 +23,12 @@ void Firmware_Update_Cancel(void);
 uint32_t Firmware_Update_IsActive(void);
 void Firmware_Update_ConfirmBoot(void);
 
+/* Shared reset entry. Ordinary RAM keeps the CMSIS behavior; the XIP linker
+ * supplies a RAM-resident, clock-mux-safe implementation. Nonzero means the
+ * request was refused before reset and the caller must retain the candidate. */
+int N6_SystemReset(void);
+void N6_ResetReport(void);
+
 #ifdef __cplusplus
 }
 #endif

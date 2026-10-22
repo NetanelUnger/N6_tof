@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-22",
-  "status": "COLD_CONFIRMATION_RECEIVED_NO_APP_USB_NEW_PASSIVE_CAPTURE_READY",
+  "status": "LIVE_A12_AFTER_USER_COLD_RECONNECT_HIL100_USB_NEGATIVES3_PASS_PREPARING_FULL_USB",
   "branch": "feature/n6-xip-ota-usb",
   "baseline": "80f2b511029be6d87f9e72c32b00515457671f89",
   "image_code_commit": "8f74056c9c01c19504dccbb992952e2c16c409b4",
@@ -344,17 +344,17 @@
     "physical_power_cycle": "Human confirmed full disconnect/reconnect12:45UTC; initial ROM/DEV attach PASS"
   },
   "hardware_block": {
-    "action": "Await coordinated cold power step during hardened passive capture",
-    "reason": "User cold confirmation arrived without active recorder; present appUSB absent. No persistent runtime evidence yet.",
-    "state": "PENDING_USER_PHYSICAL_ACTION; stale own lease archived using verified host-only mechanism",
-    "board_runtime": "UNKNOWN after external-boot NRST, not verified prior parked DEV state",
+    "action": "No external blocker currently; preparing actual signed USB image update",
+    "reason": "A12 USB/ToF/NPU now healthy after user cold reconnect",
+    "state": "WORKING_ON_AUTHORIZED_UPDATE_TESTS",
+    "board_runtime": "A12 XIP consistent with installed signed image, active health/HIL100 measured; no debugger attached",
     "last_verified_app": "A12 XIP/new compatible Secure RAM runtime, ToF/NPU300/errors0, Cloud sent0, datasetoff; all COM/GDB handles closed",
     "bootchain_installed_verified": true,
     "B11_preserved": true,
     "cloud_workspace": "inactive409; do not activate OTA/browser sensor stream before verified A12",
     "next": "Passive UART/USB external boot observation; no NS debug attach; then rejected/cancelled package and full USB/OTA update tests when recovery is established",
     "handles_and_shared_lease_released": false,
-    "capture_waiting": "PID31480/session50225, owner n6-xip-passive-cold-1934, deadline19:40:55UTC, DTR/RTSoff"
+    "capture_waiting": false
   },
   "persistent_actions": {
     "nor_erase_program_commands_sent": true,
@@ -1017,5 +1017,87 @@
     "scope": "passive UART only, no serial writes, no debugger/reset/flash. Fresh physical step must follow verified readiness.",
     "runtime": "UNKNOWN; no application status available, persistent XIP acceptance incomplete",
     "future_physical_instruction": "Before19:40:55UTC, cold-disconnect all sources then reconnect, retainBOOT0=1-2/BOOT1=1-2; noDEV change; inspect captured logs before any further action"
+  },
+  "cold_live_1959": {
+    "user_confirmation_utc": "2026-10-22T19:59Z",
+    "boot_UART_recording": "NOT_CAPTURED; prior recorder closed19:40:55",
+    "current_appUSB": "COM8/N6TOF001; read-only version12 and PONG tick227040; ToFready/NPU828errors0/WiFiIP/CloudToFsent0/datasetoff",
+    "no_RAM_load_since_user_cold_reconnect": true,
+    "cold_boot_evidence_type": "User-performed full-power reconnect in FLASH, subsequent USB runtime observed; not instrumented power rails/BootROM trace. Signed storedA12 XIP/previous PC-in-flash proof retained.",
+    "HIL": {
+      "scope": "XIP A12 same-frame USB computation regression, not all-class field accuracy or training-stage acceptance",
+      "model_sha256": "59f723828dffae236dd9fa37e2d0de9d7d1a3a31bc07fb4847b6a27dc6637d39",
+      "contract_sha256": "5137ed48ca591acb0ab595f612a05c475e865c516f3abe8948a8585928b6c82c",
+      "decision_consistent": 100,
+      "frames": 100,
+      "exact_tensors": 100,
+      "npu_frames": 100,
+      "max_score_delta": 1,
+      "class_matches": 100,
+      "cloud_sensor_exports": "No Cloud stream requested; verify postflight sent0",
+      "passed": true,
+      "crc_errors": 0,
+      "framing_errors": 1,
+      "last_parser_diagnostic": "implausible header prefix",
+      "sensor_fps": 3.6425181206078223,
+      "elapsed_s": 28.07799999997951,
+      "unique_tensors": 6
+    },
+    "USB_negative_cases": {
+      "passed": true,
+      "cases": [
+        {
+          "name": "bad-crc",
+          "passed": true,
+          "bytes_sent": 133
+        },
+        {
+          "name": "cancel-partial-manifest",
+          "passed": true,
+          "bytes_sent": 133
+        },
+        {
+          "name": "bad-signature",
+          "passed": true,
+          "bytes_sent": 1029
+        }
+      ],
+      "Secure_auth_reject_UART": true,
+      "valid_manifest_sent": false,
+      "slot_erase_authorized": false,
+      "independent_NOR_read_after_cases": "Not performed; do not attach debugger during NS runtime",
+      "Cloud_sensor_exports": 0
+    },
+    "full_USB_update": "NOT_STARTED; A12 remains confirmed, B11 still on board at this checkpoint",
+    "OTA": "NOT_STARTED; server unchanged",
+    "reset_candidate": {
+      "directory": ".local-dependencies/xip/v13-B-reset-safe3",
+      "package": {
+        "sha256": "EB76B264687ADA6F39EFDEC432D19582696CA1FE655A83C1A4CC4FEEF5F95217",
+        "bytes": 498720
+      },
+      "budgets": {
+        "ram": {
+          "stack_limit": "0x241ff800",
+          "heap_start": "0x241a5630",
+          "heap_capacity_bytes": 369104
+        },
+        "application": {
+          "stack_limit": "0x241ff800",
+          "heap_start": "0x2412d090",
+          "heap_capacity_bytes": 862064
+        }
+      },
+      "reset_entry": {
+        "address": "0x24101350",
+        "status": "RAM_RESET_ENTRY_VERIFIED",
+        "hardware_reset_test": "NOT_RUN"
+      },
+      "actual_C_reset_scenarios": 15,
+      "drain_regressions": 5,
+      "hardware_reset": "NOT_RUN",
+      "limits": "NS mux check/restore only; no NRST2.2.18 workaround, no security/OTP change; runtime conditions may refuse reset. Existing A12 still uses old reset and may need a physical cold restart after committing B13.",
+      "next_fallback_policy": "Valid A12 after user cold boot/HIL100 stays confirmed while inactive B11 is replaced; original B11 signed/full-NOR backups retained on host"
+    }
   }
 }

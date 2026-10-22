@@ -32,6 +32,22 @@ static uint32_t update_drain_wait_reported;
 static void *update_write_context;
 static const char *update_transport_name;
 
+#if defined(__GNUC__)
+__attribute__((weak, noinline))
+#endif
+int N6_SystemReset(void)
+{
+  NVIC_SystemReset();
+  return 0;
+}
+
+#if defined(__GNUC__)
+__attribute__((weak, noinline))
+#endif
+void N6_ResetReport(void)
+{
+}
+
 static int32_t update_send_byte(uint8_t byte, void *context);
 static int32_t update_consume(const uint8_t *data, size_t length,
                               void *context);
@@ -348,21 +364,27 @@ void Firmware_Update_Poll(uint32_t now_ms)
   if ((update_success != 0U) && (update_result_reported != 0U) &&
       ((int32_t)(now_ms - update_reboot_at) >= 0))
   {
+    uint32_t reset_now = 0U;
     if ((update_drained == NULL) ||
         (update_drained(update_write_context) != 0U))
     {
-      Debug_UART_Log("UPDATE", "transport drained; resetting into committed candidate");
-      NVIC_SystemReset();
+      Debug_UART_Log("UPDATE", "transport drained; resetting candidate");
+      reset_now = 1U;
     }
     else if ((uint32_t)(now_ms - update_reboot_at) >= UPDATE_REBOOT_DRAIN_LIMIT_MS)
     {
-      Debug_UART_Log("UPDATE", "transport drain deadline expired; resetting committed candidate");
-      NVIC_SystemReset();
+      Debug_UART_Log("UPDATE", "drain deadline expired; resetting candidate");
+      reset_now = 1U;
     }
     else if (update_drain_wait_reported == 0U)
     {
       update_drain_wait_reported = 1U;
       Debug_UART_Log("UPDATE", "waiting for final ACK/result delivery before reset");
+    }
+    if ((reset_now != 0U) && (N6_SystemReset() != 0))
+    {
+      update_success = 0U;
+      Debug_UART_Log("UPDATE", "reset blocked; cold restart required");
     }
   }
 }
@@ -382,6 +404,7 @@ uint32_t Firmware_Update_IsActive(void)
 
 void Firmware_Update_ConfirmBoot(void)
 {
+  N6_ResetReport();
   uint32_t status = SECURE_FirmwareUpdateConfirmBoot();
   if (status == SECURE_FW_UPDATE_OK)
   {

@@ -2710,7 +2710,8 @@ static void cli_command_reboot(Menu_t *menu, const char *command)
   {
     (void)Menu_Reply(menu, "Rebooting...");
     tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 10U);
-    NVIC_SystemReset();
+    if (N6_SystemReset() != 0)
+      (void)Menu_Reply(menu, "Reset blocked.");
   }
   else
   {
