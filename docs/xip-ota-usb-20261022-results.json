@@ -843,7 +843,7 @@
       "boot_jumpers": "Table4 JP1/JP2 1-2 default flash; Table9 BOOT0=0/BOOT1=0",
       "UART": "Section7.13 115200/8N1/no flowcontrol; only UART PE5/PE6 wired to ST-LINK",
       "ST_ES0620_Rev5": "https://www.st.com/resource/en/errata_sheet/es0620-stm32n6xxxx-device-errata-stmicroelectronics.pdf",
-      "applicability": "Board readout RevB;2.2.18 applicable toB,2.2.22 applicable all revisions",
+      "applicability": "Silicon revision UNRESOLVED: retained CubeProgrammer2.23 AP0 logs conflict RevZ versus RevB; not PCB revision. ES0620 2.2.18 appliesZ/B but notX;2.2.22 appliesZ/B/X. No definitive per-revision classification from tool labels.",
       "reset_clock_hazard_proven_in_current_firmware": {
         "USART1": "FSBL main.c and NS debug_uart.c force HSI instead of defaultPCLK2",
         "USBPHY": "Actual known-good A12 UART CCIPR6=0x00010000 proves OTGPHY1CKREFSEL nondefault",
@@ -883,5 +883,44 @@
       "denied_action_retried": false,
       "safe_alternative": "DTR=false/RTS=false recorder READY;PID35376/session25686; bounded1200s from18:55:07UTC"
     }
+  },
+  "silicon_revision_evidence": {
+    "device_id": "0x486 (device family ID, not silicon/PCB revision)",
+    "tool": "STM32CubeProgrammer2.23.0/STLINKV3J17M11",
+    "retained_early": {
+      "file": ".local-dependencies/xip/resume-20261022/ap0-debug-status.log",
+      "line": 13,
+      "label": "Rev Z",
+      "requested_memory_read": "failed"
+    },
+    "retained_early_second": {
+      "file": ".local-dependencies/xip/resume-20261022/physical-reset1622-ap0-ns-status.log",
+      "line": 13,
+      "label": "Rev Z",
+      "requested_memory_read": "failed"
+    },
+    "retained_later": {
+      "file": ".local-dependencies/xip/external-boot-ap0-bootsr.log",
+      "line": 13,
+      "label": "Rev B",
+      "requested_memory_read": "failed"
+    },
+    "retained_healthy_later": {
+      "file": ".local-dependencies/xip/bootchain-compat-hotplug-program.log",
+      "lines": [
+        13,
+        14
+      ],
+      "label": "Rev B",
+      "core_connected": true
+    },
+    "raw_DBGMCU_IDCODE_value_retained": false,
+    "raw_BOOTROM_0x18001004_value_retained": false,
+    "official_mapping": "ES0620Rev5 Table2 shows DBGMCU REV_ID0x1000 sharedZ/B/X;2.2.5 explicitly documents incorrect constant DBGMCU_IDCODE and directs B devices to BootROM base0x18001000+offset4. This is not a new read or a unique observed value.",
+    "physical_package_marking": "NOT_INSPECTED",
+    "board_PCB_revision": "NOT_VERIFIED; NUCLEO-N657X0-Q is model, not silicon revision",
+    "conclusion": "Silicon revision unresolved; previous definitive RevB wording corrected. RevB/Z labels preserved unchanged. No hypothesis promoted to causal proof.",
+    "safe_next_identification": "When a known Secure/DEV state is safely available under ownership, record raw documented BootROM revision word and interpret with official device documentation; no live probe during pending passive capture",
+    "capture_not_disrupted": true
   }
 }

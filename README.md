@@ -3,7 +3,8 @@
 Latest external-boot attempt18:42UTC: physical FLASH jumpers/NRST confirmed,
 but passive UART received0bytes and appUSB did not enumerate. Runtime/BOOTSR
 remain UNKNOWN; AP0 read failed, no further reset/write/AP1 attach. Persistent
-boot NOT accepted. ST ES0620 Rev5 2.2.18 applies to boardRevB;2.2.22 also matches
+boot NOT accepted. CubeProgrammer labels conflict RevZ/RevB; silicon revision is unresolved.
+ST ES0620 Rev5 2.2.18 appliesZ/B, notX;2.2.22 appliesall and matches
 measured USBPHY mux and static USART1 HSI selection. Cause not isolated. Need
 first cold FLASH power-on capture before any new firmware rewrite; reset-clock
 restoration must be addressed for reliable OTA reboot. Prior proofs below stand.

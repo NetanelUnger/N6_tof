@@ -30,7 +30,10 @@ Work must be technically correct and educational. Explain in Hebrew what changed
   user confirms BOOT0/1 positions1-2 +RESET; passive UART0bytes/appUSB absent.
   Runtime and latchedBOOTSR UNKNOWN. AP0 read only failed; no new reset/write/
   AP1 attach. Original and post-bootchain backups remain; main untouched.
-  ST ES0620Rev5 2.2.18 appliesRevB;2.2.22 matches measuredCCIPR6=00010000 and
+  Silicon revision UNRESOLVED: earlierCP labelsRevZ/laterRevB, no raw revision
+  word retained. PCB revision is separate/unverified. ES0620Rev5Table2+2.2.5
+  document sharedDBGMCU_REV_ID1000;2.2.18 appliesZ/B notX;2.2.22 appliesall
+  and matches measuredCCIPR6=00010000 and
   USART1 HSI source, but actual failed-boot cause is unproven. Need cold FLASH
   power-on capture before blind firmware rewrites; no DEV-specific assumptions.
   Reliable OTA/reset requires clock-mux restoration and evaluated NRST workaround;
