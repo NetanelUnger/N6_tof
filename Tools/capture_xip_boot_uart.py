@@ -12,6 +12,8 @@ def cli_main():
     parser.add_argument('--owner-thread')
     parser.add_argument('--output',type=Path)
     parser.add_argument('--seconds',type=int,default=1200)
+    parser.add_argument('--dtr',type=int,choices=(0,1),default=0,
+                        help='ST-LINK host handshake only; USART1 has no flow-control wiring')
     args=parser.parse_args()
     if args.preflight_only:
         print('PASS passive recorder import/preflight; no external action')
@@ -45,10 +47,10 @@ def cli_main():
         matches=[p for p in ports if p.device=='COM6' and p.serial_number=='000C00344142501620353451']
         if len(matches)!=1:raise RuntimeError('Exact ST-LINK COM6 identity not present; no port opened')
         port=serial.Serial(port=None,baudrate=115200,timeout=.2,write_timeout=1)
-        port.dtr=False;port.rts=False;port.port='COM6';port.open()
+        port.dtr=bool(args.dtr);port.rts=False;port.port='COM6';port.open()
         started=time.monotonic();last=started;count=0
         evidence={**owner,'status':'READY','port':'COM6','baud':115200,'serial_number':matches[0].serial_number,
-                  'dtr':False,'rts':False,'maximum_seconds':args.seconds,'serial_writes':0,
+                  'dtr':bool(args.dtr),'rts':False,'maximum_seconds':args.seconds,'serial_writes':0,
                   'bytes':0,'waiting_for_physical_change':True}
         (output/'ready.json').write_text(json.dumps(evidence,indent=2)+'\n',encoding='utf-8')
         print('CAPTURE_READY '+json.dumps(evidence),flush=True)

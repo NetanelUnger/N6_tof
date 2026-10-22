@@ -1,5 +1,13 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Latest external-boot attempt18:42UTC: physical FLASH jumpers/NRST confirmed,
+but passive UART received0bytes and appUSB did not enumerate. Runtime/BOOTSR
+remain UNKNOWN; AP0 read failed, no further reset/write/AP1 attach. Persistent
+boot NOT accepted. ST ES0620 Rev5 2.2.18 applies to boardRevB;2.2.22 also matches
+measured USBPHY mux and static USART1 HSI selection. Cause not isolated. Need
+first cold FLASH power-on capture before any new firmware rewrite; reset-clock
+restoration must be addressed for reliable OTA reboot. Prior proofs below stand.
+
 XIP verified checkpoint (2026-10-22, feature/n6-xip-ota-usb):100 same-frame
 NPU frames PASS,100 exact tensors/classes, CRC0/maxdelta1,28.703s. BLE CLI5/5
 PASS <=1500ms/noPair. RAM heap capacity369136 -> XIP862256 (+493120), not

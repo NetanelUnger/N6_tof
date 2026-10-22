@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-22",
-  "status": "WAITING_FOR_PHYSICAL_EXTERNAL_BOOT_STRAP_AFTER_VERIFIED_BOOTCHAIN_INSTALL",
+  "status": "EXTERNAL_NRST_BOOT_UNCONFIRMED_COLD_FLASH_BOOT_REQUIRED",
   "branch": "feature/n6-xip-ota-usb",
   "baseline": "80f2b511029be6d87f9e72c32b00515457671f89",
   "image_code_commit": "8f74056c9c01c19504dccbb992952e2c16c409b4",
@@ -344,16 +344,16 @@
     "physical_power_cycle": "Human confirmed full disconnect/reconnect12:45UTC; initial ROM/DEV attach PASS"
   },
   "hardware_block": {
-    "action": "Physical BOOT1 change from DEV2-3 to external1-2, keep BOOT0=1-2, then physical RESET",
-    "reason": "DEV strap enters ROM; genuine persistent external-NOR startup cannot be demonstrated by RAM handoff",
-    "state": "PENDING_USER_PHYSICAL_ACTION; not an authorization denial",
-    "board_runtime": "DEV; RAM FSBL Secure Error_Handler parked, no app entered since independent final read",
+    "action": "Cold FLASH-mode power-on test with passive UART capture",
+    "reason": "No app UART/USB after confirmed physical NRST; documented RevB NRST and clock-switch reset hazards require cold baseline",
+    "state": "PENDING_USER_PHYSICAL_ACTION; no operation denied",
+    "board_runtime": "UNKNOWN after external-boot NRST, not verified prior parked DEV state",
     "last_verified_app": "A12 XIP/new compatible Secure RAM runtime, ToF/NPU300/errors0, Cloud sent0, datasetoff; all COM/GDB handles closed",
     "bootchain_installed_verified": true,
     "B11_preserved": true,
     "cloud_workspace": "inactive409; do not activate OTA/browser sensor stream before verified A12",
     "next": "Passive UART/USB external boot observation; no NS debug attach; then rejected/cancelled package and full USB/OTA update tests when recovery is established",
-    "handles_and_shared_lease_released": true
+    "handles_and_shared_lease_released": false
   },
   "persistent_actions": {
     "nor_erase_program_commands_sent": true,
@@ -809,5 +809,54 @@
       "one_retry": "PASS OWNERSHIP RELEASED exit0",
       "hardware_action_denied": false
     }
+  },
+  "external_boot_1842": {
+    "user_confirmed_flash_jumpers_and_reset_utc": "2026-10-22T18:42Z",
+    "passive_capture": {
+      "thread": "n6-xip-passive-external-boot",
+      "pid": 58148,
+      "started_utc": "2026-10-22T18:39:35.916086+00:00",
+      "scope": "XIP passive COM6 UART capture only; no serial writes, debugger, resets or flash activity",
+      "status": "STOP_REQUESTED",
+      "port": "COM6",
+      "baud": 115200,
+      "serial_number": "000C00344142501620353451",
+      "dtr": false,
+      "rts": false,
+      "maximum_seconds": 1200,
+      "serial_writes": 0,
+      "bytes": 0,
+      "waiting_for_physical_change": true,
+      "elapsed_seconds": 229.971,
+      "last_heartbeat_utc": "2026-10-22T18:43:24.058612+00:00"
+    },
+    "USB_inventory": "COM6 ST-LINK only; N6TOF001/COM8 absent",
+    "AP0_read": "Read-only HotPlug BOOTSR0x56008100 failed; no reset/writes/AP1 attach in this turn",
+    "actual_BOOTSR": "UNKNOWN; never inferred from user physical confirmation",
+    "persistent_boot_acceptance": "NOT_CONFIRMED",
+    "board_runtime": "UNKNOWN; no application UART/USB observed",
+    "NOR_writes_this_turn": false,
+    "new_OTP_security_or_credential_actions": false,
+    "source_verification": {
+      "ST_UM3417_Rev4": "https://www.st.com/resource/en/user_manual/um3417-stm32n6-nucleo144-board-mb1940-stmicroelectronics.pdf",
+      "boot_jumpers": "Table4 JP1/JP2 1-2 default flash; Table9 BOOT0=0/BOOT1=0",
+      "UART": "Section7.13 115200/8N1/no flowcontrol; only UART PE5/PE6 wired to ST-LINK",
+      "ST_ES0620_Rev5": "https://www.st.com/resource/en/errata_sheet/es0620-stm32n6xxxx-device-errata-stmicroelectronics.pdf",
+      "applicability": "Board readout RevB;2.2.18 applicable toB,2.2.22 applicable all revisions",
+      "reset_clock_hazard_proven_in_current_firmware": {
+        "USART1": "FSBL main.c and NS debug_uart.c force HSI instead of defaultPCLK2",
+        "USBPHY": "Actual known-good A12 UART CCIPR6=0x00010000 proves OTGPHY1CKREFSEL nondefault",
+        "reset_sites": "debug_cli.c reboot and firmware_update.c drain branches call NVIC_SystemReset without clock restoration"
+      },
+      "causal_attribution": "Errata match is a hypothesis for this failed NRST startup, not isolated proof; no live blocked-failure trace available",
+      "next_design_requirements": [
+        "Before software reset restore all ES0620 2.2.22 mux fields with both clock sources alive, preserving unrelated fields and RAM execution of reset routine",
+        "Investigate2.2.18 early Secure/FSBL POR-reset-mode workaround with reserved retained SRAM word; do not blindly use0x34001004 because signed Secure image copy overwrites that address",
+        "No new NSC API/security permissions; retain B11/A12 gateway addresses",
+        "Cold FLASH boot before rewriting good signed images"
+      ]
+    },
+    "next_physical_action": "All-power cold disconnect/reconnect with jumpers left BOOT0=1-2/BOOT1=1-2; passive capture prepared before requesting it",
+    "pending_acceptance": "Persistent boot, full-image USB-from-XIP, OTA, new-chain failure recovery remain incomplete"
   }
 }

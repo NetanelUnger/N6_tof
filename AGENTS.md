@@ -26,6 +26,17 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- External FLASH/NRST attempt18:42UTC2026-10-22 supersedes parkedDEV state:
+  user confirms BOOT0/1 positions1-2 +RESET; passive UART0bytes/appUSB absent.
+  Runtime and latchedBOOTSR UNKNOWN. AP0 read only failed; no new reset/write/
+  AP1 attach. Original and post-bootchain backups remain; main untouched.
+  ST ES0620Rev5 2.2.18 appliesRevB;2.2.22 matches measuredCCIPR6=00010000 and
+  USART1 HSI source, but actual failed-boot cause is unproven. Need cold FLASH
+  power-on capture before blind firmware rewrites; no DEV-specific assumptions.
+  Reliable OTA/reset requires clock-mux restoration and evaluated NRST workaround;
+  neither implemented/validated yet. See current results/HE guide. No extra Cloud
+  sample collection or OTP/security/debug changes. Preserve both signed slots.
+
 
 - XIP feature checkpoint2026-10-22 supersedes earlier pending cold-reset status:
   feature/n6-xip-ota-usb ONLY/main80f2b511 unchanged.141 imports/7 negative
