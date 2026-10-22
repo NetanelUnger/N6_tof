@@ -22,7 +22,7 @@ repository = Path(__file__).resolve().parents[1]
 # checkout, rather than accidentally creating an independent hardware lease.
 common = subprocess.check_output(['git','-c','safe.directory='+str(repository),
     '-C',str(repository),'rev-parse','--path-format=absolute','--git-common-dir'], text=True).strip()
-folder = Path(common).parent / '.local-dependencies/diagnostics' 
+folder = Path(common).parent / '.local-dependencies/diagnostics'
 folder.mkdir(exist_ok=True, parents=True)
 marker = folder / 'n6-hardware-owner.lock'
 status = folder / 'n6-hardware-owner.json'
