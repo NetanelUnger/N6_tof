@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from common import REPORTS_ROOT, atomic_json, environment_report, mark_stage, utc_now
+from common import REPORTS_ROOT, atomic_json, environment_report, mark_stage, utc_now, ensure_layout
 
 
 def main() -> int:
@@ -17,6 +17,7 @@ def main() -> int:
             f"This project pins Python 3.11; running {sys.version.split()[0]}. "
             "Launch training\\00_SETUP.bat first."
         )
+    ensure_layout()
     report = environment_report()
     report["checked_utc"] = utc_now()
     report_path = REPORTS_ROOT / "environment.json"

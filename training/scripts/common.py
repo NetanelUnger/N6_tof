@@ -409,4 +409,5 @@ def npu_deployment_fingerprint() -> str:
     })
 
 
-ensure_layout()
+# Directory creation belongs to the explicit setup entrypoint. Importers such
+# as dataset/FrameReader must never create files merely to load their API.

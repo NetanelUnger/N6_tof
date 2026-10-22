@@ -26,6 +26,20 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Host-only import audit before resuming latest17:09 reconnect:141/141 Python
+  imports PASS with subprocess/Serial/BLE/network/thread/GUI/file-write denied;
+  no stdlib/installed-package shadow names in Py311 or Py314 name inventories.
+  Actual NPU preflight under same denial PASS/effects0.7 negative fixtures prove
+  blocking;40training +10reader tests PASS.27CLI-only scripts (6tracked,21local)
+  now have explicit entrypoints; original AST operations/multiline strings exact,
+  original txt snapshots retained. common no longer creates directories at import;
+  explicit00_setup.main does. Historical probe direct execution remains disabled.
+  See docs/xip-import-audit-20261022-results.json. This is a Python denial/mocking
+  test, not an OS sandbox. Configuration reads/sibling import paths are intentional.
+  No board probe was performed while this host gate was pending; fresh reconnect
+  confirmation now permits guarded DEV/recovery read after gate PASS.
+
+
 - XIP16:41 resume: AP1/DEV cold attach PASS; independent double4MiB SHA8a7bca4e...
   seq30/CONFIRMED/B11/no pending/valid CRCs, entire1MiB B and NOR chain unchanged.
   Host cleanup0 was ENABLE; actual corrected DISABLE1 returns0/Secure parking
