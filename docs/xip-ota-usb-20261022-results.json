@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-22",
-  "status": "LIVE_A12_AFTER_USER_COLD_RECONNECT_HIL100_USB_NEGATIVES3_PASS_PREPARING_FULL_USB",
+  "status": "USB_XIP_B13_CONFIRMED_CLOUD_CLI_PASS_OTA_A14_IN_PROGRESS",
   "branch": "feature/n6-xip-ota-usb",
   "baseline": "80f2b511029be6d87f9e72c32b00515457671f89",
   "image_code_commit": "8f74056c9c01c19504dccbb992952e2c16c409b4",
@@ -1099,5 +1099,73 @@
       "limits": "NS mux check/restore only; no NRST2.2.18 workaround, no security/OTP change; runtime conditions may refuse reset. Existing A12 still uses old reset and may need a physical cold restart after committing B13.",
       "next_fallback_policy": "Valid A12 after user cold boot/HIL100 stays confirmed while inactive B11 is replaced; original B11 signed/full-NOR backups retained on host"
     }
+  },
+  "current_board_checkpoint": {
+    "version": 13,
+    "slot": "B",
+    "confirmed_by": "Secure rejects signed-header-only replay: confirmed version13",
+    "PC": "0x702CF144",
+    "VTOR": "0x70280400",
+    "jumpers": "BOOT0=1-2 BOOT1=1-2 FLASH",
+    "old_B11": "HOST_BACKUP_ONLY; B overwritten by v13",
+    "fallback_before_OTA": "A12",
+    "SPI_fault_count": 1,
+    "BLE_driver_error_count": 1,
+    "causes": "Not isolated",
+    "sensor_cloud_exports": 0
+  },
+  "USB_full_update_from_XIP": {
+    "aggregate_passed": true,
+    "source": "A12",
+    "target": "B13",
+    "bytes": 498720,
+    "package_sha256": "eb76b264687ada6f39efdec432d19582696ca1fe655a83c1a4cc4feef5f95217",
+    "automatic_boot": true,
+    "independent_confirmation": true,
+    "raw_first_harness_passed": false,
+    "raw_failure_reason": "UART closed around9.2s before usual10.2s boot confirmation; retained unchanged",
+    "superseding_confirmation": "confirmation-b13-after-usb/result.json: confirmed_version13_read_by_Secure=true",
+    "interrupted_valid_manifest_test": "PASS CAN after768 image bytes; A12 healthy, then separately full transfer completed",
+    "raw_metadata_banks_read_after": "NOT_PERFORMED; no SWD attach to NS runtime"
+  },
+  "reset_A14_candidate": {
+    "sha256": "ca60030663b4919d4aa72a5263ac20942d9ddebcc32eb21310b2d20c7dcbb778",
+    "bytes": 498720,
+    "offline_signature": "PASS",
+    "host_actual_C_cases": 16,
+    "drain_cases": 5,
+    "fix": "XSPI1SEL1=CLKP accepted, RAM routine restores HCLK0 plus USBPHY/USART mux; unfamiliar sources still refuse",
+    "B13_observed": "reboot yes refused before SYSRESETREQ, application still healthy",
+    "A14_hardware_reset": "NOT_TESTED",
+    "budgets": {
+      "ram": {
+        "heap_start": "0x241a5630",
+        "stack_limit": "0x241ff800",
+        "heap_capacity_bytes": 369104
+      },
+      "application": {
+        "heap_start": "0x2412d090",
+        "stack_limit": "0x241ff800",
+        "heap_capacity_bytes": 862064
+      }
+    }
+  },
+  "cloud_live_probe": {
+    "passed": true,
+    "commands": 5,
+    "connection_closed": true,
+    "new_credentials": false,
+    "server_changes": false,
+    "sensor_exports": 0,
+    "evidence": ".local-dependencies/xip/cloud-probe-b13-pathfixed/result.json"
+  },
+  "OTA_current": {
+    "state": "IN_PROGRESS",
+    "source": "B13 confirmed",
+    "target": "A14",
+    "fallback_protected": "B13",
+    "no_whole_transfer_retry": true,
+    "uart_capture": "DTR/RTSoff; no serial writes",
+    "hardware_lease": "n6-xip-live-1959"
   }
 }

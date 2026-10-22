@@ -132,6 +132,15 @@ def cli_main():
                             result['after']={line:command(port,line) for line in ['tof status','rps status','cloud status','dataset stream status']}
                     break
                 time.sleep(1)
+            # App USB is ready before the ten-second boot-confirmation worker.
+            # Retain the live UART through confirmation; never re-send an image
+            # just because an early version response preceded that message.
+            if 'Firmware version: 13\r\n' in result.get('version_after',''):
+                confirmation_deadline=time.monotonic()+30
+                while time.monotonic()<confirmation_deadline:
+                    trace.flush()
+                    if 'boot confirmed; rollback window closed' in (output/'uart.log').read_text(errors='replace'):break
+                    time.sleep(.25)
             stop.set();thread.join(timeout=2);trace.flush()
             captured=(output/'uart.log').read_text(errors='replace')
             result['boot_confirmation_seen']='boot confirmed; rollback window closed' in captured

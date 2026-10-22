@@ -1,5 +1,16 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Latest measured2026-10-22: cold A12 XIP runtime HIL100 PASS; full signed USB
+update from XIP A12 to B13 completed498720bytes with automatic boot. Independent
+header-only replay proves confirmed version13 after the first harness closed UART
+too early. CPU PC702CF144/VTOR70280400 measured. B11 is now HOST BACKUP ONLY,
+A12 remains fallback. B13 software reboot refused safely before reset (XSPI1
+CLKP1); signed A14 fixes the guard/switch, host16+5checks PASS/hardware pending.
+Existing Cloud CLI5commands PASS, zero sensor uploads; full OTA is in progress.
+One natural SPI fault and BLE driver error observed; causes not isolated.
+Older board-state paragraphs below are historical. Main unchanged. See
+[current Hebrew usage/recovery guide](docs/xip-current-usage_HE.md).
+
 Recorder lifecycle update: cold capture ended unexpectedly, last heartbeat19:04:36UTC,
 0bytes/no final result; cause UNKNOWN. Own stale lease was verified dead/unlocked
 and archived through explicit project recovery, logs retained. No capture/hardware

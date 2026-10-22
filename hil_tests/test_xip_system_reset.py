@@ -32,7 +32,7 @@ static void __set_PRIMASK(unsigned n){mask=n;}
 static void __DSB(void){barriers++;}
 static void __ISB(void){barriers++;}
 static void NVIC_SystemReset(void){
- assert(mask==1);assert((regs.CCIPR6&0x10000)==0);assert((regs.CCIPR13&7)==0);resets++;
+ assert(mask==1);assert((regs.CCIPR6&0x10003)==0);assert((regs.CCIPR13&7)==0);resets++;
 }
 static void Debug_UART_Log(const char*a,const char*b,...){(void)a;(void)b;}
 static void write_reg(volatile uint32_t*p,uint32_t v){
@@ -46,9 +46,10 @@ static void init(void){memset(&regs,0,sizeof(regs));regs.CCIPR6=0x40010000;regs.
 int main(void){
  unsigned cases=0;init();assert(N6_SystemReset()==0);assert(resets==1&&writes==2&&barriers>=2);assert(regs.CCIPR6==0x40000000&&regs.CCIPR13==0x80000000);cases++;
  init();regs.CCIPR6&=~0x10000;regs.CCIPR13&=~7;assert(N6_SystemReset()==0&&resets==1);cases++;
+ init();regs.CCIPR6|=1;assert(N6_SystemReset()==0&&resets==1&&regs.CCIPR6==0x40000000);cases++;
  for(unsigned bit=1;bit<=16;bit<<=1){if(!(25&bit))continue;init();regs.SR&=~bit;assert(N6_SystemReset()==-1&&!writes&&!resets&&!mask);cases++;}
  for(unsigned i=0;i<5;i++){
-  init();if(i==0)regs.CCIPR6|=1;else if(i==1)regs.CCIPR7|=2;else if(i==2)regs.CCIPR7&=~0x300;else if(i==3)regs.CCIPR8|=1;else regs.CCIPR13|=0x10;
+  init();if(i==0)regs.CCIPR6|=2;else if(i==1)regs.CCIPR7|=2;else if(i==2)regs.CCIPR7&=~0x300;else if(i==3)regs.CCIPR8|=1;else regs.CCIPR13|=0x10;
   assert(N6_SystemReset()==-2&&!writes&&!resets&&!mask);cases++;
  }
  for(unsigned which=1;which<=2;which++)for(unsigned prior=0;prior<=1;prior++){

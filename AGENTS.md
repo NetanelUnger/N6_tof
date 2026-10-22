@@ -26,6 +26,17 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Latest XIP2026-10-22: FLASH jumpers both1-2, confirmed B13 runs after signed
+ 498720byte USB update from XIP A12. Header-only replay reports confirmed13;
+ CPU PC702CF144/VTOR70280400. First update harness false result retained:
+ UART closed too early; separate confirmation supersedes that gap. Interrupted
+ valid-manifest/768image-byte transfer preserved A12. B11 now HOST BACKUP ONLY;
+ A12 remains fallback. B13 reboot refused BEFORE reset on XSPI1SEL1=CLKP.
+ A14 fixes guarded RAM routine, signed/offline verified;16+5host cases PASS,
+ not hardware proven. Cloud CLI5commands PASS/no sensor images; OTA in progress.
+ One SPI fault/BLE driver error observed. No SWD attach during running NS.
+ Older recorder/DEV/noUSB states below historical. Main80f2b511 untouched.
+
 - Host-only recorder recovery2026-10-22: PID35376 disappeared before deadline,
   lastheartbeat19:04:36/569.114s/UART0bytes/no finalresult. CauseUNKNOWN, no
   matching crash event returned; no cold user confirmation. Own stale status/lock

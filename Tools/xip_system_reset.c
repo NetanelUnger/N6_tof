@@ -35,7 +35,7 @@ __attribute__((section(".RamFunc"), noinline))
 int N6_SystemReset(void)
 {
   const uint32_t uart_mask = RCC_CCIPR13_USART1SEL;
-  const uint32_t phy_mask = RCC_CCIPR6_OTGPHY1CKREFSEL;
+  const uint32_t phy_mask = RCC_CCIPR6_OTGPHY1CKREFSEL | RCC_CCIPR6_XSPI1SEL;
   const uint32_t other_uarts = RCC_CCIPR13_USART2SEL |
                               RCC_CCIPR13_UART4SEL | RCC_CCIPR13_UART5SEL;
   uint32_t before_uart = RCC->CCIPR13;
@@ -49,11 +49,13 @@ int N6_SystemReset(void)
   if ((RCC->SR & (RCC_SR_HSIRDY | RCC_SR_HSERDY | RCC_SR_LSIRDY)) !=
       (RCC_SR_HSIRDY | RCC_SR_HSERDY | RCC_SR_LSIRDY))
     return -1;
-  /* Only USART1 and USBPHY muxes are changed by this application's profile.
+  /* BootROM leaves XSPI1 on CLKP (1), measured on confirmed B13. PERSEL0
+   * makes CLKP derive from the verified-running HSI; HCLK runs the CPU. Thus
+   * XSPI1's CLKP->HCLK switch has both sources; do not alter IC3 or XSPI2.
    * Refuse unfamiliar XSPI1/PER/RTC/SDMMC/UART2/4/5 state instead of changing
    * secure-owned or inactive clock trees without evidence. ES requires RTC2;
    * PER0/RTC2 means0x200 in CCIPR7, not PER2. */
-  if (((before_phy & RCC_CCIPR6_XSPI1SEL) != 0U) ||
+  if (((before_phy & RCC_CCIPR6_XSPI1SEL) > 1U) ||
       ((RCC->CCIPR7 & (RCC_CCIPR7_PERSEL | RCC_CCIPR7_RTCSEL)) !=
        (2UL << RCC_CCIPR7_RTCSEL_Pos)) ||
       ((RCC->CCIPR8 & (RCC_CCIPR8_SDMMC1SEL | RCC_CCIPR8_SDMMC2SEL)) != 0U) ||

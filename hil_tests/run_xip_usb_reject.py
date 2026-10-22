@@ -13,10 +13,11 @@ import struct
 import time
 
 
-def packet(payload, corrupt_crc=False):
+def packet(payload, corrupt_crc=False, sequence=1):
     if len(payload) not in (128,1024):raise ValueError('XMODEM packet size')
     crc=binascii.crc_hqx(payload,0) ^ int(corrupt_crc)
-    return bytes([1 if len(payload)==128 else 2,1,254])+payload+crc.to_bytes(2,'big')
+    sequence&=255
+    return bytes([1 if len(payload)==128 else 2,sequence,255-sequence])+payload+crc.to_bytes(2,'big')
 
 
 def until(port,predicate,seconds=8):
