@@ -70,6 +70,10 @@ try {
         } finally { Pop-Location }
     }
     foreach ($context in @('FSBL','AppliSecure')) {
+        if ($context -eq 'AppliSecure') {
+            Assert-N6SecureGatewayAbi -Elf (Join-Path $root 'AppliSecure/Debug/N6_AppliSecure.elf') -Tools $tools |
+                ConvertTo-Json | Set-Content (Join-Path $output 'secure-abi.json') -Encoding utf8
+        }
         foreach ($extension in @('elf','map','bin')) {
             Copy-Item (Join-Path $root "$context/Debug/N6_$context.$extension") (Join-Path $output "$context.$extension")
         }

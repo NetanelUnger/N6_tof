@@ -56,6 +56,8 @@
 static uint32_t cached_non_secure_vector = VTOR_TABLE_NS_START_ADDR;
 static uint32_t cached_non_secure_msp;
 static uint32_t cached_non_secure_reset_handler;
+extern uint8_t _sNSCA12Compat;
+extern uint8_t _eNSCA12Compat;
 
 /* USER CODE END PV */
 
@@ -564,6 +566,16 @@ static void NonSecure_StartCached(void)
 {
   funcptr_NS non_secure_reset_handler;
 
+  /* Region0 covers only the fixed B11/canonical veneers. Region4 is a second
+   * exact64-byte NSC island for already signed A12. The intervening SRAM and
+   * all relocated Secure code/data remain Secure. No BSEC/OTP/debug changes. */
+  SAU->RNR = 4U;
+  SAU->RBAR = (uint32_t)&_sNSCA12Compat & SAU_RBAR_BADDR_Msk;
+  SAU->RLAR = (((uint32_t)&_eNSCA12Compat - 1U) & SAU_RLAR_LADDR_Msk) |
+              SAU_RLAR_NSC_Msk | SAU_RLAR_ENABLE_Msk;
+  __DSB();
+  __ISB();
+
   Secure_TraceHex("[SECURE] cached NonSecure MSP = ",
                   cached_non_secure_msp);
   Secure_TraceHex("[SECURE] cached NonSecure Reset_Handler = ",
@@ -632,6 +644,21 @@ static void NonSecure_StartCached(void)
 
   /* The secure SysTick must not interrupt while NonSecure owns the CPU. */
   HAL_SuspendTick();
+  /* CPU reads, captured before NS entry: debug-AP SCS alias reads while NS is
+   * running are not reliable evidence. These expose no credentials or data. */
+  uint32_t saved_sau_region = SAU->RNR;
+  SAU->RNR = 0U;
+  Secure_TraceHex("[SECURE] NSC0 RBAR = ", SAU->RBAR);
+  Secure_TraceHex("[SECURE] NSC0 RLAR = ", SAU->RLAR);
+  SAU->RNR = 4U;
+  Secure_TraceHex("[SECURE] NSC4 RBAR = ", SAU->RBAR);
+  Secure_TraceHex("[SECURE] NSC4 RLAR = ", SAU->RLAR);
+  SAU->RNR = saved_sau_region;
+  Secure_TraceHex("[SECURE] NS VTOR = ", SCB_NS->VTOR);
+  Secure_TraceHex("[SECURE] NS CCR = ", SCB_NS->CCR);
+  Secure_TraceHex("[SECURE] NS MPU CTRL = ", MPU_NS->CTRL);
+  Secure_TraceHex("[SECURE] NS MPU RBAR = ", MPU_NS->RBAR);
+  Secure_TraceHex("[SECURE] NS MPU RLAR = ", MPU_NS->RLAR);
   Secure_Trace("[SECURE] jumping with cached NonSecure vectors\r\n");
   non_secure_reset_handler();
 

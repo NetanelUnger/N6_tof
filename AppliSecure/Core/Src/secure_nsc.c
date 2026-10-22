@@ -23,6 +23,40 @@
 #include "main.h"
 #include "secure_nsc.h"
 #include "secure_firmware_update.h"
+
+/* A12 was signed against the former movable veneers at3400FF40. Preserve that
+ * exact seven-entry ABI while fixing the canonical ABI at the installed B11
+ * addresses3400F600. Both paths SG into the SAME CMSE-sanitized implementation;
+ * no additional Secure service or permission is introduced. Keep this in the
+ * existing translation unit so generated CubeIDE makefiles cannot omit it. */
+#if defined(__GNUC__)
+#define A12_COMPAT_GATE(name, target) \
+  ".global a12_compat_" #name "\n" \
+  ".type a12_compat_" #name ",%function\n" \
+  ".thumb_func\n" \
+  "a12_compat_" #name ":\n" \
+  "sg\n" \
+  "b.w " #target "\n" \
+  ".size a12_compat_" #name ",.-a12_compat_" #name "\n"
+__asm__(
+  ".pushsection .nsc_a12_compat,\"ax\",%progbits\n"
+  ".balign 32\n"
+  A12_COMPAT_GATE(SECURE_FirmwareUpdateConfirmBoot, __acle_se_SECURE_FirmwareUpdateConfirmBoot)
+  A12_COMPAT_GATE(SECURE_FirmwareUpdateWrite, __acle_se_SECURE_FirmwareUpdateWrite)
+  /* Refer to an ordinary alias defined in the clock implementation's own
+   * translation unit. GNU ld CMSE scanning otherwise processes its special
+   * __acle_se_ symbol twice (definition + cross-object reference), PR-style
+   * duplicate-stub assertion in binutils2.44 cmse_scan. */
+  A12_COMPAT_GATE(SECURE_SystemCoreClockUpdate, a12_clock_cmse_target)
+  A12_COMPAT_GATE(SECURE_FirmwareUpdateBegin, __acle_se_SECURE_FirmwareUpdateBegin)
+  A12_COMPAT_GATE(SECURE_FirmwareUpdateFinalize, __acle_se_SECURE_FirmwareUpdateFinalize)
+  A12_COMPAT_GATE(SECURE_FirmwareUpdateAbort, __acle_se_SECURE_FirmwareUpdateAbort)
+  A12_COMPAT_GATE(SECURE_RegisterCallback, __acle_se_SECURE_RegisterCallback)
+  ".balign 32,0\n"
+  ".popsection\n"
+);
+#undef A12_COMPAT_GATE
+#endif
 /** @addtogroup STM32N6xx_HAL_Examples
 
   * @{

@@ -44,7 +44,12 @@ _Min_Stack_Size = 0x800; /* required amount of stack */
 /* Memories definition */
 MEMORY
 {
-  RAM    (xrw)    : ORIGIN = 0x34000400,   LENGTH = 1023K
+  /* Stable callable ABI: preserve signed B/v11 and already-installed XIP A/v12.
+   * Secure code/data use SRAM1 above64KiB; no NonSecure SRAM is consumed. */
+  VECTORS (rx)   : ORIGIN = 0x34000400, LENGTH = 0x400
+  NSC_ABI (rx)   : ORIGIN = 0x3400F600, LENGTH = 0x40
+  NSC_A12 (rx)   : ORIGIN = 0x3400FF40, LENGTH = 0x40
+  RAM (xrw)      : ORIGIN = 0x34010000, LENGTH = 960K
 }
 
 /* Sections */
@@ -56,7 +61,7 @@ SECTIONS
     . = ALIGN(4);
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
-  } >RAM
+  } >VECTORS
 
   /* The program code and other data into "ROM" Rom type memory */
   .text :
@@ -160,8 +165,27 @@ SECTIONS
     . = ALIGN(4);
     *(.gnu.sgstubs*)   /* Secure Gateway stubs */
     . = ALIGN(4);
-  } >RAM
-  _eNSCVeneer = .;
+  } >NSC_ABI
+  _eNSCVeneer = ADDR(.gnu.sgstubs) + SIZEOF(.gnu.sgstubs);
+
+  .nsc_a12_compat :
+  {
+    _sNSCA12Compat = .;
+    KEEP(*(.nsc_a12_compat))
+    _eNSCA12Compat = .;
+  } >NSC_A12
+
+  ASSERT(SIZEOF(.gnu.sgstubs) == 0x40, "Secure ABI size changed")
+  ASSERT(SIZEOF(.nsc_a12_compat) == 0x40, "A12 compatibility ABI size changed")
+  /* Canonical symbols are rewritten in the final CMSE link stage. Their
+   * exact addresses are checked by Assert-N6SecureGatewayAbi before signing. */
+  ASSERT((a12_compat_SECURE_FirmwareUpdateConfirmBoot & ~1) == 0x3400FF40, "A12 Confirm moved")
+  ASSERT((a12_compat_SECURE_FirmwareUpdateWrite & ~1) == 0x3400FF48, "A12 Write moved")
+  ASSERT((a12_compat_SECURE_SystemCoreClockUpdate & ~1) == 0x3400FF50, "A12 Clock moved")
+  ASSERT((a12_compat_SECURE_FirmwareUpdateBegin & ~1) == 0x3400FF58, "A12 Begin moved")
+  ASSERT((a12_compat_SECURE_FirmwareUpdateFinalize & ~1) == 0x3400FF60, "A12 Finalize moved")
+  ASSERT((a12_compat_SECURE_FirmwareUpdateAbort & ~1) == 0x3400FF68, "A12 Abort moved")
+  ASSERT((a12_compat_SECURE_RegisterCallback & ~1) == 0x3400FF70, "A12 Callback moved")
 
   /* Uninitialized data section into "RAM" Ram type memory */
   . = ALIGN(4);

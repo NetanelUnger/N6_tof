@@ -26,6 +26,28 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+
+- XIP feature checkpoint2026-10-22 supersedes earlier pending cold-reset status:
+  feature/n6-xip-ota-usb ONLY/main80f2b511 unchanged.141 imports/7 negative
+  import-safety/40 training checks PASS.100 XIP NPU frames exact100/class100/
+  CRC0/maxdelta1 PASS28.703s; static-scene one unique tensor, not field accuracy.
+  BLECLI5/5<=1500ms/noPair PASS. Heap369136->862256 (+493120), dynamic/NPU
+  accessibility qualifiers remain. New dual ABI Secure F600/B11+FF40/A12:
+  actual B11 clock/main-entry PASS then parked BEFORE old main; actual A12
+  fullruntime/confirmation PASS, CloudToFsent0/datasetoff. Normal NS debugger
+  attaches forbidden by engineering workflow after prior failures; use AP0
+  NRST then verified DEV ROM and audited controller. Signed bootchain NOW
+  installed via bounded RAM FSBL driver after vendor failures were independently
+  proven no-write. Four owned64KiB sectors only, tails retained; independent
+  double4MiB SHA6cc2cfb51d893b06e75d32c1614818406bcc2a6219f68cb2b98a9c9cae43faaf.
+  Every byte from A0x70180000 through metadata0x703fffff unchanged: A12/B11,
+  seq33/confirmedA12/fallbackB11. Original backups retained; no OTP/credential/
+  lifecycle/debug-lock mutation. Board DEV/Secure FSBL parked; physical BOOT1
+  1-2 (BOOT0 stays1-2) +RESET required next. Do NOT overwrite B11 before valid
+  persistent A12 recovery. OTA/full image USB-from-XIP/persistent new-chain
+  rollback/corrupt/interruption hardware tests remain incomplete. Cloudworkspace
+  inactive409; no Cloud sample collection. See docs/xip-ota-usb-20261022-results.json.
+
 - Host-only import audit before resuming latest17:09 reconnect:141/141 Python
   imports PASS with subprocess/Serial/BLE/network/thread/GUI/file-write denied;
   no stdlib/installed-package shadow names in Py311 or Py314 name inventories.

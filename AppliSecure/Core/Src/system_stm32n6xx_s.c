@@ -417,6 +417,13 @@ CMSE_NS_ENTRY uint32_t SECURE_SystemCoreClockUpdate(void)
   return SystemCoreClock;
 }
 
+#if defined(__GNUC__)
+/* Stable A12 SG compatibility gate branches to the same sanitized CMSE entry.
+ * Keep the special-symbol reference in this defining object; see secure_nsc.c. */
+__asm__(".global a12_clock_cmse_target\n"
+        ".thumb_set a12_clock_cmse_target,__acle_se_SECURE_SystemCoreClockUpdate\n");
+#endif
+
 /**
   * @}
   */

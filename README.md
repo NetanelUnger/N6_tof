@@ -1,19 +1,20 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
-XIP16:41 resume (2026-10-22, feature/n6-xip-ota-usb): cold reconnect restored
-AP1/DEV ROM. Independent double4MiB read proves seq30/CONFIRMED/B11/no pending,
-valid CRCs, entire B slot and original NOR boot chain unchanged. Reader cleanup
-enum corrected; disable1 returned0/Secure parking verified. Exact signed A12
-re-staged after verified rollback through USB498336bytes PASS. RAM matching FSBL/
-Secure reached flash main PC70191588; full XIP USB/ToF/NPU56/errors0 PASS, normal
-boot confirmation at tick10208 PASS. ImageNONE/ToFsent0/datasetoff verified.
-100-frame attempt accepted0: helper inspect.py shadowed stdlib and unexpectedly
-attached debugger; NS Secure-alias reads/detachE31 left USB/AP1 unavailable.
-Helper renamed/main-guarded; HIL import path isolated/no-hardware model preflight
-PASS. New cold reconnect pending; no NS debugger probes on next runtime.
-Reader10host tests PASS; all handles/shared lease released. Current runtime UNKNOWN.
-NOR boot chain remains original. OTA/full image update from XIP/persistent boot/
-100-frame/BLE regressions incomplete. Main unchanged. See the
+XIP verified checkpoint (2026-10-22, feature/n6-xip-ota-usb):100 same-frame
+NPU frames PASS,100 exact tensors/classes, CRC0/maxdelta1,28.703s. BLE CLI5/5
+PASS <=1500ms/noPair. RAM heap capacity369136 -> XIP862256 (+493120), not
+measured dynamic high-water or automatically NPU-accessible memory. Compatible
+Secure supports original B11 F600 and installed A12 FF40 gateways: hardware B11
+reached main then parked before initialization; A12 full XIP runtime/confirmation
+PASS. CPU VTOR70180400/I-cacheON/MPU read-only executable measured.
+Signed FSBL/Secure installed via bounded RAM driver; independent double4MiB
+SHA6cc2cfb51d893b06e75d32c1614818406bcc2a6219f68cb2b98a9c9cae43faaf.
+A12/B11/metadata byte-exact preserved, seq33 confirmedA12/fallbackB11. Vendor
+UnderReset connection and loader erase failed; independent reads proved each
+changed zero bytes. No OTP/credentials/security-lock changes. Main untouched.
+Board now DEV/Secure RAM FSBL parked; next physical BOOT1=1-2 (BOOT0=1-2)
+and RESET are required for real persistent boot. Full signed USB update from XIP,
+actual OTA and persistent new-chain recovery remain incomplete. See the
 [Hebrew guide](docs/xip-ota-usb-20261022_HE.md) and
 [current results](docs/xip-ota-usb-20261022-results.json).
 
