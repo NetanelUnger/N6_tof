@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-22",
-  "status": "EXTERNAL_NRST_BOOT_UNCONFIRMED_COLD_FLASH_BOOT_REQUIRED",
+  "status": "BLOCKED_WAITING_FRESH_COLD_POWER_CONFIRMATION_CAPTURE_INACTIVE",
   "branch": "feature/n6-xip-ota-usb",
   "baseline": "80f2b511029be6d87f9e72c32b00515457671f89",
   "image_code_commit": "8f74056c9c01c19504dccbb992952e2c16c409b4",
@@ -344,17 +344,17 @@
     "physical_power_cycle": "Human confirmed full disconnect/reconnect12:45UTC; initial ROM/DEV attach PASS"
   },
   "hardware_block": {
-    "action": "Cold FLASH-mode power-on test with passive UART capture",
-    "reason": "No app UART/USB after confirmed physical NRST; documented RevB NRST and clock-switch reset hazards require cold baseline",
-    "state": "PENDING_USER_PHYSICAL_ACTION; no operation denied",
+    "action": "Await fresh user cold-power notification; no capture active",
+    "reason": "Prior passive recorder ended unexpectedly before deadline; root cause unknown. No confirmed cold FLASH boot or app runtime.",
+    "state": "PENDING_USER_PHYSICAL_ACTION; stale own lease archived using verified host-only mechanism",
     "board_runtime": "UNKNOWN after external-boot NRST, not verified prior parked DEV state",
     "last_verified_app": "A12 XIP/new compatible Secure RAM runtime, ToF/NPU300/errors0, Cloud sent0, datasetoff; all COM/GDB handles closed",
     "bootchain_installed_verified": true,
     "B11_preserved": true,
     "cloud_workspace": "inactive409; do not activate OTA/browser sensor stream before verified A12",
     "next": "Passive UART/USB external boot observation; no NS debug attach; then rejected/cancelled package and full USB/OTA update tests when recovery is established",
-    "handles_and_shared_lease_released": false,
-    "capture_waiting": "COM6 passive recorder PID35376 active until19:15:07UTC, no user cold reconnect confirmation yet"
+    "handles_and_shared_lease_released": true,
+    "capture_waiting": false
   },
   "persistent_actions": {
     "nor_erase_program_commands_sent": true,
@@ -922,5 +922,70 @@
     "conclusion": "Silicon revision unresolved; previous definitive RevB wording corrected. RevB/Z labels preserved unchanged. No hypothesis promoted to causal proof.",
     "safe_next_identification": "When a known Secure/DEV state is safely available under ownership, record raw documented BootROM revision word and interpret with official device documentation; no live probe during pending passive capture",
     "capture_not_disrupted": true
+  },
+  "capture_supervision_20261022": {
+    "hardware_actions_this_turn": false,
+    "capture_restarted": false,
+    "recorder_currently_active": false,
+    "port_free_verified": false,
+    "old_recorder": {
+      "pid": 35376,
+      "declared_started_utc": "2026-10-22T18:55:07.553165+00:00",
+      "last_heartbeat_utc": "2026-10-22T19:04:36.680548+00:00",
+      "elapsed_seconds_at_last_heartbeat": 569.114,
+      "intended_end_utc": "2026-10-22T19:15:07Z",
+      "uart_bytes": 0,
+      "result_file": "ABSENT; never fabricated",
+      "process": "ABSENT; exact CIM query returned no process, WinAPI OpenProcess returned87",
+      "session25686": "Unknown process id",
+      "original_actual_process_creation_time": "NOT_RECORDED; declared startup tuple matches immutable ready.json and owner.json",
+      "Application_event_query": "No matching Python/PID crash events returned for19:00..19:10UTC IDs1000/1001; not proof that no termination occurred",
+      "termination_cause": "UNKNOWN; no exit status, traceback or termination event retained. Executor timeout, host termination, serial error or close failure are unproven possibilities",
+      "cause_contributing_code_gap": "Old finally could skip lease cleanup if serial close raised; result was written only after normal loop. This explains a possible failure shape, not the observed cause."
+    },
+    "explicit_lease_recovery": {
+      "owner": {
+        "thread": "n6-xip-passive-cold-flash",
+        "pid": 35376,
+        "started_utc": "2026-10-22T18:55:07.553165+00:00",
+        "scope": "XIP passive COM6 UART capture only; no serial writes, debugger, resets or flash activity"
+      },
+      "process_check": {
+        "state": "absent",
+        "winerror": 87
+      },
+      "owner_status_sha256": "2c6c3a3ad8ed609e5a0a4559b6b217143638fbdf0ca4163cf2f5d01453fb5e37",
+      "marker_lock_acquired": true,
+      "port_free_verified": false,
+      "hardware_access": false,
+      "action": "archive exact stale owner files",
+      "archived": true
+    },
+    "cleanup_verified": {
+      "owner_status_absent": true,
+      "owner_marker_absent": true,
+      "recovery_guard_absent": true,
+      "old_logs_unchanged": true,
+      "archive": ".local-dependencies/xip/passive-cold-flash-1-lease-recovery",
+      "port_availability": "NOT_PROBED"
+    },
+    "host_changes": {
+      "supported_owner_recovery": "Explicit n6_hardware_lease.py --recover-stale-from, exact owner/start tuple, no live/reused/unknown PID, unlocked marker, guarded byte-exact archive. Default acquisition never takes over stale owners.",
+      "new_process_identity": "Actual WinAPI process creation timestamp recorded for future owner records",
+      "future_capture_window_seconds": 300,
+      "future_heartbeat": "Atomic JSON plus stdout every5seconds; independent recorder lifetime still must be monitored",
+      "future_error_handling": "Structured ABORTED results, partial bytes retained; own handle and lease cleanup independently attempted. Close uncertainty preserves owner files for explicit recovery. SIGINT/SIGTERM stop flags; TerminateProcess/host failure cannot execute finally.",
+      "future_power_disconnect": "Only confirmed device absence permits bounded reopen of exact ST-LINK COM6; any access denial aborts without retry; original deadline retained. Initial boot bytes may precede USB re-enumeration.",
+      "DTR": "Only0 accepted; active DTR removed after prior denial",
+      "hardware_validation": "NOT_RUN; all serial tests use injected mock ports"
+    },
+    "host_tests": {
+      "capture_mock_cases": 12,
+      "owner_recovery_cases": 10,
+      "denied_effect_import_checks": 2,
+      "all_passed": true,
+      "full_duration_external_executor_soak": "NOT_RUN; deadline tests use a simulated clock. No hardware capture was started."
+    },
+    "pending": "User must notify before fresh cold test; do not assume old recording is running or auto-rearm. Flash jumpers user-reported1-2/1-2; current runtime and silicon revision remain unresolved."
   }
 }

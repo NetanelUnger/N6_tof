@@ -26,6 +26,18 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Host-only recorder recovery2026-10-22: PID35376 disappeared before deadline,
+  lastheartbeat19:04:36/569.114s/UART0bytes/no finalresult. CauseUNKNOWN, no
+  matching crash event returned; no cold user confirmation. Own stale status/lock
+  archived using explicit tested n6_hardware_lease.py recovery: ready tuple exact,
+  WinAPI PIDabsent87, marker lock acquired, bytes preserved. Status/lock/recovery
+  guard now absent; PORT FREE NOT VERIFIED. No capture/hardware restart/reset/
+  flash/debugger in this turn. Future recorder max300s, atomic+stdout5s heartbeat,
+  structured abort, verified-device bounded reconnect only/no denial retry,
+  process creation identity and explicit stale recovery; DTR accepts0only.
+  12mock capture+10ownership+2denied-effects imports PASS, hardwareNOT_RUN.
+  Await user notification before fresh cold FLASH test; no active recorder.
+
 - External FLASH/NRST attempt18:42UTC2026-10-22 supersedes parkedDEV state:
   user confirms BOOT0/1 positions1-2 +RESET; passive UART0bytes/appUSB absent.
   Runtime and latchedBOOTSR UNKNOWN. AP0 read only failed; no new reset/write/

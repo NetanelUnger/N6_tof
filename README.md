@@ -1,5 +1,14 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Recorder lifecycle update: cold capture ended unexpectedly, last heartbeat19:04:36UTC,
+0bytes/no final result; cause UNKNOWN. Own stale lease was verified dead/unlocked
+and archived through explicit project recovery, logs retained. No capture/hardware
+access restarted, port availability NOT probed.12 mocked capture +10 ownership
+cases and2 denied-effects imports PASS. Future captures <=300s with stdout/atomic
+heartbeats, structured errors and bounded verified-device reconnect; must monitor
+liveness, cannot promise cleanup after external process termination. Await user
+notification before a fresh cold FLASH test. Main and NOR unchanged this turn.
+
 Latest external-boot attempt18:42UTC: physical FLASH jumpers/NRST confirmed,
 but passive UART received0bytes and appUSB did not enumerate. Runtime/BOOTSR
 remain UNKNOWN; AP0 read failed, no further reset/write/AP1 attach. Persistent
