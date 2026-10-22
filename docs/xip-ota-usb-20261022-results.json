@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "date": "2026-10-22",
-  "status": "BLOCKED_POST_TRIAL_RESET_DEBUG_RECONNECT",
+  "status": "BLOCKED_AP1_ACCESS_AFTER_AUTHENTICATED_ROLLBACK",
   "branch": "feature/n6-xip-ota-usb",
   "baseline": "80f2b511029be6d87f9e72c32b00515457671f89",
   "image_code_commit": "8f74056c9c01c19504dccbb992952e2c16c409b4",
@@ -335,28 +335,28 @@
       "actual_server_device_transfer_boot": "NOT_RUN"
     },
     "BLE_ToF_NPU_USB_xip_regressions": "NOT_RUN (RAM installer health is separate)",
-    "hardware_rollback_interruption_corrupt_packages": "INCOMPLETE: reset-before-confirm issued; next FSBL rollback blocked by debugger access",
-    "physical_power_cycle": "PENDING explicit confirmation"
+    "hardware_rollback_interruption_corrupt_packages": "Actual pre-confirm reset then FSBL authenticated rollback B11 observed; independent metadata dump and corrupted/interrupted transfer hardware tests still incomplete",
+    "physical_power_cycle": "Human confirmed full disconnect/reconnect12:45UTC; initial ROM/DEV attach PASS"
   },
   "hardware_block": {
-    "action": "Post-trial-reset FSBL rollback verification",
+    "action": "AP1 access recovery after actual authenticated rollback",
     "target": "ST-LINK000C00344142501620353451, NUCLEO-N657X0-Q",
-    "reason": "Normal and supported connect-under-reset both fail Target unknown error32 after direct GDB AIRCR reset",
+    "reason": "AP0 identifies target, AP1 cannot get coreID/error32; pin-pulse and AP0 hardware-reset report did not restore AP1",
     "reset_executed": true,
     "approval_denial": false,
-    "rollback_operation_executed": false,
-    "board_runtime": "UNKNOWN after test reset; no successful post-reset attach",
-    "last_verified_boot_state": "FSBL authenticated A/v12 and committed TRIAL; B/v11 retained confirmed. Expected trial sequence29 follows observed PENDING sequence28",
+    "rollback_operation_executed": true,
+    "board_runtime": "UNKNOWN after failed probe reset; legacy RAM B11 startup was observed earlier",
+    "last_verified_boot_state": "Actual FSBL read TRIAL seq29, committed rollback (internal readback) and authenticated/selected B11; independent seq30 dump not obtained",
     "nor_boot_chain_written": false,
     "handles_and_lease_released": true,
-    "pending": "Explicit full-power removal including all connected supplies/cables and reconnect in DEV; no more hardware probes until confirmation",
-    "root_cause": "UNKNOWN; this is not proof that production firmware NVIC_SystemReset or OTA reset fails"
+    "pending": "Press physical RESET once in DEV to distinguish probe NRST path from core/power state; awaiting human completion, no more probes now.",
+    "root_cause": "UNKNOWN. Failure recurred during legacy RAM B11 without another direct AIRCR write, so direct AIRCR alone is not established cause."
   },
   "persistent_actions": {
     "nor_erase_program_commands_sent": true,
     "otp_fuses_security_lifecycle_debug_locks": false,
-    "credential_config_pair_cache_changes": false,
-    "new_sensor_uploads": 0,
+    "credential_config_pair_cache_changes": "No intentional changes; legacy B11 initialization ran after debugger detach, so NCP setter activity is not verified for that interval",
+    "new_sensor_uploads": "Prior measured no-export RAM installer:0; unexpected legacy B11 runtime interval:UNVERIFIED",
     "scope": "Only authenticated inactive A/v12 and alternating metadata via existing Secure updater. FSBL/Secure NOR and confirmed B/v11 not programmed."
   },
   "recovery": {
@@ -426,5 +426,40 @@
     "optical_autofocus_evidence": "Not established by current code; closest component crop is software preprocessing",
     "larger_native_shape_requires": "Contract/training/quantization/code generation/linker/pool reservation and new HIL"
   },
-  "previous_offline_checkpoint": "xip-ota-usb-20261022-initial-results.json"
+  "previous_offline_checkpoint": "xip-ota-usb-20261022-initial-results.json",
+  "resume_1245": {
+    "human_full_power_reconnect_confirmed": true,
+    "starting_commit": "da11c0f557fa1bf3fe87bb9d32c011bfd1aa9522",
+    "initial_attach": {
+      "pc": "0x18003514",
+      "sp": "0x341037a8",
+      "bootsr": 2
+    },
+    "new_application_slot_write": false,
+    "rollback": {
+      "actual_FSBL_UART": "seq29/TRIAL3/confirmedB11/pendingA12; unconfirmed trial detected; rolling back to slot1; signature0/hash accepted/verification0; copied B11 vectors24200000/241219f1",
+      "firmware_internal_metadata_commit_readback": "PASS before rolling-back UART line (production control flow)",
+      "independent_metadata_dump": "NOT_COMPLETED",
+      "B_image_firmware_authentication": "PASS",
+      "independent_postrollback_B_dump": "NOT_COMPLETED"
+    },
+    "harness_failure": {
+      "cause": "Loaded application ELF lacks FSBL MapMemory symbol; GDB batch exited at handoff. A subsequent inspection detached and resumed legacy B11. Later helper refused to continue because PC had advanced to2413bd58.",
+      "legacy_application_observed": "UART ToF acquired173/processed70; radio waiting WIFI_CONNECT and restore/recovery through tick23039",
+      "legacy_settings_and_cloud_interval": "UNVERIFIED; no credential/pairing command or intentional sensor collection sent. Do not infer no NCP setter or no upload from absent telemetry.",
+      "fix_prepared_only": "recovery_inspect_next.py preflights four FSBL symbols, stops before Firmware_Boot_Prepare, parks at Secure Error_Handler before MapMemory, reads new backup names and never enters legacy B11. Host syntax/symbol checks PASS; hardware NOT_RUN."
+    },
+    "debug_diagnostics": {
+      "AP1_low_frequency_hotplug_halt": "FAIL unable to get coreID",
+      "AP1_HWRSTPULSE": "FAIL unable to get coreID",
+      "AP0_hotplug_identification": "PASS device486/revZ/3.28V",
+      "AP0_hardRst": "CLI reported performed; subsequent AP1 still error32, actual CPU reset effect UNVERIFIED",
+      "AP0_documented_memory_reads": "FAIL BOOTSR and DBGMCU ID/CR; status not obtained",
+      "passive_uart_8s": "No output",
+      "root_cause": "UNKNOWN. Failure recurred during legacy RAM B11 without another direct AIRCR write, so direct AIRCR alone is not established cause."
+    },
+    "pending_physical_action": "Press physical RESET once in DEV to distinguish probe NRST path from core/power state; awaiting human completion, no more probes now.",
+    "evidence_folder": ".local-dependencies/xip/resume-20261022",
+    "handles_and_shared_lease_released": true
+  }
 }

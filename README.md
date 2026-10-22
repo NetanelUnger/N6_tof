@@ -1,16 +1,18 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
-XIP hardware checkpoint (2026-10-22, separate feature/n6-xip-ota-usb): two identical
-4MiB NOR backups and original B/v11 + A/v10 signatures verified; exact guarded
-RAM recovery succeeds. Existing USB XMODEM authenticated inactive A/v12, then
-RAM-loaded matching FSBL/Secure reached actual XIP main at PC0x70191588.
-Confirmed B/v11 and NOR boot chain were not programmed. Intentional pre-confirm
-GDB reset was followed by ST-LINK error32 even under reset; rollback/confirmation,
-full XIP regressions and OTA remain BLOCKED awaiting explicit full-power DEV
-reconnect. All hardware handles and the shared lease are released. Current runtime
-is unverified. CPU static heap862256 vs matching RAM369136; no extra sensor uploads.
-Main remains unchanged/unpushed. See the [Hebrew guide](docs/xip-ota-usb-20261022_HE.md)
-and [current results](docs/xip-ota-usb-20261022-results.json).
+XIP resume checkpoint (2026-10-22, feature/n6-xip-ota-usb): after confirmed full
+power reconnect, ROM PC18003514/BOOTSR2 were read. Actual FSBL consumed TRIAL
+seq29, committed rollback and authenticated B/v11 (signature/hash PASS). A host
+GDB symbol error prevented the independent metadata dump; later detach resumed
+legacy B11, whose ToF/radio startup was observed. AP1 access then failed again
+without another direct AIRCR write. AP0 still identifies device486/revZ/3.28V;
+reported hardware reset did not restore AP1. Await physical RESET once in DEV;
+root cause remains unknown. Legacy NCP setters/Cloud activity in that interval
+are unverified. No new slot or NOR boot-chain programming this resume. Prior
+USB A/v12 + actual flash main PC70191588 proof remain valid; full XIP runtime,
+confirmation, OTA and persistent boot remain incomplete. Main unchanged.
+See [Hebrew guide](docs/xip-ota-usb-20261022_HE.md) and
+[current results](docs/xip-ota-usb-20261022-results.json).
 
 Platform upgrade M1-M7 completed (2026-10-21): projects/classes, shared lossless
 USB/BLE/Cloud capture, two measured classifiers on the real NPU, guarded RAM

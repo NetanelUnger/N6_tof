@@ -26,6 +26,20 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- XIP12:45 resume supersedes the blocked checkpoint below: human full-power
+  reconnect confirmed; ROM PC18003514/BOOTSR2 PASS. Matching FSBL actually read
+  TRIAL seq29/A12, committed rollback and authenticated/copied B11 signature/hash
+  PASS. Host missing MapMemory symbol (wrong application ELF) prevented dump;
+  follow-up detach resumed legacy B11; UART ToF/radio startup observed. Do not
+  claim unchanged NCP settings/no Cloud uploads for that unmeasured interval.
+  AP1 later failed without a fresh AIRCR write. AP0 identifies486/revZ/3.28V;
+  reported hardRst did not restore AP1. Root cause unknown, no more probes until
+  physical RESET-in-DEV confirmation. Corrected read-only recovery helper only
+  prepared/preflighted; parks at Secure Error_Handler before mapped reads and
+  never enters legacy B11. No new slot/boot-chain write; main unchanged. Actual
+  full XIP/confirmation/OTA/persistent boot still open. See current XIP results.
+
+
 - XIP resumed hardware checkpoint (2026-10-22; supersedes the initial blocked
   feature-branch notes below): main80f2b511 unchanged; user cable reconnect let
   AP1 read ROM PC/BOOTSR2. Exact guarded6a6a5d1f... RAM recovery and matching new
