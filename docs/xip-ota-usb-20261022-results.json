@@ -353,7 +353,8 @@
     "B11_preserved": true,
     "cloud_workspace": "inactive409; do not activate OTA/browser sensor stream before verified A12",
     "next": "Passive UART/USB external boot observation; no NS debug attach; then rejected/cancelled package and full USB/OTA update tests when recovery is established",
-    "handles_and_shared_lease_released": false
+    "handles_and_shared_lease_released": false,
+    "capture_waiting": "COM6 passive recorder PID35376 active until19:15:07UTC, no user cold reconnect confirmation yet"
   },
   "persistent_actions": {
     "nor_erase_program_commands_sent": true,
@@ -857,6 +858,30 @@
       ]
     },
     "next_physical_action": "All-power cold disconnect/reconnect with jumpers left BOOT0=1-2/BOOT1=1-2; passive capture prepared before requesting it",
-    "pending_acceptance": "Persistent boot, full-image USB-from-XIP, OTA, new-chain failure recovery remain incomplete"
+    "pending_acceptance": "Persistent boot, full-image USB-from-XIP, OTA, new-chain failure recovery remain incomplete",
+    "passive_cold_capture": {
+      "thread": "n6-xip-passive-cold-flash",
+      "pid": 35376,
+      "started_utc": "2026-10-22T18:55:07.553165+00:00",
+      "scope": "XIP passive COM6 UART capture only; no serial writes, debugger, resets or flash activity",
+      "status": "READY",
+      "port": "COM6",
+      "baud": 115200,
+      "serial_number": "000C00344142501620353451",
+      "dtr": false,
+      "rts": false,
+      "maximum_seconds": 1200,
+      "serial_writes": 0,
+      "bytes": 0,
+      "waiting_for_physical_change": true
+    },
+    "automatic_review": {
+      "denied_action": "Start passive COM6 recorder with DTR=true",
+      "reason": "Asserted DTR could toggle control lines/reset board; conflicts with passive no-reset scope",
+      "executed": false,
+      "process_started": false,
+      "denied_action_retried": false,
+      "safe_alternative": "DTR=false/RTS=false recorder READY;PID35376/session25686; bounded1200s from18:55:07UTC"
+    }
   }
 }
