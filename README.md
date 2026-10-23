@@ -1,5 +1,18 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+LATEST reliability follow-up2026-10-23: B33/A32 unchanged, NO NOR writes.
+Ten real induced SUSP resume/completion tests PASS, SPI/NCP0. USB badCRC,
+partial-manifest cancellation and bad-signature reject PASS. NEW OPEN DEFECT:
+truncated17byte packet produces noNAK within12s; separate25s observation also
+fails. USB session close recovers CLI/ToF/NPU without reset. HAL tick advances
+less than wall time after ToF pause (1029ms/3004ms); root cause not established.
+Post-test HIL100exact/NPU100/delta0/27.578s PASS; radio min14708/peak50828
+(28.94%). UART log queue drops17 retained, transport/internal/timeout/HAL0.
+All handles/lease released, Cloud disabled/sensor0/datasetOFF/imageNONE.
+Do not call full updater interruption/power-loss acceptance complete. See
+[current failure-inclusive evidence](docs/xip-b33-reliability-20261023.json)
+and [next physical/timebase/server plan](docs/xip-next-physical-and-server-plan_HE.md).
+
 CURRENT2026-10-23 14:58UTC: B33 XIP RUNNING/CONFIRMED after actual OTA fromA32;
 A32 retained. Signed512480bytes/501data blocks+EOT/502ACK,0timeouts/0retries,
 506.998s. FSBL signature+hash/automatic flash boot PASS; PC702CFCFC/VTOR70280400,

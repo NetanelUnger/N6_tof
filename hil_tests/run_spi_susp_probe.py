@@ -12,7 +12,8 @@ def main():
     p.add_argument('--owner-thread');p.add_argument('--output',type=Path,required=True)
     p.add_argument('--version',type=int,default=31)
     p.add_argument('--package',default='.local-dependencies/xip/v31-B-susp-probe/N6-XIP-B-v31.n6fw')
-    p.add_argument('--usb-proof',default='.local-dependencies/xip/usb-update-b31-susp-probe/result.json');a=p.parse_args()
+    p.add_argument('--usb-proof',default='.local-dependencies/xip/usb-update-b31-susp-probe/result.json')
+    p.add_argument('--proof-kind',choices=('usb','ota-acceptance'),default='usb');a=p.parse_args()
     root=Path(__file__).resolve().parents[1]
     if subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip()!='feature/n6-xip-ota-usb':raise RuntimeError('Wrong branch')
     binary=(root/a.package).resolve();proof_path=(root/a.usb_proof).resolve()
@@ -20,7 +21,14 @@ def main():
     build=json.loads((binary.parent/'build.json').read_text())
     if hashlib.sha256(binary.read_bytes()).hexdigest()!=build['hashes'][binary.name]['sha256'].lower() or build['version']!=a.version or not build['rx_backpressure']:raise RuntimeError('Probe artifact mismatch')
     proof=json.loads(proof_path.read_text())
-    if not proof['passed'] or not proof['boot_confirmation_seen'] or proof['target_version']!=a.version:raise RuntimeError('Confirmed source proof missing')
+    if a.proof_kind=='usb':
+        confirmed=proof['passed'] and proof['boot_confirmation_seen'] and proof['target_version']==a.version
+    else:
+        confirmed=(proof.get('status')=='OTA_A32_TO_B33_PASS_WITH_QUALIFIED_MEMORY_AND_OVR_LIMITS'
+            and proof['firmware']['version']==a.version and proof['firmware']['sha256']==hashlib.sha256(binary.read_bytes()).hexdigest()
+            and proof['authentication']['FSBL_signature'] and proof['authentication']['FSBL_image_hash']
+            and proof['boot']['USB_independent_post_update_version']==a.version and proof['boot']['confirmation_tick_ms']>0)
+    if not confirmed:raise RuntimeError('Confirmed source proof missing')
     print(f'HOST PREFLIGHT PASS exact signed probe and captured confirmed{a.version}; no hardware opened',flush=True)
     if not a.execute:return
     owner=json.loads((root.parent/'project/.local-dependencies/diagnostics/n6-hardware-owner.json').read_text())

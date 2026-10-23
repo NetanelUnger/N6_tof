@@ -1,0 +1,311 @@
+{
+  "status": "SUSP10_PASS_USB3_REJECT_PASS_TRUNCATED_PACKET_TIMEOUT_FAIL_NOT_CLOSED",
+  "branch": "feature/n6-xip-ota-usb",
+  "firmware_change": false,
+  "NOR_write_requested": false,
+  "new_network_request": false,
+  "SUSP": {
+    "passed": 10,
+    "attempted": 10,
+    "rows": [
+      {
+        "round": 1,
+        "stage": 5,
+        "transfer": 1839,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x1e8801",
+        "RX_remaining": 38,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64,
+        "local_scan": true
+      },
+      {
+        "round": 2,
+        "stage": 5,
+        "transfer": 1873,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x1c8801",
+        "RX_remaining": 36,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64,
+        "local_scan": true
+      },
+      {
+        "round": 3,
+        "stage": 5,
+        "transfer": 1905,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x198801",
+        "RX_remaining": 33,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64,
+        "local_scan": true
+      },
+      {
+        "round": 4,
+        "stage": 5,
+        "transfer": 1934,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x198801",
+        "RX_remaining": 33,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64,
+        "local_scan": true
+      },
+      {
+        "round": 5,
+        "stage": 5,
+        "transfer": 1970,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x1c8801",
+        "RX_remaining": 36,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64,
+        "local_scan": true
+      },
+      {
+        "round": 6,
+        "stage": 5,
+        "transfer": 2002,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x1c8801",
+        "RX_remaining": 36,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64,
+        "local_scan": true
+      },
+      {
+        "round": 7,
+        "stage": 5,
+        "transfer": 2031,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x198801",
+        "RX_remaining": 33,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64,
+        "local_scan": true
+      },
+      {
+        "round": 8,
+        "stage": 5,
+        "transfer": 2067,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x1e8801",
+        "RX_remaining": 38,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64,
+        "local_scan": true
+      },
+      {
+        "round": 9,
+        "stage": 5,
+        "transfer": 2101,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x1c8801",
+        "RX_remaining": 36,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64,
+        "local_scan": true
+      },
+      {
+        "round": 10,
+        "stage": 5,
+        "transfer": 2130,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x178801",
+        "RX_remaining": 31,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64,
+        "local_scan": true
+      }
+    ],
+    "limits": "Ten bounded induced64byte events with one local scan per event; not overnight endurance or all-traffic coverage"
+  },
+  "USB_negative": {
+    "passed_cases": [
+      "bad-crc",
+      "cancel-partial-manifest",
+      "bad-signature"
+    ],
+    "failed_case": "truncated-packet-timeout",
+    "first_observation_bound_seconds": 12,
+    "separate_diagnostic_bound_seconds": 25,
+    "acceptance_bound_seconds_unchanged": 12,
+    "truncated_bytes_sent_each": 17,
+    "complete_valid_manifest_sent": false,
+    "error_first": "TimeoutError(\"Expected response missing: b''\")",
+    "error_diagnostic": "TimeoutError(\"Expected response missing: b''\")",
+    "recovery": "Closing USB session returned B33 CLI; independent version/ToF/NPU/status verified after each failed observation. No reset, cold boot or flash write.",
+    "physical_power_loss_test": false
+  },
+  "HAL_tick_comparison": {
+    "samples": [
+      {
+        "command": "tof resume",
+        "wall_ms": 3004.093100025784,
+        "HAL_delta_ms": 3007
+      },
+      {
+        "command": "tof pause",
+        "wall_ms": 3004.3098000460304,
+        "HAL_delta_ms": 1029
+      },
+      {
+        "command": "tof resume",
+        "wall_ms": 3004.8461999977008,
+        "HAL_delta_ms": 2872
+      }
+    ],
+    "measurement": "3second host sleep plus response overhead; pause transition not excluded",
+    "finding": "HAL time advanced substantially less than wall time after ToF pause; XMODEM timeout uses HAL_GetTick",
+    "root_cause": "UNRESOLVED; TIM6 sleep-clock gating and CLI poll progress require direct discrimination. No register read/new firmware installed."
+  },
+  "HIL_after_fault_controls": {
+    "frames": 100,
+    "exact_tensors": 100,
+    "npu_frames": 100,
+    "max_score_delta": 0,
+    "crc_errors": 0,
+    "passed": true
+  },
+  "HIL_duration_seconds": 27.57799999997951,
+  "memory": {
+    "usage_rows": 40,
+    "stack_PSP_samples": 15,
+    "pools": [
+      {
+        "kind": "pool",
+        "object": "0x2412f7d8",
+        "symbols": [
+          "_end"
+        ],
+        "observations": 59,
+        "capacity": 851432,
+        "observed_peak": 357412,
+        "observed_minimum_free": 494020,
+        "flags": 8,
+        "observed_free_over_used_percent": 138.22143632558505,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "C heap frontier, not malloc free/largest block"
+      },
+      {
+        "kind": "pool",
+        "object": "0x24115bf4",
+        "symbols": [
+          "tx_radio_byte_pool"
+        ],
+        "observations": 2798,
+        "capacity": 65536,
+        "observed_peak": 50828,
+        "observed_minimum_free": 14708,
+        "flags": 0,
+        "observed_free_over_used_percent": 28.93680648461478,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "Wrapped observations only; fragmentation/largest request not proven"
+      },
+      {
+        "kind": "pool",
+        "object": "0x24115c28",
+        "symbols": [
+          "tx_app_byte_pool"
+        ],
+        "observations": 8,
+        "capacity": 180224,
+        "observed_peak": 149312,
+        "observed_minimum_free": 30912,
+        "flags": 0,
+        "observed_free_over_used_percent": 20.702957565366482,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "Wrapped observations only; fragmentation/largest request not proven"
+      },
+      {
+        "kind": "pool",
+        "object": "0x24105bc0",
+        "symbols": [
+          "ux_device_app_byte_pool"
+        ],
+        "observations": 3,
+        "capacity": 65536,
+        "observed_peak": 51224,
+        "observed_minimum_free": 14312,
+        "flags": 0,
+        "observed_free_over_used_percent": 27.940028111822585,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "Wrapped observations only; fragmentation/largest request not proven"
+      },
+      {
+        "kind": "pool",
+        "object": "0x2410150c",
+        "symbols": [
+          "usbpd_app_byte_pool"
+        ],
+        "observations": 1,
+        "capacity": 18048,
+        "observed_peak": 8,
+        "observed_minimum_free": 18040,
+        "flags": 0,
+        "observed_free_over_used_percent": 225500.0,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "Wrapped observations only; fragmentation/largest request not proven"
+      }
+    ],
+    "invalid_lines": 0,
+    "limits": [
+      "Finite expected receive timeouts retained silently as POLL",
+      "Queue free-lists may validly be full; no generic10percent queue-admission claim",
+      "Addresses reused across instances may retain conservative historical peaks",
+      "Pool free percentage is not proof of largest allocatable block",
+      "No proof that every thread or interrupt nesting peak was sampled"
+    ]
+  },
+  "final": {
+    "firmware": "B33 confirmed from prior OTA; runtimeversion33",
+    "fallback": "A32 preserved; no NOR writes in this phase",
+    "ToF": "ready54x42",
+    "NPU_errors": 0,
+    "SPI_faults": 0,
+    "NCP_recoveries": 0,
+    "Cloud": "disabled/paired/sensor0",
+    "image": "NONE",
+    "dataset": "OFF;200 localUSB HIL records total",
+    "UART_log_drops": 17,
+    "UART_drop_kind": "queue_full/pool_full; bounded trace bursts during negative tests; retained LOG counter11 observed in raw capture",
+    "UART_transport_internal_timeout_hal_errors": 0,
+    "BLE": "driver ready/disconnected/advertising; previous RF DeviceNotFound before GATT not resolved",
+    "probe": "all ten one-shot probes completed; none pending",
+    "owned_handles_and_lease": "closed/released"
+  },
+  "next": "No new physical action requested. Diagnose HAL/RTOS/TIM6 and poll progress before claiming updater interruption acceptance. New instrumentation image would replace inactiveA32; coordinate recovery preservation first.",
+  "server": "Read-only review only; minimal wake-on-matching-ACK proposal and tests in docs/xip-next-physical-and-server-plan_HE.md. Lost-ACK/replay remains separate.",
+  "main_server_unchanged": true
+}

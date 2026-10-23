@@ -26,6 +26,20 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- LATEST reliability follow-up: B33 confirmed/A32 retained, no NOR write.
+ 10/10 actual induced SUSP64byte suspend/resume/completion PASS, SPI/NCP0.
+ USB badCRC/partial-manifest CAN/bad-signature reject PASS. Truncated17byte
+ packet NO_NAK within12s and separate25s diagnostic: FAIL, not waived.
+ USB close recovers CLI/ToF/NPU, no reset. HAL tick comparison after ToF pause
+ 1029ms vs host3004ms; unresolved timebase/polling cause. Do not claim solved
+ by speculative TIM6 sleep-clock change. No debugger attach/new firmware.
+ Post-controls HIL100exact/delta0/27.578s, radio min14708/peak50828, UARTdrops17
+ queue_full/pool_full from diagnostic campaign, UARTtransport/internal/HAL0.
+ Cloud disabled/sensor0/datasetOFF/imageNONE; handles+lease released, probes
+ completed. Next instrumentation install would replace A32: coordinate its
+ recovery preservation first. No physical capture/request started. See
+ docs/xip-b33-reliability-20261023.json and next-physical-and-server plan.
+
 - CURRENT2026-10-23 14:58UTC supersedes older checkpoints: B33 XIP confirmed,
   A32 retained after actual OTA512480bytes/502ACK/0timeouts/0retries/506.998s.
   FSBL signature/hash, automatic flash boot, PC702CFCFC/VTOR70280400,
