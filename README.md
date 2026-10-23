@@ -1,6 +1,22 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
-LATEST2026-10-23: A43 confirmed XIP, B42 retained. Normal Build-Xip defaults
+LATEST2026-10-23 19:00UTC: B44 confirmed XIP, A43 retained. Full OTA with active
+WDT PASS517472bytes/506data+EOT/507ACK/0timeout/0retry/562.032s. Signature/hash,
+automatic reboot/confirmation22720ms, PC702D0AFC/VTOR70280400 verified. Nine
+source SPI suspensions resumed;509 flash-service calls/RXoverlap0/preOVR0/fault0.
+No watchdog reset or TASK STALE during transfer; no deadline change or WDT disable.
+B44 HIL100exact/NPU100/delta3/CRC0/27.516s.60s resources/15PSP samples, radio
+min15180/peak50356(30.15% free/used); heap851288/front357412/tail493876 versus
+RAMcontrol369168. Finite observations, not full worst-case or fragmentation proof.
+Final USB/PONG/ToF/NPU healthy, sensorCloud0/Cloud disabled/datasetOFF; leases
+closed. A43/B44 exact recovery artifacts verified. No main/server/OTP changes.
+[Current Hebrew use/recovery](docs/n6-xip-ota44-usage_HE.md),
+[OTA acceptance](docs/xip-ota-watchdog-final-20261023.json),
+[memory](docs/xip-ota-watchdog-memory-20261023.json).
+Physical NOR powercut remains untested/unarmed; last cold-power test was B39.
+Original OVR cause/server lease/BLE host limitations remain separate findings.
+
+Historical A43 checkpoint (superseded by B44/A43 above): Normal Build-Xip defaults
 watchdog/resource ON; UART w/W and local USB CLI W arm/W/W cancel remain.
 5s independent arms/updater-busy guard; remote BLE/Cloud cannot mutate arms.
 Four actual IWDG resets PASS:41UART+supervisor,43UART+USBCLI, resetflag1 and
@@ -18,7 +34,7 @@ Git reads blocked by ownership; no added trust/merge/push/deploy/server edits.
 [Final evidence](docs/xip-watchdog-final-20261023.json),
 [memory](docs/xip-watchdog-memory-20261023.json),
 [watchdog design/use](docs/watchdog-design_HE.md).
-All board states below are historical and superseded by A43/B42.
+All board states below are historical and superseded by B44/A43 above.
 
 Rollback follow-up: signed A40 trial installed from B39 over USB, one pre-confirm
 software reset, explicit FSBL rollback to B39 and healthy USB/ToF/NPU PASS.

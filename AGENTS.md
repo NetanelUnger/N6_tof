@@ -26,7 +26,26 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
-- Latest2026-10-23: A43 XIP confirmed/B42 retained, firmware sourceeb809d1,
+- Latest2026-10-23 19:00UTC: B44 XIP confirmed/A43 retained, sourcef71957f.
+  Actual OTA with WDT active PASS517472bytes/506data+EOT/507ACK/0timeout/
+  0retry/562.032s. Signature0/hash accepted; automatic MCU reboot, IWDG0,
+  NS confirmation22720ms/HEALTHY1FF, PC702D0AFC/VTOR70280400. Trial metadata
+  seq118 confirmed0/v43 pending1/v44; no fresh post-confirm raw metadata read.
+  Source SPI automatic resumes9, flash calls509/RXoverlap0/preOVR0/fault0;
+  no TASK STALE/unexpected reset, no WDT disable/deadline change. HIL100exact/
+  NPU100/delta3/CRC0/27.516s unchanged gates.60s resources/15PSP samples,
+  radio peak50356/min15180(30.15%), heap851288/front357412/tail493876 versus
+  RAMcontrol369168. NOT full WC/largest block/NPU-bank equivalence proof.
+  Final USB/PONG/ToF/NPU healthy; Cloud disabled+paired/sensor0/datasetOFF,
+  NPU/SPI/NCP/UART faults0, handles/lease closed. A43/B44 exact host artifacts
+  verified, not fresh wholeNOR dump. Only version header differs from A43.
+  No main/server/OTP/security/credentials/push/deploy changes. No new Git trust.
+  Physical NOR powercut untested/unarmed; latest cold-power B39, not B44.
+  Early watchdog boot gap/LSI/starvation coverage, original OVR cause/server
+  lease/BLE host findings remain. See docs/xip-ota-watchdog-final-20261023.json
+  and docs/n6-xip-ota44-usage_HE.md. Earlier states below are historical.
+
+- Historical2026-10-23: A43 XIP confirmed/B42 retained, firmware sourceeb809d1,
   FSBLseq117 confirmed0/v43 pending1/v42, PC701D0AFC/VTOR70180400.
   Build-Xip watchdog/resource defaultsON; guarded RAM recovery staysOFF.
   UART w/W, s/W; local USB CLI W arm/W/W cancel.5s independent arms and
