@@ -1,5 +1,12 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+OTA permission follow-up2026-10-23: official per-call elevated HTTPS /health
+PASS200. Separately requested A32->B33 regression stopped at Git ownership
+validation BEFORE USB/network sender: elevated netan differs from worktree
+owner CodexSandboxOffline. No trust exception/retry, no firmware sent.
+B33 signed512480bytes is NOT installed. Lease released, prior A32/B31 evidence
+unchanged. See [permission checkpoint](docs/xip-ota-permission-checkpoint-20261023.json).
+
 Current2026-10-23 14:06UTC: A32 XIP RUNNING/CONFIRMED, B31 retained.
 CPU PC701CFCFC/VTOR70180400; five full USB updates from XIP PASS.
 A32 HIL100 exact/NPU100/maxdelta0/27.453s. Real induced SUSP resume PASS:
