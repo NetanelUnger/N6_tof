@@ -26,6 +26,21 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- CURRENT2026-10-23 14:58UTC supersedes older checkpoints: B33 XIP confirmed,
+  A32 retained after actual OTA512480bytes/502ACK/0timeouts/0retries/506.998s.
+  FSBL signature/hash, automatic flash boot, PC702CFCFC/VTOR70280400,
+  confirmation10206ms, Cloud+USB version33 PASS. HIL100exact/NPU100/delta0.
+  Radio pool observed free15180/peak50356(30.15%), PSP15samples not full WC.
+  No active-install stack peak claim. Cloud disabled+paired/sensor0, datasetOFF,
+  imageNONE, SPI/NCP faults0/UART drops0. All owned handles and lease released.
+  Formal network escalation and human-approved exact per-command Git trust
+  succeeded; no global/environment trust, ownership or permissions changed.
+  Main/server unchanged. Earlier EACCES/ownership blockers below are historical.
+  Source auto-resume counter6->8 during OTA; starting count not captured, not
+  eight scoped events. Controlled SUSP proof remains separate; original OVR
+  physical root cause/server lease-retry behavior/latest BLE DeviceNotFound
+  before GATT are not declared solved. See docs/xip-ota-b33-acceptance-20261023.json.
+
 - CURRENT2026-10-23: A32 XIP confirmed, B31 retained. Five full XIP USB
   updates PASS; actual CPU PC701CFCFC/VTOR70180400, HIL100exact/NPU100/delta0.
   SUSP discriminating HIL PASS64bytes/SR001C8801/RXleft36/resume+1/completed1,

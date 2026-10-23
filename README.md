@@ -1,5 +1,18 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+CURRENT2026-10-23 14:58UTC: B33 XIP RUNNING/CONFIRMED after actual OTA fromA32;
+A32 retained. Signed512480bytes/501data blocks+EOT/502ACK,0timeouts/0retries,
+506.998s. FSBL signature+hash/automatic flash boot PASS; PC702CFCFC/VTOR70280400,
+confirmation10206ms; Cloud+independent USB version33. HIL100exact/NPU100/delta0.
+Radio observed free15180/peak50356(30.15%); PSP15samples are NOT full WC or
+active-install stack proof. Cloud disabled/paired/sensor0, datasetOFF/imageNONE,
+SPI faults0/NCP recovery0/UART drops0. All owned handles+lease released.
+Official scoped network permission and explicitly approved per-command exact
+Git trust succeeded; no global trust/security/server/main changes. Earlier
+network/ownership blockers below are historical, not current. Original OVR
+root cause/server lease finding/latest BLE before-GATT blocker remain qualified.
+See [OTA acceptance evidence](docs/xip-ota-b33-acceptance-20261023.json).
+
 OTA permission follow-up2026-10-23: official per-call elevated HTTPS /health
 PASS200. Separately requested A32->B33 regression stopped at Git ownership
 validation BEFORE USB/network sender: elevated netan differs from worktree
