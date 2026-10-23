@@ -23,6 +23,23 @@
 וקריאה חוזרת; התמונה המאושרת נשמרת עד שהמועמדת עולה ומאשרת את עצמה.
 שירותי NSC הישנים נשמרו לתאימות, ללא API או הרשאות אבטחה חדשות.
 
+קובצי המימוש המרכזיים לעיון:
+
+| קבצים | תפקיד |
+|---|---|
+| `AppliNonSecure/STM32N657X0HXQ_XIP.ld` | text/rodata ווקטורים בפלאש החריץ; data/bss/heap/stack ב־RAM |
+| `FSBL/Core/Src/firmware_boot.c`, ‏`stm32_boot_lrun.c` | אימות בחירת חריץ וקפיצה לווקטור XIP בלי העתקת קוד NS ל־RAM |
+| `AppliSecure/Core/Src/main.c`, ‏`secure_firmware_update.c`, ‏`secure_nsc.c` והלינקר Secure | מיפוי/MPU/cache, שער כתיבה מתוך RAM ותאימות שבעת שירותי NSC הקיימים |
+| `Common/Update/firmware_update_format.*`, ‏`Tools/New-FirmwareUpdatePackage.ps1` | קשירת החריץ לדגלים חתומים ובדיקת וקטורים/גודל |
+| `Tools/xip_system_reset.c`, ‏`firmware_update.c`, ‏`debug_cli.c` | איפוס מתוך RAM לאחר השבת בוררי שעון, וניקוז אישור העדכון לפני איפוס |
+| `Tools/Build-Xip.ps1`, ‏`Tools/Test-XipPackage.ps1` | בניית חבילות נפרדות, אימות חתימה ומדידת תקציב RAM |
+| `Tools/capture_xip_boot_uart.py`, ‏`read_xip_recovery.py`, ‏`hil_tests/run_xip_*` | בדיקות מוגבלות בזמן, בעלות מפורשת וסגירה בטוחה; ללא חיבור דיבאגר ל־NS רצה |
+| `Tools/analyze_xip_ota_timing.py` | ניתוח חותמות מארח ו־UART בלי פעולות חומרה |
+
+נוספו גם הגנות import בכלי בדיקה ואימון שנפגעו מהתנגשות שם מודול Python;
+פעולות חומרה מופעלות דרך entrypoint מפורש. המודל, הנתונים וחוזה הקדם־עיבוד
+של RPS נשמרו; שינויים בכלי בדיקה אינם אימון של מודל חדש.
+
 OTA ל־B15 עבר עם אתחול ואישור אוטומטיים. נבדק ביטול העברה אחרי מניפסט
 תקין ו־768 בתי תמונה; B15 נשארה פעילה. A16 הותקנה לניסיון, אותחלה לפני
 אישור, וה־FSBL החזיר בפועל את B15. לאחר מכן USB העביר A17, שהוכחה
