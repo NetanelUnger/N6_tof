@@ -1,5 +1,13 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Cold-power follow-up2026-10-23 17:23UTC: user-confirmed all-power disconnect,
+captured ST-LINK reconnect and complete FSBL boot, seq105/B39/signature+hash PASS,
+NS XIP PC702D0494/VTOR70280400/confirmation10401ms, USB39/PONG/ToF/NPU healthy.
+Cloud polling resumed with409; sensor0/dataset0, then disabled and verified.
+Capture and all leases closed. No reset/programming/debugger activity.
+This supersedes the cold-power pending item below; programming-time power-loss
+and latest rollback remain untested. [Evidence](docs/xip-b39-cold-power-20261023.json).
+
 FINAL2026-10-23: B39 XIP confirmed, A38 retained. HAL timebase starvation in
 PendSV idle fixed by TIM6 effectiveIRQ14 abovePendSV15; sleep-clock-only B35
 control FAILED and is retained. Actual partial-packet NAK10.008..10.051s,

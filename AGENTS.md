@@ -26,6 +26,16 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Cold-power2026-10-23 17:23UTC: user confirmed all-power removal/LEDs-off
+  instruction; passive recorder captured ST-LINK disconnect/reconnect1 and full
+  FSBL/BootROM startup. Seq105 confirmedB39, signature0/hash accepted, no NS code
+  copy, PC702D0494/VTOR70280400, app confirms10401ms. USB39/PONG/ToF/NPU pass,
+  SPI/NCP/alloc0, dataset0/sensorCloud0. Cloud CLI polling resumed/HTTP409;
+  existing cloud disable applied and disabled verified, request_errors1 retained.
+  All handles/leases closed. No reset/debugger/programming. Cold power pending
+  items below are superseded; no rail measurement or programming-time powercut
+  claim. Evidence docs/xip-b39-cold-power-20261023.json.
+
 - FINAL2026-10-23 supersedes all earlier board states: B39 XIP confirmed,
   A38 retained. TIM6 IRQ15 could not preempt ThreadX PendSV15 idle; IRQ14
   restores HAL wall time. Sleep-clock-only B35 did NOT fix the timeout.
