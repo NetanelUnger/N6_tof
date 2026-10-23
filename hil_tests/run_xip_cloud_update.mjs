@@ -62,6 +62,8 @@ export async function main(args=process.argv.slice(2)){
     packageBytes:firmware?.length??0,packageSha256:firmware?hash(firmware):null,sensorStreamRequested:false,newCredentials:false,
     allowedDeviceIdsUnchanged:ids,passed:false,events:[],commands:[]};
   const persist=()=>fs.writeFileSync(path.join(output,'result.json'),JSON.stringify(result,null,2)+'\n');
+  const trace=(message,details={})=>fs.appendFileSync(path.join(output,'xmodem-trace.jsonl'),JSON.stringify({
+    atUtc:new Date().toISOString(),monotonicMs:performance.now(),message:redact(message),...details})+'\n');
   const connection=new signalR.HubConnectionBuilder().withUrl(endpoint+'/hubs/relay').configureLogging(signalR.LogLevel.None).build();
   connection.serverTimeoutInMilliseconds=90000;
   const controls=new XmodemControls(),sequences=new OutputSequences(),messages=new Map();let route=null;
@@ -75,7 +77,9 @@ export async function main(args=process.argv.slice(2)){
         // Queue only protocol controls; human terminal strings must not fill
         // the bounded control FIFO after the final ACK.
         for(const byte of bytes)if([0x43,0x06,0x15,0x18].includes(byte))controls.push({byte,inputSequence:message.inputSequence});
-        result.events.push({kind:'binary-control',sequence:message.sequence,inputSequence:message.inputSequence,length:bytes.length});
+        result.events.push({kind:'binary-control',sequence:message.sequence,inputSequence:message.inputSequence,length:bytes.length,
+          atUtc:new Date().toISOString(),monotonicMs:performance.now()});
+        trace('CONTROL_ARRIVAL',{sequence:message.sequence,inputSequence:message.inputSequence,bytes:[...bytes]});
       }
     }else entry.text+=redact(message.text??'');
     entry.completed||=Boolean(message.completed);messages.set(message.commandId,entry);
@@ -93,6 +97,10 @@ export async function main(args=process.argv.slice(2)){
     record.completed=false;persist();throw new Error('CLI response timeout: '+line);
   }
   const hardStop=setTimeout(()=>{result.deadlineExpired=true;controls.close(new Error('Bounded20minute deadline'));connection.stop().catch(()=>{});},1200000);
+  let lastLoop=performance.now();result.maxHostLoopLagMs=0;
+  const loopMonitor=setInterval(()=>{const now=performance.now(),lag=now-lastLoop-100;lastLoop=now;
+    result.maxHostLoopLagMs=Math.max(result.maxHostLoopLagMs,lag);
+    if(lag>250)trace('HOST_LOOP_LAG',{lagMs:lag});},100);
   try{
     persist();await connection.start();
     const opened=await connection.invoke('OpenWorkspace',workspace.workspaceToken,ids);
@@ -113,10 +121,12 @@ export async function main(args=process.argv.slice(2)){
     await sendXmodem({firmware:new Uint8Array(firmware),controls,
       send:async(packet,sequence,offset,completed,crc)=>{
         result.lastSubmitted={sequence,offset,completed};persist();
+        const started=performance.now();trace('SEND_RPC_START',{sequence,offset,completed});
         await connection.invoke('SendCliBinary',ids[0],request.id,sequence,offset,Buffer.from(packet).toString('base64'),crc,completed);
+        trace('SEND_RPC_DONE',{sequence,offset,durationMs:performance.now()-started});
       },
       progress:percent=>{result.percent=percent;if(percent!==previous){console.log('OTA',percent+'%');previous=percent;}persist();},
-      trace:(message,details)=>fs.appendFileSync(path.join(output,'xmodem-trace.jsonl'),JSON.stringify({message:redact(message),...details})+'\n')});
+      trace});
     result.eotAcknowledged=true;persist();console.log('PASS actual OTA EOT acknowledged',firmware.length,'bytes');
     await delay(15000);
     try{
@@ -130,7 +140,7 @@ export async function main(args=process.argv.slice(2)){
     return result;
   }catch(error){result.error=redact(error?.message??error);throw new Error(result.error);}
   finally{
-    clearTimeout(hardStop);await connection.stop();result.connectionClosed=true;persist();
+    clearTimeout(hardStop);clearInterval(loopMonitor);await connection.stop();result.connectionClosed=true;persist();
     console.log('CLOUD RESULT',JSON.stringify({mode:result.mode,probePassed:result.probePassed,eotAcknowledged:result.eotAcknowledged,
       targetRunning:result.targetRunning,passed:result.passed,error:result.error??null,connectionClosed:true}));
   }

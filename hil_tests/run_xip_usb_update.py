@@ -1,8 +1,8 @@
 """One explicit signed inactive-slot USB update from a measured XIP application.
 
-Uses existing Send-Xmodem.ps1. Does not program FSBL/Secure, reset/debug the
-board or retry an entire update. A12 remains the confirmed fallback until B13
-boots and confirms. Original B11 recovery artifacts remain on the host.
+Uses existing Send-Xmodem.ps1. Never programs FSBL/Secure or retries a whole
+image. Optional trial testing sends one explicit CLI reboot before confirmation.
+The confirmed source stays protected; original recovery artifacts stay on host.
 """
 import argparse
 import hashlib
@@ -20,6 +20,14 @@ def command(port,line):
         data.extend(port.read(4096))
         if data.endswith(b'n6> '):return data.decode('utf-8','replace')
     raise TimeoutError('No complete CLI response to '+line)
+
+
+def wait_usb_disconnect(enumerate_ports,now=time.monotonic,sleep=time.sleep,seconds=15):
+    """Wait for source disappearance before any candidate-open attempt."""
+    deadline=now()+seconds
+    while any(p.device=='COM8' and p.serial_number=='N6TOF001' for p in enumerate_ports()):
+        if now()>deadline:raise RuntimeError('No automatic USB disconnect observed; no candidate reset/open attempted')
+        sleep(.05)
 
 
 def cli_main():
@@ -127,21 +135,15 @@ def cli_main():
             result['authenticated_finalization']='XMODEM transfer and device-side finalization completed successfully.' in text and sender.returncode==0
             if not result['authenticated_finalization']:raise RuntimeError('USB sender did not confirm finalization; inspect before retry')
             print('SIGNED IMAGE TRANSFER/FINALIZATION PASS',result['bytes'],flush=True)
-            if args.trial_reboot:
-                # Do not mistake the still-running source CDC for the candidate.
-                # Observe the actual automatic-reset disconnect before polling
-                # for the trial, leaving its short confirmation window intact.
-                disconnect_deadline=time.monotonic()+15
-                while any(p.device=='COM8' and p.serial_number=='N6TOF001' for p in list_ports.comports()):
-                    if time.monotonic()>disconnect_deadline:raise RuntimeError('No automatic USB disconnect observed; no trial reset sent')
-                    time.sleep(.05)
-                result['automatic_USB_disconnect_seen']=True
-            else:time.sleep(4)
+            # All modes must distinguish the old source port from the candidate.
+            # A fixed sleep raced the source disconnect in the first A17 check.
+            wait_usb_disconnect(list_ports.comports)
+            result['automatic_USB_disconnect_seen']=True
             deadline=time.monotonic()+75
             while time.monotonic()<deadline:
                 found=any(p.device=='COM8' and p.serial_number=='N6TOF001' for p in list_ports.comports())
                 if found:
-                    if not args.trial_reboot:time.sleep(2)
+                    if not args.trial_reboot:time.sleep(.2)
                     with serial.Serial('COM8',115200,timeout=.1,write_timeout=2) as port:
                         port.dtr=True
                         result['version_after']=command(port,'version')

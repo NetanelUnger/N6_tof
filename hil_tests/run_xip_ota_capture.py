@@ -1,6 +1,7 @@
 """Explicit A14 OTA with passive UART under an existing verified owner."""
 def main():
     import argparse, importlib.util, json, subprocess, threading, time
+    from datetime import datetime,timezone
     from pathlib import Path
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--execute',action='store_true')
@@ -31,12 +32,16 @@ def main():
     port.dtr=False;port.rts=False;port.port='COM6'
     try:
         port.open()
-        with (folder/'uart.log').open('xb') as log:
+        with (folder/'uart.log').open('xb') as log,(folder/'uart-arrivals.jsonl').open('x',encoding='utf8') as arrivals:
             def collect():
                 try:
+                    offset=0
                     while not stop.is_set():
                         data=port.read(8192)
-                        if data:log.write(data);log.flush()
+                        if data:
+                            arrivals.write(json.dumps({'atUtc':datetime.now(timezone.utc).isoformat(),
+                                'monotonicNs':time.monotonic_ns(),'offset':offset,'length':len(data)})+'\n');arrivals.flush()
+                            log.write(data);log.flush();offset+=len(data)
                 except BaseException as error:result['uart_error']=repr(error)
             reader=threading.Thread(target=collect);reader.start()
             print('PASSIVE UART READY DTR/RTS0; starting existing OTA client',flush=True)
