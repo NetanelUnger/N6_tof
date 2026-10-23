@@ -1,4 +1,4 @@
-"""Confirm existing B13 without reflashing: signed header replay, then one reboot.
+"""Confirm existing B13/A14 with header-only replay; optionally one explicit reboot.
 
 Only256 manifest bytes are sent, in two128-byte packets. Even an unexpected
 accept cannot erase/program an image because no image byte/EOT is submitted.
@@ -17,23 +17,34 @@ def cli_main():
     parser.add_argument('--execute',action='store_true')
     parser.add_argument('--owner-thread')
     parser.add_argument('--label')
+    parser.add_argument('--version',type=int,choices=(13,14),default=13)
+    parser.add_argument('--reboot',action='store_true',help='Explicit single reboot after confirmed metadata proof')
     args=parser.parse_args()
     root=Path(__file__).resolve().parents[1]
-    build=root/'.local-dependencies/xip/v13-B-reset-safe3';info=json.loads((build/'build.json').read_text())
-    data=(build/'N6-XIP-B-v13.n6fw').read_bytes()
-    assert hashlib.sha256(data).hexdigest()==info['hashes']['N6-XIP-B-v13.n6fw']['sha256'].lower()
+    version=args.version
+    directory,name=('v13-B-reset-safe3','N6-XIP-B-v13.n6fw') if version==13 else ('v14-A-reset-clkp','N6-XIP-A-v14.n6fw')
+    build=root/('.local-dependencies/xip/'+directory);info=json.loads((build/'build.json').read_text())
+    data=(build/name).read_bytes()
+    assert hashlib.sha256(data).hexdigest()==info['hashes'][name]['sha256'].lower()
     spec=importlib.util.spec_from_file_location('protocol',root/'hil_tests/run_xip_usb_reject.py')
     protocol=importlib.util.module_from_spec(spec);spec.loader.exec_module(protocol)
     packets=[protocol.packet(data[:128],sequence=1),protocol.packet(data[128:256],sequence=2)]
     assert len(packets)==2 and all(len(x)==133 for x in packets)
     if args.preflight_only or not args.execute:
-        print('HOST PREFLIGHT PASS exact signedB13 header256bytes only; no image data, no EOT or flash write')
+        print(f'HOST PREFLIGHT PASS exact signedV{version} header256bytes only; no image data/EOT; reboot={args.reboot}, no hardware opened')
         return
     import re,subprocess,threading,serial
     from serial.tools import list_ports
     assert subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),'branch','--show-current'],text=True).strip()=='feature/n6-xip-ota-usb'
     owner=json.loads((root.parent/'project/.local-dependencies/diagnostics/n6-hardware-owner.json').read_text())
     assert args.owner_thread and owner['thread']==args.owner_thread
+    lease_spec=importlib.util.spec_from_file_location('lease',root/'hil_tests/n6_hardware_lease.py')
+    lease=importlib.util.module_from_spec(lease_spec);lease_spec.loader.exec_module(lease)
+    identity=lease.windows_process_identity(owner['pid'])
+    assert identity['state']=='alive' and identity['created_utc']==owner['process_created_utc']
+    ports=list(list_ports.comports())
+    assert any(p.device=='COM6' and p.serial_number=='000C00344142501620353451' for p in ports)
+    assert any(p.device=='COM8' and p.serial_number=='N6TOF001' for p in ports)
     assert args.label and re.fullmatch('[a-z0-9-]+',args.label)
     output=root/('.local-dependencies/xip/confirmation-'+args.label);output.mkdir(exist_ok=False)
     result={'image_bytes_sent':0,'EOT_sent':False,'passed':False,'new_image_transfer':False}
@@ -50,7 +61,7 @@ def cli_main():
             with serial.Serial('COM8',115200,timeout=.1,write_timeout=2) as port:
                 port.dtr=True;time.sleep(.3)
                 result['before']={cmd:protocol.status(port,cmd) for cmd in ['version','rps status','tof status','cloud status']}
-                assert 'Firmware version: 13\r\n' in result['before']['version']
+                assert f'Firmware version: {version}\r\n' in result['before']['version']
                 assert 'ToF: sent 0' in result['before']['cloud status'] and 'errors=0' in result['before']['rps status']
                 port.write(b'update\r');port.flush()
                 protocol.until(port,lambda b:b'Waiting: ' in b and b.endswith(b'C'));time.sleep(.5)
@@ -63,17 +74,19 @@ def cli_main():
                     raise RuntimeError('Unexpected replay accept; no image bytes sent, session cancelled')
                 protocol.until(port,lambda b:b.endswith(b'n6> '));time.sleep(.5)
                 trace.flush();text=(output/'uart.log').read_text(errors='replace')
-                result['confirmed_version13_read_by_Secure']='[SECURE-UPDATE] confirmed version = 0x0000000D' in text
-                assert result['confirmed_version13_read_by_Secure'],'Replay did not prove confirmed13; inspect state, do not reboot'
-                print('PASS existing Secure metadata is CONFIRMED version13; authenticated replay rejected before erase',flush=True)
-                port.reset_input_buffer();port.write(b'reboot yes\r');port.flush()
-                result['reboot_command_sent']=True
+                result['confirmed_version_read_by_Secure']=f'[SECURE-UPDATE] confirmed version = 0x{version:08X}' in text
+                result['confirmed_version']=version
+                assert result['confirmed_version_read_by_Secure'],'Replay did not prove expected confirmed version; do not reboot'
+                print(f'PASS Secure metadata CONFIRMED version{version}; replay rejected before erase',flush=True)
+                if args.reboot:
+                    port.reset_input_buffer();port.write(b'reboot yes\r');port.flush()
+                result['reboot_command_sent']=args.reboot
                 response=bytearray();deadline=time.monotonic()+2
                 try:
-                    while time.monotonic()<deadline:response.extend(port.read(4096))
+                    while args.reboot and time.monotonic()<deadline:response.extend(port.read(4096))
                 except (OSError,serial.SerialException):pass
                 result['reboot_response']=response.decode('utf-8','replace')
-            if 'Reset blocked.' not in result['reboot_response']:
+            if args.reboot and 'Reset blocked.' not in result['reboot_response']:
                 deadline=time.monotonic()+40
                 while time.monotonic()<deadline:
                     time.sleep(.25);trace.flush()
@@ -87,7 +100,7 @@ def cli_main():
             result['PC_VTOR_lines']=[line for line in text.splitlines() if '[RESET]' in line]
             result['boot_confirmation_seen']='boot confirmed; rollback window closed' in text
             result['reset_blocked']='Reset blocked.' in result['reboot_response']
-            result['passed']=result['confirmed_version13_read_by_Secure'] and result['boot_confirmation_seen'] and not result['reset_blocked']
+            result['passed']=result['confirmed_version_read_by_Secure'] and (not args.reboot or result['boot_confirmation_seen']) and not result['reset_blocked']
             if not result['passed']:result['blocker']='Inspect recorded mux preconditions/reset outcome; current image not reflashed'
     except BaseException as error:result['error']=repr(error);raise
     finally:

@@ -6,6 +6,10 @@ def main():
     parser.add_argument('--execute',action='store_true')
     parser.add_argument('--owner-thread',required=True)
     parser.add_argument('--label',required=True)
+    parser.add_argument('--source',type=int,default=13)
+    parser.add_argument('--target',type=int,default=14)
+    parser.add_argument('--package',default='.local-dependencies/xip/v14-A-reset-clkp/N6-XIP-A-v14.n6fw')
+    parser.add_argument('--usb-proof',default='.local-dependencies/xip/resume-20261022/before-cloud-b13-status.json')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     if not args.execute:
         print('PASS preflight; no serial, subprocess or network');return
@@ -37,8 +41,8 @@ def main():
             reader=threading.Thread(target=collect);reader.start()
             print('PASSIVE UART READY DTR/RTS0; starting existing OTA client',flush=True)
             command=['C:/Program Files/nodejs/node.exe',str(root/'hil_tests/run_xip_cloud_update.mjs'),
-                '--execute','--owner-thread',args.owner_thread,'--label',args.label,'--from','13','--to','14',
-                '--package','.local-dependencies/xip/v14-A-reset-clkp/N6-XIP-A-v14.n6fw']
+                '--execute','--owner-thread',args.owner_thread,'--label',args.label,'--from',str(args.source),'--to',str(args.target),
+                '--package',args.package,'--usb-proof',args.usb_proof]
             child=subprocess.Popen(command,cwd=root);result.update(sender_started=True,sender_pid=child.pid)
             deadline=time.monotonic()+1260
             while child.poll() is None and time.monotonic()<deadline:time.sleep(.5)

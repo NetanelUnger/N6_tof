@@ -45,9 +45,11 @@ export async function main(args=process.argv.slice(2)){
   const py='import importlib.util,json,sys;s=importlib.util.spec_from_file_location("lease",sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print(json.dumps(m.windows_process_identity(int(sys.argv[2]))))';
   const identity=JSON.parse(execFileSync(python,['-I','-B','-c',py,path.join(root,'hil_tests/n6_hardware_lease.py'),String(owner.pid)],{encoding:'utf8'}));
   assert(identity.state==='alive'&&identity.created_utc===owner.process_created_utc,'Live owner creation identity mismatch');
-  const usbProofPath=path.join(root,'.local-dependencies/xip/resume-20261022/before-cloud-b13-status.json');
+  const usbProofPath=path.resolve(root,arg('--usb-proof')??'.local-dependencies/xip/resume-20261022/before-cloud-b13-status.json');
+  assert(!path.relative(root,usbProofPath).startsWith('..'),'USB proof must stay inside feature worktree');
   const usbProof=JSON.parse(fs.readFileSync(usbProofPath,'utf8'));
   assert(Date.now()-fs.statSync(usbProofPath).mtimeMs<300000,'Fresh inactive-workspace USB proof required');
+  assert(usbProof.version.includes(`Firmware version: ${source}\r\n`),'USB source version differs');
   assert(usbProof['cloud status'].includes('last 409')&&usbProof['cloud status'].includes('ToF: sent 0'),
     'Do not replace an active browser owner or active sensor stream');
   const label=arg('--label');assert(label&&/^[a-z0-9-]+$/.test(label),'Fresh output label required');
