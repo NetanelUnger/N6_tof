@@ -1,5 +1,12 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Rollback follow-up: signed A40 trial installed from B39 over USB, one pre-confirm
+software reset, explicit FSBL rollback to B39 and healthy USB/ToF/NPU PASS.
+A38 is now a verified HOST backup, not the current on-board fallback; A40 is an
+unconfirmed discarded trial, pending metadata cleared. No physical powercut.
+Cloud disable persistence/409 classification and an unarmed physical-test plan:
+[engineering record](docs/xip-rollback40-cloud-power-plan_HE.md).
+
 Cold-power follow-up2026-10-23 17:23UTC: user-confirmed all-power disconnect,
 captured ST-LINK reconnect and complete FSBL boot, seq105/B39/signature+hash PASS,
 NS XIP PC702D0494/VTOR70280400/confirmation10401ms, USB39/PONG/ToF/NPU healthy.
