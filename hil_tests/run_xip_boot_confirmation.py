@@ -17,14 +17,21 @@ def cli_main():
     parser.add_argument('--execute',action='store_true')
     parser.add_argument('--owner-thread')
     parser.add_argument('--label')
-    parser.add_argument('--version',type=int,choices=(13,14),default=13)
+    parser.add_argument('--version',type=int,default=13)
+    parser.add_argument('--package',help='Exact immutable signed package for versions other than13/14')
     parser.add_argument('--reboot',action='store_true',help='Explicit single reboot after confirmed metadata proof')
     args=parser.parse_args()
     root=Path(__file__).resolve().parents[1]
     version=args.version
-    directory,name=('v13-B-reset-safe3','N6-XIP-B-v13.n6fw') if version==13 else ('v14-A-reset-clkp','N6-XIP-A-v14.n6fw')
-    build=root/('.local-dependencies/xip/'+directory);info=json.loads((build/'build.json').read_text())
-    data=(build/name).read_bytes()
+    if args.package:
+        package=(root/args.package).resolve();assert package.is_relative_to(root)
+    else:
+        assert version in (13,14),'Explicit package required for this version'
+        directory,name=('v13-B-reset-safe3','N6-XIP-B-v13.n6fw') if version==13 else ('v14-A-reset-clkp','N6-XIP-A-v14.n6fw')
+        package=root/('.local-dependencies/xip/'+directory)/name
+    build=package.parent;name=package.name;info=json.loads((build/'build.json').read_text())
+    assert info['version']==version
+    data=package.read_bytes()
     assert hashlib.sha256(data).hexdigest()==info['hashes'][name]['sha256'].lower()
     spec=importlib.util.spec_from_file_location('protocol',root/'hil_tests/run_xip_usb_reject.py')
     protocol=importlib.util.module_from_spec(spec);spec.loader.exec_module(protocol)

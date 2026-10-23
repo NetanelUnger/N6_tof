@@ -1,4 +1,4 @@
-"""One explicit signed inactive-B USB update from healthy persistent A12.
+"""One explicit signed inactive-slot USB update from a measured XIP application.
 
 Uses existing Send-Xmodem.ps1. Does not program FSBL/Secure, reset/debug the
 board or retry an entire update. A12 remains the confirmed fallback until B13
@@ -28,20 +28,27 @@ def cli_main():
     parser.add_argument('--execute',action='store_true')
     parser.add_argument('--owner-thread')
     parser.add_argument('--label')
+    parser.add_argument('--source-version',type=int,default=12)
+    parser.add_argument('--target-version',type=int,default=13)
+    parser.add_argument('--package',default='.local-dependencies/xip/v13-B-reset-safe3/N6-XIP-B-v13.n6fw')
+    parser.add_argument('--hil-proof',default='.local-dependencies/xip/hil-A12-persistent-cold-1959.json')
+    parser.add_argument('--trial-reboot',action='store_true',help='One reboot while candidate trial is unconfirmed, to measure rollback; no automatic retry')
     parser.add_argument('--interrupt-first',action='store_true',
                         help='Explicit controlled cancel after one valid1024-byte packet, before full transfer')
     args=parser.parse_args()
     root=Path(__file__).resolve().parents[1]
-    build=root/'.local-dependencies/xip/v13-B-reset-safe3'
-    info=json.loads((build/'build.json').read_text());name='N6-XIP-B-v13.n6fw';package=build/name
+    source_version,target_version=args.source_version,args.target_version
+    package=(root/args.package).resolve();assert package.is_relative_to(root)
+    build=package.parent;name=package.name;info=json.loads((build/'build.json').read_text())
     assert hashlib.sha256(package.read_bytes()).hexdigest()==info['hashes'][name]['sha256'].lower()
     backup=root/'.local-dependencies/xip/inspection-after-bootchain-program/nor-first.bin'
     assert hashlib.sha256(backup.read_bytes()).hexdigest()=='6cc2cfb51d893b06e75d32c1614818406bcc2a6219f68cb2b98a9c9cae43faaf'
-    assert info['slot']=='B' and info['version']==13
-    accepted=json.loads((root/'.local-dependencies/xip/hil-A12-persistent-cold-1959.json').read_text())
+    assert info['slot'] in ('A','B') and info['version']==target_version and target_version>source_version
+    hil_proof=(root/args.hil_proof).resolve();assert hil_proof.is_relative_to(root)
+    accepted=json.loads(hil_proof.read_text())
     assert accepted['passed'] and accepted['frames']==100
     if args.preflight_only or not args.execute:
-        print('HOST PREFLIGHT PASS signed build hash, full recovery backup, actual cold A12 HIL100; no hardware opened')
+        print(f'HOST PREFLIGHT PASS signed build hash, recovery backup, HIL100; source{source_version} target{target_version} trial-reboot={args.trial_reboot}; no hardware opened')
         return
     import importlib.util,threading,serial
     from serial.tools import list_ports
@@ -54,15 +61,16 @@ def cli_main():
     assert identity['state']=='alive' and identity['created_utc']==owner['process_created_utc']
     assert args.label and re.fullmatch('[a-z0-9-]+',args.label)
     output=root/('.local-dependencies/xip/usb-update-'+args.label);output.mkdir(exist_ok=False)
-    result={'scope':'Signed B13 image while A12 executes XIP, existing USB path','package_sha256':hashlib.sha256(package.read_bytes()).hexdigest(),
-            'bytes':package.stat().st_size,'confirmed_fallback_before':'A12 user cold boot plus HIL100 PASS',
+    result={'scope':f'Signed v{target_version} while v{source_version} executes XIP, existing USB path','package_sha256':hashlib.sha256(package.read_bytes()).hexdigest(),
+            'source_version':source_version,'target_version':target_version,'trial_reboot_requested':args.trial_reboot,
+            'bytes':package.stat().st_size,'confirmed_fallback_before':source_version,
             'B11_original_preserved_as_host_backup':True,'sender_started':False,'passed':False}
     stop=threading.Event();thread=None;uart=None
     try:
         with serial.Serial('COM8',115200,timeout=.1,write_timeout=2) as port:
             port.dtr=True;time.sleep(.3)
             result['before']={line:command(port,line) for line in ['version','tof status','rps status','cloud status','dataset stream status']}
-            assert 'Firmware version: 12\r\n' in result['before']['version']
+            assert f'Firmware version: {source_version}\r\n' in result['before']['version']
             assert 'ToF: sent 0' in result['before']['cloud status'] and 'requested NONE, active NONE' in result['before']['tof status']
             assert 'Dataset stream: off' in result['before']['dataset stream status']
         uart=serial.Serial(port=None,baudrate=115200,timeout=.1,write_timeout=1)
@@ -94,11 +102,11 @@ def cli_main():
                     time.sleep(.5)
                     after={line:command(port,line) for line in ['version','debug ping 1313','tof status','rps status','cloud status']}
                     result['partial_interruption']['after']=after
-                    assert 'Firmware version: 12\r\n' in after['version'] and 'PONG 1313 ' in after['debug ping 1313']
+                    assert f'Firmware version: {source_version}\r\n' in after['version'] and 'PONG 1313 ' in after['debug ping 1313']
                     assert 'ToF state: ready' in after['tof status'] and 'errors=0' in after['rps status']
                     assert 'ToF: sent 0' in after['cloud status']
                     result['partial_interruption']['passed']=True
-                    print('PASS controlled USB interruption after authenticated first image768bytes; A12 still healthy',flush=True)
+                    print(f'PASS controlled USB interruption after authenticated image768bytes; source v{source_version} healthy',flush=True)
             pwsh='C:/Users/netan/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe'
             sender=subprocess.Popen([pwsh,'-NoProfile','-File',str(root/'Tools/Send-Xmodem.ps1'),'-File',str(package),'-Port','COM8',
                                      '-StartTimeoutSeconds','10','-BlockTimeoutSeconds','10','-FinalizeTimeoutSeconds','30','-MaxRetries','2'],
@@ -119,23 +127,51 @@ def cli_main():
             result['authenticated_finalization']='XMODEM transfer and device-side finalization completed successfully.' in text and sender.returncode==0
             if not result['authenticated_finalization']:raise RuntimeError('USB sender did not confirm finalization; inspect before retry')
             print('SIGNED IMAGE TRANSFER/FINALIZATION PASS',result['bytes'],flush=True)
-            time.sleep(4)
+            if args.trial_reboot:
+                # Do not mistake the still-running source CDC for the candidate.
+                # Observe the actual automatic-reset disconnect before polling
+                # for the trial, leaving its short confirmation window intact.
+                disconnect_deadline=time.monotonic()+15
+                while any(p.device=='COM8' and p.serial_number=='N6TOF001' for p in list_ports.comports()):
+                    if time.monotonic()>disconnect_deadline:raise RuntimeError('No automatic USB disconnect observed; no trial reset sent')
+                    time.sleep(.05)
+                result['automatic_USB_disconnect_seen']=True
+            else:time.sleep(4)
             deadline=time.monotonic()+75
             while time.monotonic()<deadline:
                 found=any(p.device=='COM8' and p.serial_number=='N6TOF001' for p in list_ports.comports())
                 if found:
-                    time.sleep(2)
+                    if not args.trial_reboot:time.sleep(2)
                     with serial.Serial('COM8',115200,timeout=.1,write_timeout=2) as port:
                         port.dtr=True
                         result['version_after']=command(port,'version')
-                        if 'Firmware version: 13\r\n' in result['version_after']:
+                        if f'Firmware version: {target_version}\r\n' in result['version_after']:
+                            if args.trial_reboot:
+                                trace.flush();before_trial_reset=(output/'uart.log').read_text(errors='replace')
+                                if 'boot confirmed; rollback window closed' in before_trial_reset:
+                                    raise RuntimeError('Trial confirmation already occurred; no rollback reboot sent; no automatic image retry')
+                                port.reset_input_buffer();port.write(b'reboot yes\r');port.flush()
+                                result['trial_reboot_sent']=True
+                                print('ONE trial reboot sent before observed confirmation; awaiting actual rollback evidence',flush=True)
+                                break
                             result['after']={line:command(port,line) for line in ['tof status','rps status','cloud status','dataset stream status']}
-                    break
-                time.sleep(1)
+                    if f'Firmware version: {target_version}\r\n' in result.get('version_after',''):break
+                time.sleep(.05 if args.trial_reboot else 1)
+            if args.trial_reboot and result.get('trial_reboot_sent'):
+                deadline=time.monotonic()+60
+                while time.monotonic()<deadline:
+                    trace.flush();trial_text=(output/'uart.log').read_text(errors='replace')
+                    if 'boot confirmed; rollback window closed' in trial_text:break
+                    time.sleep(.1)
+                if any(p.device=='COM8' and p.serial_number=='N6TOF001' for p in list_ports.comports()):
+                    with serial.Serial('COM8',115200,timeout=.1,write_timeout=2) as port:
+                        port.dtr=True;time.sleep(.2)
+                        result['rollback_version']=command(port,'version')
+                        result['after']={line:command(port,line) for line in ['tof status','rps status','cloud status','dataset stream status']}
             # App USB is ready before the ten-second boot-confirmation worker.
             # Retain the live UART through confirmation; never re-send an image
             # just because an early version response preceded that message.
-            if 'Firmware version: 13\r\n' in result.get('version_after',''):
+            if not args.trial_reboot and f'Firmware version: {target_version}\r\n' in result.get('version_after',''):
                 confirmation_deadline=time.monotonic()+30
                 while time.monotonic()<confirmation_deadline:
                     trace.flush()
@@ -144,9 +180,14 @@ def cli_main():
             stop.set();thread.join(timeout=2);trace.flush()
             captured=(output/'uart.log').read_text(errors='replace')
             result['boot_confirmation_seen']='boot confirmed; rollback window closed' in captured
-            result['candidate_running']='Firmware version: 13\r\n' in result.get('version_after','')
+            result['candidate_running']=f'Firmware version: {target_version}\r\n' in result.get('version_after','')
             result['passed']=result['authenticated_finalization'] and result['candidate_running'] and result['boot_confirmation_seen']
-            if not result['passed']:result['blocker']='Signed candidate finalized; automatic B13 runtime/confirmation not proven. No reset or whole-transfer retry issued.'
+            if args.trial_reboot:
+                result['rollback_to_source']=f'Firmware version: {source_version}\r\n' in result.get('rollback_version','')
+                result['rollback_UART_lines']=[line for line in captured.splitlines() if 'rollback' in line.lower() or 'metadata:' in line]
+                result['FSBL_rollback_seen']='unconfirmed trial detected; rolling back to slot' in captured
+                result['passed']=result['authenticated_finalization'] and result.get('trial_reboot_sent',False) and result['rollback_to_source'] and result['boot_confirmation_seen'] and result['FSBL_rollback_seen']
+            if not result['passed']:result['blocker']='Inspect retained candidate/rollback evidence; no whole-transfer retry or additional reset issued.'
     except BaseException as error:
         result['error']=repr(error);raise
     finally:
