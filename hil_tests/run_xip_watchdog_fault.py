@@ -49,11 +49,11 @@ def main():
                         if data:log.write(data);log.flush()
                 except BaseException as e:result['uart_error']=repr(e)
             reader=threading.Thread(target=capture);reader.start()
-            def wait_text(key,seconds):
+            def wait_text(key,seconds,start=0):
                 end=time.monotonic()+seconds
                 while time.monotonic()<end:
                     text=(out/'uart.log').read_text(encoding='utf8',errors='replace')
-                    if key in text:return text
+                    if key in text[start:]:return text
                     time.sleep(.05)
                 raise TimeoutError('No '+key+'; no automatic re-arm/fault/reset retry')
             with serial.Serial('COM8',115200,timeout=.1,write_timeout=2) as port:
@@ -65,6 +65,37 @@ def main():
                 assert 'requested NONE, active NONE' in result['before']['tof status']
             target='UART-control-task' if a.kind=='uart' else 'supervisor-task'
             print('CAPTURE READY before fault; UART exclusive, USB closed, no flash write',flush=True)
+            if a.kind=='uart':
+                mark=len((out/'uart.log').read_text(encoding='utf8',errors='replace'))
+                uart.write(b'W');uart.flush();wait_text('W rejected:',3,mark)
+                mark=len((out/'uart.log').read_text(encoding='utf8',errors='replace'))
+                uart.write(b'w');uart.flush();wait_text('ARM target=UART-control-task',3,mark)
+                time.sleep(5.2)
+                mark=len((out/'uart.log').read_text(encoding='utf8',errors='replace'))
+                uart.write(b'W');uart.flush();wait_text('W rejected:',3,mark)
+                protocol=load('wdtnegative',root/'hil_tests/run_xip_usb_reject.py')
+                with serial.Serial('COM8',115200,timeout=.1,write_timeout=2) as port:
+                    port.dtr=True;time.sleep(.3);port.reset_input_buffer();port.write(b'update\r');port.flush()
+                    protocol.until(port,lambda b:b'Waiting: ' in b and b.endswith(b'C'))
+                    mark=len((out/'uart.log').read_text(encoding='utf8',errors='replace'))
+                    uart.write(b'wW');uart.flush()
+                    wait_text('arm rejected:',3,mark);wait_text('W rejected:',3,mark)
+                    # No manifest, image bytes or EOT: receiver cancellation is
+                    # a parser guard test, never a NOR power-loss test.
+                    port.write(b'\x18\x18');port.flush();protocol.until(port,lambda b:b.endswith(b'n6> '))
+                    result['parser_cancel_PONG']=usb.command(port,'debug ping 4140')
+                    assert 'PONG 4140 ' in result['parser_cancel_PONG']
+                    result['pause_reply']=usb.command(port,'tof pause')
+                time.sleep(18)
+                with serial.Serial('COM8',115200,timeout=.1,write_timeout=2) as port:
+                    port.dtr=True;time.sleep(.3)
+                    result['paused_status']=usb.command(port,'tof status')
+                    assert 'ToF state: paused' in result['paused_status']
+                    result['resume_reply']=usb.command(port,'tof resume')
+                    assert f'Firmware version: {a.version}\r\n' in usb.command(port,'version')
+                result['unarmed_expired_and_update_busy_rejected']=True
+                result['ToF_pause_18s_survived']=True
+                print('PASS UART no-arm/expired/update-parser guards, same-port CAN recovery, ToFpause18s',flush=True)
             uart.write(b'w' if a.kind=='uart' else b's');uart.flush();result['arm_bytes_sent']=1
             wait_text('ARM target='+target,3)
             fault_at=time.monotonic();uart.write(b'W');uart.flush();result['fault_bytes_sent']=1

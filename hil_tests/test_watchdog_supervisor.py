@@ -33,9 +33,10 @@ C=r'''
 #define IWDG_SR_RVU 2
 #define IWDG_SR_WVU 4
 #define IWDG_SR_EWU 8
+#define IWDG_SR_ONF 256
 #define IWDG_ICR_EWIC 1
 #define RCC_RSR_IWDGRSTF (1U<<26)
-typedef struct { uint32_t SR,EWCR,ICR; } IWDG_TypeDef;
+typedef struct { uint32_t SR,EWCR,ICR,PR,RLR,WINR; } IWDG_TypeDef;
 static IWDG_TypeDef mock_iwdg;
 #define IWDG (&mock_iwdg)
 static struct {uint32_t RSR;} mock_rcc;
@@ -48,11 +49,11 @@ static uint32_t Firmware_Update_IsBusy(void){return busy;}
 static void Firmware_Update_ConfirmBoot(void){confirmed++;}
 static int Debug_UART_Flush(uint32_t ms){assert(ms==1000);flushed++;return 0;}
 static void Debug_UART_Log(const char *tag,const char *fmt,...){(void)tag;(void)fmt;logs++;}
-static void LL_IWDG_Enable(IWDG_TypeDef *p){assert(p==IWDG);enabled++;}
+static void LL_IWDG_Enable(IWDG_TypeDef *p){assert(p==IWDG);enabled++;p->SR|=IWDG_SR_ONF;}
 static void LL_IWDG_EnableWriteAccess(IWDG_TypeDef *p){assert(p==IWDG);}
-static void LL_IWDG_SetPrescaler(IWDG_TypeDef *p,uint32_t v){assert(p==IWDG&&v==6);}
-static void LL_IWDG_SetReloadCounter(IWDG_TypeDef *p,uint32_t v){assert(p==IWDG&&v==1999);}
-static void LL_IWDG_SetWindow(IWDG_TypeDef *p,uint32_t v){assert(p==IWDG&&v==4095);}
+static void LL_IWDG_SetPrescaler(IWDG_TypeDef *p,uint32_t v){assert(p==IWDG&&v==6);p->PR=mode==5?0:v;}
+static void LL_IWDG_SetReloadCounter(IWDG_TypeDef *p,uint32_t v){assert(p==IWDG&&v==1999);p->RLR=v;}
+static void LL_IWDG_SetWindow(IWDG_TypeDef *p,uint32_t v){assert(p==IWDG&&v==4095);p->WINR=v;}
 static void LL_IWDG_ReloadCounter(IWDG_TypeDef *p){assert(p==IWDG);feeds++;}
 #define __HAL_RCC_CLEAR_RESET_FLAGS() (mock_rcc.RSR=0)
 #define __NOP() longjmp(escape,2)
@@ -99,6 +100,8 @@ int main(void){
   puts("PASS supervisor tight loop cannot feed hardware watchdog");
   fresh();mock_iwdg.SR=1;limit=200;if(!setjmp(escape))N6H_Run();assert(!feeds&&!confirmed);
   puts("PASS IWDG register sync failure never feeds/confirms");
+  fresh();mode=5;limit=100;if(!setjmp(escape))N6H_Run();assert(!feeds&&!confirmed);
+  puts("PASS incorrect IWDG register readback never feeds/confirms");
   fresh();assert(N6H_UartCommand('W')==1&&!flushed);n6h_ready=1;
   N6H_UartCommand('w');tick=500;N6H_UartCommand('W');assert(!flushed);
   N6H_UartCommand('w');busy=1;N6H_UartCommand('W');assert(!flushed&&!n6h_arm);busy=0;
@@ -108,7 +111,7 @@ int main(void){
   puts("PASS W requires fresh arm/no-update; unrelated input cancels; consumes arm before hang");
   fresh();n6h_ready=1;N6H_UartCommand('s');N6H_UartCommand('W');assert(n6h_supervisor_fault&&flushed==1);
   puts("PASS separate explicitly armed supervisor fault target");
-  puts("PASS 10 actual-C watchdog test groups; IWDG/RTOS mocked, no hardware reset claim");
+  puts("PASS 11 actual-C watchdog test groups; IWDG/RTOS mocked, no hardware reset claim");
 }
 '''
 def main():

@@ -89,6 +89,19 @@ void N6H_Run(void)
     tx_thread_sleep(1U);
   }
   LL_IWDG_SetWindow(IWDG,4095U);
+  sync=(uint32_t)tx_time_get();
+  while(IWDG->SR&IWDG_SR_WVU) {
+    if((uint32_t)(tx_time_get()-sync)>TX_TIMER_TICKS_PER_SECOND)break;
+    tx_thread_sleep(1U);
+  }
+  Debug_UART_Log("WDT","register readback PR=%lu RLR=%lu WINR=%lu SR=%08lX",
+    (unsigned long)IWDG->PR,(unsigned long)IWDG->RLR,
+    (unsigned long)IWDG->WINR,(unsigned long)IWDG->SR);
+  if(IWDG->PR!=LL_IWDG_PRESCALER_256 || IWDG->RLR!=1999U ||
+     IWDG->WINR!=4095U || (IWDG->SR&IWDG_SR_ONF)==0U || (IWDG->SR&IWDG_SR_WVU)) {
+    Debug_UART_Log("WDT","register readback rejected; no feed or boot confirmation");
+    for(;;)tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND);
+  }
   Debug_UART_Log("WDT","START nominal16s required=%03lX supervisor priority6; no unconditional feed",
     (unsigned long)n6h_required);
   for(;;) {
