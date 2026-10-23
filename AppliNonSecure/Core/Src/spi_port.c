@@ -295,7 +295,7 @@ void spi_port_service_rx_flow(void)
         (SPI_CR1_MASRX|SPI_CR1_CSTART|SPI_CR1_SPE)) &&
       ((NCP_SPI_HANDLE.Instance->CFG1 & SPI_CFG1_RXDMAEN)!=0U) &&
       ((sr & SPI_SR_CTSIZE)!=0U) && ((sr & SPI_SR_SUSP)!=0U) &&
-      ((sr & (SPI_SR_RXP|SPI_SR_RXWNE|SPI_SR_RXPLVL|SPI_SR_OVR|SPI_SR_UDR|SPI_SR_MODF|SPI_SR_FRE))==0U) &&
+      ((sr & (SPI_SR_RXP|SPI_SR_RXWNE|SPI_SR_RXPLVL|SPI_SR_OVR|SPI_SR_UDR|SPI_SR_MODF|SPI_SR_TIFRE))==0U) &&
       (NCP_SPI_HANDLE.hdmarx!=NULL) && (NCP_SPI_HANDLE.hdmarx->Instance!=NULL) &&
       (NCP_SPI_HANDLE.hdmarx->State==HAL_DMA_STATE_BUSY) &&
       (NCP_SPI_HANDLE.hdmarx->ErrorCode==HAL_DMA_ERROR_NONE) &&

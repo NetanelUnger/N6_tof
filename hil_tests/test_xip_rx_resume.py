@@ -23,7 +23,7 @@ PREFIX=r'''
 #define SPI_SR_OVR 0x40U
 #define SPI_SR_UDR 0x20U
 #define SPI_SR_MODF 0x200U
-#define SPI_SR_FRE 0x100U
+#define SPI_SR_TIFRE 0x100U
 #define DMA_CCR_EN 1U
 #define DMA_CSR_DTEF 0x400U
 #define DMA_CSR_ULEF 0x800U
@@ -59,7 +59,7 @@ for(unsigned posture=0;posture<2;posture++){ready();mask=posture;spi_port_servic
 assert(spi.IFCR==SPI_IFCR_SUSPC&&mask==posture&&dma.CCR==1&&spi.CR1==0x1301&&rx.State==2);}
 for(int n=0;n<20;n++){ready();mask=0;
 switch(n){case 0:spi.SR|=SPI_SR_RXP;break;case 1:spi.SR|=SPI_SR_RXWNE;break;case 2:spi.SR|=SPI_SR_RXPLVL;break;
-case 3:spi.SR|=SPI_SR_OVR;break;case 4:spi.SR|=SPI_SR_UDR;break;case 5:spi.SR|=SPI_SR_MODF;break;case 6:spi.SR|=SPI_SR_FRE;break;
+case 3:spi.SR|=SPI_SR_OVR;break;case 4:spi.SR|=SPI_SR_UDR;break;case 5:spi.SR|=SPI_SR_MODF;break;case 6:spi.SR|=SPI_SR_TIFRE;break;
 case 7:spi.CR1&=~SPI_CR1_MASRX;break;case 8:spi.CR1&=~SPI_CR1_SPE;break;case 9:spi.CR1&=~SPI_CR1_CSTART;break;
 case 10:dma.CCR=0;break;case 11:dma.CSR=DMA_CSR_DTEF;break;case 12:dma.CSR=DMA_CSR_SUSPF;break;
 case 13:h.hdmarx=0;break;case 14:rx.Instance=0;break;case 15:rx.State=0;break;case 16:rx.ErrorCode=1;break;
