@@ -35,6 +35,21 @@
     "new_host_native_test": "PASS all prior injection checks plus tables prefilledA5/C3/5A, no premature report, explicit clearing and repeat-init preserves counts",
     "fixed_firmware_installed": false
   },
-  "next": "Build signed inactive A28 with initialization fix, protect confirmed B27. Validate resource table initialization before any load/OTA experiment; no old OTA retransmit or sensor cloud exports.",
+  "A28_followup": {
+    "package_bytes": 511008,
+    "package_sha256": "aa1e4e5b5cd70044126834b46f2b9a1ad62371924af0f8a23065e3b2ac305ad5",
+    "path": ".local-dependencies/xip/usb-update-a28-resource-init",
+    "USB_from_XIP_B27": "PASS full transfer/finalization/automatic disconnect/candidate version28/boot confirmation",
+    "CPU_PC": "0x701cfc24",
+    "VTOR": "0x70180400",
+    "boot_confirmation_tick_ms": 10206,
+    "metadata_at_FSBL": "seq70/PENDING/confirmedB27/pendingA28, signature and image accepted; confirmation afterward",
+    "NOLOAD_initialization": "Hardware logs now plausible small counters, no random initial table values",
+    "new_reporter_bug": "Debug_UART_Write returns0 for success. Reporter compared against length, causing successful rows to be retried and usage snapshots starved. Native fake incorrectly modeled byte-count success.",
+    "source_fix": "Use N6R_QueuedBytes adapter; native sink now returns actual API0 on success. Finite receive timeout classified retained POLL rather than automatic WAIT spam.",
+    "observed_failure_classification": "Cloud queue-full count1/status0xB/line540 is existing startup self-test filling/draining its own control queue without dispatch/pairing. USB TX_QUEUE_EMPTY finite wait is ordinary poll. No claim of transport failure from these rows.",
+    "next_candidate": "B29, reporter adapter fix; not yet built/installed at record creation"
+  },
+  "next": "Build signed inactive B29 with reporter contract fix, protect confirmed A28. Validate resource table initialization and reporting before load/OTA experiment; no old OTA retransmit or sensor cloud exports.",
   "main_server_OTP_security": "unchanged"
 }

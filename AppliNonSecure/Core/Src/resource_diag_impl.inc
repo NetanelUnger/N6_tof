@@ -10,7 +10,7 @@ _Static_assert(11U+9U*9U+2U<=96U,"resource report must fit fixed line");
 #define N6R_UNLOCK(p) __set_PRIMASK(p)
 #define N6R_ISR() __get_IPSR()
 #define N6R_NOW() HAL_GetTick()
-#define N6R_SINK(p,n) Debug_UART_Write(p,n)
+#define N6R_SINK(p,n) N6R_QueuedBytes(Debug_UART_Write(p,n),n)
 #endif
 static volatile N6R_Failure n6r_failures[N6R_MODULES][N6R_KINDS] N6R_STORAGE;
 static uint32_t n6r_reported[N6R_MODULES][N6R_KINDS] N6R_STORAGE;

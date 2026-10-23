@@ -43,7 +43,7 @@ static void *failed_realloc(void*p,size_t n){return NULL;}
 #define N6_RESOURCE_SOURCE N6R_USB
 #include "resource_diag.h"
 static uint32_t mask,tick,ipsr,sinks;static int sink_fails;static size_t last_length;
-static int32_t sink(const void*p,size_t n){sinks++;last_length=n;assert(n<=96);if(sink_fails){N6R_Record(N6R_LOG,N6R_ENQUEUE,7,1,n,0);N6R_ReportDeferred();return -1;}return (int32_t)n;}
+static int32_t sink(const void*p,size_t n){sinks++;last_length=n;assert(n<=96);if(sink_fails){N6R_Record(N6R_LOG,N6R_ENQUEUE,7,1,n,0);N6R_ReportDeferred();return -1;}return 0;}
 #define N6R_HOST 1
 #define N6R_STORAGE
 #define N6R_LOCK() mask
@@ -51,9 +51,10 @@ static int32_t sink(const void*p,size_t n){sinks++;last_length=n;assert(n<=96);i
 #define N6R_UNLOCK(p) (mask=(p))
 #define N6R_ISR() ipsr
 #define N6R_NOW() tick
-#define N6R_SINK(p,n) sink(p,n)
+#define N6R_SINK(p,n) N6R_QueuedBytes(sink(p,n),n)
 #include "resource_diag_impl.inc"
 int main(void){
+assert(N6R_QueuedBytes(0,94)==94&&N6R_QueuedBytes(-1,94)==-1&&N6R_QueuedBytes(-6,94)==-1);
 /* Model cold/retained NOLOAD SRAM, not host-C static zero initialization. */
 memset((void*)n6r_failures,0xA5,sizeof(n6r_failures));
 memset(n6r_reported,0xC3,sizeof(n6r_reported));

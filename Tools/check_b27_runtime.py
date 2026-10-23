@@ -10,7 +10,9 @@ def main():
     import argparse,binascii,hashlib,importlib.util,json,subprocess,threading,time
     from pathlib import Path
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--execute',action='store_true')
-    parser.add_argument('--owner-thread');parser.add_argument('--output',type=Path,required=True);a=parser.parse_args()
+    parser.add_argument('--owner-thread');parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--version',type=int,default=27);a=parser.parse_args()
+    if a.version<=23:raise RuntimeError('Old fixture must precede expected version')
     root=Path(__file__).resolve().parents[1]
     if subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip()!='feature/n6-xip-ota-usb':raise RuntimeError('Wrong branch')
     package=(root/'.local-dependencies/xip/v23-A-rx-resume-probe-tifre/N6-XIP-A-v23.n6fw').read_bytes()
@@ -47,7 +49,7 @@ def main():
                 with serial.Serial('COM8',115200,timeout=.1,write_timeout=2) as port:
                     port.dtr=True;time.sleep(.3)
                     result['before_version']=protocol.status(port,'version')
-                    if 'Firmware version: 27\r\n' not in result['before_version']:raise RuntimeError('Not B27; no test')
+                    if f'Firmware version: {a.version}\r\n' not in result['before_version']:raise RuntimeError('Unexpected version; no test')
                     port.reset_input_buffer();port.write(b'update\r');port.flush()
                     protocol.until(port,lambda b:b'Waiting: ' in b and b.endswith(b'C'))
                     time.sleep(.5)
@@ -60,13 +62,13 @@ def main():
                     result['terminal']=protocol.until(port,lambda b:b.endswith(b'n6> ')).decode('utf8','replace')
                     time.sleep(.5);trace.flush()
                     text=(out/'uart.log').read_text(errors='replace')
-                    if '[SECURE-UPDATE] confirmed version = 0x0000001B' not in text:raise RuntimeError('Confirmed27 not proven; no further tests')
+                    if '[SECURE-UPDATE] confirmed version = 0x%08X'%a.version not in text:raise RuntimeError('Expected confirmed version not proven; no further tests')
                     if '[SECURE-UPDATE] signature accepted; loading boot metadata' not in text:raise RuntimeError('Signature path not proven')
-                    result['confirmed_version']=27
+                    result['confirmed_version']=a.version
                     result['after']={line:protocol.status(port,line) for line in ['cloud disable','tof resume','debug resources','debug uart','rps status','cloud status','dataset stream status','debug ping 2702']}
                     if 'Resource snapshot scheduled' not in result['after']['debug resources']:raise RuntimeError('Resource profile not active')
                     if 'ToF: sent 0' not in result['after']['cloud status'] or 'Dataset stream: off' not in result['after']['dataset stream status']:raise RuntimeError('Unexpected export state')
-                    print('PASS actual Secure confirmed27; no image bytes/EOT/reset. Resource profile active, deferred snapshot collecting75s.',flush=True)
+                    print(f'PASS actual Secure confirmed{a.version}; no image bytes/EOT/reset. Resource profile active, deferred snapshot collecting75s.',flush=True)
                 deadline=time.monotonic()+75
                 while time.monotonic()<deadline:time.sleep(.25)
                 result['passed']=True
