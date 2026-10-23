@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-23",
+  "branch": "feature/n6-xip-ota-usb",
+  "main": "80f2b511029be6d87f9e72c32b00515457671f89",
+  "status": "A14_COLD_PERSISTENT_BOOT_HIL100_AND_SOFTWARE_RESET_PASS_OTA15_IN_PROGRESS",
+  "cold_boot": {
+    "user_confirmation_UTC": "2026-10-23T07:12:16Z",
+    "UART_bytes": 30821,
+    "observed_reconnects": 1,
+    "serial_writes": 0,
+    "DTR": false,
+    "RTS": false,
+    "closed_and_released": true,
+    "stopped_after_evidence": true,
+    "elapsed_s": 163.6,
+    "FSBL_metadata": "seq39 CONFIRMED A/v14, fallback B/v13",
+    "image_signature_hash": "PASS in captured FSBL",
+    "note": "Metadata already CONFIRMED at cold boot; first A14 trial activation itself was not captured here",
+    "PC": "0x701CF144",
+    "VTOR": "0x70180400",
+    "boot_confirmation_tick_ms": 10208,
+    "UART_sha256": "52121b102c2eaa1fc78f0b96cd6c06554ad297171ffb459b5a425a196916136b"
+  },
+  "A14_HIL": {
+    "passed": true,
+    "frames": 100,
+    "exact_tensors": 100,
+    "npu_frames": 100,
+    "class_matches": 100,
+    "max_score_delta": 0,
+    "crc_errors": 0,
+    "framing_errors": 1,
+    "elapsed_s": 27.98399999999674,
+    "unique_tensors": 3,
+    "sensor_fps": 3.628500219909104
+  },
+  "A14_software_reset": {
+    "passed": true,
+    "confirmed_version": 14,
+    "header_replay_only_bytes": 256,
+    "image_bytes": 0,
+    "EOT": false,
+    "reboot_commands": 1,
+    "boot_confirmation": true,
+    "reset_blocked": false,
+    "after_version": 14,
+    "debugger_attached": false
+  },
+  "OTA_B15": {
+    "status": "IN_PROGRESS; first full attempt",
+    "source": "A14 confirmed protected",
+    "target": "B15",
+    "package_bytes": 498720,
+    "sha256": "02967fa077f9e33075b36dca01138cb0824ea6d2d3eeb9942528b38d36c8b768",
+    "server_changes": false,
+    "new_credentials": false,
+    "sensor_uploads_requested": false
+  },
+  "USB_rollback_test": "PREPARING A16 while confirmed B15 will remain protected; not yet executed",
+  "physical_power_loss_during_flash_programming": "NOT_TESTED"
+}
