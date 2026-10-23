@@ -40,6 +40,7 @@ def cli_main():
     parser.add_argument('--target-version',type=int,default=13)
     parser.add_argument('--package',default='.local-dependencies/xip/v13-B-reset-safe3/N6-XIP-B-v13.n6fw')
     parser.add_argument('--hil-proof',default='.local-dependencies/xip/hil-A12-persistent-cold-1959.json')
+    parser.add_argument('--source-confirmation-proof',help='Explicit verified Secure confirmed-version artifact instead of claiming a source HIL100 result, for diagnostic repair')
     parser.add_argument('--trial-reboot',action='store_true',help='One reboot while candidate trial is unconfirmed, to measure rollback; no automatic retry')
     parser.add_argument('--interrupt-first',action='store_true',
                         help='Explicit controlled cancel after one valid1024-byte packet, before full transfer')
@@ -52,11 +53,18 @@ def cli_main():
     backup=root/'.local-dependencies/xip/inspection-after-bootchain-program/nor-first.bin'
     assert hashlib.sha256(backup.read_bytes()).hexdigest()=='6cc2cfb51d893b06e75d32c1614818406bcc2a6219f68cb2b98a9c9cae43faaf'
     assert info['slot'] in ('A','B') and info['version']==target_version and target_version>source_version
-    hil_proof=(root/args.hil_proof).resolve();assert hil_proof.is_relative_to(root)
-    accepted=json.loads(hil_proof.read_text())
-    assert accepted['passed'] and accepted['frames']==100
+    if args.source_confirmation_proof:
+        proof=(root/args.source_confirmation_proof).resolve();assert proof.is_relative_to(root)
+        accepted=json.loads(proof.read_text())
+        assert accepted['passed'] and accepted['confirmed_version']==source_version
+        assert accepted['image_bytes_sent']==0 and not accepted['EOT_sent'] and not accepted['reset_sent']
+        source_admission='Verified Secure confirmed-version, HIL100 not claimed for this source'
+    else:
+        hil_proof=(root/args.hil_proof).resolve();assert hil_proof.is_relative_to(root)
+        accepted=json.loads(hil_proof.read_text());assert accepted['passed'] and accepted['frames']==100
+        source_admission='Existing HIL100 artifact'
     if args.preflight_only or not args.execute:
-        print(f'HOST PREFLIGHT PASS signed build hash, recovery backup, HIL100; source{source_version} target{target_version} trial-reboot={args.trial_reboot}; no hardware opened')
+        print(f'HOST PREFLIGHT PASS signed build hash, recovery backup, {source_admission}; source{source_version} target{target_version} trial-reboot={args.trial_reboot}; no hardware opened')
         return
     import importlib.util,threading,serial
     from serial.tools import list_ports
@@ -70,6 +78,7 @@ def cli_main():
     assert args.label and re.fullmatch('[a-z0-9-]+',args.label)
     output=root/('.local-dependencies/xip/usb-update-'+args.label);output.mkdir(exist_ok=False)
     result={'scope':f'Signed v{target_version} while v{source_version} executes XIP, existing USB path','package_sha256':hashlib.sha256(package.read_bytes()).hexdigest(),
+            'source_admission':source_admission,
             'source_version':source_version,'target_version':target_version,'trial_reboot_requested':args.trial_reboot,
             'bytes':package.stat().st_size,'confirmed_fallback_before':source_version,
             'B11_original_preserved_as_host_backup':True,'sender_started':False,'passed':False}
