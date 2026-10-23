@@ -1,5 +1,25 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+LATEST2026-10-23: A43 confirmed XIP, B42 retained. Normal Build-Xip defaults
+watchdog/resource ON; UART w/W and local USB CLI W arm/W/W cancel remain.
+5s independent arms/updater-busy guard; remote BLE/Cloud cannot mutate arms.
+Four actual IWDG resets PASS:41UART+supervisor,43UART+USBCLI, resetflag1 and
+healthy reboot, no software reset/power removal. FullUSB41->42 while WDT active
+PASS516512bytes/partialNAK10107.505ms/same session/EOTACK;42->43 PASS517472bytes.
+FSBLseq117/confirmed43/fallback42, PC701D0AFC/VTOR70180400. A43 HIL100exact/
+NPU100/delta5/CRC0/27.375s,60s resources/15PSP samples; heap851288/front357412/
+tail493876/RAMcontrol369168, radio min15652/peak49884(31.38%), supervisor
+sampled776/2624. NOT full WC/watermark/fragmentation proof. Cloud disabled+
+paired/sensor0/datasetOFF/localUSB100; NPU/SPI/NCP/UART faults0, leases closed.
+Last actual OTA39 result504ACK0timeouts0retries; post-WDT OTA, latest coldpower,
+early pre-supervisor boot, IRQ-masked/high-priority starvation, LSI calibration
+and NOR powercut remain untested. Powercut plan is unarmed. Closing main/server
+Git reads blocked by ownership; no added trust/merge/push/deploy/server edits.
+[Final evidence](docs/xip-watchdog-final-20261023.json),
+[memory](docs/xip-watchdog-memory-20261023.json),
+[watchdog design/use](docs/watchdog-design_HE.md).
+All board states below are historical and superseded by A43/B42.
+
 Rollback follow-up: signed A40 trial installed from B39 over USB, one pre-confirm
 software reset, explicit FSBL rollback to B39 and healthy USB/ToF/NPU PASS.
 A38 is now a verified HOST backup, not the current on-board fallback; A40 is an

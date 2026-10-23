@@ -34,6 +34,26 @@ class Tests(unittest.TestCase):
                 self.assertTrue((folder/'n6-hardware-owner.json').exists())
                 self.assertTrue((folder/'n6-hardware-owner.lock').exists())
     def test_exact_dead_owner_archived(self):self.run_case()
+    def test_owned_xip_requires_explicit_scope_and_creation_identity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);folder,owner,ready,raw=self.setup_owner(root)
+            owner.update(thread='n6-xip-fixture',process_created_utc='2026-10-23T18:12:33+00:00',
+              scope='authorized recoverable XIP/USB/OTA NOR validation; no OTP, settings, credential or pairing writes')
+            raw=json.dumps(owner).encode();ready.write_bytes(raw);(folder/'n6-hardware-owner.json').write_bytes(raw)
+            with self.assertRaises(RuntimeError):
+                lease.recover_owned_stale(folder,ready,root/'evidence',owner['thread'],probe=lambda pid:{'state':'absent'})
+            result=lease.recover_owned_stale(folder,ready,root/'evidence',owner['thread'],
+                probe=lambda pid:{'state':'absent'},authorized_xip=True)
+            self.assertTrue(result['archived']);self.assertFalse(result['port_free_verified'])
+    def test_owned_xip_unknown_process_still_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);folder,owner,ready,raw=self.setup_owner(root)
+            owner.update(thread='n6-xip-fixture',process_created_utc='2026-10-23T18:12:33+00:00',
+              scope='authorized recoverable XIP/USB/OTA NOR validation; no OTP, settings, credential or pairing writes')
+            raw=json.dumps(owner).encode();ready.write_bytes(raw);(folder/'n6-hardware-owner.json').write_bytes(raw)
+            with self.assertRaises(RuntimeError):
+                lease.recover_owned_stale(folder,ready,root/'evidence',owner['thread'],
+                  probe=lambda pid:{'state':'unknown'},authorized_xip=True)
     def test_live_or_reused_pid_rejected(self):self.run_case('alive')
     def test_access_denied_or_unknown_not_death(self):self.run_case('unknown')
     def test_started_identity_mismatch(self):

@@ -33,7 +33,8 @@ def windows_process_identity(pid):
         kernel.CloseHandle(handle)
 
 
-def recover_owned_stale(folder, ready_path, evidence, expected_thread, probe=windows_process_identity):
+def recover_owned_stale(folder, ready_path, evidence, expected_thread, probe=windows_process_identity,
+                        authorized_xip=False):
     """Explicit host-only recovery. Archive only an exact, dead, unlocked owner.
 
     No automatic takeover, port opening, process termination or force-delete.
@@ -56,8 +57,12 @@ def recover_owned_stale(folder, ready_path, evidence, expected_thread, probe=win
     keys = ('thread', 'pid', 'started_utc', 'scope', 'process_created_utc')
     if owner.get('thread') != expected_thread or any(owner.get(k) != ready.get(k) for k in keys):
         raise RuntimeError('Owner/start identity mismatch; no recovery')
-    if not owner['scope'].startswith('XIP passive COM6 UART capture only;'):
-        raise RuntimeError('This recovery is restricted to our passive recorder')
+    passive=owner['scope'].startswith('XIP passive COM6 UART capture only;')
+    owned_xip=(authorized_xip and expected_thread.startswith('n6-xip-') and
+      bool(owner.get('process_created_utc')) and owner['scope']==
+      'authorized recoverable XIP/USB/OTA NOR validation; no OTP, settings, credential or pairing writes')
+    if not passive and not owned_xip:
+        raise RuntimeError('Recovery requires our passive recorder or explicit exact owned XIP scope')
     if probe(owner['pid']).get('state') != 'absent':
         raise RuntimeError('PID live/reused or unverified; no recovery')
     if evidence.exists():
@@ -125,6 +130,8 @@ def cli_main():
     parser.add_argument('--scope', choices=('ram','xip-update'), default='ram')
     parser.add_argument('--recover-stale-from', type=Path)
     parser.add_argument('--evidence-dir', type=Path)
+    parser.add_argument('--recover-owned-xip',action='store_true',
+                        help='Explicit own dead XIP lease only; first verify every child/test closed from retained results')
     args = parser.parse_args()
     repository = Path(__file__).resolve().parents[1]
     # Every linked worktree must coordinate with legacy tests in the primary
@@ -143,10 +150,12 @@ def cli_main():
         for path in (args.recover_stale_from.resolve(), args.evidence_dir.resolve()):
             if not path.is_relative_to(repository):
                 raise SystemExit('Recovery evidence must stay within the feature worktree')
-        print(json.dumps(recover_owned_stale(folder,args.recover_stale_from,args.evidence_dir,args.owner_thread)),flush=True)
+        print(json.dumps(recover_owned_stale(folder,args.recover_stale_from,args.evidence_dir,args.owner_thread,
+                                            authorized_xip=args.recover_owned_xip)),flush=True)
         return
     if args.evidence_dir:
         raise SystemExit('Evidence directory is only for explicit stale recovery')
+    if args.recover_owned_xip:raise SystemExit('Owned XIP recovery requires the saved initial owner record')
     if (folder / 'n6-hardware-recovery.lock').exists():
         raise SystemExit('BLOCKED: host-only lease recovery in progress')
     if status.exists():

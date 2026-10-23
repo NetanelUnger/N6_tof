@@ -26,6 +26,32 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Latest2026-10-23: A43 XIP confirmed/B42 retained, firmware sourceeb809d1,
+  FSBLseq117 confirmed0/v43 pending1/v42, PC701D0AFC/VTOR70180400.
+  Build-Xip watchdog/resource defaultsON; guarded RAM recovery staysOFF.
+  UART w/W, s/W; local USB CLI W arm/W/W cancel.5s independent arms and
+  busy/finalization guard; actual handler refuses BLE/Cloud before mutation.
+  13 actual-C WDT groups/12 lease tests/21 earlier actual-C FSBL cases PASS.
+  Four actual IWDG resets PASS:41UART+supervisor,43UART+USBCLI; causeflag1,
+  no software reset/power removal. First stale mask is symptom, not root proof.
+  USB41->42 while WDT active PASS516512bytes/partialNAK10107.505ms/same
+  session/EOTACK;42->43 PASS517472bytes.43HIL100exact/NPU100/delta5/CRC0/
+  27.375s/unchanged gates.60s resources/15PSP samples, heap851288/front357412/
+  tail493876/RAMcontrol369168>=369072. Radio min15652/peak49884(31.38%),
+  supervisor sampled776/2624; NOT full WC/watermark/fragmentation proof.
+  Final Cloud disabled+paired/sensor0/datasetOFF/localUSB100; NPU/SPI/NCP/
+  UART faults0, all handles/leases closed, no pending arm/capture/write.
+  Own dead59832 lease archived after exact start/death/OS-lock and child
+  completion proof; no hardware access in recovery. First CLI admission
+  stopped before ports; one new owned execution passed.43/42 exact artifacts
+  backed up, not current wholeNOR dump. No OTP/options/RIF/debug policy/
+  credentials/main/server changes, merge/push/deploy. Closing primary/server
+  Git reads rejected by owner mismatch, stopped without added trust;80f2b511/
+  5905a7df are last verified baselines, not fresh closing reads. Post-WDT OTA,
+  latest coldpower, early pre-supervisor boot, IRQ-mask/high-priority starvation,
+  LSI calibration and NOR powercut remain untested. BLE host/original OVR/
+  server lease findings retained. See docs/xip-watchdog-final-20261023.json.
+
 - Cold-power2026-10-23 17:23UTC: user confirmed all-power removal/LEDs-off
   instruction; passive recorder captured ST-LINK disconnect/reconnect1 and full
   FSBL/BootROM startup. Seq105 confirmedB39, signature0/hash accepted, no NS code

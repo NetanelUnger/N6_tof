@@ -1,0 +1,553 @@
+{
+  "kind": "OBSERVED_ONLY_NOT_VERIFIED_WORST_CASE",
+  "log": ".local-dependencies\\xip\\a43-watchdog-final-memory\\uart.log",
+  "elf": ".local-dependencies\\xip\\v43-A-local-cli-watchdog\\application.elf",
+  "usage": [
+    {
+      "kind": "pool",
+      "object": "0x2412f868",
+      "symbols": [
+        "_end"
+      ],
+      "observations": 59,
+      "capacity": 851288,
+      "observed_peak": 357412,
+      "observed_minimum_free": 493876,
+      "flags": 8,
+      "observed_free_over_used_percent": 138.18114668785603,
+      "observed_10percent_capacity_target_met": true,
+      "warning": "C heap frontier, not malloc free/largest block"
+    },
+    {
+      "kind": "pool",
+      "object": "0x24115bf4",
+      "symbols": [
+        "tx_radio_byte_pool"
+      ],
+      "observations": 665,
+      "capacity": 65536,
+      "observed_peak": 49884,
+      "observed_minimum_free": 15652,
+      "flags": 0,
+      "observed_free_over_used_percent": 31.3767941624569,
+      "observed_10percent_capacity_target_met": true,
+      "warning": "Wrapped observations only; fragmentation/largest request not proven"
+    },
+    {
+      "kind": "pool",
+      "object": "0x24115c28",
+      "symbols": [
+        "tx_app_byte_pool"
+      ],
+      "observations": 8,
+      "capacity": 180224,
+      "observed_peak": 149312,
+      "observed_minimum_free": 30912,
+      "flags": 0,
+      "observed_free_over_used_percent": 20.702957565366482,
+      "observed_10percent_capacity_target_met": true,
+      "warning": "Wrapped observations only; fragmentation/largest request not proven"
+    },
+    {
+      "kind": "pool",
+      "object": "0x24105bc0",
+      "symbols": [
+        "ux_device_app_byte_pool"
+      ],
+      "observations": 3,
+      "capacity": 65536,
+      "observed_peak": 51224,
+      "observed_minimum_free": 14312,
+      "flags": 0,
+      "observed_free_over_used_percent": 27.940028111822585,
+      "observed_10percent_capacity_target_met": true,
+      "warning": "Wrapped observations only; fragmentation/largest request not proven"
+    },
+    {
+      "kind": "pool",
+      "object": "0x2410150c",
+      "symbols": [
+        "usbpd_app_byte_pool"
+      ],
+      "observations": 1,
+      "capacity": 18048,
+      "observed_peak": 8,
+      "observed_minimum_free": 18040,
+      "flags": 0,
+      "observed_free_over_used_percent": 225500.0,
+      "observed_10percent_capacity_target_met": true,
+      "warning": "Wrapped observations only; fragmentation/largest request not proven"
+    },
+    {
+      "kind": "queue",
+      "object": "0x2411ac04",
+      "symbols": [
+        "debug_uart_free_queue"
+      ],
+      "observations": 250,
+      "capacity": 32,
+      "observed_peak": 32,
+      "observed_minimum_free": 0,
+      "flags": 0,
+      "observed_free_over_used_percent": 0.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x2412bafc",
+      "symbols": [],
+      "observations": 358,
+      "capacity": 3,
+      "observed_peak": 3,
+      "observed_minimum_free": 0,
+      "flags": 0,
+      "observed_free_over_used_percent": 0.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x24118618",
+      "symbols": [
+        "cloud_control_queue"
+      ],
+      "observations": 6,
+      "capacity": 4,
+      "observed_peak": 4,
+      "observed_minimum_free": 0,
+      "flags": 0,
+      "observed_free_over_used_percent": 0.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x2411abcc",
+      "symbols": [
+        "debug_uart_ready_queue"
+      ],
+      "observations": 222,
+      "capacity": 32,
+      "observed_peak": 23,
+      "observed_minimum_free": 9,
+      "flags": 0,
+      "observed_free_over_used_percent": 39.130434782608695
+    },
+    {
+      "kind": "queue",
+      "object": "0x2412e82c",
+      "symbols": [],
+      "observations": 96,
+      "capacity": 16,
+      "observed_peak": 0,
+      "observed_minimum_free": 16,
+      "flags": 0,
+      "observed_free_over_used_percent": null
+    },
+    {
+      "kind": "queue",
+      "object": "0x2412bb34",
+      "symbols": [],
+      "observations": 978,
+      "capacity": 3,
+      "observed_peak": 2,
+      "observed_minimum_free": 1,
+      "flags": 0,
+      "observed_free_over_used_percent": 50.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x241202a8",
+      "symbols": [
+        "logging_free_buffers"
+      ],
+      "observations": 43,
+      "capacity": 4,
+      "observed_peak": 4,
+      "observed_minimum_free": 0,
+      "flags": 0,
+      "observed_free_over_used_percent": 0.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x242d0008",
+      "symbols": [],
+      "observations": 8,
+      "capacity": 8,
+      "observed_peak": 8,
+      "observed_minimum_free": 0,
+      "flags": 0,
+      "observed_free_over_used_percent": 0.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x242d0078",
+      "symbols": [],
+      "observations": 2,
+      "capacity": 2,
+      "observed_peak": 2,
+      "observed_minimum_free": 0,
+      "flags": 0,
+      "observed_free_over_used_percent": 0.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x242d00e8",
+      "symbols": [],
+      "observations": 8,
+      "capacity": 8,
+      "observed_peak": 8,
+      "observed_minimum_free": 0,
+      "flags": 0,
+      "observed_free_over_used_percent": 0.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x242d0158",
+      "symbols": [],
+      "observations": 8,
+      "capacity": 8,
+      "observed_peak": 8,
+      "observed_minimum_free": 0,
+      "flags": 0,
+      "observed_free_over_used_percent": 0.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x242d6038",
+      "symbols": [],
+      "observations": 8,
+      "capacity": 4,
+      "observed_peak": 4,
+      "observed_minimum_free": 0,
+      "flags": 0,
+      "observed_free_over_used_percent": 0.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x242d60a8",
+      "symbols": [],
+      "observations": 8,
+      "capacity": 4,
+      "observed_peak": 4,
+      "observed_minimum_free": 0,
+      "flags": 0,
+      "observed_free_over_used_percent": 0.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x242d6070",
+      "symbols": [],
+      "observations": 4,
+      "capacity": 4,
+      "observed_peak": 4,
+      "observed_minimum_free": 0,
+      "flags": 0,
+      "observed_free_over_used_percent": 0.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x242d60e0",
+      "symbols": [],
+      "observations": 4,
+      "capacity": 4,
+      "observed_peak": 4,
+      "observed_minimum_free": 0,
+      "flags": 0,
+      "observed_free_over_used_percent": 0.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x242d7ac8",
+      "symbols": [],
+      "observations": 229,
+      "capacity": 16,
+      "observed_peak": 0,
+      "observed_minimum_free": 16,
+      "flags": 0,
+      "observed_free_over_used_percent": null
+    },
+    {
+      "kind": "queue",
+      "object": "0x242d738c",
+      "symbols": [],
+      "observations": 97,
+      "capacity": 8,
+      "observed_peak": 1,
+      "observed_minimum_free": 7,
+      "flags": 0,
+      "observed_free_over_used_percent": 700.0
+    },
+    {
+      "kind": "queue",
+      "object": "0x2412bea0",
+      "symbols": [],
+      "observations": 396,
+      "capacity": 10,
+      "observed_peak": 7,
+      "observed_minimum_free": 3,
+      "flags": 0,
+      "observed_free_over_used_percent": 42.857142857142854
+    },
+    {
+      "kind": "queue",
+      "object": "0x2412bed8",
+      "symbols": [],
+      "observations": 18,
+      "capacity": 16,
+      "observed_peak": 0,
+      "observed_minimum_free": 16,
+      "flags": 0,
+      "observed_free_over_used_percent": null
+    },
+    {
+      "kind": "queue",
+      "object": "0x2412bf10",
+      "symbols": [],
+      "observations": 18,
+      "capacity": 16,
+      "observed_peak": 1,
+      "observed_minimum_free": 15,
+      "flags": 0,
+      "observed_free_over_used_percent": 1500.0
+    },
+    {
+      "kind": "stack",
+      "object": "0x24117574",
+      "symbols": [
+        "tx_debug_uart_thread"
+      ],
+      "observations": 401,
+      "capacity": 3776,
+      "observed_peak": 744,
+      "observed_minimum_free": 3032,
+      "flags": 4,
+      "observed_free_over_used_percent": 407.5268817204301,
+      "sample_plus_provisional_context_margin_required": 1216,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x241176d4",
+      "symbols": [
+        "tx_tof_acquisition_thread"
+      ],
+      "observations": 1940,
+      "capacity": 18432,
+      "observed_peak": 720,
+      "observed_minimum_free": 17712,
+      "flags": 4,
+      "observed_free_over_used_percent": 2460.0,
+      "sample_plus_provisional_context_margin_required": 1216,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x24117414",
+      "symbols": [
+        "tx_display_thread"
+      ],
+      "observations": 3,
+      "capacity": 4928,
+      "observed_peak": 704,
+      "observed_minimum_free": 4224,
+      "flags": 4,
+      "observed_free_over_used_percent": 600.0,
+      "sample_plus_provisional_context_margin_required": 1152,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x2412e770",
+      "symbols": [
+        "app_usb_context"
+      ],
+      "observations": 152,
+      "capacity": 18432,
+      "observed_peak": 1228,
+      "observed_minimum_free": 17204,
+      "flags": 4,
+      "observed_free_over_used_percent": 1400.9771986970684,
+      "sample_plus_provisional_context_margin_required": 1728,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x24117154",
+      "symbols": [
+        "tx_usb_cli_thread"
+      ],
+      "observations": 1541,
+      "capacity": 7168,
+      "observed_peak": 1864,
+      "observed_minimum_free": 5304,
+      "flags": 4,
+      "observed_free_over_used_percent": 284.54935622317595,
+      "sample_plus_provisional_context_margin_required": 2432,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x2412bdd8",
+      "symbols": [],
+      "observations": 20,
+      "capacity": 12288,
+      "observed_peak": 600,
+      "observed_minimum_free": 11688,
+      "flags": 4,
+      "observed_free_over_used_percent": 1948.0,
+      "sample_plus_provisional_context_margin_required": 1088,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x2412bd28",
+      "symbols": [
+        "usb_cdc_context"
+      ],
+      "observations": 465,
+      "capacity": 12288,
+      "observed_peak": 616,
+      "observed_minimum_free": 11672,
+      "flags": 4,
+      "observed_free_over_used_percent": 1894.8051948051948,
+      "sample_plus_provisional_context_margin_required": 1088,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x24117784",
+      "symbols": [
+        "tx_app_thread"
+      ],
+      "observations": 538,
+      "capacity": 108544,
+      "observed_peak": 1144,
+      "observed_minimum_free": 107400,
+      "flags": 4,
+      "observed_free_over_used_percent": 9388.111888111887,
+      "sample_plus_provisional_context_margin_required": 1664,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x2412e684",
+      "symbols": [
+        "CADThread"
+      ],
+      "observations": 4,
+      "capacity": 8192,
+      "observed_peak": 620,
+      "observed_minimum_free": 7572,
+      "flags": 4,
+      "observed_free_over_used_percent": 1221.2903225806451,
+      "sample_plus_provisional_context_margin_required": 1088,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x24117364",
+      "symbols": [
+        "tx_wifi_ble_thread"
+      ],
+      "observations": 12938,
+      "capacity": 9408,
+      "observed_peak": 1440,
+      "observed_minimum_free": 7968,
+      "flags": 4,
+      "observed_free_over_used_percent": 553.3333333333334,
+      "sample_plus_provisional_context_margin_required": 1984,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x242d73fc",
+      "symbols": [],
+      "observations": 1622,
+      "capacity": 1536,
+      "observed_peak": 248,
+      "observed_minimum_free": 1288,
+      "flags": 4,
+      "observed_free_over_used_percent": 519.3548387096774,
+      "sample_plus_provisional_context_margin_required": 704,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x242d7b58",
+      "symbols": [],
+      "observations": 232,
+      "capacity": 2624,
+      "observed_peak": 356,
+      "observed_minimum_free": 2268,
+      "flags": 4,
+      "observed_free_over_used_percent": 637.0786516853933,
+      "sample_plus_provisional_context_margin_required": 768,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x24117204",
+      "symbols": [
+        "tx_cloud_relay_thread"
+      ],
+      "observations": 6604,
+      "capacity": 9408,
+      "observed_peak": 656,
+      "observed_minimum_free": 8752,
+      "flags": 4,
+      "observed_free_over_used_percent": 1334.1463414634147,
+      "sample_plus_provisional_context_margin_required": 1152,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x24117624",
+      "symbols": [
+        "tx_update_confirm_thread"
+      ],
+      "observations": 8,
+      "capacity": 2624,
+      "observed_peak": 776,
+      "observed_minimum_free": 1848,
+      "flags": 4,
+      "observed_free_over_used_percent": 238.1443298969072,
+      "sample_plus_provisional_context_margin_required": 1280,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    },
+    {
+      "kind": "stack",
+      "object": "0x241172b4",
+      "symbols": [
+        "tx_wifi_control_thread"
+      ],
+      "observations": 21,
+      "capacity": 7168,
+      "observed_peak": 1304,
+      "observed_minimum_free": 5864,
+      "flags": 4,
+      "observed_free_over_used_percent": 449.69325153374234,
+      "sample_plus_provisional_context_margin_required": 1856,
+      "sampled_margin_target_met": true,
+      "warning": "PSP sample maximum only, not full watermark/WC"
+    }
+  ],
+  "failure_rows": [],
+  "invalid_resource_lines": [],
+  "limits": [
+    "Finite expected receive timeouts retained silently as POLL",
+    "Queue free-lists may validly be full; no generic10percent queue-admission claim",
+    "Addresses reused across instances may retain conservative historical peaks",
+    "Pool free percentage is not proof of largest allocatable block",
+    "No proof that every thread or interrupt nesting peak was sampled"
+  ]
+}
