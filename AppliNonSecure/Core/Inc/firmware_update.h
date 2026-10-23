@@ -22,6 +22,8 @@ void Firmware_Update_Poll(uint32_t now_ms);
 void Firmware_Update_Cancel(void);
 uint32_t Firmware_Update_IsActive(void);
 void Firmware_Update_ConfirmBoot(void);
+/* Scalar diagnostic snapshot:poll count,last HAL,last RTOS,RX bytes,active. */
+void Firmware_Update_GetTimeProbe(uint32_t out[5]);
 
 /* Shared reset entry. Ordinary RAM keeps the CMSIS behavior; the XIP linker
  * supplies a RAM-resident, clock-mux-safe implementation. Nonzero means the

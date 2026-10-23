@@ -26,6 +26,8 @@
 #include "usb_cdc_transport.h"
 #include "wifi_ble_app.h"
 #include "app_usbx_device.h"
+#include "firmware_update.h"
+static void Debug_UART_TimeProbePoll(void);
 
 #define DEBUG_UART_LINE_SIZE    (256U)
 #define DEBUG_UART_TIMEOUT_MS   (100U)
@@ -660,6 +662,7 @@ void Debug_UART_TaskRun(void)
   for (;;)
   {
     N6R_ReportDeferred();
+    Debug_UART_TimeProbePoll();
     status = tx_queue_receive(&debug_uart_ready_queue, &slot,
 #if (N6_RESOURCE_DIAGNOSTICS == 1U)
                               TX_TIMER_TICKS_PER_SECOND);
@@ -1496,3 +1499,4 @@ void Debug_UART_GetStatus(DebugUart_Status_t *status)
 #if (N6_RESOURCE_DIAGNOSTICS == 1U)
 #include "resource_diag_impl.inc"
 #endif
+#include "timebase_probe_impl.inc"

@@ -80,6 +80,8 @@ void Debug_UART_NcpTracePingFrame(const char *stage, const uint8_t *data,
  * to call directly from Reset_Handler before .data/.bss initialization. */
 void Debug_UART_StartupTrace(uint32_t stage);
 void Debug_UART_StartupFault(uint32_t fault_code);
+/* Optional resource-profile diagnostic:30 bounded RTOS-timed samples. */
+void Debug_UART_StartTimeProbe(void);
 
 #ifdef __cplusplus
 }

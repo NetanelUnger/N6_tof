@@ -2134,6 +2134,12 @@ static void cli_command_debug(Menu_t *menu, const char *command)
   }
 
 #if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  if ((argc == 2) && (strcmp(argv[1], "timeprobe") == 0))
+  {
+    Debug_UART_StartTimeProbe();
+    cli_print("Time probe scheduled:30 RTOS-timed UART samples; no clock changes.\r\n");
+    return;
+  }
   if ((argc == 2) && (strcmp(argv[1], "resources") == 0))
   {
     N6R_RequestUsage();

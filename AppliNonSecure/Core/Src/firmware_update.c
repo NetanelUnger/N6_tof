@@ -8,6 +8,11 @@
 #include "secure_nsc.h"
 #include "tof_app.h"
 #include "xmodem_receiver.h"
+#include "app_features.h"
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+#include "tx_api.h"
+static volatile uint32_t update_poll_count,update_poll_hal,update_poll_rtos;
+#endif
 #if defined(N6_XIP_FAULT_PROBE) && (N6_XIP_FAULT_PROBE == 1)
 #include "xip_fault_probe.h"
 #else
@@ -351,6 +356,9 @@ void Firmware_Update_Feed(const uint8_t *data, size_t length,
 
 void Firmware_Update_Poll(uint32_t now_ms)
 {
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  ++update_poll_count;update_poll_hal=now_ms;update_poll_rtos=tx_time_get();
+#endif
   if (update_active != 0U)
   {
     XMODEM_Poll(&update_xmodem, now_ms);
@@ -401,6 +409,17 @@ void Firmware_Update_Poll(uint32_t now_ms)
       Debug_UART_Log("UPDATE", "reset blocked; cold restart required");
     }
   }
+}
+
+void Firmware_Update_GetTimeProbe(uint32_t out[5])
+{
+  if(out==NULL)return;
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  out[0]=update_poll_count;out[1]=update_poll_hal;out[2]=update_poll_rtos;
+#else
+  out[0]=out[1]=out[2]=0U;
+#endif
+  out[3]=update_rx_bytes;out[4]=update_active;
 }
 
 void Firmware_Update_Cancel(void)
