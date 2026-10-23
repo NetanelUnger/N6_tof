@@ -1,5 +1,25 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+FINAL2026-10-23: B39 XIP confirmed, A38 retained. HAL timebase starvation in
+PendSV idle fixed by TIM6 effectiveIRQ14 abovePendSV15; sleep-clock-only B35
+control FAILED and is retained. Actual partial-packet NAK10.008..10.051s,
+unchanged12s gate; same-open-USB timeout+full514528byte signed update toA38,
+explicitEOTACK/senderexit0/bootconfirmation PASS. OTA A38->B39 PASS504ACK,
+0timeouts/0retries/566.070s; software reboot PASSseq105/B39/PC702D0494/VTOR70280400.
+Post-reboot HIL100exact/NPU100/delta0/27.390s; SUSP3/3 DMAcompletion/SPI-NCP0.
+Radio observed min14708/peak50828(28.94%), C heap851384/frontier357412/tail493972;
+15PSP samples are NOT full WC/fragmentation/vendor-internal allocation proof.
+Final ToFready/NPUerrors0/UARTdrops0/Cloud disabled+paired+sensor0/datasetOFF;
+all owned handles/leases closed. BLE latest WinRT DeviceNotFound before GATT,
+0pings/noPair/noCache changes: NOT_ACCEPTED. Latest physical cold-power/loss
+during program/rollback-before-confirmation remain untested. Original SPI OVR
+physical cause and server lease/retry finding remain separate. Main/server
+unchanged; no merge/push/deploy/OTP/credential changes in this follow-up.
+Current [Hebrew usage/recovery guide](docs/n6-xip-usage-recovery_HE.md),
+[final measured evidence](docs/xip-timeout-final-20261023.json) and
+[timebase controlled comparison](docs/xip-hal-timebase-root-cause_HE.md).
+All older checkpoints below are historical, including A23/A32 and timeout-blocked states.
+
 LATEST reliability follow-up2026-10-23: B33/A32 unchanged, NO NOR writes.
 Ten real induced SUSP resume/completion tests PASS, SPI/NCP0. USB badCRC,
 partial-manifest cancellation and bad-signature reject PASS. NEW OPEN DEFECT:

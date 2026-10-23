@@ -13,21 +13,29 @@ def main():
     p.add_argument('--version',type=int,default=31)
     p.add_argument('--package',default='.local-dependencies/xip/v31-B-susp-probe/N6-XIP-B-v31.n6fw')
     p.add_argument('--usb-proof',default='.local-dependencies/xip/usb-update-b31-susp-probe/result.json')
-    p.add_argument('--proof-kind',choices=('usb','ota-acceptance'),default='usb');a=p.parse_args()
+    p.add_argument('--proof-kind',choices=('usb','ota-acceptance','ota'),default='usb');a=p.parse_args()
     root=Path(__file__).resolve().parents[1]
     if subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip()!='feature/n6-xip-ota-usb':raise RuntimeError('Wrong branch')
     binary=(root/a.package).resolve();proof_path=(root/a.usb_proof).resolve()
     if not binary.is_relative_to(root) or not proof_path.is_relative_to(root):raise RuntimeError('Input outside feature')
     build=json.loads((binary.parent/'build.json').read_text())
     if hashlib.sha256(binary.read_bytes()).hexdigest()!=build['hashes'][binary.name]['sha256'].lower() or build['version']!=a.version or not build['rx_backpressure']:raise RuntimeError('Probe artifact mismatch')
-    proof=json.loads(proof_path.read_text())
+    proof=json.loads(proof_path.read_text(encoding='utf-8'))
     if a.proof_kind=='usb':
         confirmed=proof['passed'] and proof['boot_confirmation_seen'] and proof['target_version']==a.version
-    else:
+    elif a.proof_kind=='ota-acceptance':
         confirmed=(proof.get('status')=='OTA_A32_TO_B33_PASS_WITH_QUALIFIED_MEMORY_AND_OVR_LIMITS'
             and proof['firmware']['version']==a.version and proof['firmware']['sha256']==hashlib.sha256(binary.read_bytes()).hexdigest()
             and proof['authentication']['FSBL_signature'] and proof['authentication']['FSBL_image_hash']
             and proof['boot']['USB_independent_post_update_version']==a.version and proof['boot']['confirmation_tick_ms']>0)
+    else:
+        assert proof_path.parent.name.startswith('cloud-')
+        raw=proof_path.parent.parent/('ota-uart-'+proof_path.parent.name[6:])/'uart.log'
+        boot=raw.read_text(encoding='utf-8',errors='replace')
+        confirmed=(proof.get('passed') and proof.get('targetRunning') and proof['targetVersion']==a.version
+            and proof['packageSha256']==hashlib.sha256(binary.read_bytes()).hexdigest()
+            and f'authenticated firmware v{a.version}; trial boot' in boot
+            and '[UPDATE] boot confirmed; rollback window closed' in boot)
     if not confirmed:raise RuntimeError('Confirmed source proof missing')
     print(f'HOST PREFLIGHT PASS exact signed probe and captured confirmed{a.version}; no hardware opened',flush=True)
     if not a.execute:return

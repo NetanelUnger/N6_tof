@@ -10,6 +10,7 @@ def main():
     from pathlib import Path
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--execute',action='store_true')
     p.add_argument('--owner-thread');p.add_argument('--output',type=Path,required=True);p.add_argument('--version',type=int,default=32)
+    p.add_argument('--seconds',type=int,choices=range(8,121),default=75,help='Bounded capture; short captures do not imply all stacks sampled')
     p.add_argument('--overflow',action='store_true');a=p.parse_args()
     root=Path(__file__).resolve().parents[1]
     if subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip()!='feature/n6-xip-ota-usb':raise RuntimeError('Wrong branch')
@@ -30,7 +31,7 @@ def main():
     if not out.is_relative_to(root):raise RuntimeError('Output outside feature')
     out.mkdir(parents=True,exist_ok=False)
     uart=serial.Serial(port=None,baudrate=115200,timeout=.2,write_timeout=1);uart.dtr=False;uart.rts=False;uart.port='COM6';uart.open()
-    stop=threading.Event();result={'passed':False,'overflow_requested':a.overflow,'serial_UART_writes':0,'network_requests':False}
+    stop=threading.Event();result={'passed':False,'overflow_requested':a.overflow,'serial_UART_writes':0,'network_requests':False,'capture_seconds':a.seconds}
     try:
         with (out/'uart.log').open('xb') as trace:
             def collect():
@@ -56,9 +57,9 @@ def main():
                     result['snapshot_request']=protocol.status(port,'debug resources')
                     result['PONG']=protocol.status(port,'debug ping 3232')
                     if 'Resource snapshot scheduled' not in result['snapshot_request'] or 'PONG 3232 ' not in result['PONG']:raise RuntimeError('Control response missing')
-                print('USB CLOSED; UART snapshot75s, model HIL may now use USB separately.',flush=True)
+                print(f'USB CLOSED; UART snapshot{a.seconds}s, model HIL may now use USB separately.',flush=True)
                 start=time.monotonic();reported=0
-                while time.monotonic()-start<75:
+                while time.monotonic()-start<a.seconds:
                     time.sleep(.25)
                     elapsed=int(time.monotonic()-start)
                     if elapsed>=reported+20:reported=elapsed;print('UART snapshot elapsed',elapsed,'seconds',flush=True)

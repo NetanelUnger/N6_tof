@@ -26,6 +26,31 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- FINAL2026-10-23 supersedes all earlier board states: B39 XIP confirmed,
+  A38 retained. TIM6 IRQ15 could not preempt ThreadX PendSV15 idle; IRQ14
+  restores HAL wall time. Sleep-clock-only B35 did NOT fix the timeout.
+  PartialNAK10.008..10.051s/unchanged12s gate, same-openUSB partial+fullA38
+  signed514528bytes/EOTACK/sender0/boot-confirm PASS. OTA38->39 PASS504ACK,
+  0timeout/0retry/566.070s; software reboot PASSseq105/CONFIRMED39/PC702D0494/
+  VTOR70280400, not cold-power. HIL100exact/NPU100/delta0/27.390s, SUSP3/3,
+  SPI/NCP0. Radio observed min14708/peak50828(28.94%), heap851384/frontier357412/
+  tail493972; PSP15samples not full WC/IRQ nesting/fragmentation proof.
+  Final imageNONE/datasetOFF/Cloud disabled+paired+sensor0/ToFready/NPUerrors0/
+  UARTdrops0, all owned handles+leases released, no pending probe/capture.
+  BLE latest WinRT requester DeviceNotFound BEFORE GATT,0pings,PairFalse;
+  no retry/cache/security workaround. Physical cold-power/latest rollback/
+  power-cut during NOR write remain pending, not implicitly accepted.
+  A32/B33 external exact package/ELF/map backups verified; on-board slots
+  intentionally advanced with safe installer protection. Current A38/B39
+  image artifacts also backed up; NOT a current whole-NOR snapshot.
+  Main80f2b511/server5905a7d unchanged, no merge/push/deploy. Root fix source
+  6f6c89faf26bc4a36d09b69f1c9f7be5c4cb3416. Git index failure was not explicit
+  approval denial; read-only ACL/no-lock/new-mtime evidence then ONE ordinary
+  retry succeeded. No trust/ACL/ownership changes. Separate Get-Volume C read
+  AccessDenied was stopped, never bypassed. See docs/xip-timeout-final-20261023.json
+  and docs/n6-xip-usage-recovery_HE.md. Original OVR cause/server lease finding
+  are separate from controlled SUSP and timebase proof.
+
 - LATEST reliability follow-up: B33 confirmed/A32 retained, no NOR write.
  10/10 actual induced SUSP64byte suspend/resume/completion PASS, SPI/NCP0.
  USB badCRC/partial-manifest CAN/bad-signature reject PASS. Truncated17byte
