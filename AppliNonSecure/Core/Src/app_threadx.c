@@ -99,6 +99,11 @@ TX_THREAD tx_app_thread;
 #if (N6_RESOURCE_DIAGNOSTICS == 1U)
 static UCHAR resource_wifi_control_stack[TX_WIFI_CONTROL_STACK_SIZE]
  __attribute__((section(".app_shared_bss"),aligned(64)));
+/* Measured B29 radio-pool minimum5764 vs peak59772 is below10%. Put the
+ * project-owned manager stack in existing APP_RAM4 slack, preserving the
+ * radio bank size/permissions and vendor allocator behavior. */
+static UCHAR resource_radio_manager_stack[TX_WIFI_BLE_STACK_SIZE]
+ __attribute__((section(".app_shared_bss"),aligned(64)));
 #endif
 static TX_THREAD tx_tof_acquisition_thread;
 static TX_THREAD tx_update_confirm_thread;
@@ -302,11 +307,15 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
     return TX_POOL_ERROR;
   }
 
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  pointer=(CHAR *)resource_radio_manager_stack;
+#else
   if (tx_byte_allocate(radio_pool, (VOID **)&pointer,
                        TX_WIFI_BLE_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
   {
     return TX_POOL_ERROR;
   }
+#endif
 
   if (tx_thread_create(&tx_wifi_ble_thread, "ST67 Radio Manager", WiFiBleThread_Entry,
                        0U, pointer, TX_WIFI_BLE_STACK_SIZE,
