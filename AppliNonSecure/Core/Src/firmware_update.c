@@ -8,6 +8,12 @@
 #include "secure_nsc.h"
 #include "tof_app.h"
 #include "xmodem_receiver.h"
+#if defined(N6_XIP_FAULT_PROBE) && (N6_XIP_FAULT_PROBE == 1)
+#include "xip_fault_probe.h"
+#else
+#define XipProbe_Begin(phase, offset, length) ((void)0)
+#define XipProbe_End() ((void)0)
+#endif
 
 #define UPDATE_REBOOT_DELAY_MS       (1000U)
 #define UPDATE_REBOOT_DRAIN_LIMIT_MS (30000U)
@@ -118,8 +124,10 @@ static int32_t update_consume(const uint8_t *data, size_t length,
           (unsigned long)update_manifest.format_version,
           (unsigned long)update_manifest.target_id,
           (unsigned long)update_manifest.image_type);
+      XipProbe_Begin(1U,0U,sizeof(update_manifest));
       status = SECURE_FirmwareUpdateBegin(&update_manifest,
                                           &update_secure_session);
+      XipProbe_End();
       Debug_UART_Log("UPDATE", "Secure Begin returned: status=%lu session=%lu",
                      (unsigned long)status,
                      (unsigned long)update_secure_session);
@@ -152,8 +160,10 @@ static int32_t update_consume(const uint8_t *data, size_t length,
     image_chunk = (remaining < image_remaining) ? remaining : image_remaining;
     if (image_chunk != 0U)
     {
+      XipProbe_Begin(2U,update_image_bytes,(uint32_t)image_chunk);
       uint32_t status = SECURE_FirmwareUpdateWrite(
           update_secure_session, cursor, (uint32_t)image_chunk);
+      XipProbe_End();
       if (status != SECURE_FW_UPDATE_OK)
       {
         Debug_UART_Log("UPDATE",
@@ -202,7 +212,9 @@ static int32_t update_finish(void *context)
     return -1;
   }
 
+  XipProbe_Begin(3U,update_image_bytes,0U);
   status = SECURE_FirmwareUpdateFinalize(update_secure_session);
+  XipProbe_End();
   if (status != SECURE_FW_UPDATE_OK)
   {
     Debug_UART_Log("UPDATE", "secure finalize failed: %lu",
@@ -221,7 +233,9 @@ static void update_abort(int32_t reason, void *context)
   (void)context;
   if (update_secure_session != 0U)
   {
+    XipProbe_Begin(4U,update_image_bytes,0U);
     (void)SECURE_FirmwareUpdateAbort(update_secure_session);
+    XipProbe_End();
   }
   update_secure_session = 0U;
   update_active = 0U;
@@ -405,7 +419,9 @@ uint32_t Firmware_Update_IsActive(void)
 void Firmware_Update_ConfirmBoot(void)
 {
   N6_ResetReport();
+  XipProbe_Begin(5U,0U,0U);
   uint32_t status = SECURE_FirmwareUpdateConfirmBoot();
+  XipProbe_End();
   if (status == SECURE_FW_UPDATE_OK)
   {
     Debug_UART_Log("UPDATE", "boot confirmed; rollback window closed");

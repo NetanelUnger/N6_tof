@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][ValidateSet('A','B')][string]$Slot,
     [Parameter(Mandatory=$true)][ValidateRange(1,[uint32]::MaxValue)][uint32]$FirmwareVersion,
-    [ValidatePattern("^[a-zA-Z0-9-]*$")][string]$Label = ""
+    [ValidatePattern("^[a-zA-Z0-9-]*$")][string]$Label = "",
+    [switch]$FaultProbe
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -100,8 +101,35 @@ try {
             '-I../Core/Inc' '-I../../Drivers/CMSIS/Device/ST/STM32N6xx/Include' '-I../../Drivers/CMSIS/Include' `
             *> (Join-Path $output 'xip-reset-build.log')
         if ($LASTEXITCODE -ne 0) { throw 'XIP reset override compilation failed.' }
-        $linkArgs = @('-o',$elf,'@objects.list',(Join-Path $root 'AppliSecure/Debug/secure_nsclib.o'),
-            $resetObject,
+        $objectResponse='@objects.list'
+        $extraObjects=@($resetObject)
+        if ($FaultProbe) {
+            # Compile only the diagnostic XIP variants. Keep ordinary guarded
+            # RAM objects/map unchanged and its369072-byte contract intact.
+            $rule=([IO.File]::ReadAllLines((Join-Path $build 'Core/Src/subdir.mk')) |
+                Where-Object {$_ -match 'arm-none-eabi-gcc.*-std=gnu11'} | Select-Object -First 1)
+            if (-not $rule) {throw 'Cannot locate generated C compile flags.'}
+            $projectFlags=@([regex]::Matches($rule,'-[DI][^\s]+') | ForEach-Object {$_.Value})
+            $probeFlags=@('-mcpu=cortex-m55','-mthumb','-mfpu=fpv5-d16','-mfloat-abi=hard','-std=gnu11','-O3',
+                '-Wall','-ffunction-sections','-fdata-sections','--specs=nano.specs','-DN6_XIP_FAULT_PROBE=1',('-I'+$PSScriptRoot))+$projectFlags
+            foreach ($relative in @('AppliNonSecure/Core/Src/spi_port.c','AppliNonSecure/Core/Src/firmware_update.c','Tools/xip_fault_probe.c')) {
+                Assert-XipBranch
+                $name=[IO.Path]::GetFileNameWithoutExtension($relative)
+                $probeObject=Join-Path $output "$name-probe.o"
+                & (Join-Path $tools.GnuBin 'arm-none-eabi-gcc.exe') @probeFlags -c (Join-Path $root $relative) -o $probeObject `
+                    *> (Join-Path $output "$name-probe-build.log")
+                if ($LASTEXITCODE -ne 0) {throw "XIP diagnostic compilation failed: $relative"}
+                $extraObjects+=$probeObject
+            }
+            $original=[IO.File]::ReadAllLines((Join-Path $build 'objects.list'))
+            $remove=@('"./Core/Src/spi_port.o"','"./Core/Src/firmware_update.o"')
+            foreach ($line in $remove) {if (@($original | Where-Object {$_ -eq $line}).Count -ne 1) {throw 'Unexpected object-list shape.'}}
+            $filtered=@($original | Where-Object {$_ -notin $remove})
+            $probeList=Join-Path $output 'objects-probe.list'
+            [IO.File]::WriteAllLines($probeList,$filtered,[Text.UTF8Encoding]::new($false))
+            $objectResponse='@'+$probeList
+        }
+        $linkArgs = @('-o',$elf,$objectResponse,(Join-Path $root 'AppliSecure/Debug/secure_nsclib.o'))+$extraObjects+@(
             '-lm','-l:USBPDCORE_NOPD_CM55_wc32.a','-l:NetworkRuntime1201_CM55_GCC.a','-mcpu=cortex-m55',
             "-Wl,--defsym=N6_XIP_BASE=$base",'-T'+(Join-Path $root 'AppliNonSecure/STM32N657X0HXQ_XIP.ld'),
             '--specs=nosys.specs',"-Wl,-Map=$map",'-Wl,--gc-sections','-static',
@@ -150,11 +178,15 @@ try {
     }
     $sourceHashes['AppliNonSecure/STM32N657X0HXQ_XIP.ld'] = Get-N6FileSha256 (Join-Path $root 'AppliNonSecure/STM32N657X0HXQ_XIP.ld')
     $sourceHashes['Tools/xip_system_reset.c'] = Get-N6FileSha256 (Join-Path $root 'Tools/xip_system_reset.c')
+    if ($FaultProbe) {
+        $sourceHashes['Tools/xip_fault_probe.c']=Get-N6FileSha256 (Join-Path $root 'Tools/xip_fault_probe.c')
+        $sourceHashes['Tools/xip_fault_probe.h']=Get-N6FileSha256 (Join-Path $root 'Tools/xip_fault_probe.h')
+    }
     $hashes = [ordered]@{}
     foreach ($item in Get-ChildItem $output -File | Where-Object Extension -in '.elf','.map','.bin','.n6fw') {
         $hashes[$item.Name] = @{sha256=Get-N6FileSha256 $item.FullName;bytes=$item.Length}
     }
-    $result = [ordered]@{status='BUILT_NOT_INSTALLED';branch='feature/n6-xip-ota-usb';source_commit=(& git -c "safe.directory=$root" -C $root rev-parse HEAD);slot=$Slot;version=$FirmwareVersion;execution_base=$base;ncp_preserve=$true;settings_writes=$false;cloud_auto_map=$false;budgets=$budgets;source_sha256=$sourceHashes;hashes=$hashes}
+    $result = [ordered]@{status='BUILT_NOT_INSTALLED';branch='feature/n6-xip-ota-usb';source_commit=(& git -c "safe.directory=$root" -C $root rev-parse HEAD);slot=$Slot;version=$FirmwareVersion;execution_base=$base;ncp_preserve=$true;settings_writes=$false;cloud_auto_map=$false;fault_probe=[bool]$FaultProbe;budgets=$budgets;source_sha256=$sourceHashes;hashes=$hashes}
     Assert-XipBranch
     [IO.File]::WriteAllText((Join-Path $output 'build.json'),($result | ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
     Write-Host "XIP build/package ready: $output. Hardware installation and HIL have not run."

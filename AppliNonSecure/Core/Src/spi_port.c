@@ -11,6 +11,12 @@
 #include "main.h"
 #include "debug_uart.h"
 #include "stm32n6xx_ll_dma.h"
+#if defined(N6_XIP_FAULT_PROBE) && (N6_XIP_FAULT_PROBE == 1)
+#include "xip_fault_probe.h"
+#else
+#define XipProbe_CaptureFault(source, prior) ((void)0)
+#define XipProbe_ReportFault() ((void)0)
+#endif
 
 #define SYSTICK_LOAD   (*(volatile uint32_t *)0xE000E014UL)
 #define SYSTICK_VALUE  (*(volatile uint32_t *)0xE000E018UL)
@@ -81,6 +87,7 @@ void spi_port_capture_failure(uint32_t source)
     spi_fault.rx_remaining = rx->Instance->CBR1;
     spi_fault.rx_ctr1 = rx->Instance->CTR1; spi_fault.rx_ctr2 = rx->Instance->CTR2;
   }
+  XipProbe_CaptureFault(source,posture);
   __set_PRIMASK(posture);
 }
 
@@ -122,6 +129,7 @@ void spi_port_report_fault(void)
       (unsigned long)f.rx_state, (unsigned long)f.rx_error, (unsigned long)f.rx_ccr,
       (unsigned long)f.rx_csr, (unsigned long)f.rx_remaining,
       (unsigned long)f.rx_ctr1, (unsigned long)f.rx_ctr2);
+  XipProbe_ReportFault();
 }
 
 static void spi_port_wait_cs_hold(uint32_t start, uint32_t count)
