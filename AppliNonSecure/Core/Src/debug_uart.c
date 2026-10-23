@@ -27,6 +27,7 @@
 #include "wifi_ble_app.h"
 #include "app_usbx_device.h"
 #include "firmware_update.h"
+#include "n6_watchdog.h"
 static void Debug_UART_TimeProbePoll(void);
 
 #define DEBUG_UART_LINE_SIZE    (256U)
@@ -662,6 +663,7 @@ void Debug_UART_TaskRun(void)
   for (;;)
   {
     N6R_ReportDeferred();
+    N6H_Beat(N6H_UART_TX);
     Debug_UART_TimeProbePoll();
     status = tx_queue_receive(&debug_uart_ready_queue, &slot,
 #if (N6_RESOURCE_DIAGNOSTICS == 1U)
@@ -907,9 +909,13 @@ static void Debug_UART_ProcessCommands(void)
     {
       continue;
     }
+    if(N6H_UartCommand(command))continue;
     if (command == '?')
     {
       Debug_UART_Log("WATCH", "keys: a=all, r/t/c/u=one-shot Radio/ToF/CLI/USB, R/T/C/U=watch every 5s, n=NCP trace toggle, 0=watch off, ?=help");
+#if (N6_WATCHDOG_ENABLED == 1U)
+      Debug_UART_Log("WDT","diagnostic: w=arm UART task, s=arm supervisor; then W within5s; updater must be idle");
+#endif
     }
     else if (command == 'n')
     {
@@ -955,6 +961,7 @@ void Debug_UART_TestTaskRun(void)
 
   for (;;)
   {
+    N6H_Beat(N6H_UART_CONTROL);
     Debug_UART_ArmRx();
     status = tx_event_flags_get(&debug_uart_test_events,
                                 DEBUG_UART_TEST_EVENT_BURST |

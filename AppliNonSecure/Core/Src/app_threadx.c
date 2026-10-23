@@ -37,6 +37,7 @@
 #include "main.h"
 #include "tof_app.h"
 #include "wifi_ble_app.h"
+#include "n6_watchdog.h"
 
 /* USER CODE END Includes */
 
@@ -448,7 +449,11 @@ static void UpdateConfirmThread_Entry(ULONG thread_input)
   /* A trial image must remain alive under ThreadX long enough to prove that
    * startup and scheduling work before it closes the rollback window. */
   tx_thread_sleep(5U * TX_TIMER_TICKS_PER_SECOND);
+#if (N6_WATCHDOG_ENABLED == 1U)
+  N6H_Run(); /* Existing 2KiB confirmation stack becomes the supervisor. */
+#else
   Firmware_Update_ConfirmBoot();
+#endif
 }
 
 #if (APP_GC9A01_DISPLAY_ENABLED == 1U)
@@ -491,4 +496,5 @@ static void UsbCliThread_Entry(ULONG thread_input)
 }
 #endif
 
+#include "n6_watchdog_impl.inc"
 /* USER CODE END 1 */

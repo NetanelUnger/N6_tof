@@ -1,6 +1,7 @@
 #define N6_RESOURCE_SOURCE N6R_CORE
 #include "resource_diag.h"
 #include "debug_cli.h"
+#include "n6_watchdog.h"
 
 #include <inttypes.h>
 #include <stdarg.h>
@@ -513,6 +514,7 @@ void Debug_CLI_Run(void)
     ULONG actual_length = 0U;
 
     cli_context.thread.cycles++;
+    N6H_Beat(N6H_CLI);
     cli_context.thread.last_tick = HAL_GetTick();
 
     Firmware_Update_Poll(HAL_GetTick());

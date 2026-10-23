@@ -433,6 +433,11 @@ uint32_t Firmware_Update_IsActive(void)
   return update_active;
 }
 
+uint32_t Firmware_Update_IsBusy(void)
+{
+  return update_active || update_success;
+}
+
 void Firmware_Update_ConfirmBoot(void)
 {
   N6_ResetReport();

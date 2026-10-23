@@ -1,5 +1,8 @@
 #ifndef APP_FEATURES_H
 #define APP_FEATURES_H
+
+/* Opt-in XIP watchdog acceptance profile. No option-byte or RIF changes. */
+#define N6_WATCHDOG_ENABLED (0U)
 #ifndef N6_RESOURCE_DIAGNOSTICS
 #define N6_RESOURCE_DIAGNOSTICS (0U) /* XIP candidate; host-only until HIL. */
 #endif

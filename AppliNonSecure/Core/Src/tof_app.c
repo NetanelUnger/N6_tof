@@ -12,6 +12,7 @@
 #define N6_RESOURCE_SOURCE N6R_TOF
 #include "resource_diag.h"
 #include "tof_app.h"
+#include "n6_watchdog.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -522,6 +523,7 @@ void TOF_App_Acquire(void)
     for (;;)
     {
         raw_frame = NULL;
+        N6H_Beat(N6H_TOF_ACQUIRE);
         if (tof_context.state.state == TOF_APP_STATE_ERROR) {
             tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND);
             continue; /* Software/queue faults are not repaired by sensor reset. */
@@ -553,6 +555,7 @@ void TOF_App_Acquire(void)
                    (tof_context.recovery.requested == 0U) &&
                    (tof_context.state.state != TOF_APP_STATE_ERROR))
             {
+                N6H_Beat(N6H_TOF_ACQUIRE);
                 tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 20U);
             }
             if (tof_context.recovery.requested != 0U) goto recover_frame;
@@ -741,6 +744,7 @@ void TOF_App_Process(void)
     for (;;)
     {
         tof_context.processing_thread.cycles++;
+        N6H_Beat(N6H_TOF_PROCESS);
         tof_context.processing_thread.last_tick = HAL_GetTick();
         int ret;
         memory_t channel_memory[2];
@@ -749,7 +753,10 @@ void TOF_App_Process(void)
 
         ULONG ready_message;
         UINT queue_status = tx_queue_receive(&tof_context.buffers.ready_queue, &ready_message,
-                                             TX_WAIT_FOREVER);
+                                             N6H_IDLE_TICKS);
+#if (N6_WATCHDOG_ENABLED == 1U)
+        if(queue_status==TX_QUEUE_EMPTY)continue;
+#endif
         if (queue_status != TX_SUCCESS)
         {
             tof_log_queue_failure("receive ready raw slot", queue_status,

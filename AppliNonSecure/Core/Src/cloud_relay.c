@@ -1,6 +1,7 @@
 #define N6_RESOURCE_SOURCE N6R_CLOUD
 #include "resource_diag.h"
 #include "cloud_relay.h"
+#include "n6_watchdog.h"
 #include "app_cli_reply.h"
 #include "app_settings.h"
 
@@ -291,6 +292,7 @@ void CloudRelay_Run(void)
 
   for (;;)
   {
+    N6H_Beat(N6H_CLOUD);
     if (cloud_recovery_pause != 0U)
     {
       /* This branch runs only after the preceding blocking call returned.

@@ -21,6 +21,7 @@ void Firmware_Update_Feed(const uint8_t *data, size_t length,
 void Firmware_Update_Poll(uint32_t now_ms);
 void Firmware_Update_Cancel(void);
 uint32_t Firmware_Update_IsActive(void);
+uint32_t Firmware_Update_IsBusy(void);
 void Firmware_Update_ConfirmBoot(void);
 /* Scalar diagnostic snapshot:poll count,last HAL,last RTOS,RX bytes,active. */
 void Firmware_Update_GetTimeProbe(uint32_t out[5]);

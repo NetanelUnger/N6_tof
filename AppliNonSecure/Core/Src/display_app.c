@@ -1,4 +1,5 @@
 #include "display_app.h"
+#include "n6_watchdog.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -786,10 +787,14 @@ void Display_App_Run(void)
    * scaled RGB565 row has completed through SPI DMA. */
   for (;;)
   {
+    N6H_Beat(N6H_DISPLAY);
     UINT wait_status = tx_event_flags_get(
         &display_events, DISPLAY_EVENT_FRAME_READY | DISPLAY_EVENT_MODE_CHANGED |
                          DISPLAY_EVENT_SYSTEM_READY,
-        TX_OR_CLEAR, &actual_flags, TX_WAIT_FOREVER);
+        TX_OR_CLEAR, &actual_flags, N6H_IDLE_TICKS);
+#if (N6_WATCHDOG_ENABLED == 1U)
+    if(wait_status==TX_NO_EVENTS)continue;
+#endif
     if (wait_status != TX_SUCCESS)
     {
       Debug_UART_Log("DISPLAY", "ERROR: event wait failed: %u",

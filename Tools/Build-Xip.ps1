@@ -4,7 +4,8 @@ param(
     [ValidatePattern("^[a-zA-Z0-9-]*$")][string]$Label = "",
     [switch]$FaultProbe,
     [switch]$RxBackpressure,
-    [switch]$ResourceDiagnostics
+    [switch]$ResourceDiagnostics,
+    [switch]$Watchdog
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -14,6 +15,7 @@ function Assert-XipBranch {
     }
 }
 Assert-XipBranch
+if ($Watchdog -and -not $ResourceDiagnostics) {throw 'Watchdog HIL profile requires ResourceDiagnostics for memory evidence.'}
 if ($RxBackpressure -and -not $FaultProbe) {throw 'Experimental RX backpressure requires the XIP fault probe.'}
 . (Join-Path $PSScriptRoot 'N6-DevCommon.ps1')
 $tools = Get-N6DevelopmentTools
@@ -91,6 +93,10 @@ try {
     if ($ResourceDiagnostics) {
         Assert-XipBranch
         $instrumented=[IO.File]::ReadAllText($featurePath).Replace('#define N6_RESOURCE_DIAGNOSTICS (0U)','#define N6_RESOURCE_DIAGNOSTICS (1U)')
+        if ($Watchdog) {
+            $instrumented=$instrumented.Replace('#define N6_WATCHDOG_ENABLED (0U)','#define N6_WATCHDOG_ENABLED (1U)')
+            if ($instrumented -notmatch '#define N6_WATCHDOG_ENABLED \(1U\)') {throw 'Watchdog feature flag absent'}
+        }
         if ($instrumented -notmatch '#define N6_RESOURCE_DIAGNOSTICS \(1U\)') {throw 'Resource diagnostics flag absent'}
         [IO.File]::WriteAllText($featurePath,$instrumented,[Text.UTF8Encoding]::new($false))
         # The preceding ordinary build can emit new drive-colon dependencies.
@@ -230,6 +236,7 @@ try {
     Assert-XipBranch
     $result['rx_backpressure']=[bool]$RxBackpressure
     $result['resource_diagnostics']=[bool]$ResourceDiagnostics
+    $result['watchdog']=[bool]$Watchdog
     [IO.File]::WriteAllText((Join-Path $output 'build.json'),($result | ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
     Write-Host "XIP build/package ready: $output. Hardware installation and HIL have not run."
 } finally {

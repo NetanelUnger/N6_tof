@@ -1,6 +1,7 @@
 #define N6_RESOURCE_SOURCE N6R_RADIO
 #include "resource_diag.h"
 #include "wifi_ble_app.h"
+#include "n6_watchdog.h"
 #include "app_cli_reply.h"
 #include "app_settings.h"
 
@@ -778,6 +779,7 @@ void WIFI_BLE_App_Run(void)
   for (;;)
   {
     uint32_t loop_gap;
+    N6H_Beat(N6H_RADIO);
 
     now = HAL_GetTick();
     loop_gap = now - radio_manager.counters.wifi_ble_last_loop_tick;
@@ -3164,9 +3166,11 @@ void WIFI_BLE_App_WifiControlRun(void)
 
   for (;;)
   {
+    N6H_Beat(N6H_WIFI_CONTROL);
     status = tx_event_flags_get(&radio_control_events,
                                 WIFI_CONTROL_WORK_FLAG, TX_OR_CLEAR,
                                 &actual_flags, WIFI_HEALTH_PROBE_WAIT_TICKS);
+    N6H_Beat(N6H_WIFI_CONTROL); /* 30s idle wait is distinct from bounded work. */
     if (radio_recovery.state != 0U)
     {
       radio_recovery_execute();
@@ -3205,6 +3209,7 @@ void WIFI_BLE_App_WifiControlRun(void)
     for (;;)
     {
       if (radio_recovery.state != 0U || AppSettings_IsBusy()) break;
+      N6H_Beat(N6H_WIFI_CONTROL);
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
       ble_control_execute();
 #endif
