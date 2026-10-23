@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory=$true)][ValidateSet('A','B')][string]$Slot,
     [Parameter(Mandatory=$true)][ValidateRange(1,[uint32]::MaxValue)][uint32]$FirmwareVersion,
     [ValidatePattern("^[a-zA-Z0-9-]*$")][string]$Label = "",
-    [switch]$FaultProbe
+    [switch]$FaultProbe,
+    [switch]$RxBackpressure
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -12,6 +13,7 @@ function Assert-XipBranch {
     }
 }
 Assert-XipBranch
+if ($RxBackpressure -and -not $FaultProbe) {throw 'Experimental RX backpressure requires the XIP fault probe.'}
 . (Join-Path $PSScriptRoot 'N6-DevCommon.ps1')
 $tools = Get-N6DevelopmentTools
 Enable-N6DevelopmentToolPath $tools
@@ -112,6 +114,7 @@ try {
             $projectFlags=@([regex]::Matches($rule,'-[DI][^\s]+') | ForEach-Object {$_.Value})
             $probeFlags=@('-mcpu=cortex-m55','-mthumb','-mfpu=fpv5-d16','-mfloat-abi=hard','-std=gnu11','-O3',
                 '-Wall','-ffunction-sections','-fdata-sections','--specs=nano.specs','-DN6_XIP_FAULT_PROBE=1',('-I'+$PSScriptRoot))+$projectFlags
+            if ($RxBackpressure) {$probeFlags+='-DN6_XIP_RX_BACKPRESSURE=1'}
             foreach ($relative in @('AppliNonSecure/Core/Src/spi_port.c','AppliNonSecure/Core/Src/firmware_update.c','Tools/xip_fault_probe.c')) {
                 Assert-XipBranch
                 $name=[IO.Path]::GetFileNameWithoutExtension($relative)
@@ -179,6 +182,7 @@ try {
     $sourceHashes['AppliNonSecure/STM32N657X0HXQ_XIP.ld'] = Get-N6FileSha256 (Join-Path $root 'AppliNonSecure/STM32N657X0HXQ_XIP.ld')
     $sourceHashes['Tools/xip_system_reset.c'] = Get-N6FileSha256 (Join-Path $root 'Tools/xip_system_reset.c')
     if ($FaultProbe) {
+        $sourceHashes['AppliNonSecure/Core/Src/spi_port.c']=Get-N6FileSha256 (Join-Path $root 'AppliNonSecure/Core/Src/spi_port.c')
         $sourceHashes['Tools/xip_fault_probe.c']=Get-N6FileSha256 (Join-Path $root 'Tools/xip_fault_probe.c')
         $sourceHashes['Tools/xip_fault_probe.h']=Get-N6FileSha256 (Join-Path $root 'Tools/xip_fault_probe.h')
     }
@@ -188,6 +192,7 @@ try {
     }
     $result = [ordered]@{status='BUILT_NOT_INSTALLED';branch='feature/n6-xip-ota-usb';source_commit=(& git -c "safe.directory=$root" -C $root rev-parse HEAD);slot=$Slot;version=$FirmwareVersion;execution_base=$base;ncp_preserve=$true;settings_writes=$false;cloud_auto_map=$false;fault_probe=[bool]$FaultProbe;budgets=$budgets;source_sha256=$sourceHashes;hashes=$hashes}
     Assert-XipBranch
+    $result['rx_backpressure']=[bool]$RxBackpressure
     [IO.File]::WriteAllText((Join-Path $output 'build.json'),($result | ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
     Write-Host "XIP build/package ready: $output. Hardware installation and HIL have not run."
 } finally {

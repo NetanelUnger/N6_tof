@@ -164,6 +164,25 @@ int32_t spi_port_init(spi_transaction_complete_t callback)
     return -1;
   }
 
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+  /* Experimental XIP-only policy. ST AN5543 Rev5 section4.1.1 describes
+   * MASRX flow control when the receive FIFO cannot drain promptly. The N6
+   * HAL supports it for master >=8bit transfers, including two-line mode.
+   * Configure only while disabled, before the NCP is powered. Keep Init in
+   * sync so the local error-recovery HAL_SPI_Init preserves this setting.
+   * No baud rate, IRQ priority, DMA priority, CS or timeout changes.
+   */
+  if ((NCP_SPI_HANDLE.State != HAL_SPI_STATE_READY) ||
+      ((NCP_SPI_HANDLE.Instance->CR1 & SPI_CR1_SPE) != 0U) ||
+      (NCP_SPI_HANDLE.Init.Mode != SPI_MODE_MASTER) ||
+      (NCP_SPI_HANDLE.Init.Direction != SPI_DIRECTION_2LINES) ||
+      (NCP_SPI_HANDLE.Init.DataSize != SPI_DATASIZE_8BIT)) return -1;
+  NCP_SPI_HANDLE.Init.MasterReceiverAutoSusp=SPI_MASTER_RX_AUTOSUSP_ENABLE;
+  SET_BIT(NCP_SPI_HANDLE.Instance->CR1,SPI_CR1_MASRX);
+  Debug_UART_Log("SPI-FLOW","experimental MASRX enabled; CR1=%08lX",
+      (unsigned long)NCP_SPI_HANDLE.Instance->CR1);
+#endif
+
   transaction_complete_callback = callback;
   HAL_GPIO_WritePin(CHIP_EN_GPIO_Port, CHIP_EN_Pin, GPIO_PIN_SET);
   return 0;

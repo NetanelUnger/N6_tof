@@ -3,7 +3,10 @@ def main():
     import argparse,asyncio,importlib.util,json,re,subprocess,time
     from pathlib import Path
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--execute',action='store_true')
-    parser.add_argument('--owner-thread');parser.add_argument('--label');args=parser.parse_args()
+    parser.add_argument('--owner-thread');parser.add_argument('--label')
+    parser.add_argument('--pings',type=int,default=5,choices=range(1,101))
+    parser.add_argument('--interval-ms',type=int,default=0,choices=range(0,1001))
+    args=parser.parse_args()
     if not args.execute:print('PASS BLE preflight; no hardware access');return
     root=Path(__file__).resolve().parents[1]
     assert subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),'branch','--show-current'],text=True).strip()=='feature/n6-xip-ota-usb'
@@ -24,7 +27,7 @@ def main():
             data=bytearray();tx='7a1e0003-b5a3-f393-e0a9-e50e24dcca9e';rx='7a1e0002-b5a3-f393-e0a9-e50e24dcca9e'
             await client.start_notify(tx,lambda _,part:data.extend(part))
             try:
-                for i in range(5):
+                for i in range(args.pings):
                     token='XIP17-'+str(i);begin=len(data);start=time.monotonic()
                     await client.write_gatt_char(rx,('debug ping '+token+'\r').encode(),response=True)
                     while time.monotonic()-start<10:
@@ -34,9 +37,10 @@ def main():
                     else:raise TimeoutError('BLE PONG/final missing')
                     ms=(time.monotonic()-start)*1000;result['pings'].append({'token':token,'ms':ms})
                     print('BLE PONG/final',i+1,round(ms,2),'ms',flush=True)
+                    if args.interval_ms:await asyncio.sleep(args.interval_ms/1000)
             finally:await client.stop_notify(tx)
         result['disconnected']=True
-        result['passed']=len(result['pings'])==5 and max(x['ms'] for x in result['pings'])<=1500
+        result['passed']=len(result['pings'])==args.pings and max(x['ms'] for x in result['pings'])<=1500
     try:asyncio.run(run())
     except BaseException as error:result['error']=repr(error);raise
     finally:output.write_text(json.dumps(result,indent=2)+'\n',encoding='utf8')

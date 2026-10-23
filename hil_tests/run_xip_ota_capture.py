@@ -1,4 +1,15 @@
 """Explicit A14 OTA with passive UART under an existing verified owner."""
+
+def stop_reader(stop, reader, port, result):
+    """Finish pending serial read while its output files are still open."""
+    stop.set()
+    reader.join(timeout=2)
+    if reader.is_alive():
+        port.cancel_read()
+        reader.join(timeout=2)
+    result['reader_stopped']=not reader.is_alive()
+    if reader.is_alive():
+        raise RuntimeError('UART reader did not stop; inspect capture before further access')
 def main():
     import argparse, importlib.util, json, subprocess, threading, time
     from datetime import datetime,timezone
@@ -12,6 +23,7 @@ def main():
     parser.add_argument('--package',default='.local-dependencies/xip/v14-A-reset-clkp/N6-XIP-A-v14.n6fw')
     parser.add_argument('--usb-proof',default='.local-dependencies/xip/resume-20261022/before-cloud-b13-status.json')
     parser.add_argument('--crc-sessions',type=int,default=0,choices=range(0,21))
+    parser.add_argument('--status-rounds',type=int,default=0,choices=range(0,41))
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     if not args.execute:
         print('PASS preflight; no serial, subprocess or network');return
@@ -39,6 +51,7 @@ def main():
                     offset=0
                     while not stop.is_set():
                         data=port.read(8192)
+                        if stop.is_set():break
                         if data:
                             arrivals.write(json.dumps({'atUtc':datetime.now(timezone.utc).isoformat(),
                                 'monotonicNs':time.monotonic_ns(),'offset':offset,'length':len(data)})+'\n');arrivals.flush()
@@ -46,17 +59,10 @@ def main():
                 except BaseException as error:result['uart_error']=repr(error)
             reader=threading.Thread(target=collect);reader.start()
             print('PASSIVE UART READY DTR/RTS0; starting existing OTA client',flush=True)
-            command=['C:/Program Files/nodejs/node.exe',str(root/'hil_tests/run_xip_cloud_update.mjs'),
-                '--execute','--owner-thread',args.owner_thread,'--label',args.label,'--from',str(args.source),'--to',str(args.target),
-                '--usb-proof',args.usb_proof]
-            command+=['--crc-sessions',str(args.crc_sessions)] if args.crc_sessions else ['--package',args.package]
-            child=subprocess.Popen(command,cwd=root);result.update(sender_started=True,sender_pid=child.pid)
-            deadline=time.monotonic()+1260
-            while child.poll() is None and time.monotonic()<deadline:time.sleep(.5)
-            if child.poll() is None:
-                result['deadline_expired']=True;child.terminate();child.wait(timeout=10)
-            result['sender_exit']=child.returncode
-            time.sleep(3)
+            try:
+                run_sender(root,args,subprocess,time,result)
+            finally:
+                stop_reader(stop,reader,port,result)
     finally:
         stop.set()
         if reader is not None:reader.join(timeout=2)
@@ -64,5 +70,20 @@ def main():
         (folder/'result.json').write_text(json.dumps(result,indent=2)+'\n')
         print('OTA CAPTURE FINAL',json.dumps(result),flush=True)
     if result.get('uart_error') or result.get('sender_exit')!=0:raise RuntimeError('Inspect retained OTA/UART evidence; no automatic retry')
+
+def run_sender(root,args,subprocess,time,result):
+    command=['C:/Program Files/nodejs/node.exe',str(root/'hil_tests/run_xip_cloud_update.mjs'),
+        '--execute','--owner-thread',args.owner_thread,'--label',args.label,'--from',str(args.source),'--to',str(args.target),
+        '--usb-proof',args.usb_proof]
+    if args.status_rounds:command+=['--status-rounds',str(args.status_rounds)]
+    elif args.crc_sessions:command+=['--crc-sessions',str(args.crc_sessions)]
+    else:command+=['--package',args.package]
+    child=subprocess.Popen(command,cwd=root);result.update(sender_started=True,sender_pid=child.pid)
+    deadline=time.monotonic()+1260
+    while child.poll() is None and time.monotonic()<deadline:time.sleep(.5)
+    if child.poll() is None:
+        result['deadline_expired']=True;child.terminate();child.wait(timeout=10)
+    result['sender_exit']=child.returncode
+    time.sleep(3)
 
 if __name__=='__main__':main()

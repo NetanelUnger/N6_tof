@@ -19,6 +19,8 @@ export async function main(args=process.argv.slice(2)){
   const arg=name=>{const i=args.indexOf(name);return i<0?null:args[i+1];};
   const source=Number(arg('--from')??13),target=Number(arg('--to')??14);
   const crcSessions=Number(arg('--crc-sessions')??0);
+  const statusRounds=Number(arg('--status-rounds')??0);
+  assert(Number.isInteger(statusRounds)&&statusRounds>=0&&statusRounds<=40,'Status rounds must be0..40');
   assert(Number.isInteger(crcSessions)&&crcSessions>=0&&crcSessions<=20,'CRC sessions must be0..20');
   const workspace=JSON.parse(fs.readFileSync(workspacePath,'utf8').replace(/^\uFEFF/,''));
   const ids=workspace.devices.map(device=>device.id);
@@ -26,6 +28,7 @@ export async function main(args=process.argv.slice(2)){
   assert(typeof workspace.workspaceToken==='string'&&workspace.workspaceToken.length>10,'Existing workspace token unavailable');
   const file=arg('--package');let firmware=null,build=null;
   assert(!crcSessions||!file,'Negative CRC control sends no signed package');
+  assert(!statusRounds||(!file&&!crcSessions),'Status load sends no firmware or CRC transfer');
   if(file){
     const filename=path.resolve(root,file);
     assert(!path.relative(root,filename).startsWith('..'),'Package must be inside feature worktree');
@@ -118,6 +121,17 @@ export async function main(args=process.argv.slice(2)){
     assert((await command('cloud status')).includes('ToF: sent 0'),'Unexpected Cloud sensor exports; stop');
     assert((await command('dataset stream status')).includes('Dataset stream: off'),'Dataset must be off');
     result.probePassed=true;console.log('PASS real Cloud CLI version/ping/status, imageNONE/ToFsent0/datasetOFF');persist();
+    if(statusRounds){
+      result.statusRounds=[];result.validManifestSent=false;result.EOTSent=false;
+      for(let round=0;round<statusRounds;round++){
+        const started=performance.now();const text=await command('radio status');
+        assert(text.includes('SPI fault: count='),'Incomplete radio diagnostic response');
+        result.statusRounds.push({round:round+1,atUtc:new Date().toISOString(),durationMs:performance.now()-started,
+          faultLine:text.split('\n').find(line=>line.includes('SPI fault: count='))});
+        console.log('STATUS LOAD',round+1,Math.round(performance.now()-started),'ms');persist();
+      }
+      result.passed=true;return result;
+    }
     if(crcSessions){
       result.crcSessions=[];result.validManifestSent=false;result.EOTSent=false;
       for(let session=0;session<crcSessions;session++){
