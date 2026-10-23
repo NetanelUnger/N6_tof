@@ -44,7 +44,9 @@ def cli_main():
     parser.add_argument('--trial-reboot',action='store_true',help='One reboot while candidate trial is unconfirmed, to measure rollback; no automatic retry')
     parser.add_argument('--interrupt-first',action='store_true',
                         help='Explicit controlled cancel after one valid1024-byte packet, before full transfer')
+    parser.add_argument('--timeout-first-packet',action='store_true',help='One17byte prefix, requireNAK<=12s, then full signed update on same open sender session')
     args=parser.parse_args()
+    assert not (args.interrupt_first and args.timeout_first_packet),'Choose one fault control'
     root=Path(__file__).resolve().parents[1]
     source_version,target_version=args.source_version,args.target_version
     package=(root/args.package).resolve();assert package.is_relative_to(root)
@@ -130,8 +132,10 @@ def cli_main():
                     result['partial_interruption']['passed']=True
                     print(f'PASS controlled USB interruption after authenticated image768bytes; source v{source_version} healthy',flush=True)
             pwsh='C:/Users/netan/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe'
-            sender=subprocess.Popen([pwsh,'-NoProfile','-File',str(root/'Tools/Send-Xmodem.ps1'),'-File',str(package),'-Port','COM8',
-                                     '-StartTimeoutSeconds','10','-BlockTimeoutSeconds','10','-FinalizeTimeoutSeconds','30','-MaxRetries','2'],
+            sender_args=[pwsh,'-NoProfile','-File',str(root/'Tools/Send-Xmodem.ps1'),'-File',str(package),'-Port','COM8',
+                         '-StartTimeoutSeconds','10','-BlockTimeoutSeconds','10','-FinalizeTimeoutSeconds','30','-MaxRetries','2']
+            if args.timeout_first_packet:sender_args+=['-TimeoutFirstPacket']
+            sender=subprocess.Popen(sender_args,
                                      stdout=sendlog,stderr=subprocess.STDOUT,creationflags=0x08000000)
             result.update(sender_started=True,sender_pid=sender.pid)
             deadline=time.monotonic()+480;last=''
@@ -146,6 +150,11 @@ def cli_main():
                 if progress and progress!=last:print(progress,flush=True);last=progress
             result['sender_exit']=sender.returncode
             text=(output/'sender.log').read_text(errors='replace')
+            if args.timeout_first_packet:
+                match=re.search(r'XMODEM TIMEOUT CONTROL PASS: NAK after ([0-9.]+) ms; same serial session retained\.',text)
+                result['timeout_control_same_sender_session']=bool(match)
+                result['timeout_control_NAK_ms']=float(match[1]) if match else None
+                assert match and float(match[1])<=12000,'Fault control not accepted; inspect existing outcome before retry'
             result['authenticated_finalization']='XMODEM transfer and device-side finalization completed successfully.' in text and sender.returncode==0
             if not result['authenticated_finalization']:raise RuntimeError('USB sender did not confirm finalization; inspect before retry')
             print('SIGNED IMAGE TRANSFER/FINALIZATION PASS',result['bytes'],flush=True)

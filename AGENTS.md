@@ -1432,6 +1432,7 @@ These require explicit review after every Generate Code:
 
 | File | Manual change |
 |---|---|
+| AppliNonSecure/Core/Src/stm32n6xx_hal_timebase_tim.c | TIM6 sleep clock, effective IRQ priority at most14 above ThreadX PendSV15, unused RCC getter removed, cold HAL_InitTick Os. IOC remains unchanged; explicitly audit these project timebase deviations after Generate Code. A34/B35 controls and A36+ hardware wall-time/timeout evidence are in docs/xip-hal-timebase-root-cause_HE.md |
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | OS_CAD_STACK_SIZE maps to N6_USBPD_CAD_STACK_SIZE |
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | UCPD register diagnostics, wake counter, and 250 ms polling fallback |
 | AppliNonSecure/Core/Startup/startup_stm32n657x0hxq.s | Early Debug_UART_StartupTrace calls |

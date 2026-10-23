@@ -93,6 +93,8 @@ try {
         $instrumented=[IO.File]::ReadAllText($featurePath).Replace('#define N6_RESOURCE_DIAGNOSTICS (0U)','#define N6_RESOURCE_DIAGNOSTICS (1U)')
         if ($instrumented -notmatch '#define N6_RESOURCE_DIAGNOSTICS \(1U\)') {throw 'Resource diagnostics flag absent'}
         [IO.File]::WriteAllText($featurePath,$instrumented,[Text.UTF8Encoding]::new($false))
+        # The preceding ordinary build can emit new drive-colon dependencies.
+        Repair-N6MakeDependencyFiles -BuildRoot (Join-Path $root 'AppliNonSecure/Debug') -ProjectRoot $root
         Push-Location (Join-Path $root 'AppliNonSecure/Debug')
         try {
             & $tools.Make -j8 N6_AppliNonSecure.elf N6_AppliNonSecure.bin *> (Join-Path $output 'resource-diagnostics-build.log')

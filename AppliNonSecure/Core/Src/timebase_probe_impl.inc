@@ -14,8 +14,8 @@ static uint32_t time_probe_tick;
   (timer)[3]=TIM6->CNT;(timer)[4]=TIM6->DIER;(timer)[5]=TIM6->SR; \
   (timer)[6]=__HAL_RCC_TIM6_IS_CLK_SLEEP_ENABLED() \
     |(NVIC_GetEnableIRQ(TIM6_IRQn)<<8)|(NVIC_GetPendingIRQ(TIM6_IRQn)<<9) \
-    |(NVIC_GetPriority(TIM6_IRQn)<<16); \
-  (timer)[7]=__get_PRIMASK()|(__get_BASEPRI()<<8); \
+    |(NVIC_GetPriority(TIM6_IRQn)<<16)|(NVIC_GetPriority(PendSV_IRQn)<<24); \
+  (timer)[7]=__get_PRIMASK()|(__get_BASEPRI()<<8)|(NVIC_GetPriority(SysTick_IRQn)<<24); \
 }while(0)
 #endif
 _Static_assert(8U*9U+8U+2U<=96U,"time diagnostic line bound");

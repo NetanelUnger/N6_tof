@@ -411,16 +411,14 @@ void Firmware_Update_Poll(uint32_t now_ms)
   }
 }
 
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
 void Firmware_Update_GetTimeProbe(uint32_t out[5])
 {
   if(out==NULL)return;
-#if (N6_RESOURCE_DIAGNOSTICS == 1U)
   out[0]=update_poll_count;out[1]=update_poll_hal;out[2]=update_poll_rtos;
-#else
-  out[0]=out[1]=out[2]=0U;
-#endif
   out[3]=update_rx_bytes;out[4]=update_active;
 }
+#endif
 
 void Firmware_Update_Cancel(void)
 {
