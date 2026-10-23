@@ -20,9 +20,29 @@ static N6R_Usage n6r_stacks[24] N6R_STORAGE;
 static uint32_t n6r_report_tick,n6r_report_cursor,n6r_reporting;
 static volatile uint32_t n6r_usage_generation;
 static uint32_t n6r_usage_seen,n6r_usage_request,n6r_usage_cursor;
+/* These guards live in ordinary startup-zeroed .bss. Tables above are NOLOAD
+ * SRAM4 and MUST be explicitly initialized; C static-zero assumptions do not
+ * apply to a custom linker section outside _sbss.._ebss. */
+static uint32_t n6r_ready,n6r_early;
+void N6R_Init(void)
+{
+  uint32_t posture=N6R_LOCK();N6R_DISABLE();
+  if(n6r_ready){N6R_UNLOCK(posture);return;}
+  for(uint32_t m=0;m<N6R_MODULES;++m)for(uint32_t k=0;k<N6R_KINDS;++k){
+    n6r_failures[m][k]=(N6R_Failure){0};n6r_reported[m][k]=0;
+  }
+  for(uint32_t i=0;i<8;++i)n6r_pools[i]=(N6R_Usage){0};
+  for(uint32_t i=0;i<32;++i)n6r_queues[i]=(N6R_Usage){0};
+  for(uint32_t i=0;i<24;++i)n6r_stacks[i]=(N6R_Usage){0};
+  n6r_report_tick=n6r_report_cursor=n6r_reporting=0;
+  n6r_usage_generation=n6r_usage_seen=n6r_usage_request=n6r_usage_cursor=0;
+  n6r_ready=1;uint32_t early=n6r_early;N6R_UNLOCK(posture);
+  if(early)N6R_Record(N6R_CORE,N6R_INVALID,0x109U,0,early,0);
+}
 void N6R_Record(uint32_t m,uint32_t k,uint32_t status,uint32_t site,size_t argument,const void *object)
 {
   uint32_t posture=N6R_LOCK();N6R_DISABLE();
+  if(!n6r_ready){if(n6r_early!=UINT32_MAX)++n6r_early;N6R_UNLOCK(posture);return;}
   if(m>=N6R_MODULES||k>=N6R_KINDS){m=N6R_CORE;k=N6R_INVALID;}
   volatile N6R_Failure *f=&n6r_failures[m][k];
   if(f->count!=UINT32_MAX)++f->count;else if(!(f->flags&2U)){f->flags|=2U;n6r_reported[m][k]=UINT32_MAX-1U;}
@@ -37,6 +57,7 @@ void N6R_Get(uint32_t m,uint32_t k,N6R_Failure *out)
 }
 static void n6r_observe(N6R_Usage *rows,uint32_t length,void *object,uint32_t capacity,uint32_t used)
 {
+  if(!n6r_ready)return;
   uint32_t posture=N6R_LOCK();N6R_DISABLE();
   for(uint32_t i=0;i<length;++i)if(rows[i].object==(uintptr_t)object||rows[i].object==0){
     N6R_Usage *p=&rows[i];if(!p->object){p->object=(uintptr_t)object;p->minimum=capacity;}
@@ -90,7 +111,7 @@ static char *n6r_hex(char *out,uint32_t value)
 {static const char hex[]="0123456789ABCDEF";for(int bit=28;bit>=0;bit-=4)*out++=hex[(value>>bit)&15U];*out++=' ';return out;}
 void N6R_ReportDeferred(void)
 {
-  uint32_t now=N6R_NOW();if(N6R_ISR()||n6r_reporting||now-n6r_report_tick<1000U)return;
+  uint32_t now=N6R_NOW();if(!n6r_ready||N6R_ISR()||n6r_reporting||now-n6r_report_tick<1000U)return;
   n6r_reporting=1;n6r_report_tick=now;
   uint32_t attempted=0;
   if(n6r_usage_seen!=n6r_usage_generation){n6r_usage_seen=n6r_usage_generation;n6r_usage_cursor=0;n6r_usage_request=1;}

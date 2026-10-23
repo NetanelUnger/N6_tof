@@ -1,0 +1,40 @@
+{
+  "status": "B27_RUNNING_CONFIRMED_RESOURCE_TELEMETRY_INVALID",
+  "branch": "feature/n6-xip-ota-usb",
+  "user_power_and_FLASH_jumpers_confirmation": "2026-10-23T13:01:04UTC",
+  "boot_capture_available": false,
+  "non_disruptive_current_read": ".local-dependencies/xip/b27-current-20261023-1303.json",
+  "version": 27,
+  "USB_PONG": "2701 tick125225",
+  "NPU_before_control": {"runs": 449, "errors": 0, "model": "original four-class RPS", "all_class_accuracy_claimed": false},
+  "ToF": "ready54x42, frame1191, imageNONE",
+  "Cloud_before_control": "polling, paired, sent0; later disabled in RAM",
+  "dataset": "off, submitted0",
+  "confirmation": {
+    "path": ".local-dependencies/xip/b27-confirm-resource-20261023-1305",
+    "method": "Old signed A23 manifest ONLY, two128byte blocks; no image data, EOT or reset",
+    "UART_signature_accepted": true,
+    "UART_confirmed_version": "0x0000001B",
+    "reply": "ACK for first partial header, CAN CAN after complete header VERSION rejection",
+    "NOR_written_by_check": false,
+    "state_proof": "Secure checks CONFIRMED state before reporting confirmed version; actual service loaded current metadata and rejected old version23 against confirmed27",
+    "raw_metadata_independent_dump_after_confirmation": "NOT_PERFORMED; no debugger attach in NS runtime",
+    "cold_boot_PC_capture": "NOT_AVAILABLE; do not substitute earlier image PC proof"
+  },
+  "resource_profile": {
+    "active": true,
+    "UART_stack_bytes": 3776,
+    "UART_stack_min_free_scan_reported": 3220,
+    "UART_queue_high_water": 24,
+    "UART_dropped": 0,
+    "stack_scan_is_not_all_call_chain_worst_case": true,
+    "failure_and_usage_tables": "INVALID: random counts/status/flags emitted, must not be interpreted as actual failures or margins",
+    "root_cause": "resource_diag_impl.inc places static tables in .app_shared_bss NOLOAD outside startup _sbss.._ebss; NPU_SharedMemory_Clear zeros only npu_shared_bss and no resource init existed",
+    "host_test_gap": "Native C initially supplied host-zeroed statics; did not simulate dirty/retained NOLOAD SRAM",
+    "fix": "Explicit idempotent N6R_Init before UART/RTOS operations, BSS readiness guard, dirty-memory initialization and startup call-order regression",
+    "new_host_native_test": "PASS all prior injection checks plus tables prefilledA5/C3/5A, no premature report, explicit clearing and repeat-init preserves counts",
+    "fixed_firmware_installed": false
+  },
+  "next": "Build signed inactive A28 with initialization fix, protect confirmed B27. Validate resource table initialization before any load/OTA experiment; no old OTA retransmit or sensor cloud exports.",
+  "main_server_OTP_security": "unchanged"
+}

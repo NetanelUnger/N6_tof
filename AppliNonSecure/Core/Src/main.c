@@ -27,6 +27,7 @@
 #include "boot_splash.h"
 #include "firmware_build_version.h"
 #include "npu_shared_memory.h"
+#include "resource_diag.h"
 #include <string.h>
 
 /* USER CODE END Includes */
@@ -105,6 +106,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+  N6R_Init();
 
   /* USER CODE END 1 */
 

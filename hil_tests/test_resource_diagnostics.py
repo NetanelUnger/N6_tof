@@ -54,6 +54,15 @@ static int32_t sink(const void*p,size_t n){sinks++;last_length=n;assert(n<=96);i
 #define N6R_SINK(p,n) sink(p,n)
 #include "resource_diag_impl.inc"
 int main(void){
+/* Model cold/retained NOLOAD SRAM, not host-C static zero initialization. */
+memset((void*)n6r_failures,0xA5,sizeof(n6r_failures));
+memset(n6r_reported,0xC3,sizeof(n6r_reported));
+memset(n6r_pools,0x5A,sizeof(n6r_pools));memset(n6r_queues,0x5A,sizeof(n6r_queues));memset(n6r_stacks,0x5A,sizeof(n6r_stacks));
+N6R_ReportDeferred();assert(sinks==0);N6R_Init();
+for(unsigned m=0;m<N6R_MODULES;m++)for(unsigned k=0;k<N6R_KINDS;k++)assert(n6r_failures[m][k].count==0&&n6r_failures[m][k].flags==0&&n6r_reported[m][k]==0);
+for(unsigned i=0;i<8;i++)assert(n6r_pools[i].object==0);
+for(unsigned i=0;i<32;i++)assert(n6r_queues[i].object==0);
+for(unsigned i=0;i<24;i++)assert(n6r_stacks[i].object==0);
 size_t n;uint32_t stack;
 assert(N6_CheckedMultiply(20,4,&n)&&n==80);assert(!N6_CheckedMultiply(SIZE_MAX,2,&n));
 assert(N6_CheckedStackBytes(1024,&stack)&&stack==1536);assert(!N6_CheckedStackBytes(SIZE_MAX,&stack));
@@ -98,8 +107,12 @@ n6r_stack_sample(&q,0x1000,2048,0x1080);N6R_GetUsage(2,0,&u);assert(u.peak==1920
 n6r_stack_sample(&q,0x1000,2048,0xFFF);N6R_Get(N6R_CORE,N6R_OVERFLOW,&f);assert(f.status==0x106U);
 N6R_ObserveHeap((void*)0x10000,1000,100);N6R_GetUsage(1,1,&u);assert(u.peak==100&&(u.flags&8));
 puts("PASS capture independent of sink; enqueue/alloc/create/release/overflow injection; ISR posture; saturation; highwater; one attempt/sec; log-full retry; checked10percent alignment");
+uint32_t saved=n6r_failures[N6R_USB][N6R_ALLOC].count;N6R_Init();assert(n6r_failures[N6R_USB][N6R_ALLOC].count==saved);
+puts("PASS dirty NOLOAD tables explicitly initialized before use; repeat init preserves counters");
 }
 '''
 if __name__=='__main__':
     root=Path(__file__).resolve().parents[1]
+    startup=(root/'AppliNonSecure/Core/Src/main.c').read_text()
+    assert startup.index('N6R_Init();')<startup.index('(void)Debug_UART_Init();')<startup.index('  MX_ThreadX_Init();')
     run_native(HARNESS,extra_stubs={'tx_api.h':STUB},extra_includes=[root/'AppliNonSecure/Core/Inc',root/'AppliNonSecure/Core/Src'],retain_artifacts=True)

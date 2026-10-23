@@ -1,5 +1,14 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Current13:05UTC: B27 runs after user FLASH cold power-on; USB version27 and
+Secure header-only VERSION-reject prove CONFIRMED27. ToFready/NPU449errors0,
+imageNONE/datasetoff/Cloudsent0. Actual boot moment/PC not captured. Resource
+tables emit invalid uninitialized NOLOAD data; do NOT treat these as failure
+counts/high-water. Explicit startup init and dirty-SRAM host regression added;
+A28 build/installation/HIL pending. B27 remains protected. See
+[B27 proof and diagnostic defect](docs/xip-b27-boot-20261023.json).
+Earlier checkpoints below remain historical.
+
 Recovery2026-10-23 12:05UTC: DEV ROM verified; double4MiB backup and seq66/A23
 CRC/signature/image/bootchain preservation verified. Guarded RAM27 restored,
 Cloud disabled/sent0. B27 signed USB510240bytes finalized once; RAM still responds.

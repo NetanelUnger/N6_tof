@@ -9,6 +9,7 @@ enum {N6R_CORE,N6R_RTOS,N6R_USB,N6R_TOF,N6R_CLOUD,N6R_RADIO,N6R_LOG,N6R_INIT,N6R
 enum {N6R_ALLOC,N6R_ENQUEUE,N6R_CREATE,N6R_INVALID,N6R_OVERFLOW,N6R_RELEASE,N6R_MARGIN,N6R_WAIT,N6R_POLL,N6R_KINDS};
 typedef struct {uint32_t count,status,site,argument,object,tick,flags;} N6R_Failure;
 typedef struct {uintptr_t object;uint32_t capacity,peak,minimum,observations,flags;} N6R_Usage;
+void N6R_Init(void); /* Once in main before any UART/pool/RTOS operation. */
 void N6R_Record(uint32_t module,uint32_t kind,uint32_t status,uint32_t site,size_t argument,const void *object);
 void N6R_Get(uint32_t module,uint32_t kind,N6R_Failure *out);
 void N6R_ReportDeferred(void); /* Only UART consumer. Never ISR/SPI/fault. */
@@ -89,6 +90,7 @@ static inline void *N6R_ReallocAt(void *old,size_t n,uint32_t m,uint32_t line)
 #define N6R_Realloc(p,n) N6R_ReallocAt(p,n,N6_RESOURCE_SOURCE,__LINE__)
 #endif
 #if (N6_RESOURCE_DIAGNOSTICS == 0U)
+#define N6R_Init() ((void)0)
 #define N6R_Record(...) ((void)0)
 #define N6R_ObservePool(...) ((void)0)
 #define N6R_ObserveQueue(...) ((void)0)
