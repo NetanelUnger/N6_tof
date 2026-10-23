@@ -15,7 +15,7 @@ resource initialization and UART sink status. An OTA with no SUSP cannot establi
 that the task-side service resumes a real suspended transaction.
 
 The new explicit `radio flow-test` diagnostic arms once. Outside firmware updates,
-on the next active full-duplex DMA transfer>=256bytes, it uses the target HAL's
+on the next active full-duplex DMA transfer>=64bytes, it uses the target HAL's
 `HAL_DMAEx_Suspend` on RX DMA, with the existing5ms HAL timeout. A second fixed
 100000-iteration maximum waits for SPI SUSP. It records SR and remaining DMA
 bytes, resumes that same descriptor with `HAL_DMAEx_Resume`, and leaves SPI SUSP
@@ -46,3 +46,20 @@ traffic and no NOR update. Then complete an authenticated OTA on the tested
 runtime, recording every block/timeout/retry and actual image confirmation.
 An injected event proves this recovery path, not the original physical cause of
 rare DMA starvation. These hardware probe/OTA results are still pending here.
+
+B31 control was NOT_EXERCISED: one arm and one local read-only Wi-Fi scan
+completed with no eligible>=256byte transfer; stage stayed1. No HAL suspend or
+NOR write occurred. The next diagnostic lowers only its eligibility gate to64,
+records maximum observed DMA length and adds explicit `radio flow-cancel` for
+an untriggered arm. The target CMSIS classifies SPI5 as limited; target HAL's
+SPI_LOWEND_FIFO_SIZE is8, so64bytes still exceeds its8bit FIFO capacity.
+This is a different bounded hypothesis, not a repeated firmware transfer hoping
+for a natural fault. Normal automatic-suspend recovery conditions are unchanged.
+
+OTA B31 was NOT_STARTED: local Node negotiation failed connectEACCES to
+20.217.52.1:443. No workspace opened, commands/events arrays empty, no binary
+block/EOT/firmware write. A separate harmless health read established the EACCES
+reason. No more network retries or alternate route to that endpoint were used.
+The same signed B31 was installed and confirmed through USB instead, preserving
+A30. New relevant authorization is required before retrying the denied local
+network action; server and persistent permissions remain unchanged.

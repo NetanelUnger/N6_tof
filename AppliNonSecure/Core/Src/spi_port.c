@@ -43,6 +43,7 @@ uint32_t spi_port_transfer_started_tick(void){return transfer_started_tick;}
 #include "spi_flow_probe_impl.inc"
 #else
 int32_t spi_port_arm_rx_flow_test(void){return -1;}
+int32_t spi_port_cancel_rx_flow_test(void){return -1;}
 uint32_t spi_port_transfer_started_tick(void){return 0;}
 #endif
 

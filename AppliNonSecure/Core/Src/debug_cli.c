@@ -2266,6 +2266,11 @@ static void cli_command_radio(Menu_t *menu, const char *command)
                                CLI_MAX_ARGUMENTS);
 
 #if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  if ((argc == 2) && (strcmp(argv[1], "flow-cancel") == 0))
+  {
+    cli_print(spi_port_cancel_rx_flow_test()==0?"Pending flow test disarmed.\r\n":
+                                             "No pending flow test to cancel.\r\n");return;
+  }
   if ((argc == 2) && (strcmp(argv[1], "flow-test") == 0))
   {
     if(Firmware_Update_IsActive()){

@@ -5,10 +5,11 @@
  * Never inject into a firmware update; use a harmless ordinary radio request.
  */
 typedef struct {
-  uint32_t stage,transfer,length,suspend_status,resume_status,sr,left,completed,base_resumes;
+  uint32_t stage,transfer,length,suspend_status,resume_status,sr,left,completed,base_resumes,max_seen;
 } SpiFlowTest;
 static volatile SpiFlowTest flow_test;
 static uint32_t flow_test_reported;
+static uint32_t flow_test_max_reported;
 
 int32_t spi_port_arm_rx_flow_test(void)
 {
@@ -17,12 +18,22 @@ int32_t spi_port_arm_rx_flow_test(void)
   uint32_t p=__get_PRIMASK();__disable_irq();
   if(flow_test.stage && flow_test.stage<5U){__set_PRIMASK(p);return -2;}
   flow_test=(SpiFlowTest){0};flow_test.base_resumes=rx_flow_resumes;
-  flow_test.stage=1;flow_test_reported=0;__set_PRIMASK(p);return 0;
+  flow_test.stage=1;flow_test_reported=flow_test_max_reported=0;__set_PRIMASK(p);return 0;
+}
+
+int32_t spi_port_cancel_rx_flow_test(void)
+{
+  uint32_t p=__get_PRIMASK();__disable_irq();
+  if(flow_test.stage!=1U){__set_PRIMASK(p);return -1;}
+  flow_test.stage=0;__set_PRIMASK(p);return 0;
 }
 
 static int32_t spi_port_maybe_test_rx_flow(uint16_t len)
 {
-  if(flow_test.stage!=1U || len<256U || Firmware_Update_IsActive() ||
+  if(flow_test.stage==1U && !Firmware_Update_IsActive() && len>flow_test.max_seen)flow_test.max_seen=len;
+  /* SPI5 uses8byte FIFO at8bit data size.64bytes exceeds FIFO capacity while
+   * allowing ordinary short AT replies, unlike the unexercised256byte gate. */
+  if(flow_test.stage!=1U || len<64U || Firmware_Update_IsActive() ||
       NCP_SPI_HANDLE.State!=HAL_SPI_STATE_BUSY_TX_RX ||
       !NCP_SPI_HANDLE.hdmarx || NCP_SPI_HANDLE.hdmarx->State!=HAL_DMA_STATE_BUSY ||
       !(NCP_SPI_HANDLE.Instance->CR1&SPI_CR1_MASRX))return 0;
@@ -52,10 +63,10 @@ static void spi_port_flow_test_complete(void)
 static void spi_port_report_flow_test(void)
 {
   SpiFlowTest f;uint32_t p=__get_PRIMASK();__disable_irq();f=flow_test;__set_PRIMASK(p);
-  if(!f.stage||f.stage==flow_test_reported)return;
-  flow_test_reported=f.stage;
-  Debug_UART_Log("SPI-FLOW-TEST","stage=%lu transfer=%lu len=%lu suspend=%lu resume=%lu sr=%08lX rx-left=%lu completed=%lu resumes=%lu",
+  if(!f.stage||(f.stage==flow_test_reported&&f.max_seen==flow_test_max_reported))return;
+  flow_test_reported=f.stage;flow_test_max_reported=f.max_seen;
+  Debug_UART_Log("SPI-FLOW-TEST","stage=%lu transfer=%lu len=%lu suspend=%lu resume=%lu sr=%08lX rx-left=%lu completed=%lu resumes=%lu max=%lu",
     (unsigned long)f.stage,(unsigned long)f.transfer,(unsigned long)f.length,
     (unsigned long)f.suspend_status,(unsigned long)f.resume_status,(unsigned long)f.sr,
-    (unsigned long)f.left,(unsigned long)f.completed,(unsigned long)(rx_flow_resumes-f.base_resumes));
+    (unsigned long)f.left,(unsigned long)f.completed,(unsigned long)(rx_flow_resumes-f.base_resumes),(unsigned long)f.max_seen);
 }

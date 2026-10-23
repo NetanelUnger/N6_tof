@@ -34,7 +34,9 @@ int main(void){
 assert(spi_port_maybe_test_rx_flow(520)==0&&suspends==0);
 assert(spi_port_arm_rx_flow_test()==0&&flow_test.stage==1&&!mask);
 assert(spi_port_arm_rx_flow_test()==-2);
-assert(spi_port_maybe_test_rx_flow(128)==0&&suspends==0&&flow_test.stage==1);
+assert(spi_port_maybe_test_rx_flow(32)==0&&suspends==0&&flow_test.stage==1&&flow_test.max_seen==32);
+assert(spi_port_cancel_rx_flow_test()==0&&flow_test.stage==0);assert(spi_port_cancel_rx_flow_test()==-1);
+assert(spi_port_arm_rx_flow_test()==0);
 active=1;assert(spi_port_maybe_test_rx_flow(520)==0&&suspends==0);assert(spi_port_arm_rx_flow_test()==-1);active=0;
 dma.State=0;assert(spi_port_maybe_test_rx_flow(520)==0&&suspends==0);dma.State=HAL_DMA_STATE_BUSY;
 assert(spi_port_maybe_test_rx_flow(520)==0&&suspends==1&&resumes==1);

@@ -160,6 +160,7 @@ int32_t spi_port_abort(void);
 void spi_port_service_rx_flow(void);
 /* Explicit diagnostic only; returns unsupported outside RX-backpressure build. */
 int32_t spi_port_arm_rx_flow_test(void);
+int32_t spi_port_cancel_rx_flow_test(void);
 uint32_t spi_port_transfer_started_tick(void);
 
 /**
