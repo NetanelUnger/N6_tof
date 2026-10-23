@@ -70,7 +70,7 @@ spi_port_service_rx_flow();assert(spi.IFCR==0&&mask==0);}
 assert(rx_flow_resumes==2&&logs==0);
 puts("PASS drained-FIFO resume only;20 unsafe states refuse; IRQ posture and DMA ownership preserved");}
 '''
-    run_native(prefix+body+test)
+    run_native(prefix+body+test,retain_artifacts=True)
     source=(root/'ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c').read_text()
     start=source.index('static int32_t spi_wait_event(void *evnt_ctx, uint32_t event, int32_t timeout_ms)\n{')
     body=source[start:source.index('static int32_t inline spi_clear_event',start)]
@@ -89,8 +89,10 @@ struct spi_xfer_engine {void *event;};
 #define portMAX_DELAY 0xFFFFFFFFU
 #define SPI_EVT_HW_XFER_DONE 8U
 static TickType_t tick,arrive;
+static TickType_t transfer_start;static unsigned start_override;
 static unsigned services,waits;
 static TickType_t xTaskGetTickCount(void){return tick;}
+static uint32_t spi_port_transfer_started_tick(void){return start_override?transfer_start:tick;}
 static unsigned xEventGroupWaitBits(void *e,unsigned b,int c,int a,TickType_t n){tick+=n;waits++;return waits==arrive?b:0;}
 static void spi_port_service_rx_flow(void){services++;}
 '''
@@ -99,8 +101,15 @@ int main(void){struct spi_xfer_engine e={0};
 tick=100;arrive=100;assert(spi_wait_event(&e,8,500)==0);assert(tick==150&&services==49&&waits==50);
 tick=0xFFFFFFFD;waits=services=0;arrive=3;assert(spi_wait_event(&e,8,500)==1);assert(tick==0&&services==2&&waits==3);
 tick=4;waits=services=0;arrive=99;assert(spi_wait_event(&e,8,0)==0);assert(tick==4&&services==0&&waits==1);
+start_override=1;transfer_start=100;tick=103;waits=services=0;arrive=99;
+assert(spi_wait_event(&e,8,500)==0&&tick==150&&waits==47&&services==46);
+transfer_start=100;tick=150;waits=services=0;arrive=99;
+assert(spi_wait_event(&e,8,500)==0&&tick==150&&waits==1&&services==0);
+tick=150;waits=0;arrive=1;assert(spi_wait_event(&e,8,500)==1&&tick==150);
+transfer_start=0xFFFFFFFD;tick=0;waits=services=0;arrive=99;
+assert(spi_wait_event(&e,8,500)==0&&tick==47&&waits==47);
 puts("PASS whole-transfer deadline unchanged, tick wrap safe, event and zero-timeout semantics retained");}
 '''
-    run_native(prefix+body+test)
+    run_native(prefix+body+test,retain_artifacts=True)
 
 if __name__=='__main__':main()

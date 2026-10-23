@@ -2265,6 +2265,19 @@ static void cli_command_radio(Menu_t *menu, const char *command)
   int argc = cli_get_arguments(command, copy, sizeof(copy), argv,
                                CLI_MAX_ARGUMENTS);
 
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  if ((argc == 2) && (strcmp(argv[1], "flow-test") == 0))
+  {
+    if(Firmware_Update_IsActive()){
+      cli_print("Flow test rejected during firmware update.\r\n");return;
+    }
+    int32_t status=spi_port_arm_rx_flow_test();
+    cli_print(status==0?"One RX DMA suspension test armed; UART reports evidence.\r\n":
+                       "Flow test unavailable or already active.\r\n");
+    return;
+  }
+#endif
+
   if ((argc == 2) && (strcmp(argv[1], "hardware") == 0))
   {
     WifiBle_HardwareStatus_t hardware;

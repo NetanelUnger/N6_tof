@@ -11,6 +11,9 @@
 #include "main.h"
 #include "debug_uart.h"
 #include "stm32n6xx_ll_dma.h"
+#include "stm32n6xx_hal_dma_ex.h"
+#include "firmware_update.h"
+#include "tx_api.h"
 #if defined(N6_XIP_FAULT_PROBE) && (N6_XIP_FAULT_PROBE == 1)
 #include "xip_fault_probe.h"
 #else
@@ -35,6 +38,12 @@ static volatile uint32_t fault_reported; /* Radio writes; IRQ capture reads. */
 #if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
 static volatile uint32_t rx_flow_resumes;
 static uint32_t rx_flow_reported;
+static volatile uint32_t transfer_started_tick;
+uint32_t spi_port_transfer_started_tick(void){return transfer_started_tick;}
+#include "spi_flow_probe_impl.inc"
+#else
+int32_t spi_port_arm_rx_flow_test(void){return -1;}
+uint32_t spi_port_transfer_started_tick(void){return 0;}
 #endif
 
 void spi_port_set_phase(uint32_t phase) { transfer_phase = phase; }
@@ -113,6 +122,9 @@ void spi_port_get_fault(SpiPortFault_t *fault)
 
 void spi_port_report_fault(void)
 {
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+  spi_port_report_flow_test();
+#endif
 #if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
   uint32_t resumed=rx_flow_resumes;
   if (resumed!=rx_flow_reported)
@@ -259,6 +271,9 @@ int32_t spi_port_transfer_dma(void *tx_buf, void *rx_buf, uint16_t len)
 #endif
 
   transaction_failed = 0;
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+  transfer_started_tick=tx_time_get();
+#endif
   if (tx_buf != NULL)
   {
 #if defined(__DCACHE_PRESENT) && (__DCACHE_PRESENT == 1U)
@@ -281,6 +296,11 @@ int32_t spi_port_transfer_dma(void *tx_buf, void *rx_buf, uint16_t len)
     spi_port_capture_failure(3U);
     return -1;
   }
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+  if(spi_port_maybe_test_rx_flow(len)!=0){
+    transaction_failed=1;spi_port_capture_failure(8U);return -1;
+  }
+#endif
   return 0;
 }
 
@@ -423,6 +443,9 @@ int32_t spi_port_set_cs(int32_t state)
 
 static void spi_port_complete(SPI_HandleTypeDef *hspi)
 {
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+  if(hspi==&NCP_SPI_HANDLE)spi_port_flow_test_complete();
+#endif
   if ((hspi == &NCP_SPI_HANDLE) && (transaction_complete_callback != NULL))
   {
     transaction_complete_callback();

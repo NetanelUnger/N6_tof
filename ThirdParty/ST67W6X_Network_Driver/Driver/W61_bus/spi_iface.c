@@ -500,8 +500,14 @@ static int32_t spi_wait_event(void *evnt_ctx, uint32_t event, int32_t timeout_ms
 #if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
   if ((event==SPI_EVT_HW_XFER_DONE) && (timeout_ms>0) && (ticks>0))
   {
-    TickType_t started=xTaskGetTickCount();
-    TickType_t elapsed=0;
+    /* Anchor before HAL start, including any explicit bounded flow-test hold.
+     * The500ms budget must not restart after a diagnostic DMA suspension. */
+    TickType_t started=spi_port_transfer_started_tick();
+    TickType_t elapsed=xTaskGetTickCount()-started;
+    if(elapsed>=ticks){
+      bits=xEventGroupWaitBits(engine->event,event,pdTRUE,pdFALSE,0);
+      return (bits&event)!=0U;
+    }
     do
     {
       bits=xEventGroupWaitBits(engine->event,event,pdTRUE,pdFALSE,1);

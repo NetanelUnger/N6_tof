@@ -158,6 +158,9 @@ int32_t spi_port_transfer_dma_status(void);
 int32_t spi_port_abort(void);
 /* Optional task-side MASRX service; default build is a no-op. */
 void spi_port_service_rx_flow(void);
+/* Explicit diagnostic only; returns unsupported outside RX-backpressure build. */
+int32_t spi_port_arm_rx_flow_test(void);
+uint32_t spi_port_transfer_started_tick(void);
 
 /**
   * @brief  Check if NCP requires to send a new data packet
