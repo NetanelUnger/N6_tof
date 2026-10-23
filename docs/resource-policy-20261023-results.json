@@ -1,0 +1,85 @@
+{
+  "status": "HOST_VALIDATED_NOT_INSTALLED_HIL_PENDING",
+  "branch": "feature/n6-xip-ota-usb",
+  "implementation_commit": "ce5fded5f2c85b37a19f000b6cc56c75741012c5",
+  "hardware_operations_this_resource_phase": 0,
+  "tests": {
+    "native_programs_passed": 2,
+    "programs": [
+      "hil_tests/test_resource_diagnostics.py: actual C wrappers/implementation with allocation, enqueue, create, release, overflow, ISR posture, saturation, fixed-table capacity, sampled usage, sink-full and recursive sink injection; bounded line/rate; heap/stack arithmetic",
+      "hil_tests/test_resource_queue_arithmetic.py: extracted actual xQueueCreate rejects item alignment overflow before allocation; product overflow cleans allocated control; valid backing store exactly32bytes"
+    ],
+    "import_audit": {"helper": "Tools/resource_inventory.py", "passed": true, "external_effects": [], "trusted_stdlib_inspect": true},
+    "build": "RAM default resource flag0; FSBL/Secure build and NS resource flag1 XIP link; Secure gateway ABI checks passed",
+    "package": "offline P256 signature, image digest, slot, version and XIP vectors verified",
+    "diff_check": "PASS"
+  },
+  "candidate": {
+    "path": ".local-dependencies/xip/v27-B-resource-margin/N6-XIP-B-v27.n6fw",
+    "slot": "B",
+    "version": 27,
+    "bytes": 510240,
+    "sha256": "e1302494519bdce727cb03de79da22b683209d362323bfafd0e824ac225e6bc6",
+    "reset": "0x702a2d9d",
+    "build_record": ".local-dependencies/xip/v27-B-resource-margin/build.json",
+    "build_record_sha256": "91c6883acd64cd32e3c2a12203c3e258b0c284a5247d2f11021417df4cf9e30f",
+    "installed": false,
+    "HIL": "NOT_RUN",
+    "resource_diagnostics": true,
+    "fault_probe": true,
+    "experimental_rx_backpressure": true,
+    "ncp_preserve": true,
+    "settings_writes": false,
+    "cloud_auto_map": false,
+    "older_candidates": "B25 immutable deferred-logger-only package retained; intermediate B26 builds not installed and superseded as candidates by B27"
+  },
+  "linker_capacity_bytes_not_live_free": {
+    "default_guarded_ram_heap": 369104,
+    "resource_profile_xip_heap": 851480,
+    "difference": 482376,
+    "NS_MSP_reserved": 2624,
+    "APP_shared_used": 205888,
+    "APP_shared_capacity": 262144,
+    "radio_shared_used_and_capacity": 65536,
+    "APP_byte_pool": 180224,
+    "USBX_byte_pool": 65536,
+    "USBPD_byte_pool": 18048,
+    "limits": "Pool arenas are reserved independently. Linker C heap capacity is not runtime free/largest block, stack high-water, or NPU activation capacity. NPU tensors/activation/weights contracts remain unchanged."
+  },
+  "stack_budgets_bytes_provisional": {
+    "Main": 108544,
+    "Radio": 9408,
+    "Cloud": 9408,
+    "USB_CLI": 7168,
+    "WiFi_control": 7168,
+    "ToF_acquisition": 18432,
+    "Display": 4928,
+    "UART": 3776,
+    "UART_test": 3776,
+    "update_confirmation": 2624,
+    "USBX_control": 18432,
+    "SPI": 1536
+  },
+  "compiler_local_frames_not_aggregate_highwater": {
+    "N6R_Record": 32,
+    "N6R_ObserveCurrentStack_part": 32,
+    "N6R_ReportDeferred_entry": 16,
+    "N6R_ReportDeferred_part": 200,
+    "caution": "Actual caller/callee chain, IRQ/FP/RTOS context and maximum stack use still require analysis and HIL. No10percent measured-margin claim."
+  },
+  "inventory": {"macros": 94, "array_declarations": 568, "API_occurrences": 359, "instrumented_project_files": 13, "kind": "LEXICAL_NOT_ACTIVE_RUNTIME_COUNT"},
+  "C_heap_coverage": {
+    "covered": "Project-owned explicit malloc/calloc/realloc failure capture, checked calloc multiply, failed realloc preserves old allocation; checked _sbrk boundaries and frontier observation",
+    "not_proven": "No universal interception of precompiled/newlib/vendor allocator call sites, no free-list fragmentation or largest-free-block telemetry, no arbitrary overwrite detector"
+  },
+  "scope_exceptions": [
+    "FSBL and Secure inventoried only; no stack, permission, security or ABI changes in resource profile",
+    "Vendor transform source unchanged; no expansion into provider libraries",
+    "Fixed protocol, DMA, sensor/tensor dimensions and structural free-list capacities preserved; burst/margin admission needs measured HIL",
+    "PSP telemetry is maximum observed samples only, not full watermark; usage data may retain conservative historical peak at reused address",
+    "Faulted memory cannot guarantee UART printf; scalar tables are volatile and not power-loss persistent"
+  ],
+  "current_hardware_blocker": "Pending fresh coordinated user readiness. Last board fault A23 NS STKOF during B24 block140; B24 partial, no valid B fallback claimed; metadata after fault not independently read. No recorder active or hardware operation in this phase.",
+  "next": "Coordinated recovery with hardened passive capture, DEV read-only current metadata/NOR backup, guarded RAM control, signed inactive-B repair only after verification; HIL stack/pool/queue margins, logger-full/alloc failure behavior, NPU100, USB/OTA and actual SUSP resume proof. Do not retransmit stale OTA or collect sensor cloud samples.",
+  "prior_SDK_side_effect_uncertainty_preserved": "Earlier isolated dotnet probe printed development-certificate installation. Read-only CurrentUser/My showed0certificates, but outcome remains uncertain; no SDK calls, trust, export or cleanup in this resource phase. See xip-spi-ovr-experiments-20261023.json."
+}

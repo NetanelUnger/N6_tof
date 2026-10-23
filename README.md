@@ -4,6 +4,11 @@ Host-only resource safety profile: checked allocation/queue arithmetic, retained
 failure counters and deferred bounded UART reporting; provisional >=10% stack
 margin policy. Not installed or hardware accepted. See
 [memory policy and pending HIL](docs/resource-memory-policy_HE.md).
+Candidate B27 is signed/offline-verified only:510240bytes,
+SHA256 e1302494519bdce727cb03de79da22b683209d362323bfafd0e824ac225e6bc6.
+RAM default heap369104/XIP diagnostic heap851480 are linker capacities,
+not measured free memory or10% high-water proof. See
+[host results](docs/resource-policy-20261023-results.json).
 
 Current2026-10-23 recovery blocker: diagnostic A23 confirmed, but OTA toB24
 faulted at28% with NS STKOF. Board is NOT verified running. B24 is partial;
