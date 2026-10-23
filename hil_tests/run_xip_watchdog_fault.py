@@ -8,7 +8,7 @@ def main():
     from pathlib import Path
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--execute',action='store_true');p.add_argument('--owner-thread')
-    p.add_argument('--kind',choices=('uart','supervisor'),required=True)
+    p.add_argument('--kind',choices=('uart','supervisor','cli'),required=True)
     p.add_argument('--version',type=int,required=True);p.add_argument('--package',required=True)
     p.add_argument('--install-proof',required=True);p.add_argument('--label',required=True);a=p.parse_args()
     root=Path(__file__).resolve().parents[1]
@@ -36,7 +36,7 @@ def main():
     assert re.fullmatch('[a-z0-9-]+',a.label)
     out=root/('.local-dependencies/xip/watchdog-'+a.label);out.mkdir(exist_ok=False)
     result={'passed':False,'kind':a.kind,'software_reset_commands':0,'flash_writes_requested':False,
-      'arm_bytes_sent':0,'fault_bytes_sent':0,'physical_power_cycle':False}
+      'final_fault_arm_sent':False,'final_fault_sent':False,'physical_power_cycle':False}
     uart=serial.Serial(port=None,baudrate=115200,timeout=.1,write_timeout=1)
     uart.dtr=False;uart.rts=False;uart.port='COM6';stop=threading.Event();reader=None
     try:
@@ -63,7 +63,7 @@ def main():
                 assert 'Cloud Relay: disabled' in result['before']['cloud status']
                 assert 'ToF: sent 0' in result['before']['cloud status'] and 'Dataset stream: off' in result['before']['dataset stream status']
                 assert 'requested NONE, active NONE' in result['before']['tof status']
-            target='UART-control-task' if a.kind=='uart' else 'supervisor-task'
+            target={'uart':'UART-control-task','supervisor':'supervisor-task','cli':'USB-CLI-task'}[a.kind]
             print('CAPTURE READY before fault; UART exclusive, USB closed, no flash write',flush=True)
             if a.kind=='uart':
                 mark=len((out/'uart.log').read_text(encoding='utf8',errors='replace'))
@@ -96,9 +96,26 @@ def main():
                 result['unarmed_expired_and_update_busy_rejected']=True
                 result['ToF_pause_18s_survived']=True
                 print('PASS UART no-arm/expired/update-parser guards, same-port CAN recovery, ToFpause18s',flush=True)
-            uart.write(b'w' if a.kind=='uart' else b's');uart.flush();result['arm_bytes_sent']=1
-            wait_text('ARM target='+target,3)
-            fault_at=time.monotonic();uart.write(b'W');uart.flush();result['fault_bytes_sent']=1
+            if a.kind=='cli':
+                with serial.Serial('COM8',115200,timeout=.1,write_timeout=2) as port:
+                    port.dtr=True;time.sleep(.3)
+                    assert 'W rejected:' in usb.command(port,'W')
+                    assert 'W armed for USB CLI task' in usb.command(port,'W arm')
+                    assert 'cancelled' in usb.command(port,'W cancel')
+                    assert 'W rejected:' in usb.command(port,'W')
+                    assert 'W armed for USB CLI task' in usb.command(port,'W arm')
+                    time.sleep(5.2)
+                    assert 'W rejected:' in usb.command(port,'W')
+                    assert 'PONG 4142 ' in usb.command(port,'debug ping 4142')
+                    result['CLI_no_arm_cancel_expiry_same_connection']=True
+                    result['final_arm_reply']=usb.command(port,'W arm')
+                    assert 'W armed for USB CLI task' in result['final_arm_reply']
+                    result['final_fault_arm_sent']=True
+                    fault_at=time.monotonic();port.write(b'W\r');port.flush();result['final_fault_sent']=True
+            else:
+                uart.write(b'w' if a.kind=='uart' else b's');uart.flush();result['final_fault_arm_sent']=True
+                wait_text('ARM target='+target,3)
+                fault_at=time.monotonic();uart.write(b'W');uart.flush();result['final_fault_sent']=True
             wait_text('FAULT target='+target,3)
             usb.wait_usb_disconnect(list_ports.comports,seconds=40)
             result['USB_disconnect_seconds_after_W']=time.monotonic()-fault_at
@@ -112,6 +129,7 @@ def main():
             assert '[UPDATE] boot confirmed; rollback window closed' in text
             assert re.search(r'\[WDT\] reset RSR=[0-9A-F]+ IWDG=1;',text),'No actual IWDG reset flag'
             if a.kind=='uart':assert '[WDT] TASK STALE mask=002;' in text
+            if a.kind=='cli':assert '[WDT] TASK STALE mask=' in text
             result['IWDG_reset_cause']=True;result['boot_confirmation_seen']=True
             with serial.Serial('COM8',115200,timeout=.1,write_timeout=2) as port:
                 port.dtr=True;time.sleep(.3)
