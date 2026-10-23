@@ -156,7 +156,6 @@ def cli_main():
                                 result['trial_reboot_sent']=True
                                 print('ONE trial reboot sent before observed confirmation; awaiting actual rollback evidence',flush=True)
                                 break
-                            result['after']={line:command(port,line) for line in ['tof status','rps status','cloud status','dataset stream status']}
                     if f'Firmware version: {target_version}\r\n' in result.get('version_after',''):break
                 time.sleep(.05 if args.trial_reboot else 1)
             if args.trial_reboot and result.get('trial_reboot_sent'):
@@ -179,6 +178,14 @@ def cli_main():
                     trace.flush()
                     if 'boot confirmed; rollback window closed' in (output/'uart.log').read_text(errors='replace'):break
                     time.sleep(.25)
+                # USB enumerates before application startup/control ownership
+                # settles. Query health only after actual boot confirmation;
+                # retain the original five-second per-command limit.
+                trace.flush()
+                if 'boot confirmed; rollback window closed' in (output/'uart.log').read_text(errors='replace'):
+                    with serial.Serial('COM8',115200,timeout=.1,write_timeout=2) as port:
+                        port.dtr=True;time.sleep(.2)
+                        result['after']={line:command(port,line) for line in ['tof status','rps status','cloud status','dataset stream status']}
             stop.set();thread.join(timeout=2);trace.flush()
             captured=(output/'uart.log').read_text(errors='replace')
             result['boot_confirmation_seen']='boot confirmed; rollback window closed' in captured
