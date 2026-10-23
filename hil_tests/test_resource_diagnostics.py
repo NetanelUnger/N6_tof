@@ -12,6 +12,7 @@ typedef struct {int unused;} TX_MUTEX;typedef struct {int unused;} TX_SEMAPHORE;
 #define TX_SUCCESS 0
 #define TX_QUEUE_EMPTY 3
 #define TX_NO_WAIT 0
+#define TX_WAIT_FOREVER 0xFFFFFFFFUL
 static unsigned injected;
 static UINT tx_queue_send(TX_QUEUE*q,void*p,ULONG w){if(!injected)q->tx_queue_enqueued++;return injected;}
 static UINT tx_queue_receive(TX_QUEUE*q,void*p,ULONG w){return injected;}
@@ -109,7 +110,12 @@ n6r_stack_sample(&q,0x1000,2048,0xFFF);N6R_Get(N6R_CORE,N6R_OVERFLOW,&f);assert(
 N6R_ObserveHeap((void*)0x10000,1000,100);N6R_GetUsage(1,1,&u);assert(u.peak==100&&(u.flags&8));
 puts("PASS capture independent of sink; enqueue/alloc/create/release/overflow injection; ISR posture; saturation; highwater; one attempt/sec; log-full retry; checked10percent alignment");
 uint32_t saved=n6r_failures[N6R_USB][N6R_ALLOC].count;N6R_Init();assert(n6r_failures[N6R_USB][N6R_ALLOC].count==saved);
+injected=TX_QUEUE_EMPTY;assert(tx_queue_receive(&q,&p,10)==TX_QUEUE_EMPTY);
+N6R_Get(N6R_USB,N6R_POLL,&f);assert(f.count==1);
+assert(tx_queue_receive(&q,&p,TX_WAIT_FOREVER)==TX_QUEUE_EMPTY);
+N6R_Get(N6R_USB,N6R_WAIT,&f);assert(f.count==1);
 puts("PASS dirty NOLOAD tables explicitly initialized before use; repeat init preserves counters");
+puts("PASS actual UART zero-success adapter; finite empty receive retained as POLL, unexpected forever-empty as WAIT");
 }
 '''
 if __name__=='__main__':

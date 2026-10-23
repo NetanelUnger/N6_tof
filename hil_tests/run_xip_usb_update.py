@@ -56,9 +56,14 @@ def cli_main():
     if args.source_confirmation_proof:
         proof=(root/args.source_confirmation_proof).resolve();assert proof.is_relative_to(root)
         accepted=json.loads(proof.read_text())
-        assert accepted['passed'] and accepted['confirmed_version']==source_version
-        assert accepted['image_bytes_sent']==0 and not accepted['EOT_sent'] and not accepted['reset_sent']
-        source_admission='Verified Secure confirmed-version, HIL100 not claimed for this source'
+        assert accepted['passed']
+        if 'confirmed_version' in accepted:
+            assert accepted['confirmed_version']==source_version
+            assert accepted['image_bytes_sent']==0 and not accepted['EOT_sent'] and not accepted['reset_sent']
+            source_admission='Verified Secure confirmed-version, HIL100 not claimed for this source'
+        else:
+            assert accepted['target_version']==source_version and accepted['candidate_running'] and accepted['boot_confirmation_seen']
+            source_admission='Captured USB source boot/confirmation, HIL100 not claimed for this source'
     else:
         hil_proof=(root/args.hil_proof).resolve();assert hil_proof.is_relative_to(root)
         accepted=json.loads(hil_proof.read_text());assert accepted['passed'] and accepted['frames']==100
