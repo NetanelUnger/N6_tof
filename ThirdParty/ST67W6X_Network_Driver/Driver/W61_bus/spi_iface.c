@@ -490,6 +490,23 @@ static int32_t spi_wait_event(void *evnt_ctx, uint32_t event, int32_t timeout_ms
     ticks = portMAX_DELAY;
   }
 
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+  if ((event==SPI_EVT_HW_XFER_DONE) && (timeout_ms>0) && (ticks>0))
+  {
+    TickType_t started=xTaskGetTickCount();
+    TickType_t elapsed=0;
+    do
+    {
+      bits=xEventGroupWaitBits(engine->event,event,pdTRUE,pdFALSE,1);
+      if ((bits & event)!=0U)return 1;
+      elapsed=xTaskGetTickCount()-started;
+      if (elapsed>=ticks)return 0; /* Original whole-transfer budget. */
+      spi_port_service_rx_flow();
+    } while (elapsed<ticks);
+    return 0;
+  }
+#endif
+
   bits = xEventGroupWaitBits(engine->event, event, pdTRUE, pdFALSE, ticks);
   if ((bits & event) != 0U)
   {

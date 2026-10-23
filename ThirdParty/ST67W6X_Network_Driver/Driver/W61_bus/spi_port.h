@@ -156,6 +156,8 @@ int32_t spi_port_transfer_dma_status(void);
   * @retval 0 if successful, -1 otherwise
   */
 int32_t spi_port_abort(void);
+/* Optional task-side MASRX service; default build is a no-op. */
+void spi_port_service_rx_flow(void);
 
 /**
   * @brief  Check if NCP requires to send a new data packet

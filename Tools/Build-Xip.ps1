@@ -115,7 +115,9 @@ try {
             $probeFlags=@('-mcpu=cortex-m55','-mthumb','-mfpu=fpv5-d16','-mfloat-abi=hard','-std=gnu11','-O3',
                 '-Wall','-ffunction-sections','-fdata-sections','--specs=nano.specs','-DN6_XIP_FAULT_PROBE=1',('-I'+$PSScriptRoot))+$projectFlags
             if ($RxBackpressure) {$probeFlags+='-DN6_XIP_RX_BACKPRESSURE=1'}
-            foreach ($relative in @('AppliNonSecure/Core/Src/spi_port.c','AppliNonSecure/Core/Src/firmware_update.c','Tools/xip_fault_probe.c')) {
+            $probeSources=@('AppliNonSecure/Core/Src/spi_port.c','AppliNonSecure/Core/Src/firmware_update.c','Tools/xip_fault_probe.c')
+            if ($RxBackpressure) {$probeSources+='ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c'}
+            foreach ($relative in $probeSources) {
                 Assert-XipBranch
                 $name=[IO.Path]::GetFileNameWithoutExtension($relative)
                 $probeObject=Join-Path $output "$name-probe.o"
@@ -126,6 +128,7 @@ try {
             }
             $original=[IO.File]::ReadAllLines((Join-Path $build 'objects.list'))
             $remove=@('"./Core/Src/spi_port.o"','"./Core/Src/firmware_update.o"')
+            if ($RxBackpressure) {$remove+='"./Middlewares/ST67W6X_Network_Driver/Driver/spi_iface.o"'}
             foreach ($line in $remove) {if (@($original | Where-Object {$_ -eq $line}).Count -ne 1) {throw 'Unexpected object-list shape.'}}
             $filtered=@($original | Where-Object {$_ -notin $remove})
             $probeList=Join-Path $output 'objects-probe.list'
@@ -183,6 +186,8 @@ try {
     $sourceHashes['Tools/xip_system_reset.c'] = Get-N6FileSha256 (Join-Path $root 'Tools/xip_system_reset.c')
     if ($FaultProbe) {
         $sourceHashes['AppliNonSecure/Core/Src/spi_port.c']=Get-N6FileSha256 (Join-Path $root 'AppliNonSecure/Core/Src/spi_port.c')
+        $sourceHashes['ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c']=Get-N6FileSha256 (Join-Path $root 'ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c')
+        $sourceHashes['ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_port.h']=Get-N6FileSha256 (Join-Path $root 'ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_port.h')
         $sourceHashes['Tools/xip_fault_probe.c']=Get-N6FileSha256 (Join-Path $root 'Tools/xip_fault_probe.c')
         $sourceHashes['Tools/xip_fault_probe.h']=Get-N6FileSha256 (Join-Path $root 'Tools/xip_fault_probe.h')
     }

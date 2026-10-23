@@ -278,6 +278,41 @@ int32_t spi_port_transfer_dma_status(void)
           (NCP_SPI_HANDLE.ErrorCode == HAL_SPI_ERROR_NONE)) ? 0 : -1;
 }
 
+void spi_port_service_rx_flow(void)
+{
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+  uint32_t saved=__get_PRIMASK();
+  __disable_irq();
+  uint32_t sr=NCP_SPI_HANDLE.Instance->SR;
+  /* DMA mode enables EOTIE only after RX completion. An earlier automatic
+   * suspend therefore needs task-side service. Never drain RXDR in software
+   * or restart DMA: it owns all packet bytes. Resume only a nonempty active
+   * transaction after DMA has emptied RX FIFO and no hardware error exists.
+   */
+  if ((NCP_SPI_HANDLE.State==HAL_SPI_STATE_BUSY_TX_RX) &&
+      (NCP_SPI_HANDLE.ErrorCode==HAL_SPI_ERROR_NONE) &&
+      ((NCP_SPI_HANDLE.Instance->CR1 & (SPI_CR1_MASRX|SPI_CR1_CSTART|SPI_CR1_SPE))==
+        (SPI_CR1_MASRX|SPI_CR1_CSTART|SPI_CR1_SPE)) &&
+      ((NCP_SPI_HANDLE.Instance->CFG1 & SPI_CFG1_RXDMAEN)!=0U) &&
+      ((sr & SPI_SR_CTSIZE)!=0U) && ((sr & SPI_SR_SUSP)!=0U) &&
+      ((sr & (SPI_SR_RXP|SPI_SR_RXWNE|SPI_SR_RXPLVL|SPI_SR_OVR|SPI_SR_UDR|SPI_SR_MODF|SPI_SR_FRE))==0U) &&
+      (NCP_SPI_HANDLE.hdmarx!=NULL) && (NCP_SPI_HANDLE.hdmarx->Instance!=NULL) &&
+      (NCP_SPI_HANDLE.hdmarx->State==HAL_DMA_STATE_BUSY) &&
+      (NCP_SPI_HANDLE.hdmarx->ErrorCode==HAL_DMA_ERROR_NONE) &&
+      ((NCP_SPI_HANDLE.hdmarx->Instance->CCR & DMA_CCR_EN)!=0U) &&
+      ((NCP_SPI_HANDLE.hdmarx->Instance->CSR & (DMA_CSR_DTEF|DMA_CSR_ULEF|DMA_CSR_USEF|DMA_CSR_TOF|DMA_CSR_SUSPF))==0U))
+  {
+    WRITE_REG(NCP_SPI_HANDLE.Instance->IFCR,SPI_IFCR_SUSPC);
+    __DMB();
+    __set_PRIMASK(saved);
+    Debug_UART_Log("SPI-FLOW","RX FIFO drained; cleared automatic suspend phase=%lu len=%lu",
+        (unsigned long)transfer_phase,(unsigned long)transfer_length);
+    return;
+  }
+  __set_PRIMASK(saved);
+#endif
+}
+
 static HAL_StatusTypeDef spi_port_restore_dma(DMA_HandleTypeDef *dma)
 {
   if ((dma == NULL) || (dma->Init.Mode != DMA_NORMAL))
