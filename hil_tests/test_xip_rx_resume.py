@@ -33,6 +33,7 @@ PREFIX=r'''
 #define SPI_IFCR_SUSPC 0x800U
 #define WRITE_REG(r,v) ((r)=(v))
 static unsigned mask,logs,transfer_phase=2,transfer_length=1476;
+static uint32_t rx_flow_resumes;
 #define __get_PRIMASK() mask
 #define __disable_irq() (mask=1)
 #define __set_PRIMASK(v) (mask=(v))
@@ -57,6 +58,7 @@ spi.CR1=0x1301;spi.CFG1=SPI_CFG1_RXDMAEN;spi.SR=(1393U<<16)|SPI_SR_SUSP;}
 int main(void){
 for(unsigned posture=0;posture<2;posture++){ready();mask=posture;spi_port_service_rx_flow();
 assert(spi.IFCR==SPI_IFCR_SUSPC&&mask==posture&&dma.CCR==1&&spi.CR1==0x1301&&rx.State==2);}
+assert(rx_flow_resumes==2&&logs==0); /* No formatting on768byte worker. */
 for(int n=0;n<20;n++){ready();mask=0;
 switch(n){case 0:spi.SR|=SPI_SR_RXP;break;case 1:spi.SR|=SPI_SR_RXWNE;break;case 2:spi.SR|=SPI_SR_RXPLVL;break;
 case 3:spi.SR|=SPI_SR_OVR;break;case 4:spi.SR|=SPI_SR_UDR;break;case 5:spi.SR|=SPI_SR_MODF;break;case 6:spi.SR|=SPI_SR_TIFRE;break;
@@ -65,6 +67,7 @@ case 10:dma.CCR=0;break;case 11:dma.CSR=DMA_CSR_DTEF;break;case 12:dma.CSR=DMA_C
 case 13:h.hdmarx=0;break;case 14:rx.Instance=0;break;case 15:rx.State=0;break;case 16:rx.ErrorCode=1;break;
 case 17:h.State=0;break;case 18:spi.SR&=~SPI_SR_CTSIZE;break;case 19:spi.SR&=~SPI_SR_SUSP;break;}
 spi_port_service_rx_flow();assert(spi.IFCR==0&&mask==0);}
+assert(rx_flow_resumes==2&&logs==0);
 puts("PASS drained-FIFO resume only;20 unsafe states refuse; IRQ posture and DMA ownership preserved");}
 '''
     run_native(prefix+body+test)
@@ -81,7 +84,8 @@ typedef uint32_t EventBits_t;
 struct spi_xfer_engine {void *event;};
 #define pdTRUE 1
 #define pdFALSE 0
-#define pdMS_TO_TICKS(n) ((TickType_t)(n))
+#define TX_TIMER_TICKS_PER_SECOND 100U
+#define pdMS_TO_TICKS(ms) ((TickType_t)((((uint64_t)(ms))*TX_TIMER_TICKS_PER_SECOND+999ULL)/1000ULL))
 #define portMAX_DELAY 0xFFFFFFFFU
 #define SPI_EVT_HW_XFER_DONE 8U
 static TickType_t tick,arrive;
@@ -92,8 +96,8 @@ static void spi_port_service_rx_flow(void){services++;}
 '''
     test=r'''
 int main(void){struct spi_xfer_engine e={0};
-tick=100;arrive=100;assert(spi_wait_event(&e,8,5)==0);assert(tick==105&&services==4&&waits==5);
-tick=0xFFFFFFFD;waits=services=0;arrive=3;assert(spi_wait_event(&e,8,5)==1);assert(tick==0&&services==2&&waits==3);
+tick=100;arrive=100;assert(spi_wait_event(&e,8,500)==0);assert(tick==150&&services==49&&waits==50);
+tick=0xFFFFFFFD;waits=services=0;arrive=3;assert(spi_wait_event(&e,8,500)==1);assert(tick==0&&services==2&&waits==3);
 tick=4;waits=services=0;arrive=99;assert(spi_wait_event(&e,8,0)==0);assert(tick==4&&services==0&&waits==1);
 puts("PASS whole-transfer deadline unchanged, tick wrap safe, event and zero-timeout semantics retained");}
 '''

@@ -32,6 +32,10 @@ static uint32_t cs_hold_timer_fallbacks;
 static volatile SpiPortFault_t spi_fault;
 static volatile uint32_t transfer_id, transfer_phase, transfer_length, transfer_rx_only;
 static volatile uint32_t fault_reported; /* Radio writes; IRQ capture reads. */
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+static volatile uint32_t rx_flow_resumes;
+static uint32_t rx_flow_reported;
+#endif
 
 void spi_port_set_phase(uint32_t phase) { transfer_phase = phase; }
 
@@ -109,6 +113,15 @@ void spi_port_get_fault(SpiPortFault_t *fault)
 
 void spi_port_report_fault(void)
 {
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+  uint32_t resumed=rx_flow_resumes;
+  if (resumed!=rx_flow_reported)
+  {
+    rx_flow_reported=resumed;
+    Debug_UART_Log("SPI-FLOW","drained RX automatic suspensions resumed=%lu",
+        (unsigned long)resumed);
+  }
+#endif
   SpiPortFault_t f;
   spi_port_get_fault(&f);
   if (f.count == fault_reported) return;
@@ -303,10 +316,10 @@ void spi_port_service_rx_flow(void)
       ((NCP_SPI_HANDLE.hdmarx->Instance->CSR & (DMA_CSR_DTEF|DMA_CSR_ULEF|DMA_CSR_USEF|DMA_CSR_TOF|DMA_CSR_SUSPF))==0U))
   {
     WRITE_REG(NCP_SPI_HANDLE.Instance->IFCR,SPI_IFCR_SUSPC);
+    ++rx_flow_resumes;
     __DMB();
     __set_PRIMASK(saved);
-    Debug_UART_Log("SPI-FLOW","RX FIFO drained; cleared automatic suspend phase=%lu len=%lu",
-        (unsigned long)transfer_phase,(unsigned long)transfer_length);
+    /* SPI worker stack is768bytes. Defer all formatting to Radio's reporter. */
     return;
   }
   __set_PRIMASK(saved);

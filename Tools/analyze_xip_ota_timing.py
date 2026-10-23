@@ -1,4 +1,20 @@
 """Host-only OTA trace analysis. Never imports hardware/network clients."""
+
+def retry_inclusive_delays(trace):
+    """Measure first submission through the matching successful ACK, not just last try."""
+    pending={};completed=[]
+    for row in trace:
+        if 'monotonicMs' not in row or 'block' not in row:continue
+        block=row['block']
+        if row['message']=='TX':
+            state=pending.setdefault(block,{'started':row['monotonicMs'],'attempts':0})
+            state['attempts']+=1
+        elif row['message']=='RX' and row.get('control')==6 and block in pending:
+            state=pending.pop(block)
+            completed.append({'block':block,'attempts':state['attempts'],
+                'ms':row['monotonicMs']-state['started']})
+    return completed
+
 def main():
     import argparse,bisect,json,re,statistics
     from datetime import datetime
@@ -52,8 +68,11 @@ def main():
                 'TX_to_device_RX_observed_ms':ms_since(row['atUtc'],rx),
                 'device_RX_to_ACK_observed_ms':ms_since(rx,ack),
                 'ACK_observed_to_client_ms':ms_since(ack,c['atUtc'])})
+    inclusive=retry_inclusive_delays(trace)
     result={'label':args.label,'completed_ACKs':len(durations),'timeouts':[x for x in trace if x['message'].startswith('TIMEOUT')],
         'TX_ACK':summary([x['ms']for x in durations]),'RPC':summary(list(rpc.values())),
+        'block_elapsed_including_retries':summary([x['ms']for x in inclusive]),
+        'slowest_blocks_including_retries':sorted(inclusive,key=lambda x:x['ms'],reverse=True)[:10],
         'slowest_ACKs':sorted(durations,key=lambda x:x['ms'],reverse=True)[:10],
         'SPI_faults':faults,'host_loop_lags':[x for x in trace if x['message']=='HOST_LOOP_LAG'],
         'stage_summary':{key:summary([x[key]for x in stages])for key in ['TX_to_device_RX_observed_ms','device_RX_to_ACK_observed_ms','ACK_observed_to_client_ms']},

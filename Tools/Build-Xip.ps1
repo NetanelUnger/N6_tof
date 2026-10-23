@@ -113,7 +113,7 @@ try {
             if (-not $rule) {throw 'Cannot locate generated C compile flags.'}
             $projectFlags=@([regex]::Matches($rule,'-[DI][^\s]+') | ForEach-Object {$_.Value})
             $probeFlags=@('-mcpu=cortex-m55','-mthumb','-mfpu=fpv5-d16','-mfloat-abi=hard','-std=gnu11','-O3',
-                '-Wall','-ffunction-sections','-fdata-sections','--specs=nano.specs','-DN6_XIP_FAULT_PROBE=1',('-I'+$PSScriptRoot))+$projectFlags
+                '-Wall','-fstack-usage','-ffunction-sections','-fdata-sections','--specs=nano.specs','-DN6_XIP_FAULT_PROBE=1',('-I'+$PSScriptRoot))+$projectFlags
             if ($RxBackpressure) {$probeFlags+='-DN6_XIP_RX_BACKPRESSURE=1'}
             $probeSources=@('AppliNonSecure/Core/Src/spi_port.c','AppliNonSecure/Core/Src/firmware_update.c','Tools/xip_fault_probe.c')
             if ($RxBackpressure) {$probeSources+='ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c'}
