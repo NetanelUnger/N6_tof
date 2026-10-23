@@ -1,5 +1,13 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Recovery2026-10-23 12:05UTC: DEV ROM verified; double4MiB backup and seq66/A23
+CRC/signature/image/bootchain preservation verified. Guarded RAM27 restored,
+Cloud disabled/sent0. B27 signed USB510240bytes finalized once; RAM still responds.
+B27 first XIP boot/confirmation pending. Raw postflight failed because expected
+reset-refusal log was absent; transfer/finalization and PONG passed. Do NOT resend.
+No healthy confirmed fallback claimed: A23 intact but known faulty. See
+[recovery evidence](docs/xip-recovery-20261023-1157.json). Older state below is historical.
+
 Host-only resource safety profile: checked allocation/queue arithmetic, retained
 failure counters and deferred bounded UART reporting; provisional >=10% stack
 margin policy. Not installed or hardware accepted. See
