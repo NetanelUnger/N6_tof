@@ -11,6 +11,7 @@ def main():
     parser.add_argument('--target',type=int,default=14)
     parser.add_argument('--package',default='.local-dependencies/xip/v14-A-reset-clkp/N6-XIP-A-v14.n6fw')
     parser.add_argument('--usb-proof',default='.local-dependencies/xip/resume-20261022/before-cloud-b13-status.json')
+    parser.add_argument('--crc-sessions',type=int,default=0,choices=range(0,21))
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     if not args.execute:
         print('PASS preflight; no serial, subprocess or network');return
@@ -47,7 +48,8 @@ def main():
             print('PASSIVE UART READY DTR/RTS0; starting existing OTA client',flush=True)
             command=['C:/Program Files/nodejs/node.exe',str(root/'hil_tests/run_xip_cloud_update.mjs'),
                 '--execute','--owner-thread',args.owner_thread,'--label',args.label,'--from',str(args.source),'--to',str(args.target),
-                '--package',args.package,'--usb-proof',args.usb_proof]
+                '--usb-proof',args.usb_proof]
+            command+=['--crc-sessions',str(args.crc_sessions)] if args.crc_sessions else ['--package',args.package]
             child=subprocess.Popen(command,cwd=root);result.update(sender_started=True,sender_pid=child.pid)
             deadline=time.monotonic()+1260
             while child.poll() is None and time.monotonic()<deadline:time.sleep(.5)

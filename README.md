@@ -1,5 +1,21 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Latest measured2026-10-23: B18 XIP running/confirmed, A17 retained for recovery.
+A14 cold FLASH boot+HIL100+software reset PASS. OTA A14->B15 complete498720bytes,
+automatic boot/confirmation PASS;2timeouts/retries on block78 accompanied SPI RX
+OVR, root cause OPEN. USB A16 interrupted-transfer+trial rollback->B15 PASS.
+USB A17 finalized; first postflight hit source-port FileNotFound race (retained),
+independent confirmed17 and persistent reboot PASS; race fixed/3host tests PASS.
+A17 HIL100 exact tensors/classes,maxdelta6/CRC0/28s and BLE5/5max226.01ms PASS.
+Timestamped OTA A17->B18 PASS,489ACKs/0timeouts/0SPI faults;20CRC sessions/160
+packets rejected without NOR writes,0timeouts/SPI faults. This did NOT establish
+a causal fix for the intermittent OVR. Final ToFready/NPU1542errors0/Cloudsent0/
+datasetoff/SPI0/NCP0/BLEdriver0/UARTdrops0. Owned handles and lease released.
+No active recorder, no further physical action requested. Main and server unchanged.
+See [acceptance evidence](docs/xip-acceptance-20261023.json) and
+[timeout investigation](docs/xip-ota-timeout-investigation-20261023.json).
+Older checkpoints below are historical; the intermittent timeout remains open.
+
 Chronology correction: the quoted user reconnect was19:59:07UTC, before OTA,
 not a new reconnect at23:22. The23:24UTC USB read reports B13/PONG9800228ms;
 it proves no outcome of a new post-OTA physical action. A14 boot/confirmation NOT observed; no prior

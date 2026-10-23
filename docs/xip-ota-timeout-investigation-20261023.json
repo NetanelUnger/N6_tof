@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "status": "OPEN_INTERMITTENT_SPI_OVR_NOT_REPRODUCED; NOT_FIXED_OR_PERFECT",
+  "old_B15": {
+    "timeouts": 2,
+    "affected_blocks": [
+      78
+    ],
+    "retries": 2,
+    "wait_per_attempt_ms": 15000,
+    "minimum_total_timeout_wait_ms": 30000,
+    "exact_old_host_elapsed": "UNAVAILABLE: old trace had no host timestamps",
+    "SPI_error": "HAL_SPI_ERROR_OVR=0x4;1476byte RX-only DMA, fault tick231444",
+    "fault_report_tick": 231452,
+    "block78_received_tick": 238065,
+    "block78_ACK_HTTP_delivered_tick": 238212,
+    "device_tick_not_wall_time": true,
+    "duplicate_writes": "NONE: receiver logged duplicate seq78 ACK without redelivery twice",
+    "signed_image_hash_and_boot": "PASS B15",
+    "classification": "Evidence locates the incident before app receives block78. SPI FIFO overrun observed; exact reason DMA did not drain FIFO remains unproven. No evidence of slow erase/write of this block before it arrived."
+  },
+  "new_B18": {
+    "package_bytes": 498720,
+    "accepted_data_blocks": 488,
+    "EOT_ACK": true,
+    "automatic_boot_confirmed": true,
+    "timeouts": 0,
+    "retries": 0,
+    "SPI_faults": 0,
+    "ACKs": {
+      "count": 489,
+      "p50_ms": 919.7369000000181,
+      "p95_ms": 1277.1842000000179,
+      "max_ms": 4499.982799999998
+    },
+    "SignalR_RPC": {
+      "count": 489,
+      "p50_ms": 55.34429999999702,
+      "p95_ms": 73.24580000000424,
+      "max_ms": 458.76720000000205
+    },
+    "max_host_event_loop_lag_ms": 64.86409999997704,
+    "timing_report": "xip-ota-b18-timing-20261023.json"
+  },
+  "no_NOR_control": {
+    "passed": true,
+    "sessions": 20,
+    "bad_CRC_packets": 160,
+    "valid_manifest": false,
+    "EOT": false,
+    "NOR_erase_or_program": false,
+    "source_version_unchanged": 18,
+    "timeouts": 0,
+    "SPI_faults": 0,
+    "NAK_latency_ms": {
+      "p50": 924.3133999999991,
+      "p95": 1495.014200000005,
+      "max": 4312.084600000002
+    }
+  },
+  "idle_clock": {
+    "samples": [
+      {
+        "device_ms": 615135,
+        "host_midpoint_ns": 400972351227050,
+        "RTT_ms": 104.3839
+      },
+      {
+        "device_ms": 617238,
+        "host_midpoint_ns": 400974457495400,
+        "RTT_ms": 106.7408
+      },
+      {
+        "device_ms": 619344,
+        "host_midpoint_ns": 400976564143600,
+        "RTT_ms": 106.163
+      },
+      {
+        "device_ms": 621450,
+        "host_midpoint_ns": 400978671631750,
+        "RTT_ms": 107.6517
+      },
+      {
+        "device_ms": 623555,
+        "host_midpoint_ns": 400980783528450,
+        "RTT_ms": 115.6963
+      },
+      {
+        "device_ms": 625669,
+        "host_midpoint_ns": 400982895173600,
+        "RTT_ms": 106.7238
+      }
+    ],
+    "NOR_write": false,
+    "reset": false,
+    "host_elapsed_ms": 10543.94655,
+    "device_elapsed_ms": 10534,
+    "device_host_ratio": 0.9990566577748822
+  },
+  "interpretation": [
+    "Intermittent original incident did not reproduce during one full489ACK transfer or160badCRC packets.",
+    "Up to4.31s response tails also occurred without NOR writes; do not attribute all delay to flash.",
+    "Idle PONG clock ratio0.99906 rules out a fixed large idle timebase slowdown in this measurement.",
+    "NS TIM6 interrupt time can pause while Secure flash gate masks NS IRQs. UART arrival proxies include buffering/serial latency; negative cross-proxy intervals are not negative network delays.",
+    "The two original15s timeout waits cannot be timed exactly from NS UART ticks. No timeout value was extended.",
+    "No speculative SPI clock/FIFO/MASRX change applied; physical/bus/DMA cause is still open."
+  ],
+  "reviewed_sources": [
+    "AppliNonSecure/Core/Src/spi_port.c",
+    "ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c",
+    "Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_spi.c",
+    "Drivers/STM32N6xx_HAL_Driver/Src/stm32n6xx_hal_dma.c",
+    "AppliNonSecure/Core/Src/stm32n6xx_hal_timebase_tim.c",
+    "AppliSecure/Core/Src/secure_firmware_update.c",
+    "Existing server xmodemSender.ts and output/ACK endpoints; read only",
+    "https://www.st.com/resource/en/errata_sheet/es0620-stm32n6xxxx-device-errata-stmicroelectronics.pdf Rev5; no generic SPI OVR entry found, silicon revision still unresolved"
+  ],
+  "changes": "Host independent UTC/monotonic RPC/TX/control/UART-arrival timestamps, event-loop monitor, read-only analyzer and bounded CRC negative control; no production server or SPI-driver change",
+  "remaining": "Capture a naturally recurring OVR with independent timing plus detailed SPI/DMA IRQ/bus trace before claiming causal firmware fix; physical signal integrity not measured"
+}

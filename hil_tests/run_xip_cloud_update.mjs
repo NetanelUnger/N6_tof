@@ -18,11 +18,14 @@ function assert(condition,message){if(!condition)throw new Error(message);}
 export async function main(args=process.argv.slice(2)){
   const arg=name=>{const i=args.indexOf(name);return i<0?null:args[i+1];};
   const source=Number(arg('--from')??13),target=Number(arg('--to')??14);
+  const crcSessions=Number(arg('--crc-sessions')??0);
+  assert(Number.isInteger(crcSessions)&&crcSessions>=0&&crcSessions<=20,'CRC sessions must be0..20');
   const workspace=JSON.parse(fs.readFileSync(workspacePath,'utf8').replace(/^\uFEFF/,''));
   const ids=workspace.devices.map(device=>device.id);
   assert(ids.length===1&&ids[0]==='N6-MAINT-B8FB','Only the existing single paired device is authorized');
   assert(typeof workspace.workspaceToken==='string'&&workspace.workspaceToken.length>10,'Existing workspace token unavailable');
   const file=arg('--package');let firmware=null,build=null;
+  assert(!crcSessions||!file,'Negative CRC control sends no signed package');
   if(file){
     const filename=path.resolve(root,file);
     assert(!path.relative(root,filename).startsWith('..'),'Package must be inside feature worktree');
@@ -57,8 +60,9 @@ export async function main(args=process.argv.slice(2)){
   const redact=value=>String(value).replaceAll(workspace.workspaceToken,'[redacted]').replaceAll(encodeURIComponent(workspace.workspaceToken),'[redacted]');
   const require=createRequire(path.join(website,'package.json'));
   const signalR=require('@microsoft/signalr');
-  const {XmodemControls,OutputSequences,sendXmodem}=await import(pathToFileURL(path.join(website,'src/cloud/xmodemSender.ts')).href);
-  const result={mode:firmware?'OTA_UPDATE':'CLOUD_CLI_PROBE',deviceId:ids[0],sourceVersion:source,targetVersion:target,
+  const {XmodemControls,OutputSequences,sendXmodem,makeXmodemPacket}=await import(pathToFileURL(path.join(website,'src/cloud/xmodemSender.ts')).href);
+  const {crc32}=await import(pathToFileURL(path.join(website,'src/ble/tofProtocol.ts')).href);
+  const result={mode:firmware?'OTA_UPDATE':crcSessions?'CLOUD_CRC_NEGATIVE_CONTROL':'CLOUD_CLI_PROBE',deviceId:ids[0],sourceVersion:source,targetVersion:target,
     packageBytes:firmware?.length??0,packageSha256:firmware?hash(firmware):null,sensorStreamRequested:false,newCredentials:false,
     allowedDeviceIdsUnchanged:ids,passed:false,events:[],commands:[]};
   const persist=()=>fs.writeFileSync(path.join(output,'result.json'),JSON.stringify(result,null,2)+'\n');
@@ -72,6 +76,7 @@ export async function main(args=process.argv.slice(2)){
     const entry=messages.get(message.commandId)??{text:'',completed:false};
     if(message.kind==='binary'&&message.dataBase64){
       const bytes=Buffer.from(message.dataBase64,'base64');
+      entry.binaryText=((entry.binaryText??'')+bytes.toString('utf8')).slice(-8192);
       if(route&&(route.commandId===null||route.commandId===message.commandId)){
         route.commandId??=message.commandId;
         // Queue only protocol controls; human terminal strings must not fill
@@ -113,6 +118,34 @@ export async function main(args=process.argv.slice(2)){
     assert((await command('cloud status')).includes('ToF: sent 0'),'Unexpected Cloud sensor exports; stop');
     assert((await command('dataset stream status')).includes('Dataset stream: off'),'Dataset must be off');
     result.probePassed=true;console.log('PASS real Cloud CLI version/ping/status, imageNONE/ToFsent0/datasetOFF');persist();
+    if(crcSessions){
+      result.crcSessions=[];result.validManifestSent=false;result.EOTSent=false;
+      for(let session=0;session<crcSessions;session++){
+        controls.reset();route={commandId:null};
+        const request=await connection.invoke('SendCommand',ids[0],'update');
+        route.commandId??=request.id;assert(route.commandId===request.id,'Unexpected CRC probe route; no bytes sent');
+        await controls.wait(0,[0x43],125000);
+        const record={session:session+1,NAKs:0,startedUtc:new Date().toISOString()};result.crcSessions.push(record);
+        const bad=makeXmodemPacket(1,new Uint8Array(1024).fill(0x1a));bad[1028]^=1;
+        for(let sequence=1;sequence<=8;sequence++){
+          const started=performance.now();trace('BAD_CRC_TX',{session:session+1,sequence});
+          await connection.invoke('SendCliBinary',ids[0],request.id,sequence,0,Buffer.from(bad).toString('base64'),crc32(bad).toString(16).padStart(8,'0'),false);
+          const response=await controls.wait(sequence,[0x15],15000);
+          assert(response===0x15,'Bad CRC was not NAKed; stop without image data');
+          record.NAKs++;trace('BAD_CRC_NAK',{session:session+1,sequence,durationMs:performance.now()-started});persist();
+        }
+        const cancel=Uint8Array.of(0x18,0x18);
+        await connection.invoke('SendCliBinary',ids[0],request.id,9,0,Buffer.from(cancel).toString('base64'),crc32(cancel).toString(16).padStart(8,'0'),true);
+        const deadline=Date.now()+15000;
+        const cancelled=()=>{const entry=messages.get(request.id);return ((entry?.text??'')+(entry?.binaryText??'')).includes('cancelled or rejected');};
+        while(Date.now()<deadline&&!cancelled())await delay(20);
+        assert(cancelled(),'CRC session cancellation not observed; no next session');
+        route=null;record.cancelled=true;console.log('CRC CONTROL',session+1,'8 NAKs; cancelled without valid manifest/image');persist();
+      }
+      assert(new RegExp(`Firmware version: ${source}(?:\\r?\\n|$)`).test(await command('version')),'Source changed during negative control');
+      assert((await command('cloud status')).includes('ToF: sent 0'),'Unexpected sensor exports');
+      result.passed=true;return result;
+    }
     if(!firmware){result.passed=true;return result;}
     route={commandId:null};controls.reset();
     const request=await connection.invoke('SendCommand',ids[0],'update');

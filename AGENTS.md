@@ -26,6 +26,22 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Final measured2026-10-23: B18 XIP confirmed, A17 recovery retained. A14cold+
+ HIL100+SWreset PASS. OTA B15auto boot PASS with2timeouts/block78+SPI OVR;
+ ROOT CAUSE STILL OPEN. USB valid768byte cancellation and A16trial reset rollback
+ toB15 PASS; A17USB finalized, rawpostflight FileNotFound race retained, independent
+ confirmed17/SWboot metadata seq48PASS. Harness now gates source disconnect,3host
+ cases PASS. A17HIL100tensors/classes,maxdelta6/CRC0/28s, BLE5/5max226.01ms/
+ pairFalse/OSpairedFalse PASS. TimestampedB18OTA489ACKs/0timeout/SPI0 PASS;
+ CRCcontrol20sessions×8=160NAKs/no validmanifest/EOT/NOR,0timeout/SPI0 PASS.
+ Do not call intermittentSPI fixed: old2×15swaits had no hosttimestamps; TIM6
+ stops under NSIRQ mask. Idleclockratio0.99906 measured. FinalB18ToFready/NPU1542/
+ errors0/Cloudsent0/datasetoff/imageNONE/SPI0/NCP0/BLEdriver0/UARTdrops0. All owned
+ clients/UART closed and lease released; no recorder active. Host backups retained,
+ no fresh finalNOR SWD dump. No physical powercut-during-write/fullheapstackhighwater/
+ larger-model-accuracy claim. Main80f2b511/server5905a7d unchanged. Latest ledgers
+ docs/xip-acceptance-20261023.json and xip-ota-timeout-investigation-20261023.json.
+
 - Chronology corrected: quoted reconnect message was19:59:07UTC, before OTA,
  not a fresh23:22 action. USB read23:24UTC reports B13/PONG9800228ms; no inference
  about a new physical reconnect/reset outcome. A14 boot/confirmation NOT observed. AppCOM8 and

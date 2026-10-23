@@ -2,7 +2,7 @@
   "date": "2026-10-23",
   "branch": "feature/n6-xip-ota-usb",
   "main": "80f2b511029be6d87f9e72c32b00515457671f89",
-  "status": "A14_COLD_PERSISTENT_BOOT_HIL100_AND_SOFTWARE_RESET_PASS_OTA15_IN_PROGRESS",
+  "status": "XIP_USB_OTA_ROLLBACK_PERSISTENT_BOOT_MEASURED; INTERMITTENT_OTA_SPI_TIMEOUT_ROOT_CAUSE_OPEN",
   "cold_boot": {
     "user_confirmation_UTC": "2026-10-23T07:12:16Z",
     "UART_bytes": 30821,
@@ -47,15 +47,189 @@
     "debugger_attached": false
   },
   "OTA_B15": {
-    "status": "IN_PROGRESS; first full attempt",
+    "status": "PASS automatic trial/confirmation and Cloud version15",
     "source": "A14 confirmed protected",
     "target": "B15",
     "package_bytes": 498720,
     "sha256": "02967fa077f9e33075b36dca01138cb0824ea6d2d3eeb9942528b38d36c8b768",
     "server_changes": false,
     "new_credentials": false,
-    "sensor_uploads_requested": false
+    "sensor_uploads_requested": false,
+    "timeouts": 2,
+    "retries": 2,
+    "block": 78
   },
-  "USB_rollback_test": "PREPARING A16 while confirmed B15 will remain protected; not yet executed",
-  "physical_power_loss_during_flash_programming": "NOT_TESTED"
+  "USB_rollback_test": {
+    "passed": true,
+    "bytes": 498720,
+    "source_version": 15,
+    "target_version": 16,
+    "authenticated_finalization": true,
+    "trial_reboot_sent": true,
+    "rollback_to_source": true,
+    "FSBL_rollback_seen": true,
+    "rollback_version": "version\r\nFirmware version: 15\r\nn6> ",
+    "interrupted_transfer": true
+  },
+  "physical_power_loss_during_flash_programming": "NOT_TESTED",
+  "USB_A17": {
+    "aggregate_passed": true,
+    "bytes": 498720,
+    "sender_finalized": true,
+    "raw_first_postflight_passed": false,
+    "raw_reason": "COM8 vanished between enumeration and open during reset, FileNotFound2; no image retry",
+    "independent_confirmed17_and_persistent_reset": true,
+    "FSBL_read_after_reboot": "seq48 CONFIRMED A17/fallback B15",
+    "CDC_race_fix": "All modes now observe source USB disappearance before candidate-open;3 host regression tests PASS"
+  },
+  "A17_HIL": {
+    "passed": true,
+    "frames": 100,
+    "exact_tensors": 100,
+    "npu_frames": 100,
+    "class_matches": 100,
+    "max_score_delta": 6,
+    "crc_errors": 0,
+    "elapsed_s": 28.0,
+    "unique_tensors": 35
+  },
+  "A17_BLE_CLI": {
+    "pair_requested": false,
+    "image_subscription": false,
+    "sensor_export_requested": false,
+    "passed": true,
+    "pings": [
+      {
+        "token": "XIP17-0",
+        "ms": 226.00849997252226
+      },
+      {
+        "token": "XIP17-1",
+        "ms": 106.00849997717887
+      },
+      {
+        "token": "XIP17-2",
+        "ms": 110.65320001216605
+      },
+      {
+        "token": "XIP17-3",
+        "ms": 77.44589995127171
+      },
+      {
+        "token": "XIP17-4",
+        "ms": 109.49870001059026
+      }
+    ],
+    "OS_paired": false,
+    "disconnected": true
+  },
+  "OTA_B18": {
+    "package_bytes": 498720,
+    "accepted_data_blocks": 488,
+    "EOT_ACK": true,
+    "automatic_boot_confirmed": true,
+    "timeouts": 0,
+    "retries": 0,
+    "SPI_faults": 0,
+    "ACKs": {
+      "count": 489,
+      "p50_ms": 919.7369000000181,
+      "p95_ms": 1277.1842000000179,
+      "max_ms": 4499.982799999998
+    },
+    "SignalR_RPC": {
+      "count": 489,
+      "p50_ms": 55.34429999999702,
+      "p95_ms": 73.24580000000424,
+      "max_ms": 458.76720000000205
+    },
+    "max_host_event_loop_lag_ms": 64.86409999997704,
+    "timing_report": "xip-ota-b18-timing-20261023.json"
+  },
+  "timeout_investigation": "xip-ota-timeout-investigation-20261023.json",
+  "final_board": {
+    "version": 18,
+    "slot": "B",
+    "confirmed": "UART Secure boot confirmation at10208ms after authenticated FSBL trial",
+    "fallback": "A17 retained in other slot",
+    "PC": "0x702CF144",
+    "VTOR": "0x70280400",
+    "latest_user_straps": "both1-2 FLASH",
+    "ToF_ready": true,
+    "NPU_runs": 1542,
+    "NPU_errors": 0,
+    "Cloud_sensor_exports": 0,
+    "SPI_faults": 0,
+    "NCP_recoveries": 0,
+    "BLE_driver_errors": 0,
+    "UART_drops": 0,
+    "dataset_off": true,
+    "image_route": "NONE",
+    "owned_ports_closed": true,
+    "hardware_lease_released": true,
+    "no_active_recorder": true,
+    "new_NOR_backup_after_final_updates": "Not taken; original immutable4MiB recovery backups and exact signed packages retained; no SWD attach to running NS"
+  },
+  "memory": {
+    "matched_RAM_heap_capacity": 369104,
+    "XIP_heap_capacity": 862064,
+    "gain_bytes": 492960,
+    "dynamic_all_heap_stack_highwater": "NOT_MEASURED",
+    "UART_stack_minfree": 2860,
+    "UART_stack_bytes": 3072,
+    "NPU_weights_bytes": 55425,
+    "NPU_weight_bank": "SRAM6,0x24350000",
+    "activation_pool_bytes": 17408,
+    "input_bytes": 3200,
+    "output_bytes": 4,
+    "CPU_RAM_is_not_automatic_NPU_pool": true,
+    "map_sections": {
+      "XIP": {
+        ".text": {
+          "address": "0x70280750",
+          "bytes": 344544
+        },
+        ".rodata": {
+          "address": "0x702d4940",
+          "bytes": 147868
+        },
+        ".data": {
+          "address": "0x24100400",
+          "bytes": 4128
+        },
+        ".bss": {
+          "address": "0x24101420",
+          "bytes": 179308
+        }
+      },
+      "RAM": {
+        ".text": {
+          "address": "0x24100750",
+          "bytes": 344496
+        },
+        ".rodata": {
+          "address": "0x24154900",
+          "bytes": 147796
+        },
+        ".data": {
+          "address": "0x24178a68",
+          "bytes": 3920
+        },
+        ".bss": {
+          "address": "0x241799c0",
+          "bytes": 179308
+        }
+      }
+    },
+    "RAM_text_rodata_combined_bytes": 492292,
+    "XIP_text_rodata_combined_bytes": 492412,
+    "note": "Heap gain includes vector/unwind/alignment and changed data placement; do not equate it exactly with text+rodata size."
+  },
+  "remaining_limits": [
+    "IntermittentSPI RX OVR root remains open despite no recurrence in controlled tests",
+    "No physical power cut during flash program; software unconfirmed-trial reset recovery did pass",
+    "No all-thread/heap high-water or long endurance acceptance",
+    "No larger-model training/accuracy claim; RPS crop contract unchanged",
+    "Cold FLASH boot measured onA14; finalB18 measured automatic boot/confirmation, not a separate physical cold cycle"
+  ]
 }
