@@ -1,0 +1,312 @@
+{
+  "status": "LOCAL_XIP_USB_SUSP_MEMORY_VALIDATED_OTA_NETWORK_BLOCKED",
+  "branch": "feature/n6-xip-ota-usb",
+  "firmware_source_commit": "d92ca02579cf360cec679e5e9cf673588be6d9ae",
+  "firmware": {
+    "slot": "A",
+    "version": 32,
+    "package": ".local-dependencies/xip/v32-A-susp-short-probe/N6-XIP-A-v32.n6fw",
+    "bytes": 512480,
+    "sha256": "32c9787c136a1b35d307e3a31efc4c1b79cb85e2256d5b6b682a0d10b02201b5",
+    "build_record_sha256": "55faa7561554afd7a58f8e3209a7b236da8bc6c0aa916b977595c994f5f27418",
+    "settings_writes": false,
+    "NCP_preserve": true,
+    "resource_diagnostics": true,
+    "MASRX_rx_backpressure": true,
+    "probe_pending": false
+  },
+  "XIP_proof": {
+    "source": "CPU-read UART emitted by this exact firmware after actual automatic flash boot",
+    "CPU_PC": "0x701CFCFC",
+    "VTOR": "0x70180400",
+    "FSBL_metadata_before_trial": "seq82 PENDING confirmedB31 pendingA32",
+    "manifest_signature_and_image_validation": "PASS captured FSBL",
+    "boot_confirmation_tick_ms": 10206,
+    "post_confirmation_raw_NOR_dump": "NOT_PERFORMED; no debugger attach during NS runtime",
+    "same_version_A32_cold_power_test": "NOT_RUN; automatic ROM flash boot captured, prior user FLASH boot B27 confirmed separately"
+  },
+  "USB_current_phase": {
+    "full_updates_while_executing_XIP": 5,
+    "passed": 5,
+    "total_package_bytes": 2557696,
+    "updates": [
+      {
+        "source_version": 27,
+        "target_version": 28,
+        "bytes": 511008,
+        "package_sha256": "aa1e4e5b5cd70044126834b46f2b9a1ad62371924af0f8a23065e3b2ac305ad5",
+        "sender_exit": 0,
+        "authenticated_finalization": true,
+        "automatic_USB_disconnect_seen": true,
+        "candidate_running": true,
+        "boot_confirmation_seen": true,
+        "source_admission": "Verified Secure confirmed-version, HIL100 not claimed for this source"
+      },
+      {
+        "source_version": 28,
+        "target_version": 29,
+        "bytes": 511008,
+        "package_sha256": "791efec9a21fe3b82dfacd0a18aa167b3d8444107bfe4178684bd469b70daea5",
+        "sender_exit": 0,
+        "authenticated_finalization": true,
+        "automatic_USB_disconnect_seen": true,
+        "candidate_running": true,
+        "boot_confirmation_seen": true,
+        "source_admission": "Captured USB source boot/confirmation, HIL100 not claimed for this source"
+      },
+      {
+        "source_version": 29,
+        "target_version": 30,
+        "bytes": 511008,
+        "package_sha256": "42cdc7fdd275b898acc6e46c038088bb68e47f66ff0f5d83eb1a08e480ffe574",
+        "sender_exit": 0,
+        "authenticated_finalization": true,
+        "automatic_USB_disconnect_seen": true,
+        "candidate_running": true,
+        "boot_confirmation_seen": true,
+        "source_admission": "Existing HIL100 artifact"
+      },
+      {
+        "source_version": 30,
+        "target_version": 31,
+        "bytes": 512192,
+        "package_sha256": "ef3a8c27e99f34aefed8dddd05a6409dbdd031b4f4a7ca8bebdd6ebbafa08288",
+        "sender_exit": 0,
+        "authenticated_finalization": true,
+        "automatic_USB_disconnect_seen": true,
+        "candidate_running": true,
+        "boot_confirmation_seen": true,
+        "source_admission": "Existing HIL100 artifact"
+      },
+      {
+        "source_version": 31,
+        "target_version": 32,
+        "bytes": 512480,
+        "package_sha256": "32c9787c136a1b35d307e3a31efc4c1b79cb85e2256d5b6b682a0d10b02201b5",
+        "sender_exit": 0,
+        "authenticated_finalization": true,
+        "automatic_USB_disconnect_seen": true,
+        "candidate_running": true,
+        "boot_confirmation_seen": true,
+        "source_admission": "Existing HIL100 artifact"
+      }
+    ],
+    "separate_RAM_recovery_B27": "510240bytes authenticated/finalized once; raw postflight expected-log failure qualified in xip-recovery-20261023-1157.json"
+  },
+  "SUSP_discriminating_HIL": {
+    "path": ".local-dependencies/xip/susp-probe-a32-20261023",
+    "passed": true,
+    "arms": 1,
+    "registers": {
+      "stage": 5,
+      "transfer": 2137,
+      "length": 64,
+      "suspend_status": 0,
+      "resume_status": 0,
+      "SR": "0x1c8801",
+      "RX_remaining": 36,
+      "completed": 1,
+      "resume_count": 1,
+      "maximum_observed_length": 64
+    },
+    "SPI_faults_after": 0,
+    "NCP_recovery_attempts_after": 0,
+    "local_scan_status": 0,
+    "USB_PONG_after": "3131",
+    "inference": "SR CTSIZE28 and RXDMA remaining36 differ by8, consistent with the limited8byte SPI5 RX FIFO holding data at automatic suspension",
+    "hardware_SPI_SUSP_observed": true,
+    "same_DMA_descriptor_resumed": true,
+    "ordinary_service_resume_increment": 1,
+    "NOR_write_or_external_server_request_requested": false,
+    "earlier_B31_gate256": "NOT_EXERCISED stage1, no eligible large ordinary transfer; retained, not promoted to success",
+    "limits": "Proves tested recovery path, not physical root of every historical OVR or new OTA timeout-free coverage"
+  },
+  "model_HIL": {
+    "runs": [
+      {
+        "firmware_version": 29,
+        "frames": 100,
+        "exact_tensors": 100,
+        "npu_frames": 100,
+        "max_score_delta": 2,
+        "class_matches": 100,
+        "crc_errors": 0,
+        "elapsed_s": 27.51600000000326,
+        "sensor_fps": 3.7093933830417027,
+        "model_sha256": "59f723828dffae236dd9fa37e2d0de9d7d1a3a31bc07fb4847b6a27dc6637d39",
+        "contract_sha256": "5137ed48ca591acb0ab595f612a05c475e865c516f3abe8948a8585928b6c82c"
+      },
+      {
+        "firmware_version": 30,
+        "frames": 100,
+        "exact_tensors": 100,
+        "npu_frames": 100,
+        "max_score_delta": 2,
+        "class_matches": 100,
+        "crc_errors": 0,
+        "elapsed_s": 27.53100000001723,
+        "sensor_fps": 3.705921988470465,
+        "model_sha256": "59f723828dffae236dd9fa37e2d0de9d7d1a3a31bc07fb4847b6a27dc6637d39",
+        "contract_sha256": "5137ed48ca591acb0ab595f612a05c475e865c516f3abe8948a8585928b6c82c"
+      },
+      {
+        "firmware_version": 31,
+        "frames": 100,
+        "exact_tensors": 100,
+        "npu_frames": 100,
+        "max_score_delta": 2,
+        "class_matches": 100,
+        "crc_errors": 0,
+        "elapsed_s": 27.56300000002375,
+        "sensor_fps": 3.708837522946091,
+        "model_sha256": "59f723828dffae236dd9fa37e2d0de9d7d1a3a31bc07fb4847b6a27dc6637d39",
+        "contract_sha256": "5137ed48ca591acb0ab595f612a05c475e865c516f3abe8948a8585928b6c82c"
+      },
+      {
+        "firmware_version": 32,
+        "frames": 100,
+        "exact_tensors": 100,
+        "npu_frames": 100,
+        "max_score_delta": 0,
+        "class_matches": 100,
+        "crc_errors": 0,
+        "elapsed_s": 27.45300000003772,
+        "sensor_fps": 3.710366539239937,
+        "model_sha256": "59f723828dffae236dd9fa37e2d0de9d7d1a3a31bc07fb4847b6a27dc6637d39",
+        "contract_sha256": "5137ed48ca591acb0ab595f612a05c475e865c516f3abe8948a8585928b6c82c"
+      }
+    ],
+    "total_frames": 400,
+    "latest": "A32 100/100 exact tensors,100 actual NPU,maxdelta0,27.453s",
+    "all_class_field_accuracy_or_larger_model_training": "NOT_CLAIMED"
+  },
+  "resource_measurements": {
+    "record": "docs/xip-resource-measurements-20261023.json",
+    "usage_rows": 41,
+    "sampled_threads": 16,
+    "all_sampled_provisional_margin_targets_met": true,
+    "radio_B29": {
+      "observed_peak": 59772,
+      "minimum_free": 5764,
+      "free_over_used_percent": 9.643311249414442
+    },
+    "radio_A30": {
+      "observed_peak": 50356,
+      "minimum_free": 15180,
+      "free_over_used_percent": 30.145365001191518
+    },
+    "radio_A32_after_scan_SUSP_HIL_overflow": {
+      "kind": "pool",
+      "object": "0x24115bf4",
+      "symbols": [
+        "tx_radio_byte_pool"
+      ],
+      "observations": 2722,
+      "capacity": 65536,
+      "observed_peak": 50828,
+      "observed_minimum_free": 14708,
+      "flags": 0,
+      "observed_free_over_used_percent": 28.93680648461478,
+      "observed_10percent_capacity_target_met": true,
+      "warning": "Wrapped observations only; fragmentation/largest request not proven"
+    },
+    "linker_default_RAM_heap": 369104,
+    "linker_current_XIP_heap": 851432,
+    "net_linker_capacity_difference": 482328,
+    "C_heap_frontier_peak": 357412,
+    "C_heap_frontier_tail": 494020,
+    "APP_shared_used": 215296,
+    "APP_shared_capacity": 262144,
+    "radio_shared_used_and_capacity": 65536,
+    "UART_stack_scan_capacity": 3776,
+    "UART_stack_scan_min_free": 3232,
+    "limits": [
+      "PSP maxima are samples, not full watermark/IRQ nesting/call-chain WC",
+      "Byte-pool peaks only observed at wrapped operations; USBPD observation1 is not vendor internal allocation coverage",
+      "C_sbrk frontier is not malloc free/largest block/fragmentation proof",
+      "Queue free-lists can validly reach capacity; burst-specific admission still needed",
+      "Normal RAM profile unchanged, does not claim new10percent policy acceptance"
+    ]
+  },
+  "failure_logging_HIL": {
+    "test": "existing bounded debug uart overflow,100 attempts",
+    "queued_and_sent": 34,
+    "deliberate_drops": 66,
+    "retained_deferred_LOG_ENQUEUE_count": 66,
+    "logger_backpressure_recovered": true,
+    "usage_rows_after": 41,
+    "context_oversize_transport_internal_timeouts_HAL_errors": 0,
+    "host_allocation_and_arithmetic_injection": "Actual C native suites PASS; not every vendor allocator failure injected on hardware"
+  },
+  "regressions_and_limits": {
+    "BLE_A30": "NOT_ACCEPTED: Windows DeviceNotFound before GATT commands, no Pair API/cache changes; no workaround",
+    "BLE_final_status": "GATT ready/advertising/disconnected; latest RF CLI test not accepted",
+    "rollback": "Earlier actual A16 trial rollback toB15 preserved; latest resource profile rollback NOT_REPEATED",
+    "power_cut_during_programming": "NOT_RUN",
+    "long_endurance": "NOT_RUN"
+  },
+  "OTA_current_attempt": {
+    "source": 30,
+    "target": 31,
+    "status": "NOT_STARTED_AT_FIRMWARE_NETWORK_CONNECT_DENIED",
+    "client_error": "Failed to complete negotiation with the server: TypeError: fetch failed",
+    "workspace_opened": false,
+    "commands": [],
+    "binary_blocks": 0,
+    "EOT": false,
+    "local_health_diagnostic": "connect EACCES20.217.52.1:443",
+    "runtime_network_flag": "CODEX_SANDBOX_NETWORK_DISABLED=1",
+    "explicit_auto_review_denial_record": false,
+    "specific_Windows_firewall_or_VPN_rule_identified": false,
+    "network_retries_after_EACCES_known": 0,
+    "browser_or_alternative_route_used": false,
+    "supported_next_permission_request": "Before execution, request per-command exec_command sandbox_permissions=require_escalated, no prefix_rule/persistent setting, read-only Node HTTPSGET /health to original host443, no token",
+    "permission_request_submitted": false,
+    "actual_next_OTA_after_permission": "Fresh source/proof and signed inactive B version>32, not re-send old B31",
+    "earlier_successful_OTA_and_timeouts": "Retained historical evidence; current SUSP/diagnostic fixes have not completed actual OTA regression"
+  },
+  "NPU_headroom": {
+    "current_input": "uint8 1x50x64x1,3200bytes",
+    "output": "int8 four classes,4bytes",
+    "activation_pool_bytes": 17408,
+    "activation_bank": "SRAM5",
+    "weights_bytes": 55425,
+    "weights_bank_address": "SRAM6 0x24350000, staged from NOR initializer",
+    "freed_CPU_heap_not_equivalent_to_NPU_pool": true,
+    "sensor_grid": "54x42",
+    "RPS": "software nearest connected-component crop/silhouette, no demonstrated optical autofocus",
+    "full_field": "spatial_depth_v1 already resizes full54x42 to64x50; needs its separately trained/quantized/integrated contract; prior spatial2 HIL100 retained",
+    "current_runtime": "Original RPS4 model unchanged; no silent full-frame substitution, new dataset or accuracy claim"
+  },
+  "recovery": {
+    "valid_source_image_preserved": "B31 retained during A32 installer and named as previous confirmed source; no new raw NOR dump during NS runtime",
+    "newest_full_double_NOR_backup": ".local-dependencies/xip/recovery-read-20261023-1157",
+    "backup_sha256": "4d005e5ade35f431791c88c77ff0ab6ff3ae5cdb875806da92562ee52ddfafca",
+    "backup_warning": "Forensic pre-repair snapshot containing faultyA23/partialB24, NOT current good whole-NOR restore image",
+    "original_guarded_RAM_and_NOR_backups": "Preserved unchanged; see xip-recovery-20261023-1157.json",
+    "bootchain": "No FSBL/Secure NOR write in this phase; fresh pre-repair prefix matched existing verified backup"
+  },
+  "final_board": {
+    "version": 32,
+    "ToF_frame": 7729,
+    "NPU_runs": 2929,
+    "NPU_errors": 0,
+    "image_route": "NONE",
+    "dataset": "OFF,100 USB records submitted",
+    "Cloud": "disabled,paired,sensor sent0",
+    "WiFi": "retained configuration/IP",
+    "BLE": "ready,advertising,disconnected",
+    "SPI_faults": 0,
+    "NCP_recovery_attempts": 0,
+    "UART_drops": "66 deliberate overflow control; no transport/timeouts/HAL errors",
+    "pending_probe": false,
+    "physical_jumpers": "FLASH both1-2, user-confirmed13:01",
+    "owned_handles_closed": true,
+    "exclusive_lease_released": true,
+    "active_recorder": false
+  },
+  "main": "80f2b511029be6d87f9e72c32b00515457671f89 unchanged",
+  "server": "5905a7df14e1b2c486577297e4d741e82011ce3e unchanged",
+  "OTP_fuses_lifecycle_debug_locks_pairing_credentials": "No requested changes executed; no browser bypass or expanded sensor cloud export",
+  "prior_SDK_uncertainty": "Earlier dotnet first-run printed development-certificate installation; CurrentUser/My read0, outcome uncertain. No additional SDK/trust/export/cleanup calls. Retained in prior experiment ledger."
+}

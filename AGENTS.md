@@ -26,6 +26,21 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- CURRENT2026-10-23: A32 XIP confirmed, B31 retained. Five full XIP USB
+  updates PASS; actual CPU PC701CFCFC/VTOR70180400, HIL100exact/NPU100/delta0.
+  SUSP discriminating HIL PASS64bytes/SR001C8801/RXleft36/resume+1/completed1,
+  SPI/NCP faults0. Radio pool observed min14708/peak50828(28.94%), not full WC.
+  UART bounded overflow66drops independently retained/reported; no transport
+  error. DatasetOFF/imageNONE/Clouddisabled+paired/sent0. All owned handles and
+  lease released. No pending probe or recorder. Main80f2b511/server5905a7d unchanged.
+  OTA latest did NOT reach firmware: EACCES20.217.52.1:443, runtime
+  CODEX_SANDBOX_NETWORK_DISABLED=1; no workspace/commands/blocks/EOT. Stop
+  network retries/bypass; per-call supported escalation request must be reported
+  before execution. No browser/alternate route, firewall/VPN/security mutation.
+  BLE latest DeviceNotFound before GATT, no Pair/cache operations. Current guide
+  docs/xip-usage-recovery-20261023_HE.md and evidence xip-final-checkpoint-20261023.json
+  supersede all older board-state entries below. No additional sensor cloud export.
+
 - Resource safety profile2026-10-23 is HOST-ONLY, optional
   N6_RESOURCE_DIAGNOSTICS/Build-Xip -ResourceDiagnostics. Checked allocation/queue
   arithmetic, independent retained counters and bounded deferred UART reports;

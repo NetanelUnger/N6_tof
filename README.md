@@ -1,5 +1,19 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Current2026-10-23 14:06UTC: A32 XIP RUNNING/CONFIRMED, B31 retained.
+CPU PC701CFCFC/VTOR70180400; five full USB updates from XIP PASS.
+A32 HIL100 exact/NPU100/maxdelta0/27.453s. Real induced SUSP resume PASS:
+DMA64bytes/SR001C8801/RXremaining36/completed1/resume+1/SPI faults0.
+Radio pool observed free14708/peak50828=28.94%; PSP samples are NOT WC proof.
+UART overflow34queued+66dropped, retained66 reported after backpressure PASS.
+Clouddisabled/paired/sensor0/datasetOFF; all handles/lease released.
+Current OTA NOT_STARTED: local connectEACCES20.217.52.1:443 and
+CODEX_SANDBOX_NETWORK_DISABLED=1. No workspace/command/block sent; no bypass.
+BLE latest RF test WindowsDeviceNotFound before GATT; not accepted.
+See [current Hebrew use/recovery guide](docs/xip-usage-recovery-20261023_HE.md)
+and [qualified evidence](docs/xip-final-checkpoint-20261023.json).
+All older checkpoints below are historical, including the A23 recovery blocker.
+
 Current13:05UTC: B27 runs after user FLASH cold power-on; USB version27 and
 Secure header-only VERSION-reject prove CONFIRMED27. ToFready/NPU449errors0,
 imageNONE/datasetoff/Cloudsent0. Actual boot moment/PC not captured. Resource
