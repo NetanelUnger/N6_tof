@@ -9,6 +9,8 @@
   * that boot and USB failures can be reported without depending on USBX.
   */
 
+#define N6_RESOURCE_SOURCE N6R_LOG
+#include "resource_diag.h"
 #include "debug_uart.h"
 
 #include <inttypes.h>
@@ -151,6 +153,9 @@ static void Debug_UART_CriticalExit(uint32_t interrupt_state)
 
 static void Debug_UART_RecordDrop(DebugUartDropReason_t reason)
 {
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  N6R_Record(N6R_LOG,reason==DEBUG_UART_DROP_OVERSIZE?N6R_OVERFLOW:N6R_ENQUEUE,(uint32_t)reason,__LINE__,0,0);
+#endif
   uint32_t interrupt_state = Debug_UART_CriticalEnter();
 
   debug_uart_dropped_messages++;
@@ -654,8 +659,14 @@ void Debug_UART_TaskRun(void)
   Debug_UART_ArmRx();
   for (;;)
   {
+    N6R_ReportDeferred();
     status = tx_queue_receive(&debug_uart_ready_queue, &slot,
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+                              TX_TIMER_TICKS_PER_SECOND);
+    if(status==TX_QUEUE_EMPTY)continue;
+#else
                               TX_WAIT_FOREVER);
+#endif
     if (status != TX_SUCCESS)
     {
       Debug_UART_RecordInternalError(0U);
@@ -1481,3 +1492,7 @@ void Debug_UART_GetStatus(DebugUart_Status_t *status)
   status->test_flush_status = debug_uart_test_flush_status;
   Debug_UART_CriticalExit(interrupt_state);
 }
+
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+#include "resource_diag_impl.inc"
+#endif

@@ -26,6 +26,14 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Resource safety profile2026-10-23 is HOST-ONLY, optional
+  N6_RESOURCE_DIAGNOSTICS/Build-Xip -ResourceDiagnostics. Checked allocation/queue
+  arithmetic, independent retained counters and bounded deferred UART reports;
+  provisional >=10% stack envelopes are NOT measured worst-case. Sampled PSP is
+  NOT full high-water. Keep vendor libraries scoped; see
+  docs/resource-memory-policy_HE.md and resource-inventory-20261023.json.
+  No hardware/capture until fresh coordinated user readiness after A23 fault.
+
 - Current XIP2026-10-23: HARDWARE RECOVERY PENDING. A23 diagnostic image was
   signed USB-installed/confirmed/HIL100 PASS, then OTA B24 faulted28%, NSSTKOF
   0x00100000. B24 partial, previous B22 overwritten; do NOT claim live board or

@@ -1,3 +1,5 @@
+#define N6_RESOURCE_SOURCE N6R_RTOS
+#include "resource_diag.h"
 #include "freertos_compat.h"
 
 #include <string.h>
@@ -69,6 +71,7 @@ void *pvPortMalloc(size_t size)
 
   if ((compat_byte_pool == TX_NULL) || (size == 0U))
   {
+    N6R_Record(N6R_RTOS,N6R_INVALID,TX_PTR_ERROR,__LINE__,size,compat_byte_pool);
     return NULL;
   }
 
@@ -162,7 +165,14 @@ BaseType_t xTaskCreate(TaskFunction_t task_code, const char *name,
   }
   (void)memset(task, 0, sizeof(*task));
 
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  size_t requested;uint32_t budget;
+  if(!N6_CheckedMultiply(stack_depth,sizeof(StackType_t),&requested)||!N6_CheckedStackBytes(requested,&budget))
+  {N6R_Record(N6R_RTOS,N6R_OVERFLOW,0x103U,__LINE__,stack_depth,0);vPortFree(task);return pdFAIL;}
+  stack_size=budget;
+#else
   stack_size = (ULONG)stack_depth * (ULONG)sizeof(StackType_t);
+#endif
   if (stack_size < TX_MINIMUM_STACK)
   {
     stack_size = TX_MINIMUM_STACK;
@@ -263,8 +273,13 @@ QueueHandle_t xQueueCreate(UBaseType_t length, UBaseType_t item_size)
 
   if ((length == 0U) || (item_size == 0U))
   {
+    N6R_Record(N6R_RTOS,N6R_INVALID,TX_PTR_ERROR,__LINE__,length,0);
     return NULL;
   }
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  if(item_size>UINT32_MAX-(sizeof(ULONG)-1U))
+  {N6R_Record(N6R_RTOS,N6R_OVERFLOW,0x103U,__LINE__,item_size,0);return NULL;}
+#endif
 
   queue = (struct freertos_compat_queue *)pvPortMalloc(sizeof(*queue));
   if (queue == NULL)
@@ -280,7 +295,14 @@ QueueHandle_t xQueueCreate(UBaseType_t length, UBaseType_t item_size)
     return NULL;
   }
 
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  size_t requested;
+  if(!N6_CheckedMultiply(length,(size_t)queue->message_words*sizeof(ULONG),&requested)||requested>UINT32_MAX)
+  {N6R_Record(N6R_RTOS,N6R_OVERFLOW,0x103U,__LINE__,length,0);vPortFree(queue);return NULL;}
+  storage_size=(ULONG)requested;
+#else
   storage_size = (ULONG)length * (ULONG)queue->message_words * sizeof(ULONG);
+#endif
   queue->storage = pvPortMalloc(storage_size);
   if (queue->storage == NULL)
   {
@@ -450,6 +472,9 @@ EventBits_t xEventGroupWaitBits(EventGroupHandle_t group, EventBits_t bits,
                                BaseType_t wait_for_all,
                                TickType_t wait)
 {
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  N6R_ObserveCurrentStack();
+#endif
   ULONG actual = 0U;
   UINT option;
 

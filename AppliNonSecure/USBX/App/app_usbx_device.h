@@ -71,6 +71,11 @@ typedef struct
  */
 #undef UX_DEVICE_APP_THREAD_STACK_SIZE
 #define UX_DEVICE_APP_THREAD_STACK_SIZE   (16U * 1024U)
+#include "resource_memory_policy.h"
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+#undef UX_DEVICE_APP_THREAD_STACK_SIZE
+#define UX_DEVICE_APP_THREAD_STACK_SIZE N6_STACK_BYTES(16U*1024U)
+#endif
 
 /* Keep the lifecycle manager above the RX/TX workers (priority 9).  A lower
  * ThreadX number is a higher priority. */

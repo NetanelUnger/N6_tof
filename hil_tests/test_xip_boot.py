@@ -99,8 +99,14 @@ int main(void) {
   VirtualFree(mapped,0,MEM_RELEASE);puts("PASS all 21 actual-C host cases (PKA/NOR mocked)");return 0;
 }
 '''
-def run_native(harness=HARNESS, extra_stubs=None, extra_includes=()):
-    with tempfile.TemporaryDirectory(prefix='n6-xip-test-') as tmp:
+def run_native(harness=HARNESS, extra_stubs=None, extra_includes=(), retain_artifacts=False):
+    if retain_artifacts:
+        import contextlib
+        retained=ROOT/'.local-dependencies/native-tests';retained.mkdir(parents=True,exist_ok=True)
+        context=contextlib.nullcontext(tempfile.mkdtemp(prefix='resource-',dir=retained))
+    else:
+        context=tempfile.TemporaryDirectory(prefix='n6-xip-test-')
+    with context as tmp:
         p=Path(tmp)
         (p/'test.c').write_text(harness)
         (p/'stm32_extmem.h').write_text('''#define EXTMEM_OK 0

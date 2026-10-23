@@ -1,5 +1,8 @@
 #ifndef APP_FEATURES_H
 #define APP_FEATURES_H
+#ifndef N6_RESOURCE_DIAGNOSTICS
+#define N6_RESOURCE_DIAGNOSTICS (0U) /* XIP candidate; host-only until HIL. */
+#endif
 
 /*
  * Set this switch to 0 to remove the ST67W6X application thread at runtime.

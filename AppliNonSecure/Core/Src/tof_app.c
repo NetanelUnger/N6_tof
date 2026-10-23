@@ -9,6 +9,8 @@
  * next ranging cycle overlaps CPU transform and terminal rendering.
  */
 
+#define N6_RESOURCE_SOURCE N6R_TOF
+#include "resource_diag.h"
 #include "tof_app.h"
 
 #include <math.h>

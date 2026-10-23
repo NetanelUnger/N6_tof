@@ -22,6 +22,9 @@
 #include "app_usbx_device.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#define N6_RESOURCE_SOURCE N6R_USB
+#include "resource_diag.h"
+
 #include <stdint.h>
 #include <string.h>
 

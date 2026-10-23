@@ -39,7 +39,7 @@ _estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM" Ram type memory */
 _sstack = _estack - _Min_Stack_Size;
 
 _Min_Heap_Size = 0x200; /* required amount of heap */
-_Min_Stack_Size = 0x800; /* required amount of stack */
+_Min_Stack_Size = DEFINED(N6_RESOURCE_DIAG_LINK) ? 0xA40 : 0x800; /* conservative NS MSP margin, HIL pending */
 
 /* Memories definition */
 MEMORY

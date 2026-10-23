@@ -1,5 +1,10 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Host-only resource safety profile: checked allocation/queue arithmetic, retained
+failure counters and deferred bounded UART reporting; provisional >=10% stack
+margin policy. Not installed or hardware accepted. See
+[memory policy and pending HIL](docs/resource-memory-policy_HE.md).
+
 Current2026-10-23 recovery blocker: diagnostic A23 confirmed, but OTA toB24
 faulted at28% with NS STKOF. Board is NOT verified running. B24 is partial;
 formerB22 was overwritten, so no valid alternate B fallback is claimed.

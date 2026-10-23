@@ -1,3 +1,5 @@
+#define N6_RESOURCE_SOURCE N6R_CORE
+#include "resource_diag.h"
 #include "debug_cli.h"
 
 #include <inttypes.h>
@@ -2131,6 +2133,14 @@ static void cli_command_debug(Menu_t *menu, const char *command)
     return;
   }
 
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  if ((argc == 2) && (strcmp(argv[1], "resources") == 0))
+  {
+    N6R_RequestUsage();
+    cli_print("Resource snapshot scheduled on UART; stack peaks are sampled, not proven worst-case.\r\n");
+    return;
+  }
+#endif
   if ((argc == 2) && (strcmp(argv[1], "uart") == 0))
   {
     DebugUart_Status_t status;

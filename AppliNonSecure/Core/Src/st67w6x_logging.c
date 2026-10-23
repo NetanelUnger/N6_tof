@@ -1,3 +1,5 @@
+#define N6_RESOURCE_SOURCE N6R_LOG
+#include "resource_diag.h"
 #include "logging.h"
 #include "app_logging.h"
 

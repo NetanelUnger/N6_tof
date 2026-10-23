@@ -23,6 +23,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#define N6_RESOURCE_SOURCE N6R_INIT
+#include "resource_diag.h"
+
 #include "app_console.h"
 #include "app_features.h"
 #include "cloud_relay.h"
@@ -67,6 +70,22 @@
  * Cloud yields on its own event wait and all blocking modem operations. */
 #define TX_CLOUD_RELAY_PRIORITY         (9U)
 
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+#undef TX_TOF_ACQUISITION_STACK_SIZE
+#define TX_TOF_ACQUISITION_STACK_SIZE N6_STACK_BYTES(16U*1024U)
+#undef TX_UPDATE_CONFIRM_STACK_SIZE
+#define TX_UPDATE_CONFIRM_STACK_SIZE N6_STACK_BYTES(2U*1024U)
+#undef TX_DISPLAY_STACK_SIZE
+#define TX_DISPLAY_STACK_SIZE N6_STACK_BYTES(4U*1024U)
+#undef TX_DEBUG_UART_STACK_SIZE
+#define TX_DEBUG_UART_STACK_SIZE N6_STACK_BYTES(3U*1024U)
+#undef TX_DEBUG_UART_TEST_STACK_SIZE
+#define TX_DEBUG_UART_TEST_STACK_SIZE N6_STACK_BYTES(3U*1024U)
+#undef TX_WIFI_CONTROL_STACK_SIZE
+#define TX_WIFI_CONTROL_STACK_SIZE N6_STACK_BYTES(6144U)
+#undef TX_CLOUD_RELAY_STACK_SIZE
+#define TX_CLOUD_RELAY_STACK_SIZE N6_STACK_BYTES(8U*1024U)
+#endif
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -77,6 +96,10 @@
 /* Private variables ---------------------------------------------------------*/
 TX_THREAD tx_app_thread;
 /* USER CODE BEGIN PV */
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+static UCHAR resource_wifi_control_stack[TX_WIFI_CONTROL_STACK_SIZE]
+ __attribute__((section(".app_shared_bss"),aligned(64)));
+#endif
 static TX_THREAD tx_tof_acquisition_thread;
 static TX_THREAD tx_update_confirm_thread;
 static TX_THREAD tx_debug_uart_thread;
@@ -294,12 +317,16 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   }
 
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  pointer=(CHAR *)resource_wifi_control_stack;
+#else
   if (tx_byte_allocate(radio_pool, (VOID **)&pointer,
                        TX_WIFI_CONTROL_STACK_SIZE,
                        TX_NO_WAIT) != TX_SUCCESS)
   {
     return TX_POOL_ERROR;
   }
+#endif
 
   /* Preserve the existing task/diagnostic name and stack. This worker now
    * owns slow BLE control commands as well as Wi-Fi requests. */

@@ -42,6 +42,7 @@
 #include "spi_iface.h"
 #include "spi_port.h"
 #include "debug_uart.h"
+#include "app_features.h"
 
 /** SPI header magic code */
 #define SPI_HEADER_MAGIC_CODE           0x55AAU
@@ -50,6 +51,12 @@
 /** SPI thread stack size */
 #define SPI_THREAD_STACK_SIZE           768U
 #endif /* SPI_THREAD_STACK_SIZE */
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+/* Conservative legacy envelope, padded once by xTaskCreate. Formatting stays
+ * forbidden in this worker even with the enlarged stack. */
+#undef SPI_THREAD_STACK_SIZE
+#define SPI_THREAD_STACK_SIZE 1024U
+#endif
 
 #ifndef SPI_THREAD_PRIO
 /** SPI thread priority */

@@ -1,3 +1,5 @@
+#define N6_RESOURCE_SOURCE N6R_CLOUD
+#include "resource_diag.h"
 #include "cloud_relay.h"
 #include "app_cli_reply.h"
 #include "app_settings.h"

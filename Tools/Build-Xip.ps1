@@ -3,7 +3,8 @@ param(
     [Parameter(Mandatory=$true)][ValidateRange(1,[uint32]::MaxValue)][uint32]$FirmwareVersion,
     [ValidatePattern("^[a-zA-Z0-9-]*$")][string]$Label = "",
     [switch]$FaultProbe,
-    [switch]$RxBackpressure
+    [switch]$RxBackpressure,
+    [switch]$ResourceDiagnostics
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -87,6 +88,17 @@ try {
     foreach ($extension in @('elf','bin','map')) {
         Copy-Item (Join-Path $root "AppliNonSecure/Debug/N6_AppliNonSecure.$extension") (Join-Path $output "ram.$extension")
     }
+    if ($ResourceDiagnostics) {
+        Assert-XipBranch
+        $instrumented=[IO.File]::ReadAllText($featurePath).Replace('#define N6_RESOURCE_DIAGNOSTICS (0U)','#define N6_RESOURCE_DIAGNOSTICS (1U)')
+        if ($instrumented -notmatch '#define N6_RESOURCE_DIAGNOSTICS \(1U\)') {throw 'Resource diagnostics flag absent'}
+        [IO.File]::WriteAllText($featurePath,$instrumented,[Text.UTF8Encoding]::new($false))
+        Push-Location (Join-Path $root 'AppliNonSecure/Debug')
+        try {
+            & $tools.Make -j8 N6_AppliNonSecure.elf N6_AppliNonSecure.bin *> (Join-Path $output 'resource-diagnostics-build.log')
+            if ($LASTEXITCODE -ne 0) {throw 'Resource diagnostics object build failed'}
+        } finally {Pop-Location}
+    }
     $build = Join-Path $root 'AppliNonSecure/Debug'
     $base = if ($Slot -eq 'A') {'0x70180000'} else {'0x70280000'}
     $elf = Join-Path $output 'application.elf'
@@ -141,6 +153,7 @@ try {
             '--specs=nosys.specs',"-Wl,-Map=$map",'-Wl,--gc-sections','-static',
             '-L../../Middlewares/ST/STM32_USBPD_Library/Core/lib','-L../AI/Lib','--specs=nano.specs',
             '-mfpu=fpv5-d16','-mfloat-abi=hard','-mthumb','-Wl,--start-group','-lc','-lm','-Wl,--end-group')
+        if ($ResourceDiagnostics) {$linkArgs=@('-Wl,--defsym=N6_RESOURCE_DIAG_LINK=1')+$linkArgs}
         & (Join-Path $tools.GnuBin 'arm-none-eabi-gcc.exe') @linkArgs *> (Join-Path $output 'xip-link.log')
         if ($LASTEXITCODE -ne 0) { throw 'XIP link failed.' }
         & (Join-Path $tools.GnuBin 'arm-none-eabi-objcopy.exe') -O binary $elf $bin
@@ -192,12 +205,29 @@ try {
         $sourceHashes['Tools/xip_fault_probe.h']=Get-N6FileSha256 (Join-Path $root 'Tools/xip_fault_probe.h')
     }
     $hashes = [ordered]@{}
+    if ($ResourceDiagnostics) {
+        $resourceSources=@(Get-ChildItem (Join-Path $root 'AppliNonSecure/Core/Inc') -Filter 'resource_*.h')
+        $resourceSources+=Get-Item (Join-Path $root 'AppliNonSecure/Core/Src/resource_diag_impl.inc')
+        $resourceSources+=Get-ChildItem (Join-Path $root 'AppliNonSecure') -Recurse -Filter '*.c' | Where-Object {
+            $_.FullName -notmatch '[\\/]Debug[\\/]' -and [IO.File]::ReadAllText($_.FullName).Contains('N6_RESOURCE_SOURCE') }
+        foreach ($resourceFile in $resourceSources) {
+            $relative=[IO.Path]::GetRelativePath($root,$resourceFile.FullName).Replace('\','/')
+            $sourceHashes[$relative]=Get-N6FileSha256 $resourceFile.FullName
+        }
+        foreach ($relative in @('AppliNonSecure/Core/Inc/app_threadx.h','AppliNonSecure/USBX/App/app_usbx_device.h','AppliNonSecure/AZURE_RTOS/App/app_azure_rtos_config.h')) {
+            $sourceHashes[$relative]=Get-N6FileSha256 (Join-Path $root $relative)
+        }
+        foreach ($name in @('debug_uart','freertos_compat')) {
+            Copy-Item (Join-Path $root "AppliNonSecure/Debug/Core/Src/$name.su") (Join-Path $output "$name-resource.su")
+        }
+    }
     foreach ($item in Get-ChildItem $output -File | Where-Object Extension -in '.elf','.map','.bin','.n6fw') {
         $hashes[$item.Name] = @{sha256=Get-N6FileSha256 $item.FullName;bytes=$item.Length}
     }
     $result = [ordered]@{status='BUILT_NOT_INSTALLED';branch='feature/n6-xip-ota-usb';source_commit=(& git -c "safe.directory=$root" -C $root rev-parse HEAD);slot=$Slot;version=$FirmwareVersion;execution_base=$base;ncp_preserve=$true;settings_writes=$false;cloud_auto_map=$false;fault_probe=[bool]$FaultProbe;budgets=$budgets;source_sha256=$sourceHashes;hashes=$hashes}
     Assert-XipBranch
     $result['rx_backpressure']=[bool]$RxBackpressure
+    $result['resource_diagnostics']=[bool]$ResourceDiagnostics
     [IO.File]::WriteAllText((Join-Path $output 'build.json'),($result | ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
     Write-Host "XIP build/package ready: $output. Hardware installation and HIL have not run."
 } finally {
