@@ -196,7 +196,10 @@ def cli_main():
             # Retain the live UART through confirmation; never re-send an image
             # just because an early version response preceded that message.
             if not args.trial_reboot and f'Firmware version: {target_version}\r\n' in result.get('version_after',''):
-                confirmation_deadline=time.monotonic()+30
+                # Watchdog requires two owner progress samples; Wi-Fi control
+                # has a valid30s idle wait. This is a boot-observation budget,
+                # never an XMODEM ACK/packet timeout change.
+                confirmation_deadline=time.monotonic()+(50 if info.get('watchdog') else 30)
                 while time.monotonic()<confirmation_deadline:
                     trace.flush()
                     if 'boot confirmed; rollback window closed' in (output/'uart.log').read_text(errors='replace'):break
