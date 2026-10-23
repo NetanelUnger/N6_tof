@@ -26,6 +26,22 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Current XIP2026-10-23: HARDWARE RECOVERY PENDING. A23 diagnostic image was
+  signed USB-installed/confirmed/HIL100 PASS, then OTA B24 faulted28%, NSSTKOF
+  0x00100000. B24 partial, previous B22 overwritten; do NOT claim live board or
+  valid alternate B fallback. Exact original NOR/RAM backups retained. B25
+  deferred logger built/offline signature PASS only; no hardware validation.
+  Old actual SPI log call chain >=776bytes vs768stack; fixed local service128
+  bytes, not whole runtime high-water. Server30s command lease vs15s sender
+  timeout reproduced host-only; server untouched. SDK first-run printed dev
+  certificate install; CurrentUser/My read found0, outcome UNCERTAIN; no trust/
+  export/cleanup/furtherSDK calls. Report this, don't assert no credentials
+  side effect proven. All hardware handles/lease released, recorder OFF.
+  Parent requested fresh user readiness before ANY hardware/capture. No reset/
+  debugger/write since fault. Read docs/xip-recovery-after-a23_HE.md first;
+  initial DEV read controller, preserve main and user untracked training plan.
+  No blind retry/old fallback boot/NOR mass restore/OTP/server change.
+
 - Final measured2026-10-23: B18 XIP confirmed, A17 recovery retained. A14cold+
  HIL100+SWreset PASS. OTA B15auto boot PASS with2timeouts/block78+SPI OVR;
  ROOT CAUSE STILL OPEN. USB valid768byte cancellation and A16trial reset rollback

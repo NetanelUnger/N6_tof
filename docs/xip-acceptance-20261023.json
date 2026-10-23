@@ -2,7 +2,7 @@
   "date": "2026-10-23",
   "branch": "feature/n6-xip-ota-usb",
   "main": "80f2b511029be6d87f9e72c32b00515457671f89",
-  "status": "XIP_USB_OTA_ROLLBACK_PERSISTENT_BOOT_MEASURED; INTERMITTENT_OTA_SPI_TIMEOUT_ROOT_CAUSE_OPEN",
+  "status": "BLOCKED_HARDWARE_RECOVERY_AFTER_DIAGNOSTIC_STACK_FAULT; TIMEOUT_FIX_NOT_ACCEPTED",
   "cold_boot": {
     "user_confirmation_UTC": "2026-10-23T07:12:16Z",
     "UART_bytes": 30821,
@@ -148,27 +148,18 @@
   },
   "timeout_investigation": "xip-ota-timeout-investigation-20261023.json",
   "final_board": {
-    "version": 18,
-    "slot": "B",
-    "confirmed": "UART Secure boot confirmation at10208ms after authenticated FSBL trial",
-    "fallback": "A17 retained in other slot",
-    "PC": "0x702CF144",
-    "VTOR": "0x70280400",
-    "latest_user_straps": "both1-2 FLASH",
-    "ToF_ready": true,
-    "NPU_runs": 1542,
-    "NPU_errors": 0,
-    "Cloud_sensor_exports": 0,
-    "SPI_faults": 0,
-    "NCP_recoveries": 0,
-    "BLE_driver_errors": 0,
-    "UART_drops": 0,
-    "dataset_off": true,
-    "image_route": "NONE",
-    "owned_ports_closed": true,
-    "hardware_lease_released": true,
-    "no_active_recorder": true,
-    "new_NOR_backup_after_final_updates": "Not taken; original immutable4MiB recovery backups and exact signed packages retained; no SWD attach to running NS"
+    "last_confirmed_slot": "A",
+    "last_confirmed_version": 23,
+    "runtime": "FAULTED, LIVE_OPERATION_NOT_VERIFIED_AFTER_FAULT",
+    "slot_B": "B24 PARTIAL, formerB22 overwritten; not a valid alternate recovery image",
+    "metadata_after_fault": "Not independently read; last captured app confirmation23 precedes failed B24 transfer",
+    "boot_chain": "FSBL/Secure unchanged by all experiments",
+    "SWD_reset_or_write_after_fault": false,
+    "hardware_handles_closed": true,
+    "lease_released": true,
+    "active_recorder": false,
+    "sensor_exports_requested": false,
+    "next": "Coordinate fresh DEV cold boot before safe recovery-state reader; do not blindly rerun OTA or boot partialB24"
   },
   "memory": {
     "matched_RAM_heap_capacity": 369104,
@@ -230,6 +221,9 @@
     "No physical power cut during flash program; software unconfirmed-trial reset recovery did pass",
     "No all-thread/heap high-water or long endurance acceptance",
     "No larger-model training/accuracy claim; RPS crop contract unchanged",
-    "Cold FLASH boot measured onA14; finalB18 measured automatic boot/confirmation, not a separate physical cold cycle"
-  ]
+    "Cold FLASH boot measured onA14; finalB18 measured automatic boot/confirmation, not a separate physical cold cycle",
+    "Current A23 diagnostic stack fault; partialB24, B25 host-only, recovery required before further hardware tests",
+    "Current A23 diagnostic stack fault; partialB24, B25 host-only, recovery required before further hardware tests"
+  ],
+  "SPI_OVR_experiments": "xip-spi-ovr-experiments-20261023.json"
 }

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "OPEN_INTERMITTENT_SPI_OVR_NOT_REPRODUCED; NOT_FIXED_OR_PERFECT",
+  "status": "BLOCKED_HARDWARE_RECOVERY_AFTER_DIAGNOSTIC_STACK_FAULT; TIMEOUT_FIX_NOT_ACCEPTED",
   "old_B15": {
     "timeouts": 2,
     "affected_blocks": [
@@ -103,7 +103,10 @@
     "Idle PONG clock ratio0.99906 rules out a fixed large idle timebase slowdown in this measurement.",
     "NS TIM6 interrupt time can pause while Secure flash gate masks NS IRQs. UART arrival proxies include buffering/serial latency; negative cross-proxy intervals are not negative network delays.",
     "The two original15s timeout waits cannot be timed exactly from NS UART ticks. No timeout value was extended.",
-    "No speculative SPI clock/FIFO/MASRX change applied; physical/bus/DMA cause is still open."
+    "MASRX alone reproduced a stalled SUSP transfer; resume experiment subsequently hit STKOF and is NOT accepted.",
+    "Server30s lease vs15s sender timeout independently reproduced from actual class; production server unchanged.",
+    "MASRX alone reproduced a stalled SUSP transfer; resume experiment subsequently hit STKOF and is NOT accepted.",
+    "Server30s lease vs15s sender timeout independently reproduced from actual class; production server unchanged."
   ],
   "reviewed_sources": [
     "AppliNonSecure/Core/Src/spi_port.c",
@@ -115,6 +118,7 @@
     "Existing server xmodemSender.ts and output/ACK endpoints; read only",
     "https://www.st.com/resource/en/errata_sheet/es0620-stm32n6xxxx-device-errata-stmicroelectronics.pdf Rev5; no generic SPI OVR entry found, silicon revision still unresolved"
   ],
-  "changes": "Host independent UTC/monotonic RPC/TX/control/UART-arrival timestamps, event-loop monitor, read-only analyzer and bounded CRC negative control; no production server or SPI-driver change",
-  "remaining": "Capture a naturally recurring OVR with independent timing plus detailed SPI/DMA IRQ/bus trace before claiming causal firmware fix; physical signal integrity not measured"
+  "changes": "Optional XIP-only probes/MASRX/resume and deferred formatter correction; not default, not accepted hardware fix; no server edits.",
+  "remaining": "Restore control safely, validate deferred reporting and real resume in hardware, measure SPI stack margin, then OTA/USB/fault recovery regression. Original DMA starvation cause not yet proven; server lease tail independently isolated.",
+  "continued_experiments": "xip-spi-ovr-experiments-20261023.json"
 }

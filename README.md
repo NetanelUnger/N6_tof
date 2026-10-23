@@ -1,5 +1,16 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+Current2026-10-23 recovery blocker: diagnostic A23 confirmed, but OTA toB24
+faulted at28% with NS STKOF. Board is NOT verified running. B24 is partial;
+formerB22 was overwritten, so no valid alternate B fallback is claimed.
+B25 deferred-logging fix built/signature-verified ONLY, not installed.
+Actual old SPI formatter call chain >=776bytes exceeds768byte stack; fixed
+local resume chain128bytes, runtime high-water and resume proof still pending.
+All clients/UART/lease closed. Await fresh user readiness before any hardware.
+Main/server unchanged. See [current recovery steps](docs/xip-recovery-after-a23_HE.md)
+and [measured failures](docs/xip-spi-ovr-experiments-20261023.json).
+The checkpoints below are historical and do not describe the current board.
+
 Latest measured2026-10-23: B18 XIP running/confirmed, A17 retained for recovery.
 A14 cold FLASH boot+HIL100+software reset PASS. OTA A14->B15 complete498720bytes,
 automatic boot/confirmation PASS;2timeouts/retries on block78 accompanied SPI RX

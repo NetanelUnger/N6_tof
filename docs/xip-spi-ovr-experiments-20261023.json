@@ -1,0 +1,733 @@
+{
+  "date": "2026-10-23",
+  "status": "BLOCKED_HARDWARE_RECOVERY_AFTER_DIAGNOSTIC_STACK_FAULT; TIMEOUT_FIX_NOT_ACCEPTED",
+  "B20_OTA": {
+    "passed": true,
+    "package_bytes": 498720,
+    "timing": {
+      "label": "ota-b20-from-gate-probe",
+      "completed_ACKs": 489,
+      "timeouts": [],
+      "TX_ACK": {
+        "count": 489,
+        "p50_ms": 915.9847999999765,
+        "p95_ms": 1230.737599999993,
+        "max_ms": 3709.9032000000007
+      },
+      "RPC": {
+        "count": 489,
+        "p50_ms": 51.22920000000158,
+        "p95_ms": 58.97019999998156,
+        "max_ms": 307.1622000000207
+      },
+      "block_elapsed_including_retries": {
+        "count": 489,
+        "p50_ms": 915.9847999999765,
+        "p95_ms": 1230.737599999993,
+        "max_ms": 3709.9032000000007
+      },
+      "slowest_blocks_including_retries": [
+        {
+          "block": 0,
+          "attempts": 1,
+          "ms": 3709.9032000000007
+        },
+        {
+          "block": 1,
+          "attempts": 1,
+          "ms": 1795.4694999999992
+        },
+        {
+          "block": 106,
+          "attempts": 1,
+          "ms": 1499.271900000007
+        },
+        {
+          "block": 476,
+          "attempts": 1,
+          "ms": 1418.8246999999974
+        },
+        {
+          "block": 388,
+          "attempts": 1,
+          "ms": 1403.4025999999722
+        },
+        {
+          "block": 404,
+          "attempts": 1,
+          "ms": 1390.5284000000102
+        },
+        {
+          "block": 64,
+          "attempts": 1,
+          "ms": 1358.4159999999974
+        },
+        {
+          "block": 68,
+          "attempts": 1,
+          "ms": 1326.622199999998
+        },
+        {
+          "block": 39,
+          "attempts": 1,
+          "ms": 1315.2171999999991
+        },
+        {
+          "block": 235,
+          "attempts": 1,
+          "ms": 1307.1359999999986
+        }
+      ],
+      "slowest_ACKs": [
+        {
+          "sequence": 489,
+          "block": 0,
+          "attempt": 1,
+          "ms": 3709.9032000000007
+        },
+        {
+          "sequence": 1,
+          "block": 1,
+          "attempt": 1,
+          "ms": 1795.4694999999992
+        },
+        {
+          "sequence": 106,
+          "block": 106,
+          "attempt": 1,
+          "ms": 1499.271900000007
+        },
+        {
+          "sequence": 476,
+          "block": 476,
+          "attempt": 1,
+          "ms": 1418.8246999999974
+        },
+        {
+          "sequence": 388,
+          "block": 388,
+          "attempt": 1,
+          "ms": 1403.4025999999722
+        },
+        {
+          "sequence": 404,
+          "block": 404,
+          "attempt": 1,
+          "ms": 1390.5284000000102
+        },
+        {
+          "sequence": 64,
+          "block": 64,
+          "attempt": 1,
+          "ms": 1358.4159999999974
+        },
+        {
+          "sequence": 68,
+          "block": 68,
+          "attempt": 1,
+          "ms": 1326.622199999998
+        },
+        {
+          "sequence": 39,
+          "block": 39,
+          "attempt": 1,
+          "ms": 1315.2171999999991
+        },
+        {
+          "sequence": 235,
+          "block": 235,
+          "attempt": 1,
+          "ms": 1307.1359999999986
+        }
+      ],
+      "SPI_faults": [],
+      "host_loop_lags": [],
+      "stage_summary": {
+        "TX_to_device_RX_observed_ms": {
+          "count": 489,
+          "p50_ms": 520.764,
+          "p95_ms": 810.151,
+          "max_ms": 3299.031
+        },
+        "device_RX_to_ACK_observed_ms": {
+          "count": 489,
+          "p50_ms": 608.184,
+          "p95_ms": 615.0550000000001,
+          "max_ms": 1013.2639999999999
+        },
+        "ACK_observed_to_client_ms": {
+          "count": 489,
+          "p50_ms": -149.32500000000002,
+          "p95_ms": -60.553999999999995,
+          "max_ms": -41.075
+        }
+      },
+      "slow_stages": [
+        {
+          "sequence": 489,
+          "block": 0,
+          "attempt": 1,
+          "TX_to_device_RX_observed_ms": 3299.031,
+          "device_RX_to_ACK_observed_ms": 612.298,
+          "ACK_observed_to_client_ms": -202.329
+        },
+        {
+          "sequence": 1,
+          "block": 1,
+          "attempt": 1,
+          "TX_to_device_RX_observed_ms": 1077.923,
+          "device_RX_to_ACK_observed_ms": 809.22,
+          "ACK_observed_to_client_ms": -93.143
+        },
+        {
+          "sequence": 476,
+          "block": 476,
+          "attempt": 1,
+          "TX_to_device_RX_observed_ms": 1032.579,
+          "device_RX_to_ACK_observed_ms": 613.534,
+          "ACK_observed_to_client_ms": -228.113
+        },
+        {
+          "sequence": 101,
+          "block": 101,
+          "attempt": 1,
+          "TX_to_device_RX_observed_ms": 943.314,
+          "device_RX_to_ACK_observed_ms": 406.452,
+          "ACK_observed_to_client_ms": -148.76600000000002
+        },
+        {
+          "sequence": 110,
+          "block": 110,
+          "attempt": 1,
+          "TX_to_device_RX_observed_ms": 934.461,
+          "device_RX_to_ACK_observed_ms": 607.8679999999999,
+          "ACK_observed_to_client_ms": -244.32899999999998
+        },
+        {
+          "sequence": 432,
+          "block": 432,
+          "attempt": 1,
+          "TX_to_device_RX_observed_ms": 911.8629999999999,
+          "device_RX_to_ACK_observed_ms": 611.1990000000001,
+          "ACK_observed_to_client_ms": -230.06199999999998
+        },
+        {
+          "sequence": 39,
+          "block": 39,
+          "attempt": 1,
+          "TX_to_device_RX_observed_ms": 910.4100000000001,
+          "device_RX_to_ACK_observed_ms": 607.764,
+          "ACK_observed_to_client_ms": -203.174
+        },
+        {
+          "sequence": 20,
+          "block": 20,
+          "attempt": 1,
+          "TX_to_device_RX_observed_ms": 906.6619999999999,
+          "device_RX_to_ACK_observed_ms": 405.041,
+          "ACK_observed_to_client_ms": -81.703
+        },
+        {
+          "sequence": 239,
+          "block": 239,
+          "attempt": 1,
+          "TX_to_device_RX_observed_ms": 905.282,
+          "device_RX_to_ACK_observed_ms": 404.31600000000003,
+          "ACK_observed_to_client_ms": -121.598
+        },
+        {
+          "sequence": 170,
+          "block": 170,
+          "attempt": 1,
+          "TX_to_device_RX_observed_ms": 904.664,
+          "device_RX_to_ACK_observed_ms": 417.36899999999997,
+          "ACK_observed_to_client_ms": -97.033
+        }
+      ],
+      "limits": "UART timestamps are host read-arrival proxies, include UART queuing/read latency; device TIM6 is not wall time while NS IRQs are masked; negative cross-proxy intervals can occur"
+    },
+    "gate_probe": [
+      "[0000371719][XIP-PROBE] phase=3 calls=491 RX-overlap=0 pre-OVR=0 faults=0 NS-tick-delta=1"
+    ],
+    "capture_cleanup_raw_failure": "I/O operation on closed file after successful transfer/boot. Fixed with stop/join before file close; later hardware captures clean.",
+    "UART_sha256": "261f79c90a32948dfd47bdafcee3093700f8d0a10a129e7a80a0a7b1265e5bfd"
+  },
+  "no_NOR_control_B20": {
+    "passed": true,
+    "Cloud_radio_status_commands": 40,
+    "BLE_pings": 100,
+    "BLE_max_ms": 232.67230001511052,
+    "OS_paired": false,
+    "SPI_faults": 0,
+    "valid_manifest_sent": false,
+    "EOT_sent": false,
+    "sensor_uploads": 0,
+    "UART_cleanup": {
+      "serial_writes": 0,
+      "dtr": false,
+      "rts": false,
+      "sender_started": true,
+      "sender_pid": 60712,
+      "sender_exit": 0,
+      "reader_stopped": true,
+      "owned_uart_closed": true
+    }
+  },
+  "A21_MASRX_without_resume": {
+    "USB": {
+      "passed": true,
+      "bytes": 499776
+    },
+    "PC": "0x701CE164",
+    "VTOR": "0x70180400",
+    "CR1": "0x00001100",
+    "HIL100": {
+      "frames": 100,
+      "exact_tensors": 100,
+      "npu_frames": 100,
+      "max_score_delta": 5,
+      "class_matches": 100,
+      "passed": true,
+      "elapsed_s": 28.125
+    },
+    "B22_OTA": {
+      "passed_after_retries": true,
+      "timing": {
+        "label": "ota-b22-from-rx-backpressure",
+        "completed_ACKs": 489,
+        "timeouts": [
+          {
+            "atUtc": "2026-10-23T09:05:18.087Z",
+            "monotonicMs": 497414.4461,
+            "message": "TIMEOUT; retry same block",
+            "block": 473,
+            "attempt": 1,
+            "sequence": 473
+          },
+          {
+            "atUtc": "2026-10-23T09:05:33.145Z",
+            "monotonicMs": 512471.7802,
+            "message": "TIMEOUT; retry same block",
+            "block": 473,
+            "attempt": 2,
+            "sequence": 474
+          }
+        ],
+        "TX_ACK": {
+          "count": 489,
+          "p50_ms": 907.5764999999956,
+          "p95_ms": 1244.6949000000022,
+          "max_ms": 4182.301199999987
+        },
+        "RPC": {
+          "count": 491,
+          "p50_ms": 52.68759999994654,
+          "p95_ms": 61.16740000003483,
+          "max_ms": 459.9962999999989
+        },
+        "block_elapsed_including_retries": {
+          "count": 489,
+          "p50_ms": 907.5764999999956,
+          "p95_ms": 1244.6949000000022,
+          "max_ms": 32867.783600000024
+        },
+        "slowest_blocks_including_retries": [
+          {
+            "block": 473,
+            "attempts": 3,
+            "ms": 32867.783600000024
+          },
+          {
+            "block": 294,
+            "attempts": 1,
+            "ms": 4182.301199999987
+          },
+          {
+            "block": 193,
+            "attempts": 1,
+            "ms": 4154.062799999985
+          },
+          {
+            "block": 0,
+            "attempts": 1,
+            "ms": 3791.482799999998
+          },
+          {
+            "block": 287,
+            "attempts": 1,
+            "ms": 3781.617499999993
+          },
+          {
+            "block": 25,
+            "attempts": 1,
+            "ms": 3740.5282000000007
+          },
+          {
+            "block": 127,
+            "attempts": 1,
+            "ms": 3427.953199999989
+          },
+          {
+            "block": 412,
+            "attempts": 1,
+            "ms": 2968.6694000000134
+          },
+          {
+            "block": 1,
+            "attempts": 1,
+            "ms": 1779.3185999999987
+          },
+          {
+            "block": 74,
+            "attempts": 1,
+            "ms": 1531.1659000000072
+          }
+        ],
+        "slowest_ACKs": [
+          {
+            "sequence": 294,
+            "block": 294,
+            "attempt": 1,
+            "ms": 4182.301199999987
+          },
+          {
+            "sequence": 193,
+            "block": 193,
+            "attempt": 1,
+            "ms": 4154.062799999985
+          },
+          {
+            "sequence": 491,
+            "block": 0,
+            "attempt": 1,
+            "ms": 3791.482799999998
+          },
+          {
+            "sequence": 287,
+            "block": 287,
+            "attempt": 1,
+            "ms": 3781.617499999993
+          },
+          {
+            "sequence": 25,
+            "block": 25,
+            "attempt": 1,
+            "ms": 3740.5282000000007
+          },
+          {
+            "sequence": 127,
+            "block": 127,
+            "attempt": 1,
+            "ms": 3427.953199999989
+          },
+          {
+            "sequence": 412,
+            "block": 412,
+            "attempt": 1,
+            "ms": 2968.6694000000134
+          },
+          {
+            "sequence": 475,
+            "block": 473,
+            "attempt": 3,
+            "ms": 2749.853000000003
+          },
+          {
+            "sequence": 1,
+            "block": 1,
+            "attempt": 1,
+            "ms": 1779.3185999999987
+          },
+          {
+            "sequence": 74,
+            "block": 74,
+            "attempt": 1,
+            "ms": 1531.1659000000072
+          }
+        ],
+        "SPI_faults": [
+          {
+            "hostUtc": "2026-10-23T09:05:03.887134+00:00",
+            "line": "[0000259166][SPI-FAULT] count=1 tick=259166 transfer=84671 phase=2 len=1476 rx_only=1 source=6 HAL_error=0x00000000 state=5 collapsed=0"
+          },
+          {
+            "hostUtc": "2026-10-23T09:05:04.089175+00:00",
+            "line": "[0000259166][SPI-FAULT] SR=05710800 CR1=00001301 CR2=000005c4 CFG1=0007c007 CFG2=84400000 IER=00000360 pins(CS/RDY/EN)=5"
+          },
+          {
+            "hostUtc": "2026-10-23T09:05:04.089175+00:00",
+            "line": "[0000259167][SPI-FAULT] TX state=2 error=00000000 CCR=00805d01 CSR=00080000 CBR1=00000560 CTR1=00000000 CTR2=00000458"
+          },
+          {
+            "hostUtc": "2026-10-23T09:05:04.089175+00:00",
+            "line": "[0000259167][SPI-FAULT] RX state=2 error=00000000 CCR=00c05f01 CSR=00000000 CBR1=00000571 CTR1=00080000 CTR2=00000057"
+          }
+        ],
+        "host_loop_lags": [],
+        "stage_summary": {
+          "TX_to_device_RX_observed_ms": {
+            "count": 490,
+            "p50_ms": 521.341,
+            "p95_ms": 886.8430000000001,
+            "max_ms": 30539.895
+          },
+          "device_RX_to_ACK_observed_ms": {
+            "count": 490,
+            "p50_ms": 607.8199999999999,
+            "p95_ms": 614.1229999999999,
+            "max_ms": 1016.233
+          },
+          "ACK_observed_to_client_ms": {
+            "count": 490,
+            "p50_ms": -151.9735,
+            "p95_ms": -60.318,
+            "max_ms": -41.895
+          }
+        },
+        "slow_stages": [
+          {
+            "sequence": 473,
+            "block": 473,
+            "attempt": 1,
+            "TX_to_device_RX_observed_ms": 30539.895,
+            "device_RX_to_ACK_observed_ms": 612.307,
+            "ACK_observed_to_client_ms": -232.202
+          },
+          {
+            "sequence": 474,
+            "block": 473,
+            "attempt": 2,
+            "TX_to_device_RX_observed_ms": 16291.502999999999,
+            "device_RX_to_ACK_observed_ms": 607.804,
+            "ACK_observed_to_client_ms": -124.307
+          },
+          {
+            "sequence": 294,
+            "block": 294,
+            "attempt": 1,
+            "TX_to_device_RX_observed_ms": 3911.955,
+            "device_RX_to_ACK_observed_ms": 405.397,
+            "ACK_observed_to_client_ms": -135.352
+          },
+          {
+            "sequence": 193,
+            "block": 193,
+            "attempt": 1,
+            "TX_to_device_RX_observed_ms": 3808.5429999999997,
+            "device_RX_to_ACK_observed_ms": 403.72999999999996,
+            "ACK_observed_to_client_ms": -58.272999999999996
+          },
+          {
+            "sequence": 287,
+            "block": 287,
+            "attempt": 1,
+            "TX_to_device_RX_observed_ms": 3322.408,
+            "device_RX_to_ACK_observed_ms": 606.599,
+            "ACK_observed_to_client_ms": -148.007
+          },
+          {
+            "sequence": 491,
+            "block": 0,
+            "attempt": 1,
+            "TX_to_device_RX_observed_ms": 3303.439,
+            "device_RX_to_ACK_observed_ms": 608.406,
+            "ACK_observed_to_client_ms": -120.845
+          },
+          {
+            "sequence": 25,
+            "block": 25,
+            "attempt": 1,
+            "TX_to_device_RX_observed_ms": 3286.098,
+            "device_RX_to_ACK_observed_ms": 610.183,
+            "ACK_observed_to_client_ms": -156.281
+          },
+          {
+            "sequence": 127,
+            "block": 127,
+            "attempt": 1,
+            "TX_to_device_RX_observed_ms": 3074.022,
+            "device_RX_to_ACK_observed_ms": 405.687,
+            "ACK_observed_to_client_ms": -51.708999999999996
+          },
+          {
+            "sequence": 412,
+            "block": 412,
+            "attempt": 1,
+            "TX_to_device_RX_observed_ms": 2749.8,
+            "device_RX_to_ACK_observed_ms": 406.98400000000004,
+            "ACK_observed_to_client_ms": -189.78400000000002
+          },
+          {
+            "sequence": 475,
+            "block": 473,
+            "attempt": 3,
+            "TX_to_device_RX_observed_ms": 2247.5209999999997,
+            "device_RX_to_ACK_observed_ms": 604.798,
+            "ACK_observed_to_client_ms": -104.31899999999999
+          }
+        ],
+        "limits": "UART timestamps are host read-arrival proxies, include UART queuing/read latency; device TIM6 is not wall time while NS IRQs are masked; negative cross-proxy intervals can occur"
+      },
+      "gate_probe": [
+        "[0000259167][XIP-PROBE] fault=1 source=6 call-active=0 phase=2 offset=482048 length=1024 CCR=00020201 IPSR=0 BASEPRI=00000000 entry-mask=0",
+        "[0000259167][XIP-PROBE] pre SR=00019001 RX-CCR=00C05F00 RX-left=0 TX-left=0",
+        "[0000259168][XIP-PROBE] TX src/dst=2412C904/42005020 RX src/dst=42005030/242DEFAF",
+        "[0000270003][XIP-PROBE] phase=3 calls=491 RX-overlap=0 pre-OVR=0 faults=1 NS-tick-delta=1"
+      ],
+      "incident": "block473, 2timeouts,3attempts,32.8677836s firstTX-to-finalACK; source6 DMA wait timeout, not OVR",
+      "registers": {
+        "SPI_SR": "0x05710800",
+        "SPI_CR1": "0x00001301",
+        "RX_remaining": 1393,
+        "TX_remaining": 1376,
+        "RX_destination": "0x242DEFAF",
+        "call_active": 0,
+        "NS_CCR": "0x00020201",
+        "DMA_errors": 0,
+        "NCP_recovery_ms_device_tick": 832
+      },
+      "duplicate_packets": "2 duplicate seq217 ACKs without redelivery; signed image/boot confirmation passed",
+      "interpretation": "MASRX alone is NOT a fix; SUSP set while RX FIFO drained and DMA incomplete. Report outside NS call; onset not directly timestamped."
+    }
+  },
+  "A23_MASRX_resume_with_inline_formatter": {
+    "USB_passed": true,
+    "bytes": 500096,
+    "PC": "0x701CD1CC",
+    "VTOR": "0x70180400",
+    "boot_confirmed": true,
+    "HIL100": {
+      "frames": 100,
+      "exact_tensors": 100,
+      "npu_frames": 100,
+      "max_score_delta": 5,
+      "class_matches": 100,
+      "passed": true,
+      "elapsed_s": 28.17199999996228
+    },
+    "B24_OTA": {
+      "passed": false,
+      "EOT_acknowledged": false,
+      "percent": 28,
+      "failed_block": 140,
+      "timeout_count": 10,
+      "sender_error": "בלוק XMODEM 140 לא אושר לאחר 10 ניסיונות.",
+      "raw_UART_sha256": "057272f760fa04c64ecf32a08bfb34e50bc58e64277a4341f1935d858ecd93d1",
+      "fault": "Secure HardFault, HFSR0x40000000, SFSR0, NS_CFSR0x00100000 STKOF; frame not read",
+      "last_successful_block": 139,
+      "image_bytes_implied_by_ACKs": 142080,
+      "whole_image_retry": false,
+      "capture_cleanup": {
+        "serial_writes": 0,
+        "dtr": false,
+        "rts": false,
+        "sender_started": true,
+        "sender_pid": 29060,
+        "sender_exit": 1,
+        "reader_stopped": true,
+        "owned_uart_closed": true
+      },
+      "interpretation": "New diagnostic path had Debug_UART_Log from768byte SPI worker. Formatter uses256byte line plus vsnprintf; leading stack-pressure explanation, exact fault PC unavailable. No successful resumed-in-hardware proof."
+    }
+  },
+  "B25_host_only_fix": {
+    "source_commit": "555bdcd1422d0f97d47afc7c1466fc70e15c12ed",
+    "status": "BUILT_OFFLINE_SIGNATURE_VERIFIED_NOT_INSTALLED",
+    "bytes": 500096,
+    "package_sha256": "034173f3191f53bb1a70ea439a0715ef1d8c2ca933712e4f558f4055a716af1e",
+    "change": "No formatting in SPI worker; increment counter and defer report to Radio. Original500ms DMA deadline and15s sender deadline unchanged.",
+    "compiler_service_frame_bytes": 8,
+    "compiler_reporter_frame_bytes": 280,
+    "compiler_limits": "Local static frames only; excludes caller/library/exception frames, not runtime high-water proof",
+    "RAM_heap_capacity": 369104,
+    "XIP_heap_capacity": 861944,
+    "normal_XIP_heap_capacity": 862064,
+    "normal_RAM_heap_capacity": 369104,
+    "hardware_resume_validation": "PENDING"
+  },
+  "server_lease_probe": {
+    "passed": true,
+    "configured_lease_seconds": 30,
+    "blocked_probe_ms": 1012.9758,
+    "expiry_forced_only_in_test_object": true,
+    "replayed_original_sequence": 473,
+    "retry_sequence_after_ACK": 474,
+    "stale_ACK_rejected": true,
+    "live_server_requests": 0,
+    "actual_registry_sha256": "aad3c4c3d1b5c7c57fddd7a9cbfbbe42a0162bbc58993befa2efca7b9176bed0",
+    "actual_contracts_sha256": "0bb530c9196fb902ef2bdb801d2cdbb5cffe44606548bfa243b68838ca25a5a0",
+    "server_modified": false,
+    "network_access": false
+  },
+  "server_interpretation": "Actual source DeviceSession lease30s blocks queued retries until exact ACK or expiry, while sender waits15s. Host test proves behavior with forced expiry; compatible with observed32.868s tail. Live production lease expiration was not directly traced. No server file, branch, deployment or protocol change.",
+  "final_board": {
+    "last_confirmed_slot": "A",
+    "last_confirmed_version": 23,
+    "runtime": "FAULTED, LIVE_OPERATION_NOT_VERIFIED_AFTER_FAULT",
+    "slot_B": "B24 PARTIAL, formerB22 overwritten; not a valid alternate recovery image",
+    "metadata_after_fault": "Not independently read; last captured app confirmation23 precedes failed B24 transfer",
+    "boot_chain": "FSBL/Secure unchanged by all experiments",
+    "SWD_reset_or_write_after_fault": false,
+    "hardware_handles_closed": true,
+    "lease_released": true,
+    "active_recorder": false,
+    "sensor_exports_requested": false,
+    "next": "Coordinate fresh DEV cold boot before safe recovery-state reader; do not blindly rerun OTA or boot partialB24"
+  },
+  "recovery_SHA256": {
+    "resume-20261022/nor-first.bin": "cb3d9e4ffee29d832c7ca0cb516f06232dba2c4c5598e77fd6c81ce7feb9f05a",
+    "inspection-after-bootchain-program/nor-first.bin": "6cc2cfb51d893b06e75d32c1614818406bcc2a6219f68cb2b98a9c9cae43faaf",
+    "resume-20261022/recovery-B-trusted.bin": "9c8b0516281fe19bc684700f7922a7437afa22b14be00e2f9e2559a70a8386d4"
+  },
+  "host_validation": {
+    "resume_unsafe_state_guards": 20,
+    "500ms_deadline_at100Hz_and_tick_wrap": "PASS",
+    "no_SPI_worker_formatting": "PASS actual-C test",
+    "capture_shutdown_tests": 3,
+    "retry_inclusive_timing_tests": 2,
+    "SPI_fault_snapshot_checks": 5,
+    "SPI_shutdown_checks": 5,
+    "CS_hold_checks": 5,
+    "denied_effect_imports": "PASS changed helpers; actual server probe only host/no live requests"
+  },
+  "other_failures_preserved": {
+    "build_A23_first_label": "Host compilation failed on wrong SPI_SR_FRE macro; corrected to N6 SPI_SR_TIFRE before installed build",
+    "temp_cleanup": "One native-run temp cleanup returned Win32/AccessDenied; no forced deletion; new separate host run passed",
+    "process_inventory": "Get-CimInstance Win32_Process read denied AccessDenied; not retried",
+    "reference_download": "Official RM0486 over browser size limit; host40s download timeout/no file. Official N6 SVD, HAL/LL and AN5543 reviewed"
+  },
+  "SDK_side_effect_uncertainty": {
+    "event": "dotnet first-run printed Installed ASP.NET Core HTTPS development certificate during isolated host-only class test",
+    "verification": "Read-only Cert:CurrentUser/My returned0 certificates; isolated CLI home contains only sentinel files",
+    "outcome": "UNCERTAIN, no claim that new persistent credential was definitively absent",
+    "actions": "No trust, export, broad cleanup, or further SDK calls; added explicit generation=false and PATH=false for future invocation"
+  },
+  "clock": "Configured inference30MHz SPI5; ST67 datasheetRev6 maximum40MHz. Not physical SCK measurement.",
+  "remaining": "Restore control safely, validate deferred reporting and real resume in hardware, measure SPI stack margin, then OTA/USB/fault recovery regression. Original DMA starvation cause not yet proven; server lease tail independently isolated.",
+  "design_note": "xip-spi-ovr-design-20261023.md",
+  "stack_aggregate": {
+    "artifact": "v23-A-rx-resume-probe-tifre/application.elf",
+    "artifact_sha256": "541c330d63ae326822fd84af810c6f1a027e57cbf0d9b1cb0925f11126116dca",
+    "measurement": "Actual ARM disassembly push/sub-SP frames, and verified direct call chain",
+    "old_frames_bytes": {
+      "freertos_task_entry": 8,
+      "spi_xfer_engine_task": 24,
+      "spi_do_xfer": 88,
+      "Debug_UART_Log": 296,
+      "sniprintf": 136,
+      "_svfiprintf_r": 144,
+      "_printf_i": 48,
+      "_printf_common": 32
+    },
+    "old_aggregate_bytes": 776,
+    "SPI_stack_capacity": 768,
+    "old_service_tail_call": "8byte service frame popped before tail branch to logger, not double-counted",
+    "old_bound": "At least776 before exception/FP/kernel frames and deeper library callbacks; already exceeds768. Exact fault PC unavailable due invalid frame.",
+    "fixed_local_service_chain_bytes": 128,
+    "fixed_chain": "task wrapper8 + SPI worker24 + engine88 + service8, no formatting/callee in new service",
+    "Radio_stack_capacity": 8192,
+    "fixed_reporter_frame": 280,
+    "runtime_highwater": "NOT_MEASURED; current board faulted, no hardware probe after fault",
+    "enforcement": "Native actual-C regression asserts no formatter calls on resume path; fstack-usage artifacts retained, no arbitrary stack-size increase."
+  }
+}
