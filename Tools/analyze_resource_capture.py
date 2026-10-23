@@ -34,7 +34,12 @@ def main():
             usage[(kind,address)]=record
         elif len(fields)==9 and fields[0]<8 and fields[1]<9 and fields[8]&~3==0:
             module,kind,count,status,site,arg,obj,tick,flags=fields
-            failures[(module,kind)]=dict(module=module,kind=kind,count=count,status=hex(status),line=site,argument=arg,object=hex(obj),tick=tick,flags=flags)
+            labels=['ALLOC','ENQUEUE','CREATE','INVALID','OVERFLOW','RELEASE','MARGIN','WAIT','POLL']
+            modules=['CORE','RTOS','USB','TOF','CLOUD','RADIO','LOG','INIT']
+            reason={0x105:'pool observed free below10percent of used',0x106:'sampled SP outside stack',0x107:'sample plus context/margin exceeds stack',0x108:'C heap frontier margin',0x109:'capture before diagnostic init'}.get(status)
+            if module==6 and kind in (1,4):reason={0:'UART slot pool exhausted',1:'UART producer contention',2:'UART oversize message',3:'UART invalid producer context',4:'UART transport failure',5:'UART internal invariant'}.get(status,'UART drop reason')
+            elif kind==1 and status==0xB:reason='ThreadX queue full (including deliberate startup self-test when documented)'
+            failures[(module,kind)]=dict(module=module,module_name=modules[module],kind=kind,kind_name=labels[kind],reason=reason,count=count,status=hex(status),line=site,argument=arg,object=hex(obj),tick=tick,flags=flags)
         else:invalid.append(line)
     result=dict(kind='OBSERVED_ONLY_NOT_VERIFIED_WORST_CASE',log=str(a.log),elf=str(a.elf),usage=list(usage.values()),failure_rows=list(failures.values()),invalid_resource_lines=invalid,
                 limits=['Finite expected receive timeouts retained silently as POLL','Queue free-lists may validly be full; no generic10percent queue-admission claim','Addresses reused across instances may retain conservative historical peaks','Pool free percentage is not proof of largest allocatable block','No proof that every thread or interrupt nesting peak was sampled'])
