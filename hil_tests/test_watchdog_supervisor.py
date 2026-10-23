@@ -71,9 +71,22 @@ static void tx_thread_sleep(uint32_t ticks){
 static void fresh(void){
   memset(n6h_progress,0,sizeof n6h_progress);memset(&mock_iwdg,0,sizeof mock_iwdg);
   n6h_started=n6h_required=n6h_failure=n6h_ready=n6h_supervisor_fault=0;
-  n6h_arm=n6h_armed_at=tick=irq=busy=feeds=enabled=confirmed=sleeps=flushed=logs=0;
+  memset(n6h_arm,0,sizeof n6h_arm);memset(n6h_armed_at,0,sizeof n6h_armed_at);
+  tick=irq=busy=feeds=enabled=confirmed=sleeps=flushed=logs=0;
   mode=1;limit=100;
 }
+typedef struct {int unused;} Menu_t;
+static struct { struct {int transport;} route; } mock_session;
+#define cli_active_session (&mock_session)
+#define APP_TRANSPORT_USB 1
+static char cli_reply[160];
+static void cli_print(const char *fmt,...){snprintf(cli_reply,sizeof cli_reply,"%s",fmt);}
+static int cli_token_equals(const char *a,const char *b){return !_stricmp(a,b);}
+static int cli_get_arguments(const char *cmd,char *copy,unsigned size,char *argv[],int cap){
+  if(strlen(cmd)>=size)return -1;strcpy(copy,cmd);int n=0;
+  for(char *p=strtok(copy," ");p && n<cap;p=strtok(NULL," "))argv[n++]=p;return n;
+}
+/* CLI_HANDLER */
 int main(void){
   fresh();N6H_Progress p[N6H_COUNT]={{0}};uint32_t b[N6H_COUNT];
   for(unsigned i=0;i<N6H_COUNT;i++){p[i].count=1;p[i].last=0xfffffff0U;b[i]=32;}
@@ -104,19 +117,35 @@ int main(void){
   puts("PASS incorrect IWDG register readback never feeds/confirms");
   fresh();assert(N6H_UartCommand('W')==1&&!flushed);n6h_ready=1;
   N6H_UartCommand('w');tick=500;N6H_UartCommand('W');assert(!flushed);
-  N6H_UartCommand('w');busy=1;N6H_UartCommand('W');assert(!flushed&&!n6h_arm);busy=0;
+  N6H_UartCommand('w');busy=1;N6H_UartCommand('W');assert(!flushed&&!n6h_arm[0]);busy=0;
   N6H_UartCommand('w');N6H_UartCommand('x');N6H_UartCommand('W');assert(!flushed);
   N6H_UartCommand('w');N6H_UartCommand('\r');stop=setjmp(escape);if(!stop)N6H_UartCommand('W');
-  assert(stop==2&&flushed==1&&!n6h_arm);
+  assert(stop==2&&flushed==1&&!n6h_arm[0]);
   puts("PASS W requires fresh arm/no-update; unrelated input cancels; consumes arm before hang");
   fresh();n6h_ready=1;N6H_UartCommand('s');N6H_UartCommand('W');assert(n6h_supervisor_fault&&flushed==1);
   puts("PASS separate explicitly armed supervisor fault target");
-  puts("PASS 11 actual-C watchdog test groups; IWDG/RTOS mocked, no hardware reset claim");
+  fresh();n6h_ready=1;assert(N6H_LocalCliCommand('w')==2);assert(n6h_arm[1]==3);
+  N6H_UartCommand('W');assert(!flushed&&n6h_arm[1]==3);N6H_UartCommand('w');
+  N6H_LocalCliCommand('0');assert(n6h_arm[0]==1&&!n6h_arm[1]);
+  puts("PASS local interfaces have independent arms; neither consumes the other's arm");
+  fresh();n6h_ready=1;mock_session.route.transport=2;cli_command_watchdog(NULL,"W arm");
+  assert(!n6h_arm[1]&&strstr(cli_reply,"local USB"));
+  mock_session.route.transport=1;cli_command_watchdog(NULL,"W arm");assert(n6h_arm[1]==3);
+  mock_session.route.transport=3;cli_command_watchdog(NULL,"W");assert(n6h_arm[1]==3&&!flushed);
+  mock_session.route.transport=1;cli_command_watchdog(NULL,"W cancel");assert(!n6h_arm[1]);
+  cli_command_watchdog(NULL,"W arm");tick=500;cli_command_watchdog(NULL,"W");assert(!flushed);
+  cli_command_watchdog(NULL,"W arm");stop=setjmp(escape);if(!stop)cli_command_watchdog(NULL,"W");
+  assert(stop==2&&flushed==1&&!n6h_arm[1]);
+  puts("PASS actual CLI handler local-only/remote-no-mutation/cancel/expiry/intentional hang");
+  puts("PASS 13 actual-C watchdog test groups; IWDG/RTOS mocked, no hardware reset claim");
 }
 '''
 def main():
     with tempfile.TemporaryDirectory(prefix='n6-wdt-') as tmp:
-        p=Path(tmp);(p/'test.c').write_text(C);(p/'stm32n6xx_ll_iwdg.h').write_text('/* mocked by harness */\n')
+        source=(ROOT/'AppliNonSecure/Core/Src/debug_cli.c').read_text()
+        start=source.index('static void cli_command_watchdog(Menu_t *menu, const char *command)\n{')
+        end=source.index('\nstatic void cli_command_reboot',start)
+        p=Path(tmp);(p/'test.c').write_text(C.replace('/* CLI_HANDLER */',source[start:end]));(p/'stm32n6xx_ll_iwdg.h').write_text('/* mocked by harness */\n')
         vswhere=Path(os.environ.get('ProgramFiles(x86)','C:/Program Files (x86)'))/'Microsoft Visual Studio/Installer/vswhere.exe'
         vs=subprocess.check_output([str(vswhere),'-latest','-products','*','-requires','Microsoft.VisualStudio.Component.VC.Tools.x86.x64','-property','installationPath'],text=True).strip()
         flags=' '.join('/I"'+str(x)+'"' for x in [p,ROOT/'AppliNonSecure/Core/Inc',ROOT/'AppliNonSecure/Core/Src'])

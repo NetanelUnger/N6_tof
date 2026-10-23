@@ -1,9 +1,11 @@
 # Watchdog ומשימות תקועות — תכנון ובדיקת אבחון
 
-המימוש opt-in בבניית XIP עם `-Watchdog -ResourceDiagnostics`. בבנייה הרגילה
-`N6_WATCHDOG_ENABLED=0`: אין הפעלה של watchdog ואין פקודת תקיעה. לא משנים
+המימוש פעיל כברירת מחדל בבניית XIP רגילה; אין צורך בדגל בדיקה כדי לקבל W.
+`Build-Xip.ps1` מפעיל Watchdog ו־ResourceDiagnostics כברירת מחדל. דגל המקור
+`N6_WATCHDOG_ENABLED=0` מיועד לבניית RAM השמורה לשחזור לפני relink ל־XIP;
+אין להפעיל פקודת תקיעה בגרסת שחזור ללא watchdog. לא משנים
 OTP, option bytes, RIF, מדיניות debug או הרשאות. IWDG נגיש דרך המיפוי NS
-הקיים; אין פתיחת גישה חדשה ל־peripheral. הבדיקה בחומרה עדיין נדרשת.
+הקיים; אין פתיחת גישה חדשה ל־peripheral.
 
 מקור ST: [HAL IWDG של STM32N6](https://github.com/STMicroelectronics/stm32n6xx-hal-driver/blob/main/Src/stm32n6xx_hal_iwdg.c)
 ו־[LL IWDG](https://github.com/STMicroelectronics/stm32n6xx-hal-driver/blob/main/Inc/stm32n6xx_ll_iwdg.h).
@@ -36,7 +38,12 @@ process6, display6, radio35, Wi-Fi control45, Cloud35. תקציבים אלה כ�
 
 ## אבחון UART בלבד
 
-רק ST-LINK VCP USART1 מפענח אותיות אלה; אין פקודת תקיעה ב־USB/BLE/Cloud.
+ST-LINK VCP USART1 מפענח אותיות אלה. גם CLI מקומי דרך USB מקבל
+`W arm`, אחריו `W` בתוך חמש שניות; `W cancel` מבטל. הפקודה תוקעת את
+משימת ה־CLI עצמה ומדווחת target=USB-CLI-task. אין צורך במצב build של בדיקות.
+ה־CLI משותף גם ל־BLE/Cloud, ולכן ה־handler בודק route לפני כל שינוי דריכה:
+בקשה מרחוק רק מקבלת הסבר על הממשקים המקומיים, ללא שינוי arm, אימות או הרשאות.
+לשני הממשקים המקומיים דריכות נפרדות: UART לא מפעיל דריכה שנוצרה ב־USB ולהפך.
 אחרי HEALTHY, ללא updater פעיל או finalization, `w` דורך את משימת פקודות
 ה־UART, ו־`s` דורך את ה־supervisor. שליחת `W` בתוך חמש שניות מפעילה את
 היעד שנבחר. פקודה אחרת מבטלת דריכה; CR/LF לבדם אינם מבטלים. W בלי דריכה,
@@ -59,8 +66,24 @@ flush מוגבל לשנייה. הדריכה נצרכת לפני התקיעה ו�
 
 ## בדיקות מחשב שכבר עברו
 
-`hil_tests/test_watchdog_supervisor.py`: עשר קבוצות בדיקת C של הקוד בפועל,
+`hil_tests/test_watchdog_supervisor.py`: שלוש־עשרה קבוצות בדיקת C של הקוד בפועל,
 עם IWDG/RTOS מדומים: גבולות/wrap, סירוב ISR, הזנה מותנית, כשל ננעל,
 startup מוגבל, supervisor תקוע, sync failure, expiry, update busy,
-ביטול/צריכת דריכה ושני יעדי fault. יבוא Python תחת hardware-denied עבר
+ביטול/צריכת דריכה, שני יעדי fault, readback שגוי, הפרדת arms ובדיקת
+handler ה־CLI בפועל מול USB/BLE/Cloud. יבוא Python תחת hardware-denied עבר
 ללא side effects. אלו אינן הוכחת איפוס בחומרה.
+
+## ראיות חומרה לפני הוספת CLI
+
+A41: שתי תקיעות אמיתיות עברו — UART control הפסיק להתקדם, המנטר דיווח
+mask002 והפסיק הזנה; בבדיקה נפרדת ה־supervisor עצמו נתקע. בשתיהן נקרא
+RCC IWDG=1 באתחול וחזרו USB/ToF/NPU/רדיו תקינים ללא ניתוק מתח או reset
+תוכנתי. זמני W עד היעלמות USB היו14.229/11.786s. אלה אינם מדידה של
+תדר LSI או רגע פקיעת המונה; אין להציגם ככיול של16s הנומינליות.
+ב־B42 נקראו PR6/RLR1999/WINR4095/SR100. יש למדוד LSI או את מרווח ההזנה
+עד reset במכשור מתאים לפני הבטחת תזמון production על פני טמפרטורה ומתח.
+
+A41 עדכנה B42 בזמן WDT פעיל: partial packet/NAK10.108s ואחריו אותה פתיחת
+USB השלימה516512 בתים חתומים, EOT ACK ואישור. reset cause אחר כך היה
+IWDG=0; לא היה watchdog reset באמצע הכתיבה. ToF pause18s עבר ללא reset,
+וכל13 בדיקות C נשמרו. הוספת CLI נבדקת כעת בגרסת A43.

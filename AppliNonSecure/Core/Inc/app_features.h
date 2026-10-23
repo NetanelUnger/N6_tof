@@ -1,7 +1,8 @@
 #ifndef APP_FEATURES_H
 #define APP_FEATURES_H
 
-/* Opt-in XIP watchdog acceptance profile. No option-byte or RIF changes. */
+/* Guarded RAM recovery stays off. Build-Xip enables the operational watchdog
+ * by default; UART W and local USB CLI W are not a test-build-only feature. */
 #define N6_WATCHDOG_ENABLED (0U)
 #ifndef N6_RESOURCE_DIAGNOSTICS
 #define N6_RESOURCE_DIAGNOSTICS (0U) /* XIP candidate; host-only until HIL. */

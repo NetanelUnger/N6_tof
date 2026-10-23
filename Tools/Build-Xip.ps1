@@ -4,8 +4,8 @@ param(
     [ValidatePattern("^[a-zA-Z0-9-]*$")][string]$Label = "",
     [switch]$FaultProbe,
     [switch]$RxBackpressure,
-    [switch]$ResourceDiagnostics,
-    [switch]$Watchdog
+    [switch]$ResourceDiagnostics = $true,
+    [switch]$Watchdog = $true
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot

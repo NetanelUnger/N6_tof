@@ -5,7 +5,8 @@ static N6H_Progress n6h_progress[N6H_COUNT];
 static uint32_t n6h_started,n6h_required;
 static volatile uint32_t n6h_failure,n6h_ready;
 static volatile uint32_t n6h_supervisor_fault;
-static uint32_t n6h_arm,n6h_armed_at;
+/* Independent arms: UART cannot execute an arm created by USB CLI or vice versa. */
+static uint32_t n6h_arm[2],n6h_armed_at[2];
 static const uint32_t n6h_seconds[N6H_COUNT]={3,4,8,12,6,6,35,45,35};
 
 void N6H_Beat(uint32_t task)
@@ -16,35 +17,43 @@ void N6H_Beat(uint32_t task)
   __atomic_store_n(&n6h_progress[task].count,count<2U?count+1U:2U,__ATOMIC_RELEASE);
 }
 
-uint32_t N6H_UartCommand(uint32_t command)
+static const char *N6H_TargetName(uint32_t kind)
+{
+  return kind==1U?"UART-control-task":kind==3U?"USB-CLI-task":"supervisor-task";
+}
+
+static uint32_t N6H_Command(uint32_t command,uint32_t origin)
 {
   uint32_t now=(uint32_t)tx_time_get();
   uint32_t busy=Firmware_Update_IsBusy();
   uint32_t healthy=__atomic_load_n(&n6h_ready,__ATOMIC_ACQUIRE) && !n6h_failure;
   if(command=='w' || command=='s') {
-    n6h_arm=0U;
+    n6h_arm[origin]=0U;
     if(!healthy || busy) { Debug_UART_Log("WDT","arm rejected: not healthy or updater busy");return 1U; }
-    n6h_armed_at=now;n6h_arm=(command=='w')?1U:2U;
+    n6h_armed_at[origin]=now;n6h_arm[origin]=(command=='w')?(origin?3U:1U):2U;
     Debug_UART_Log("WDT","ARM target=%s expiry=5s; send W; any other key cancels",
-      n6h_arm==1U?"UART-control-task":"supervisor-task");
-    return 1U;
+      N6H_TargetName(n6h_arm[origin]));
+    return 2U; /* Arm accepted; local CLI can give an exact response. */
   }
   if(command=='W') {
-    uint32_t kind=n6h_arm;n6h_arm=0U;
-    if(!N6H_ArmValid(kind,now,n6h_armed_at,5U*TX_TIMER_TICKS_PER_SECOND,healthy,busy)) {
+    uint32_t kind=n6h_arm[origin];n6h_arm[origin]=0U;
+    if(!N6H_ArmValid(kind,now,n6h_armed_at[origin],5U*TX_TIMER_TICKS_PER_SECOND,healthy,busy)) {
       Debug_UART_Log("WDT","W rejected: absent/expired arm, unhealthy, or updater busy");return 1U;
     }
     Debug_UART_Log("WDT","FAULT target=%s intentional while(1); IRQs remain enabled; awaiting IWDG",
-      kind==1U?"UART-control-task":"supervisor-task");
+      N6H_TargetName(kind));
     /* Existing bounded flush; no formatting/allocation in the intentional loop. */
     (void)Debug_UART_Flush(1000U);
-    if(kind==1U) { for(;;) { __NOP(); } }
+    if(kind==1U || kind==3U) { for(;;) { __NOP(); } }
     __atomic_store_n(&n6h_supervisor_fault,1U,__ATOMIC_RELEASE);
     return 1U;
   }
-  if(command!='\r' && command!='\n')n6h_arm=0U;
+  if(command!='\r' && command!='\n')n6h_arm[origin]=0U;
   return 0U;
 }
+
+uint32_t N6H_UartCommand(uint32_t command) { return N6H_Command(command,0U); }
+uint32_t N6H_LocalCliCommand(uint32_t command) { return N6H_Command(command,1U); }
 
 void N6H_Run(void)
 {

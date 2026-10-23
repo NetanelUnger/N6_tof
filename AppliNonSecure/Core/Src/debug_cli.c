@@ -260,6 +260,7 @@ static void cli_command_rps(Menu_t *menu, const char *command)
   __attribute__((optimize("Os")));
 static void cli_command_debug(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static void cli_command_reboot(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
+static void cli_command_watchdog(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static void cli_command_firmware_update(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static void cli_command_unknown(Menu_t *menu, const char *command);
 static void cli_print(const char *format, ...);
@@ -330,6 +331,8 @@ static const Menu_Object_t cli_menu_objects[] =
   MENU_OBJECT("debug", cli_command_debug),
   MENU_OBJECT("Start UART Firmware Update", cli_command_firmware_update),
   MENU_OBJECT("update", cli_command_firmware_update),
+  MENU_OBJECT("W", cli_command_watchdog),
+  MENU_OBJECT("w", cli_command_watchdog),
   MENU_OBJECT("radio", cli_command_radio),
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
   MENU_OBJECT("cloud", cli_command_cloud),
@@ -416,6 +419,10 @@ static const char *const cli_completion_base[] =
   "ble disconnect",
 #endif
   "reboot yes",
+#if (N6_WATCHDOG_ENABLED == 1U)
+  "W arm",
+  "W cancel",
+#endif
 };
 
 static const char *cli_service_name(WifiBle_ServiceState_t state)
@@ -2735,6 +2742,37 @@ static void cli_command_cloud(Menu_t *menu, const char *command)
 }
 #endif
 
+static void cli_command_watchdog(Menu_t *menu, const char *command)
+{
+  (void)menu;
+#if (N6_WATCHDOG_ENABLED == 1U)
+  /* Shared CLI has USB/BLE/Cloud sessions. Only the explicitly requested local
+   * USB CLI can arm or consume this local diagnostic; remote sessions cannot
+   * change either arm. No authentication or transport permissions are changed. */
+  if(cli_active_session->route.transport!=APP_TRANSPORT_USB) {
+    cli_print("W is available through local USB CLI or ST-LINK UART.\r\n");
+    return;
+  }
+  char copy[32];char *argv[3];
+  int argc=cli_get_arguments(command,copy,sizeof(copy),argv,3);
+  if(argc==2 && cli_token_equals(argv[1],"arm")) {
+    uint32_t result=N6H_LocalCliCommand('w');
+    cli_print(result==2U?"W armed for USB CLI task; send W within5s.\r\n":
+      "W not armed: watchdog not healthy or updater busy.\r\n");
+  } else if(argc==2 && cli_token_equals(argv[1],"cancel")) {
+    (void)N6H_LocalCliCommand('0');cli_print("W arm cancelled.\r\n");
+  } else if(argc==1) {
+    if(N6H_LocalCliCommand('W')==1U)
+      cli_print("W rejected: use W arm, then W within5s; updater must be idle.\r\n");
+  } else {
+    (void)N6H_LocalCliCommand('0');cli_print("Usage: W arm | W | W cancel\r\n");
+  }
+#else
+  (void)command;
+  cli_print("W unavailable in RAM recovery.\r\n");
+#endif
+}
+
 static void cli_command_reboot(Menu_t *menu, const char *command)
 {
   char copy[CLI_LINE_SIZE];
@@ -3396,6 +3434,10 @@ static void cli_show_help(void)
 #endif
             "  update                       signed XMODEM firmware update\r\n"
             "  reboot yes\r\n");
+#if (N6_WATCHDOG_ENABLED == 1U)
+  cli_print("  W arm | W | W cancel         local USB CLI task hang/reset diagnostic\r\n"
+            "  UART: w then W within5s; s then W tests supervisor\r\n");
+#endif
 }
 
 static void cli_show_status(void)
