@@ -14,7 +14,7 @@
 #include "app_route.h"
 #include "cloud_relay.h"
 #include "debug_uart.h"
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 #include "display_app.h"
 #endif
 #include "firmware_update.h"
@@ -70,6 +70,7 @@ typedef struct
   uint32_t reply_completed;
   uint32_t reply_reserved;
   uint32_t reply_failed;
+  uint32_t wifi_request_pending;
   char history[CLI_HISTORY_DEPTH][CLI_LINE_SIZE];
   char history_draft[CLI_LINE_SIZE];
   size_t history_count;
@@ -268,7 +269,7 @@ static void cli_prompt(void);
 static void cli_show_help(void) __attribute__((optimize("Os")));
 static void cli_show_status(void) __attribute__((optimize("Os")));
 static void cli_show_tof_status(void) __attribute__((optimize("Os")));
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static void cli_show_display_status(void) __attribute__((optimize("Os")));
 #endif
 static void cli_show_usb_status(void) __attribute__((optimize("Os")));
@@ -361,7 +362,7 @@ static const char *const cli_completion_base[] =
   "MAP ENCODING UINT16",
   "MAP ENCODING UINT8",
   "MAP ENCODING JPEG",
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   "MAP ON SCREEN",
   "MAP OFF SCREEN",
   "MAP ON DISPLAY",
@@ -433,11 +434,13 @@ static const char *cli_service_name(WifiBle_ServiceState_t state)
 
 static void cli_service_print(void)
 {
+#if (N6_CLI_DIAGNOSTICS_ENABLED == 1U)
   WifiBle_ServiceStatus_t service;
   WIFI_BLE_App_GetServiceStatus(&service);
   cli_print("[RADIO-SERVICE] state=%s reason=%s elapsed_ms=%lu remaining_ms=%lu\r\n",
       cli_service_name(service.state), service.reason,
       (unsigned long)service.elapsed_ms, (unsigned long)service.remaining_ms);
+#endif
 }
 
 static void cli_poll_service(void)
@@ -687,6 +690,7 @@ static void cli_session_reset(CliSession_t *session, uint32_t stop_usb_streams)
   cli_prompt_already_sent = 0U;
   session->reply_completed = 0U;
   session->reply_reserved = session->reply_failed = 0U;
+  session->wifi_request_pending = 0U;
   Menu_Reset(&cli_menu);
   (void)memset(cli_menu_input, 0, sizeof(cli_menu_input));
   if (session->route.transport != APP_TRANSPORT_USB)
@@ -755,6 +759,7 @@ static UINT cli_wifi_result_print(const char *format, ...)
 
 static void cli_wifi_note_submission(AppRequestId_t request_id)
 {
+  cli_active_session->wifi_request_pending = request_id;
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
   if (cli_active_session->route.transport == APP_TRANSPORT_CLOUD)
   {
@@ -852,7 +857,7 @@ static uint32_t cli_wifi_result_deliver(WifiBle_WifiResult_t *result)
     char record[256];
     int length = snprintf(record, sizeof(record),
         "Wi-Fi %s request id=%" PRIu32 ": %s (%" PRId32
-        "); scan_count=%" PRIu32 "; IPv4=%u.%u.%u.%u\r\n",
+        "); scan_count=%" PRIu32 "; IPv4=%u.%u.%u.%u\r%s",
         (result->operation == WIFI_BLE_WIFI_OPERATION_SCAN) ? "scan" :
         (result->operation == WIFI_BLE_WIFI_OPERATION_CONNECT) ? "connect" :
         (result->operation == WIFI_BLE_WIFI_OPERATION_DISCONNECT) ?
@@ -863,7 +868,8 @@ static uint32_t cli_wifi_result_deliver(WifiBle_WifiResult_t *result)
         result->wifi_status.ip_address[0],
         result->wifi_status.ip_address[1],
         result->wifi_status.ip_address[2],
-        result->wifi_status.ip_address[3]);
+        result->wifi_status.ip_address[3],
+        result->final_status == (int32_t)W6X_STATUS_OK ? "" : "FAIL\r");
     if ((length <= 0) || ((size_t)length >= sizeof(record)))
     {
       cli_wifi_result_write_errors++;
@@ -881,6 +887,7 @@ static uint32_t cli_wifi_result_deliver(WifiBle_WifiResult_t *result)
     }
     cli_wifi_results_routed++;
     cli_cloud_wifi_request_id = 0U;
+    target->wifi_request_pending = 0U;
     return 1U;
   }
 #endif
@@ -947,8 +954,10 @@ static uint32_t cli_wifi_result_deliver(WifiBle_WifiResult_t *result)
   #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   if (ble_reply) {
     UINT end_status = WIFI_BLE_App_EndReply(
-        write_status == TX_SUCCESS && !target->reply_failed ? 0U : 3U);
+        write_status == TX_SUCCESS && !target->reply_failed &&
+        result->final_status == (int32_t)W6X_STATUS_OK ? 1U : 3U);
     target->reply_reserved = 0U;
+    target->wifi_request_pending = 0U;
     if (end_status != TX_SUCCESS)
       Debug_UART_Log("CLI", "Wi-Fi result reply cancelled; id=%lu status=%u",
           (unsigned long)result->request_id, end_status);
@@ -1165,7 +1174,8 @@ static void __attribute__((optimize("Os"))) cli_poll_ble(void)
       }
     }
     if (cli_ble_session->reply_reserved && WIFI_BLE_App_EndReply(
-        cli_ble_session->reply_failed ? 3U : cli_ble_session->reply_completed) != TX_SUCCESS)
+        cli_ble_session->reply_failed ? 3U : cli_ble_session->wifi_request_pending ?
+        0U : cli_ble_session->reply_completed) != TX_SUCCESS)
       Debug_UART_Log("CLI", "BLE reply cancelled by session change; generation=%lu",
           (unsigned long)cli_ble_session->route.session_generation);
     cli_ble_session->reply_reserved = 0U;
@@ -1483,12 +1493,14 @@ static void cli_process_byte(uint8_t byte)
       cli_active_session->reply_completed = 2U;
       Menu_Reset(&cli_menu); cli_prompt(); return;
     }
+#if (N6_CLI_DIAGNOSTICS_ENABLED == 1U)
     if (pending && *pending && cli_active_session->route.transport != APP_TRANSPORT_USB &&
         !cli_prefix_matches(pending, "update") &&
         !cli_prefix_matches(pending, "Start UART Firmware Update")) {
       cli_print("[CLI-RESULT] state=accepted\r\n");
       cli_service_print();
     }
+#endif
     cli_history_record(pending);
     cli_history_index = cli_history_count;
     (void)memset(cli_history_draft, 0, sizeof(cli_history_draft));
@@ -1712,7 +1724,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
     return;
   }
 
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   if ((argc == 3) &&
       (((cli_token_equals(argv[1], "on") != 0U) &&
         ((cli_token_equals(argv[2], "screen") != 0U) ||
@@ -1914,7 +1926,11 @@ static void cli_command_map(Menu_t *menu, const char *command)
   else
   {
     (void)Menu_Reply(menu,
-                     "Usage: MAP ON|OFF [SCREEN] | MAP CHANNELS [1..5] | MAP PROCESSING | MAP ENCODING [RAW|UINT16|UINT8|JPEG]");
+                     "Usage: MAP ON|OFF"
+#ifdef APP_GC9A01_DISPLAY_ENABLED
+                     " [SCREEN]"
+#endif
+                     " | MAP CHANNELS [1..5] | MAP PROCESSING | MAP ENCODING [RAW|UINT16|UINT8|JPEG]");
   }
 }
 
@@ -2831,6 +2847,7 @@ static void cli_command_firmware_update(Menu_t *menu, const char *command)
 static void cli_command_unknown(Menu_t *menu, const char *command)
 {
   (void)command;
+  cli_active_session->reply_completed = 2U;
   (void)Menu_Reply(menu, "Unknown command. Type 'help'.");
 }
 
@@ -3368,13 +3385,18 @@ static void cli_show_help(void)
             (cli_active_session->route.transport == APP_TRANSPORT_CLOUD) ?
                 "Cloud CLI" : "USB CDC");
 
-  cli_print("\r\nSensor, display and AI:\r\n"
+  cli_print(
+#ifdef APP_GC9A01_DISPLAY_ENABLED
+            "\r\nSensor, display and AI:\r\n"
+#else
+            "\r\nSensor and AI:\r\n"
+#endif
             "  MAP ON | MAP OFF               ToF stream; dedicated image channel on BLE/Cloud\r\n"
             "  MAP CHANNELS [1..5]            list/toggle channels\r\n"
             "  MAP ENCODING                   show wireless image compression\r\n"
             "  MAP ENCODING RAW|UINT16|UINT8|JPEG\r\n"
             "                                 BLE/Cloud only; JPEG lossy; USB unchanged\r\n"
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
             "  MAP ON|OFF SCREEN|DISPLAY\r\n"
             "  MAP SCREEN|DISPLAY ON|OFF      equivalent syntax\r\n"
 #endif
@@ -3470,7 +3492,7 @@ static void cli_show_status(void)
             (radio.ble_connected != 0U) ? "connected" : "disconnected",
             (radio.ble_advertising != 0U) ? "on" : "off",
             cli_log_level_name(App_Logging_GetVerbosity()));
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   cli_show_display_status();
 #endif
 }
@@ -3563,7 +3585,7 @@ static void cli_show_tof_status(void)
             status.recovery_last_tick,
             (status.recovery_stage != NULL) ? status.recovery_stage : "none",
             status.recovery_error);
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   cli_show_display_status();
 #endif
   if (status.error_stage != NULL)
@@ -3609,7 +3631,7 @@ static void cli_show_map_channels(void)
   cli_print("Toggle here with MAP CHANNELS <1..5>, or press 1..5 during MAP ON.\r\n");
 }
 
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static void cli_show_display_status(void)
 {
   Display_App_Status_t status;

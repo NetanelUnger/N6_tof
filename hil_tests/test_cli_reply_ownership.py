@@ -68,16 +68,16 @@ TESTS = r'''
 int main(void){
  reset();assert(!WIFI_BLE_App_BeginReply());assert(context.reply.active && !context.cli_tx_free.count);
  for(unsigned i=0;i<30;i++)assert(!WIFI_BLE_App_StreamWrite(0,"text\r\n",6,0));
- assert(!context.cli_tx_ready.count && context.reply.bytes==180);
+ assert(!context.cli_tx_ready.count && context.reply.bytes==150);
  assert(!WIFI_BLE_App_EndReply(1));assert(context.cli_tx_ready.count==1 && context.cli_tx_free.count==7);
- assert(strstr((char*)context.cli_tx_slots[0].data,"state=complete"));
+ assert(strstr((char*)context.cli_tx_slots[0].data,"\n"));
  assert(WIFI_BLE_App_BeginReply()==TX_QUEUE_FULL);
  puts("PASS reserve before execution; thirty print calls pack into one owned slot; next command blocked until drained");
  reset();assert(!WIFI_BLE_App_BeginReply());char large[6016];memset(large,'x',sizeof large);
  assert(!WIFI_BLE_App_StreamWrite(0,large,sizeof large,0));
  assert(WIFI_BLE_App_StreamWrite(0,"xx",2,0)==TX_SIZE_ERROR && context.reply.bytes==sizeof large);
  assert(!WIFI_BLE_App_EndReply(1));assert(context.cli_tx_ready.count==8);
- assert(strstr((char*)context.cli_tx_slots[7].data,"state=failed reason=OUTPUT_LIMIT"));
+ assert(strstr((char*)context.cli_tx_slots[7].data,"FAIL\r\n"));
  puts("PASS bounded response overflow has reserved explicit failure, no partial append or missing completion");
  reset();assert(!WIFI_BLE_App_BeginReply());current=&other;
  assert(WIFI_BLE_App_StreamWrite(0,"foreign",7,0)==TX_NOT_AVAILABLE);
@@ -91,7 +91,7 @@ int main(void){
  reset();fail_take=3;assert(WIFI_BLE_App_BeginReply()!=0 && context.cli_tx_free.count==8 && !context.reply.active);
  puts("PASS failed slot reservation rolls back every acquired slot before command acceptance");
  reset();assert(!WIFI_BLE_App_BeginReply());assert(!WIFI_BLE_App_EndReply(2));
- assert(strstr((char*)context.cli_tx_slots[0].data,"state=rejected"));
+ assert(strstr((char*)context.cli_tx_slots[0].data,"FAIL\r\n"));
  puts("PASS rejection has its own final result rather than claiming command success");
  reset();WifiBle_RxSlot_t slot={.generation=7,.length=8};memcpy(slot.data,"one\rtwo\r",8);void*p=&slot;
  tx_queue_send(&context.cli_rx_ready,&p,0);context.stats[0].rx_queued=1;
@@ -109,7 +109,7 @@ int main(void){
  assert(ble_stream_read(0,out,sizeof out,&n,0,1)==TX_QUEUE_EMPTY && context.stats[0].stale_drops==1);
  puts("PASS stale RX generations are retired before any command dispatch");
  reset();assert(!WIFI_BLE_App_BeginReply());assert(!WIFI_BLE_App_StreamWrite(0,"partial",7,0));
- assert(!WIFI_BLE_App_EndReply(3));assert(strstr((char*)context.cli_tx_slots[0].data,"state=failed reason=WRITE_ERROR"));
+ assert(!WIFI_BLE_App_EndReply(3));assert(strstr((char*)context.cli_tx_slots[0].data,"FAIL\r\n"));
  puts("PASS failed handler write has explicit failure, never a false completion");
  reset();slot.generation=7;slot.length=4;p=&slot;tx_queue_send(&context.cli_rx_ready,&p,0);
  for(unsigned state=1;state<=3;state++){

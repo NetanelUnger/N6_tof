@@ -23,6 +23,7 @@
 #include "usbpd.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "config.h"
 #include "debug_uart.h"
 #include "spi_port.h"
 /* USER CODE END Includes */
@@ -62,10 +63,14 @@ extern DMA_HandleTypeDef handle_GPDMA1_Channel2;
 extern DMA_HandleTypeDef handle_GPDMA1_Channel1;
 extern DMA_HandleTypeDef handle_GPDMA1_Channel0;
 extern I3C_HandleTypeDef hi3c1;
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 extern DMA_HandleTypeDef handle_GPDMA1_Channel5;
+#endif
 extern DMA_HandleTypeDef handle_GPDMA1_Channel11;
 extern DMA_HandleTypeDef handle_GPDMA1_Channel10;
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 extern SPI_HandleTypeDef hspi4;
+#endif
 extern SPI_HandleTypeDef hspi5;
 extern PCD_HandleTypeDef hpcd_USB_OTG_HS1;
 extern TIM_HandleTypeDef htim6;
@@ -206,6 +211,7 @@ void GPDMA1_Channel4_IRQHandler(void)
 /**
   * @brief This function handles GPDMA1 Channel 5 global interrupt.
   */
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 void GPDMA1_Channel5_IRQHandler(void)
 {
   /* USER CODE BEGIN GPDMA1_Channel5_IRQn 0 */
@@ -216,6 +222,7 @@ void GPDMA1_Channel5_IRQHandler(void)
 
   /* USER CODE END GPDMA1_Channel5_IRQn 1 */
 }
+#endif
 
 /**
   * @brief This function handles GPDMA1 Channel 10 global interrupt.
@@ -290,6 +297,7 @@ void TIM6_IRQHandler(void)
 /**
   * @brief This function handles SPI4 global interrupt.
   */
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 void SPI4_IRQHandler(void)
 {
   /* USER CODE BEGIN SPI4_IRQn 0 */
@@ -300,6 +308,7 @@ void SPI4_IRQHandler(void)
 
   /* USER CODE END SPI4_IRQn 1 */
 }
+#endif
 
 /**
   * @brief This function handles SPI5 global interrupt.

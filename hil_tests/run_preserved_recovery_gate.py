@@ -1,4 +1,6 @@
 """Bounded protected Cloud/BLE recovery profiles; no image CCCD writes or replay."""
+from cli_text_protocol import reply_finished, reply_succeeded, reply_results
+
 
 
 def cli_main():
@@ -97,7 +99,7 @@ def cli_main():
         text = received[start:].decode('utf-8','replace')
         return {'bytes': len(received)-start,
                 'help_banners': text.count('CLI HELP ('),
-                'results': re.findall(r'\[CLI-RESULT\] state=(\w+)',text),
+                'results': reply_results(text),
                 'pongs': re.findall(r'PONG (CA-[A-Za-z0-9-]+) (\d+)',text),
                 'notices': re.findall(r'\[CLI-EVENT\] event=RADIO_RECOVERY[^\r\n]*',text)}
 
@@ -140,7 +142,7 @@ def cli_main():
         end=tick+10
         while time.monotonic()<end:
             text=received[start:].decode('utf-8','replace')
-            if 'PONG '+token+' ' in text and '[CLI-RESULT] state=complete' in text:
+            if 'PONG '+token+' ' in text and reply_succeeded(text):
                 row={'token':token,'ms':round((time.monotonic()-tick)*1000,2),'complete':True}
                 report['ble_commands'].append(row);return
             await asyncio.sleep(.01)

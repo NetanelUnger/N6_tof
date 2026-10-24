@@ -1,3 +1,6 @@
+#include "config.h"
+
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 #include "display_app.h"
 #include "n6_watchdog.h"
 
@@ -916,3 +919,5 @@ void Display_App_SPI_ErrorFromISR(SPI_HandleTypeDef *spi)
 {
   GC9A01_SPI_ErrorFromISR(&display_handle, spi);
 }
+
+#endif /* APP_GC9A01_DISPLAY_ENABLED */

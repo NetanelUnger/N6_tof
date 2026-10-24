@@ -5,7 +5,7 @@
 
 #include "bsp_conf.h"
 #include "app_features.h"
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 #include "display_app.h"
 #endif
 #include "main.h"
@@ -455,7 +455,7 @@ static void spi_port_complete(SPI_HandleTypeDef *hspi)
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 {
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   Display_App_SPI_TxCompleteFromISR(hspi);
 #endif
   spi_port_complete(hspi);
@@ -473,7 +473,7 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
 
 void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
 {
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   Display_App_SPI_ErrorFromISR(hspi);
 #endif
   if (hspi == &NCP_SPI_HANDLE)

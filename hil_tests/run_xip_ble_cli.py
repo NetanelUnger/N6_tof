@@ -1,4 +1,6 @@
 """Five bounded legacy BLE CLI pings; never pairs or selects an image stream."""
+from cli_text_protocol import reply_finished, reply_succeeded, reply_results
+
 def main():
     import argparse,asyncio,importlib.util,json,re,subprocess,time
     from pathlib import Path
@@ -32,7 +34,7 @@ def main():
                     await client.write_gatt_char(rx,('debug ping '+token+'\r').encode(),response=True)
                     while time.monotonic()-start<10:
                         text=data[begin:].decode('utf8','replace')
-                        if 'PONG '+token+' ' in text and '[CLI-RESULT] state=complete' in text:break
+                        if 'PONG '+token+' ' in text and reply_succeeded(text):break
                         await asyncio.sleep(.01)
                     else:raise TimeoutError('BLE PONG/final missing')
                     ms=(time.monotonic()-start)*1000;result['pings'].append({'token':token,'ms':ms})

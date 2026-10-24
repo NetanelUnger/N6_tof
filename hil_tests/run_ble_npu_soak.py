@@ -6,6 +6,8 @@ protected SRAM identity/settings baseline is verified and the lease is held.
 Full data is written once after cleanup; periodic small status writes occur on
 a dedicated host thread. Direct receive-gap and loop-lag metrics expose backlog.
 """
+from cli_text_protocol import reply_finished, reply_succeeded, reply_results
+
 
 
 def cli_main():
@@ -108,7 +110,7 @@ def cli_main():
         token='RPS-'+str(i);begin=len(cli);t=time.monotonic();await client.write_gatt_char(RX,('debug ping '+token+'\r').encode(),response=True)
         while time.monotonic()-t<10:
             text=cli[begin:].decode('utf8','replace')
-            if 'PONG '+token+' ' in text and '[CLI-RESULT] state=complete' in text:break
+            if 'PONG '+token+' ' in text and reply_succeeded(text):break
             await asyncio.sleep(.01)
         else:raise TimeoutError('missing BLE final')
         elapsed=(time.monotonic()-t)*1000;report['pings'].append(round(elapsed,2));assert elapsed<1500,'BLE latency >1500ms'
@@ -149,7 +151,7 @@ def cli_main():
                 await client.start_notify(TOF,image);await ping('map-'+str(cycle))
                 at=len(cli);await client.write_gatt_char(RX,b'map on\r',response=True)
                 deadline=time.monotonic()+5
-                while '[CLI-RESULT] state=complete' not in cli[at:].decode('utf8','replace'):
+                while not reply_succeeded(cli[at:]):
                     assert time.monotonic()<deadline,'MAP ON BLE completion absent';await asyncio.sleep(.01)
                 first_image_deadline=time.monotonic()+5
                 while not report['images']:

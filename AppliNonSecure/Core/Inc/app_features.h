@@ -1,6 +1,8 @@
 #ifndef APP_FEATURES_H
 #define APP_FEATURES_H
 
+#include "config.h"
+
 /* Guarded RAM recovery stays off. Build-Xip enables the operational watchdog
  * by default; UART W and local USB CLI W are not a test-build-only feature. */
 #define N6_WATCHDOG_ENABLED (0U)
@@ -89,7 +91,7 @@
 
 /* The round GC9A01 display uses its dedicated SPI4 bus and LCD control pins.
  * SPI5 remains reserved for the optional ST67W6X radio. */
-#define APP_GC9A01_DISPLAY_ENABLED  (1U)
+/* APP_GC9A01_DISPLAY_ENABLED is configured in config.h. */
 
 /* The USB command console has its own small ThreadX thread as well. */
 #define APP_USB_CLI_ENABLED  (1U)

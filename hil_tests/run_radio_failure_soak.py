@@ -4,6 +4,8 @@ Uses a nonexistent test SSID and a non-secret test password, never installs
 firmware or changes the Cloud endpoint/token. Radio/Cloud loop rates are observed
 as bounded-worker evidence, not a measurement of whole-chip CPU utilization.
 """
+from cli_text_protocol import reply_finished, reply_succeeded, reply_results
+
 import argparse
 import asyncio
 import json
@@ -102,7 +104,7 @@ async def run(args):
             if len(tokens)>1: await asyncio.sleep(.02)
         while time.monotonic()<tick+30 and not stop.is_set():
             text = received[before:].decode(errors='replace')
-            if all('PONG '+token+' ' in text for token in tokens) and len(re.findall(r'\[CLI-RESULT\] state=complete\b', text))>=len(tokens):
+            if all('PONG '+token+' ' in text for token in tokens) and reply_results(text).count('complete')>=len(tokens):
                 row = {'tokens': tokens, 'ms': round((time.monotonic()-tick)*1000), 'text': text}
                 report['ble'].append(row)
                 if len(tokens)>1: report['bursts'].append(row)

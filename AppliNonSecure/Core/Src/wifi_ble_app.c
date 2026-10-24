@@ -1641,11 +1641,10 @@ UINT WIFI_BLE_App_EndReply(uint32_t completed)
   if (!ctx || !ctx->reply.active || ctx->reply_owner != tx_thread_identify())
     return TX_NOT_AVAILABLE;
   if (completed) {
-    const char *trailer = ctx->reply.overflow ?
-      "\r\n[CLI-RESULT] state=failed reason=OUTPUT_LIMIT\r\nn6> " :
-      completed == 3U ? "\r\n[CLI-RESULT] state=failed reason=WRITE_ERROR\r\n" :
-      completed == 2U ? "\r\n[CLI-RESULT] state=rejected reason=SERVICE_UNAVAILABLE\r\n" :
-      "\r\n[CLI-RESULT] state=complete\r\n";
+    AppCliReply_TrimLineBreak(&ctx->reply, ctx->cli_tx_slots[0].data,
+        sizeof(ctx->cli_tx_slots[0]), BLE_CLI_TX_SLOT_SIZE);
+    const char *trailer = ctx->reply.overflow || completed != 1U ?
+        "\rFAIL\r\n" : "\n";
     (void)AppCliReply_Append(&ctx->reply, ctx->cli_tx_slots[0].data,
         sizeof(ctx->cli_tx_slots[0]), BLE_CLI_TX_SLOT_SIZE,
         BLE_CLI_TX_SLOT_COUNT, trailer, strlen(trailer), 1U);
@@ -1721,9 +1720,9 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
       radio_manager.queues.ble_stream_context->reply.active) {
     WifiBle_StreamContext_t *ctx = radio_manager.queues.ble_stream_context;
     if (ctx->reply_owner != tx_thread_identify()) return TX_NOT_AVAILABLE;
-    return AppCliReply_Append(&ctx->reply, ctx->cli_tx_slots[0].data,
+    return AppCliReply_AppendText(&ctx->reply, ctx->cli_tx_slots[0].data,
         sizeof(ctx->cli_tx_slots[0]), BLE_CLI_TX_SLOT_SIZE,
-        BLE_CLI_TX_SLOT_COUNT, buffer, length, 0U) ? TX_SIZE_ERROR : TX_SUCCESS;
+        BLE_CLI_TX_SLOT_COUNT, buffer, length) ? TX_SIZE_ERROR : TX_SUCCESS;
   }
 
   if (stream == WIFI_BLE_STREAM_CLI)

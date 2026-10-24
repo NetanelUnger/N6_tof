@@ -67,7 +67,7 @@ void N6H_Run(void)
 #if APP_USB_CLI_ENABLED
   n6h_required|=1UL<<N6H_CLI;
 #endif
-#if APP_GC9A01_DISPLAY_ENABLED
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   n6h_required|=1UL<<N6H_DISPLAY;
 #endif
 #if APP_ST67W6X_ENABLED

@@ -1,6 +1,8 @@
 #ifndef DEBUG_UART_H
 #define DEBUG_UART_H
 
+#include "config.h"
+
 #include <stddef.h>
 #include <stdint.h>
 

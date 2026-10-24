@@ -23,6 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "config.h"
 #include "debug_uart.h"
 #include "boot_splash.h"
 #include "firmware_build_version.h"
@@ -54,9 +55,13 @@ DMA_HandleTypeDef handle_GPDMA1_Channel2;
 DMA_HandleTypeDef handle_GPDMA1_Channel1;
 DMA_HandleTypeDef handle_GPDMA1_Channel0;
 
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 SPI_HandleTypeDef hspi4;
+#endif
 SPI_HandleTypeDef hspi5;
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 DMA_HandleTypeDef handle_GPDMA1_Channel5;
+#endif
 DMA_HandleTypeDef handle_GPDMA1_Channel11;
 DMA_HandleTypeDef handle_GPDMA1_Channel10;
 
@@ -70,7 +75,9 @@ PCD_HandleTypeDef hpcd_USB_OTG_HS1;
 static void MX_GPIO_Init(void);
 static void MX_GPDMA1_Init(void);
 static void MX_I3C1_Init(void);
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static void MX_SPI4_Init(void);
+#endif
 static void MX_SPI5_Init(void);
 static void MX_UCPD1_Init(void);
 /* USER CODE BEGIN PFP */
@@ -138,7 +145,9 @@ int main(void)
   MX_GPIO_Init();
   MX_GPDMA1_Init();
   MX_I3C1_Init();
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   MX_SPI4_Init();
+#endif
   MX_SPI5_Init();
   MX_UCPD1_Init();
   /* Call PreOsInit function */
@@ -189,8 +198,10 @@ static void MX_GPDMA1_Init(void)
     HAL_NVIC_EnableIRQ(GPDMA1_Channel3_IRQn);
     HAL_NVIC_SetPriority(GPDMA1_Channel4_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel4_IRQn);
+#ifdef APP_GC9A01_DISPLAY_ENABLED
     HAL_NVIC_SetPriority(GPDMA1_Channel5_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel5_IRQn);
+#endif
     HAL_NVIC_SetPriority(GPDMA1_Channel10_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel10_IRQn);
     HAL_NVIC_SetPriority(GPDMA1_Channel11_IRQn, 5, 0);
@@ -276,6 +287,7 @@ static void MX_I3C1_Init(void)
   * @param None
   * @retval None
   */
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static void MX_SPI4_Init(void)
 {
 
@@ -319,6 +331,7 @@ static void MX_SPI4_Init(void)
   /* USER CODE END SPI4_Init 2 */
 
 }
+#endif
 
 /**
   * @brief SPI5 Initialization Function
@@ -536,10 +549,15 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   HAL_GPIO_WritePin(LCD_CS_GPIO_Port, LCD_CS_Pin, GPIO_PIN_SET);
+#endif
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, CHIP_EN_Pin|LCD_RST_Pin|LCD_DC_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CHIP_EN_Pin, GPIO_PIN_RESET);
+#ifdef APP_GC9A01_DISPLAY_ENABLED
+  HAL_GPIO_WritePin(GPIOE, LCD_RST_Pin|LCD_DC_Pin, GPIO_PIN_RESET);
+#endif
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(BOOT_GPIO_Port, BOOT_Pin, GPIO_PIN_RESET);
@@ -551,7 +569,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : LCD_CS_Pin CHIP_EN_Pin */
-  GPIO_InitStruct.Pin = LCD_CS_Pin|CHIP_EN_Pin;
+  GPIO_InitStruct.Pin = CHIP_EN_Pin;
+#ifdef APP_GC9A01_DISPLAY_ENABLED
+  GPIO_InitStruct.Pin |= LCD_CS_Pin;
+#endif
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
@@ -570,12 +591,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   /*Configure GPIO pins : LCD_RST_Pin LCD_DC_Pin */
   GPIO_InitStruct.Pin = LCD_RST_Pin|LCD_DC_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+#endif
 
   /*Configure GPIO pin : TOF_INT_Pin */
   GPIO_InitStruct.Pin = TOF_INT_Pin;

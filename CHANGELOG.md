@@ -1,5 +1,29 @@
 # Project change history
 
+## 2026-10-24 - Optional screen compiled out, USB XIP A47
+
+- Move APP_GC9A01_DISPLAY_ENABLED to config.h as a commented define. Preserve all screen code behind presence-based ifdef guards.
+- Exclude display task/stack/driver buffers, SPI4/LCD GPIO/DMA5/IRQ initialization, ToF handoff, CLI commands/help/status/usage and watchdog display requirement.
+- Both configurations build; disabled ELF excludes display/task/SPI4/DMA5 symbols. Native watchdog tests pass 13 groups with display enabled and 13 without any display heartbeat.
+- Signed 479072-byte A47 package installed through CN8 USB with EOT ACK; explicit reboot retains version47. CLI excludes screen options, ToF/NPU/radio report ready and no NPU/SPI faults. B46 retained.
+- No IOC/Generate Code required. Record generated-source guards in AGENTS.md for future regeneration review.
+
+## 2026-10-24 - Remote CLI CR lines and final LF, USB XIP B46
+
+- Replace BLE/Cloud completion text with a final LF; normalize ordinary remote text line endings to CR and preserve visible FAIL/CRLF for errors.
+- Delay BLE final LF for asynchronous Wi-Fi results; Cloud sends LF only in its final command record after asynchronous work. Preserve binary XMODEM and traditional USB console formatting.
+- Update website progress/display and host BLE capture/HIL clients, with legacy completion compatibility. Website production build and thirteen progress/display checks pass; local changes not deployed.
+- Native reply ownership, Cloud publication, CR/LF normalization/overflow, sticky failure and XMODEM timeout regressions pass. Actual BLE version/help/unknown-command/async Wi-Fi scan each carry exactly one final LF; HELP spans14 notifications. Replay actual notifications through website parser passes.
+- B46 package487488bytes authenticated/installed over CN8 USB; A45 retained. USB PONG/ToF/NPU healthy. No Generate Code, settings/pairing changes, server edits or website deployment.
+
+## 2026-10-24 - Quiet customer demo, USB XIP A45
+
+- Centralize application debug-output and ST67 logging switches in Core/Inc/config.h; default OFF.
+- Gate UART/startup/ToF trace output and CLI accepted/radio diagnostics; preserve fault reporting, requested status, watchdog/resource counters and BLE/Cloud completion protocol.
+- Build/sign XIP A45 (487680-byte package), install through CN8 XMODEM, receive EOT ACK, verify version45 again after explicit reboot, USB PONG, ToF ready and NPU ready/errors0; retain B44.
+- Verify zero application UART queued/sent and ST67 submitted counters plus six seconds of UART silence. Companion website local filtering passes eight progress/display tests and production build; not deployed.
+- No CubeMX regeneration, IOC/vendor changes, settings/credential writes, OS pairing or boot-chain programming. Existing vendor/linker warnings remain.
+
 ## 2026-10-22 - Experimental XIP A/B feature branch
 
 - Add physical-slot XIP linker, signed execution/slot validation and FSBL vector-only handoff.

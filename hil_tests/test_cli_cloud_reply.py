@@ -33,11 +33,11 @@ TESTS=r'''
 int main(void){
  reset();assert(!CloudRelay_BeginReply() && context.hold_command);
  for(unsigned i=0;i<60;i++)assert(!CloudRelay_WriteOutput("line\r\n",6,0));
- assert(!context.output_count && context.reply.bytes==360);
+ assert(!context.output_count && context.reply.bytes==300);
  assert(CloudRelay_CompleteCommand()!=0 && !context.output_count);
- assert(!CloudRelay_EndReply(1) && context.output_count==2);
+ assert(!CloudRelay_EndReply(1) && context.output_count==1);
  assert(!CloudRelay_AcknowledgeInput(&context.input,1) && context.hold_command);
- assert(!CloudRelay_CompleteCommand() && slots[2].completed && context.output_count==3);
+ assert(!CloudRelay_CompleteCommand() && slots[1].completed && slots[1].length==1 && slots[1].data[0]==10 && context.output_count==2);
  puts("PASS unpublished packed reply cannot complete or release command identity before ACK/output ownership");
  reset();context.output_count=7;assert(CloudRelay_BeginReply()==TX_QUEUE_FULL);
  assert(!CloudRelay_ReturnInput(&context.input) && !context.input_delivered && context.input_ready);
@@ -46,12 +46,12 @@ int main(void){
  assert(CloudRelay_EndReply(1)!=0 && context.reply.active && !context.output_count);
  assert(!CloudRelay_AcknowledgeInput(&context.input,1));busy=0;
  assert(CloudRelay_CompleteCommand()!=0 && !context.output_count);
- assert(!CloudRelay_EndReply(1) && strstr((char*)slots[0].data,"state=complete"));
+ assert(!CloudRelay_EndReply(1) && !memchr(slots[0].data,10,slots[0].length));
  puts("PASS busy publication retains bytes and hold after ACK; retry completes without duplicate trailer");
  reset();assert(!CloudRelay_BeginReply());char large[2944];memset(large,'x',sizeof large);
  assert(!CloudRelay_WriteOutput(large,sizeof large,0));assert(CloudRelay_WriteOutput("xx",2,0)==TX_SIZE_ERROR);
  assert(context.reply.bytes==sizeof large && !context.output_count);assert(!CloudRelay_EndReply(1));
- assert(context.output_count==8 && strstr((char*)slots[7].data,"state=failed reason=OUTPUT_LIMIT"));
+ assert(context.output_count==8 && strstr((char*)slots[7].data,"FAIL\r"));
  assert(CloudRelay_CompleteCommand()==TX_QUEUE_FULL);--context.output_count;
  assert(!CloudRelay_CompleteCommand());
  puts("PASS overflow has explicit failure and completion marker waits for existing slot rather than growing queue");
@@ -70,7 +70,7 @@ int main(void){
  puts("PASS return/ACK identity guards reject old sequence and old command");
  reset();assert(!CloudRelay_BeginReply());assert(!CloudRelay_WriteOutput("partial",7,0));
  busy=1;assert(CloudRelay_WriteOutput("lost",4,0)!=0);busy=0;
- assert(!CloudRelay_EndReply(3));assert(strstr((char*)slots[0].data,"state=failed reason=WRITE_ERROR"));
+ assert(!CloudRelay_EndReply(3));assert(strstr((char*)slots[0].data,"FAIL\r"));
  puts("PASS busy handler write is reported as failure rather than successful truncated response");
  reset();assert(!CloudRelay_BeginReply());busy=1;
  assert(CloudRelay_CancelReply()!=0 && context.reply.active);busy=0;
@@ -79,8 +79,16 @@ int main(void){
  puts("PASS cancellation retries mutex contention, is idempotent, and cannot strand the next generation");
  reset();assert(!CloudRelay_BeginReply());char controls[384];memset(controls,1,sizeof controls);
  assert(!CloudRelay_WriteOutput(controls,sizeof controls,0));assert(!CloudRelay_EndReply(1));
- assert(context.output_count==1 && strstr((char*)slots[0].data,"state=failed reason=ENCODING_LIMIT"));
+ assert(context.output_count==1 && strstr((char*)slots[0].data,"FAIL\r"));
  puts("PASS JSON escaping limit emits a bounded explicit failure instead of endless output backoff");
+ reset();assert(!CloudRelay_BeginReply());assert(!CloudRelay_WriteOutput("queued\r\n",8,0));
+ assert(!CloudRelay_EndReply(1));assert(context.output_count==1);
+ assert(!memchr(slots[0].data,10,slots[0].length));
+ assert(!CloudRelay_WriteOutput("async result\r\n",14,0));
+ assert(!memchr(slots[1].data,10,slots[1].length));
+ assert(!CloudRelay_CompleteCommand());
+ assert(slots[2].completed && slots[2].length==1 && slots[2].data[0]==10);
+ puts("PASS Cloud asynchronous results have CR line breaks and exactly one final LF record");
  return 0;
 }
 '''

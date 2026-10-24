@@ -110,7 +110,7 @@ static TX_THREAD tx_tof_acquisition_thread;
 static TX_THREAD tx_update_confirm_thread;
 static TX_THREAD tx_debug_uart_thread;
 static TX_THREAD tx_debug_uart_test_thread;
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static TX_THREAD tx_display_thread;
 #endif
 #if (APP_ST67W6X_ENABLED == 1U)
@@ -140,7 +140,7 @@ static void ToFAcquisitionThread_Entry(ULONG thread_input);
 static void UpdateConfirmThread_Entry(ULONG thread_input);
 static void DebugUartThread_Entry(ULONG thread_input);
 static void DebugUartTestThread_Entry(ULONG thread_input);
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static void DisplayThread_Entry(ULONG thread_input);
 #endif
 #if (APP_ST67W6X_ENABLED == 1U)
@@ -243,7 +243,7 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   Debug_UART_Log("RADIO", "EXTI9 routed to PE9 SPI_RDY; ToF uses bounded GPIO polling");
 #endif
 
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   if (Display_App_Init() != TX_SUCCESS)
   {
     return TX_GROUP_ERROR;
@@ -456,7 +456,7 @@ static void UpdateConfirmThread_Entry(ULONG thread_input)
 #endif
 }
 
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static void DisplayThread_Entry(ULONG thread_input)
 {
   (void)thread_input;

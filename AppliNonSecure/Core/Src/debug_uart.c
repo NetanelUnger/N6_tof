@@ -464,6 +464,10 @@ static void Debug_UART_RawString(const char *message)
 
 void Debug_UART_StartupTrace(uint32_t stage)
 {
+#if (N6_DEBUG_OUTPUT_ENABLED == 0U)
+  (void)stage;
+  return;
+#endif
   switch (stage)
   {
     case 1U:
@@ -1136,6 +1140,10 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *uart_handle)
 
 int32_t Debug_UART_Write(const void *buffer, size_t length)
 {
+#if (N6_DEBUG_OUTPUT_ENABLED == 0U)
+  (void)buffer;
+  return (int32_t)length;
+#endif
   if ((buffer == NULL) || (length == 0U))
   {
     return 0;
@@ -1169,6 +1177,11 @@ int32_t Debug_UART_EmergencyWrite(const void *buffer, size_t length)
 
 void Debug_UART_Log(const char *component, const char *format, ...)
 {
+#if (N6_DEBUG_OUTPUT_ENABLED == 0U)
+  (void)component;
+  (void)format;
+  return;
+#endif
   char line[DEBUG_UART_LINE_SIZE];
   const char *name = (component != NULL) ? component : "APP";
   int prefix_length;
@@ -1226,6 +1239,9 @@ uint32_t Debug_UART_GetDroppedMessages(void)
 
 uint32_t Debug_UART_NcpTraceEnabled(void)
 {
+#if (N6_DEBUG_OUTPUT_ENABLED == 0U)
+  return 0U;
+#endif
   return __atomic_load_n(&debug_uart_ncp_trace_enabled, __ATOMIC_RELAXED);
 }
 

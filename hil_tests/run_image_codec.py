@@ -2,6 +2,8 @@
 Never pairs, resets, installs firmware or changes persistent settings. Captures
 wire notifications for replay through the website's actual decoder.
 """
+from cli_text_protocol import reply_finished, reply_succeeded, reply_results
+
 import argparse, asyncio, json, time
 from pathlib import Path
 from bleak import BleakClient, BleakScanner
@@ -25,7 +27,7 @@ async def run(args):
         await client.write_gatt_char(RX,(text+'\r').encode(),response=True)
         while time.monotonic()-start<8:
             reply=cli[begin:].decode('utf-8','replace')
-            if '[CLI-RESULT] state=complete' in reply:
+            if reply_succeeded(reply):
                 report['commands'].append({'command':text,'ms':round((time.monotonic()-start)*1000,2),'reply':reply});return reply
             await asyncio.sleep(.01)
         raise TimeoutError('No completed reply: '+text)

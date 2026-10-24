@@ -894,12 +894,9 @@ UINT CloudRelay_EndReply(uint32_t completed)
   if (!cloud->reply.active || cloud->reply_owner != tx_thread_identify()) {
     (void)tx_mutex_put(&cloud->gate); return TX_NOT_AVAILABLE;
   }
-  if (completed) {
-    const char *trailer = cloud->reply.overflow ?
-      "\r\n[CLI-RESULT] state=failed reason=OUTPUT_LIMIT\r\nn6> " :
-      completed == 3U ? "\r\n[CLI-RESULT] state=failed reason=WRITE_ERROR\r\n" :
-      completed == 2U ? "\r\n[CLI-RESULT] state=rejected reason=SERVICE_UNAVAILABLE\r\n" :
-      "\r\n[CLI-RESULT] state=complete\r\n";
+  if (completed && (cloud->reply.overflow || completed != 1U)) {
+    /* LF belongs to CompleteCommand, after asynchronous Wi-Fi results too. */
+    const char *trailer = "\rFAIL\r";
     (void)AppCliReply_Append(&cloud->reply, cloud->output[0].data,
         sizeof(cloud->output[0]), CLOUD_OUTPUT_SLOT_SIZE, CLOUD_OUTPUT_SLOT_COUNT,
         trailer, strlen(trailer), 1U);
@@ -920,7 +917,7 @@ UINT CloudRelay_EndReply(uint32_t completed)
                  byte < 0x20U ? 6U : 1U;
     }
     if (encoded >= 520U) {
-      const char *failure = "\r\n[CLI-RESULT] state=failed reason=ENCODING_LIMIT\r\nn6> ";
+      const char *failure = "\rFAIL\r";
       cloud->reply.bytes = cloud->reply.overflow = 0U;
       (void)AppCliReply_Append(&cloud->reply, cloud->output[0].data,
           sizeof(cloud->output[0]), CLOUD_OUTPUT_SLOT_SIZE, CLOUD_OUTPUT_SLOT_COUNT,
@@ -962,9 +959,9 @@ UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary)
     if (binary || cloud->reply_owner != tx_thread_identify()) {
       (void)tx_mutex_put(&cloud->gate); return TX_NOT_AVAILABLE;
     }
-    int result = AppCliReply_Append(&cloud->reply, cloud->output[0].data,
+    int result = AppCliReply_AppendText(&cloud->reply, cloud->output[0].data,
         sizeof(cloud->output[0]), CLOUD_OUTPUT_SLOT_SIZE, CLOUD_OUTPUT_SLOT_COUNT,
-        data, length, 0U);
+        data, length);
     (void)tx_mutex_put(&cloud->gate);
     return result ? TX_SIZE_ERROR : TX_SUCCESS;
   }
@@ -983,6 +980,7 @@ UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary)
   /* Fill unpublished slots first. Readers see the complete response only
    * after the single tail/count commit; a rejection changes neither. */
   tail = cloud->output_tail;
+  uint32_t previous_cr = 0U;
   while (length != 0U)
   {
     size_t chunk = (length > CLOUD_OUTPUT_SLOT_SIZE) ?
@@ -993,6 +991,8 @@ UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary)
     slot->binary = (binary != 0U) ? 1U : 0U;
     slot->input_sequence = cloud->input.sequence;
     (void)memcpy(slot->data, bytes, chunk);
+    if (!binary) slot->length = (uint16_t)AppCliReply_NormalizeText(
+        slot->data, slot->data, chunk, &previous_cr);
     tail = (tail + 1U) % CLOUD_OUTPUT_SLOT_COUNT;
     bytes += chunk;
     length -= chunk;
@@ -1051,6 +1051,8 @@ UINT CloudRelay_CompleteCommand(void)
   slot = &cloud->output[cloud->output_tail];
   (void)memset(slot, 0, sizeof(*slot));
   slot->completed = 1U;
+  slot->data[0] = '\n';
+  slot->length = 1U;
   posture = tx_interrupt_control(TX_INT_DISABLE);
   cloud->output_tail = (cloud->output_tail + 1U) % CLOUD_OUTPUT_SLOT_COUNT;
   cloud->output_count++;

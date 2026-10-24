@@ -1,5 +1,28 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+2026-10-24 optional display: A47 installed over USB; B46 retained. The screen
+switch is commented out in `AppliNonSecure/Core/Inc/config.h`. Display task,
+driver, SPI4/LCD/DMA initialization and CLI entries are excluded at compile
+time. Both configurations build; watchdog checks and USB post-reboot
+version/ToF/NPU/radio checks pass. No Generate Code required.
+See [configuration and verification](docs/display-disabled47.md).
+
+2026-10-24 remote CLI framing: B46 installed over USB and verified on real BLE.
+Remote text uses CR for displayed lines and one final LF for the complete
+command; failures end with visible `FAIL\r\n`. No completion marker text is
+emitted. Multiline HELP (14 notifications) and asynchronous Wi-Fi scan pass,
+including replay through the website parser. Companion website changes are
+local and not deployed; USB console/XMODEM retain their existing wire formats.
+See [protocol and verification](docs/cli-cr-lf46.md). A45 is retained.
+
+2026-10-24 demo cleanup: A45 installed through CN8 USB and verified again after
+an explicit reboot; B44 retained. Application diagnostic output defaults OFF in
+[`config.h`](AppliNonSecure/Core/Inc/config.h). Version/USB PONG/ToF/NPU pass;
+UART queue/sent and ST67 log counters are zero. BLE/Cloud completion records
+remain protocol data; the companion website now filters them in its local
+terminal display (website changes have not been deployed). No Generate Code is
+required. See [configuration and verification](docs/demo-quiet45.md).
+
 LATEST2026-10-23 19:00UTC: B44 confirmed XIP, A43 retained. Full OTA with active
 WDT PASS517472bytes/506data+EOT/507ACK/0timeout/0retry/562.032s. Signature/hash,
 automatic reboot/confirmation22720ms, PC702D0AFC/VTOR70280400 verified. Nine
