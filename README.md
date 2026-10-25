@@ -1,5 +1,11 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+2026-10-25 repeated ST67 updates: `01_UPDATE_MODULE.bat` also performs verified
+line-ending repair before validation. QConn now runs from a hash-verified copy
+under `.local-dependencies/st67-updates`, preserving the bundled vendor files
+and retaining per-run working files/logs. This fixes repeated-run package hash
+failures; it does not establish a fix for a hardware handshake failure.
+
 2026-10-25 ST67 package check: run `radio_firmware\00_CHECK.bat` as usual.
 The bundled checker now repairs LF/CRLF differences in known vendor text files
 only when the repaired bytes exactly match the existing SHA-256 manifest, then

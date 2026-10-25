@@ -1,5 +1,11 @@
 # Project change history
 
+## 2026-10-25 - Isolate QConn writes and repair updater line endings
+
+- Run verified LF/CRLF repair before updater validation, matching the reported SHA-256 of eflash_loader_cfg.ini with LF exactly.
+- Copy and verify the vendor package into a unique per-run workspace before hardware operations; launch QConn and resolve its config/efuse/image paths entirely within that copy.
+- Retain working files/logs for diagnosis. Keep strict vendor hashes and confirmation/jumper/FSBL restore behavior. Hardware handshake failure remains unresolved.
+
 ## 2026-10-25 - Automatic verified ST67 package line-ending repair
 
 - Bundle the line-ending repair helper and invoke it automatically from the package checker used by 00_CHECK.bat.

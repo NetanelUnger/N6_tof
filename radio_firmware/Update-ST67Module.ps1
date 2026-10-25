@@ -7,6 +7,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $RadioRoot = $PSScriptRoot
 $ProjectRoot = Split-Path -Parent $RadioRoot
+& (Join-Path $RadioRoot 'Repair-ST67PackageLineEndings.ps1')
 . (Join-Path $ProjectRoot 'Tools\N6-DevCommon.ps1')
 
 function Assert-FileHash {
@@ -63,7 +64,6 @@ $littleFsBinary = Join-Path $RadioRoot $contract.littlefs_binary
 $partition = Join-Path $ncpRoot 'partition.bin'
 $efuse = Join-Path $ncpRoot 'efusedata.bin'
 $configTemplate = Join-Path $ncpRoot 'mission_t01_flash_prog_cfg.ini'
-$generatedConfig = Join-Path $ncpRoot 'mission_t01_flash_prog_cfg_auto.ini'
 $hostBootloader = Join-Path $vendorRoot 'NUCLEO-N657X0-Q_Binaries\Bootloader.bin'
 $vendorRestoreFsbl = Join-Path $vendorRoot 'NUCLEO-N657X0-Q_Binaries\ST67W6X_CLI_FSBL.bin'
 $qconn = Join-Path $vendorRoot 'QConn_Flash\QConn_Flash_Cmd.exe'
@@ -115,7 +115,16 @@ if (-not $ConfirmUpdate) {
     }
 }
 
-$template = Get-Content -LiteralPath $configTemplate
+# QConn can rewrite its configuration and generated images even on failure.
+# Run only a verified disposable copy; retain it for diagnosis and retries.
+$work = & (Join-Path $RadioRoot 'New-ST67UpdateWorkspace.ps1') `
+    -VendorRoot $vendorRoot `
+    -WorkRoot (Join-Path $ProjectRoot '.local-dependencies\st67-updates')
+$qconn = $work.QConn
+$efuse = $work.Efuse
+$generatedConfig = $work.GeneratedConfig
+Write-Host "QConn working copy (logs retained): $($work.Root)"
+$template = Get-Content -LiteralPath $work.ConfigTemplate
 $ncpFileName = Split-Path -Leaf $ncpBinary
 $generated = $template | ForEach-Object {
     if ($_ -match '^filedir\s*=\s*\./st67w611m_mission_t01_v.*\.bin\s*$') {
@@ -182,9 +191,7 @@ finally {
             -d $restoreFsbl 0x70000000 -v
         $restoreSucceeded = ($LASTEXITCODE -eq 0)
     }
-    if (Test-Path -LiteralPath $generatedConfig) {
-        Remove-Item -LiteralPath $generatedConfig -Force
-    }
+    Write-Host "QConn working files/logs retained: $($work.Root)"
 }
 
 if (-not $restoreSucceeded) {
