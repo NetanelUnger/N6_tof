@@ -1,5 +1,14 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+2026-10-25 ST67 UART preparation and feedback: close radio-board SB31/SB34
+for UART flashing only after disconnecting power and isolating the ToF board
+from shared PD8/PD9. Reopen them before reconnecting ToF and running HIL.
+The updater detects empty QConn handshake replies, reports the Hebrew message
+"אין תגובה מהמודול", restores FSBL, and exits with a concise failure rather
+than a raw PowerShell stack trace. Host-only simulated tool tests verify success,
+no response, write failure, and FSBL restore failure; no new hardware validation.
+See [radio preparation and recovery](radio_firmware/README_HE.md).
+
 2026-10-25 repeated ST67 updates: `01_UPDATE_MODULE.bat` also performs verified
 line-ending repair before validation. QConn now runs from a hash-verified copy
 under `.local-dependencies/st67-updates`, preserving the bundled vendor files

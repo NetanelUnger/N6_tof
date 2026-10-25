@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Port,
     [switch]$ConfirmUpdate,
     [string]$IdeRoot = 'C:\ST\STM32CubeIDE_2.2.0\STM32CubeIDE'
@@ -107,6 +107,9 @@ Write-Host "ST-LINK VCP: $Port"
 Write-Host "Restore FSBL: $restoreFsbl"
 Write-Warning 'ST supplies this NCP image as a signed binary. Programming it can permanently lock an unlocked ST67 module.'
 Write-Warning 'The STM32 external-NOR FSBL is temporarily replaced while the NCP is programmed.'
+Write-Host 'UART update requires SB31 and SB34 CLOSED on X-NUCLEO-67W61M1.'
+Write-Host 'With power disconnected, isolate/remove the ToF board first: PD8/PD9 are shared.'
+Write-Host 'After the update, disconnect power and reopen SB31/SB34 before reconnecting ToF.'
 if (-not $ConfirmUpdate) {
     $confirmation = Read-Host 'Type UPDATE ST67 to continue'
     if ($confirmation -cne 'UPDATE ST67') {
@@ -141,6 +144,8 @@ $generated = $template | ForEach-Object {
 $temporaryHostInstalled = $false
 $ncpProgrammingSucceeded = $false
 $restoreSucceeded = $false
+$updateFailure = $null
+$noUartResponse = $false
 try {
     Wait-ForOperator 'Set BOOT0=1-2 and BOOT1=2-3, connect ST-LINK, then press RESET.'
     & $programmer `
@@ -160,18 +165,26 @@ try {
         $qconnExit = 1
         foreach ($attempt in 1..2) {
             Write-Host "Programming the ST67 NCP (attempt $attempt of 2)..."
-            & $qconn `
-                --port $Port `
-                --config $generatedConfig `
-                "--efuse=$efuse"
-            $qconnExit = $LASTEXITCODE
-            if ($qconnExit -eq 0) {
+            $result = & (Join-Path $RadioRoot 'Invoke-ST67QConn.ps1') `
+                -QConn $qconn -Port $Port -Config $generatedConfig -Efuse $efuse `
+                -LogPath (Join-Path $work.Root "qconn-attempt-$attempt.log")
+            $qconnExit = $result.ExitCode
+            $noUartResponse = $result.NoResponse
+            if ($qconnExit -eq 0 -and -not $noUartResponse) {
+                break
+            }
+            if ($noUartResponse) {
+                Write-Host 'אין תגובה מהמודול' -ForegroundColor Yellow
+                Write-Host 'Check SB31/SB34, UART connections, power, BOOT mode and RESET.'
                 break
             }
             if ($attempt -eq 1) {
                 Write-Warning 'QConn failed once; retrying after one second.'
                 Start-Sleep -Seconds 1
             }
+        }
+        if ($noUartResponse) {
+            throw 'אין תגובה מהמודול'
         }
         if ($qconnExit -ne 0) {
             throw "QConn ST67 programming failed twice (exit $qconnExit)."
@@ -182,27 +195,40 @@ try {
         Pop-Location
     }
 }
+catch {
+    $updateFailure = $_.Exception.Message
+}
 finally {
     if ($temporaryHostInstalled) {
         Wait-ForOperator 'Set BOOT0=1-2 and BOOT1=2-3, then press RESET so the project FSBL can be restored.'
-        & $programmer `
-            -c port=SWD mode=UR reset=HWrst `
-            -el $externalLoader `
-            -d $restoreFsbl 0x70000000 -v
-        $restoreSucceeded = ($LASTEXITCODE -eq 0)
+        try {
+            & $programmer `
+                -c port=SWD mode=UR reset=HWrst `
+                -el $externalLoader `
+                -d $restoreFsbl 0x70000000 -v
+            $restoreSucceeded = ($LASTEXITCODE -eq 0)
+        }
+        catch {
+            Write-Host ('FSBL restore error: ' + $_.Exception.Message) -ForegroundColor Yellow
+        }
+        if ($restoreSucceeded) { Write-Host 'STM32 FSBL restore PASS (write verified).' }
     }
     Write-Host "QConn working files/logs retained: $($work.Root)"
 }
 
-if (-not $restoreSucceeded) {
+if ($temporaryHostInstalled -and -not $restoreSucceeded) {
+    if ($updateFailure) { Write-Host ('ST67 update error: ' + $updateFailure) -ForegroundColor Yellow }
     throw 'The ST67 operation ended, but restoring/verifying the STM32 FSBL failed. Keep BOOT1 at 2-3 and rerun the updater.'
 }
+if ($updateFailure) { throw $updateFailure }
 if (-not $ncpProgrammingSucceeded) {
     throw 'The original STM32 FSBL was restored, but the ST67 NCP update did not complete.'
 }
 
 Write-Host ''
 Write-Host "ST67 UPDATE PASS: mission T01 SDK $($contract.expected_sdk_version) was programmed."
+Write-Host 'Disconnect all power. Reopen radio SB31/SB34, then reconnect the ToF board.'
+Write-Host 'Reconnect power only after restoring the project wiring.'
 Write-Host 'Set BOOT0=1-2 and BOOT1=1-2, then press RESET.'
 if ($restoreFsbl -eq $vendorRestoreFsbl) {
     Write-Host 'A project FSBL was not yet built, so the ST reference CLI FSBL was restored.'

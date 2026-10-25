@@ -1,5 +1,12 @@
 # Project change history
 
+## 2026-10-25 - UART no-response feedback and radio bridge preparation
+
+- Document radio SB31/SB34 closure for UART programming, power-off isolation of ToF PD8/PD9, and restoration of open bridges before project/HIL use.
+- Inspect QConn's real UART handshake; report "אין תגובה מהמודול" and proceed to FSBL restore without a redundant attempt when all observed replies are empty.
+- Stream and retain per-attempt QConn logs; distinguish responding write failures and FSBL restore failures. BAT keeps a nonzero exit with concise console feedback, including UTF-8 Hebrew.
+- Host-only fake-tool integration covers the update/restore lifecycle and unchanged source manifest. No hardware or firmware image changes.
+
 ## 2026-10-25 - Isolate QConn writes and repair updater line endings
 
 - Run verified LF/CRLF repair before updater validation, matching the reported SHA-256 of eflash_loader_cfg.ini with LF exactly.
