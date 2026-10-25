@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $RadioRoot = $PSScriptRoot
+& (Join-Path $RadioRoot 'Repair-ST67PackageLineEndings.ps1')
 $contract = Get-Content -Raw -LiteralPath (Join-Path $RadioRoot 'contract.json') |
     ConvertFrom-Json
 

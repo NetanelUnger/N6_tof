@@ -1,5 +1,11 @@
 # Project change history
 
+## 2026-10-25 - Automatic verified ST67 package line-ending repair
+
+- Bundle the line-ending repair helper and invoke it automatically from the package checker used by 00_CHECK.bat.
+- Accept a text repair only when its SHA-256 matches the unchanged vendor manifest; leave firmware, executables, and unexpected content mismatches rejected.
+- Verify the actual BAT flow against fresh LF/CRLF package copies, repeated execution, and tampered text/binary rejection. No hardware or firmware build changes.
+
 ## 2026-10-24 - Optional screen compiled out, USB XIP A47
 
 - Move APP_GC9A01_DISPLAY_ENABLED to config.h as a commented define. Preserve all screen code behind presence-based ifdef guards.

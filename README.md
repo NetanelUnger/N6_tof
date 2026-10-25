@@ -1,5 +1,12 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+2026-10-25 ST67 package check: run `radio_firmware\00_CHECK.bat` as usual.
+The bundled checker now repairs LF/CRLF differences in known vendor text files
+only when the repaired bytes exactly match the existing SHA-256 manifest, then
+runs the full package check. No separate repair download or hardware is needed;
+content changes and binary mismatches still fail. See
+[radio package instructions](radio_firmware/README_HE.md).
+
 2026-10-24 optional display: A47 installed over USB; B46 retained. The screen
 switch is commented out in `AppliNonSecure/Core/Inc/config.h`. Display task,
 driver, SPI4/LCD/DMA initialization and CLI entries are excluded at compile
