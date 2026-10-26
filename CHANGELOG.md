@@ -6,7 +6,8 @@
 - Require schema-2 factory manifests with exactly four images, matching hashes/version and source/build-input fingerprint; refuse stale or incomplete manifests before erase, including SkipBuild.
 - Separate write success from verified application boot; SkipBootVerification never prints full provision PASS. ConfirmErase confirms erase only; skipping physical prompts requires explicit NonInteractive.
 - Offer one operator cold-power recovery for missing CN8 CDC, disconnecting every supply with LEDs off; retry verification only, never erase/program automatically. RESET insufficiency root cause remains unproven.
-- Add fake-builder and BAT lifecycle tests for silent/no-target builds, manifest gaps/stale inputs, prompt semantics, missing/present CDC, cold-power retry, skipped boot and cancellation. No hardware programming or new real-tool firmware build in this change.
+- Add fake-builder and BAT lifecycle tests for silent/no-target builds, manifest gaps/stale inputs, prompt semantics, missing/present CDC, cold-power retry, skipped boot and cancellation.
+- Real STM32CubeIDE 2.2.0 BuildOnly on a fresh workspace exposed GCC Windows drive-colon dependency errors in referenced projects. Repair generated dependencies between all target builds, including escaped spaces in OneDrive-style paths. A second full build/sign/manifest validation passed for source version 11 (heap 402512 bytes); no hardware was accessed. Physical CDC/boot validation remains pending.
 
 ## 2026-10-25 - UART no-response feedback and radio bridge preparation
 

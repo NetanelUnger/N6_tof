@@ -8,6 +8,9 @@ with SkipBuild. ConfirmErase no longer skips jumper/USB prompts; NonInteractive
 is explicit. Missing CDC offers one operator cold-power check without reprogramming.
 Skipped boot checks report PROGRAMMING PASS / BOOT NOT VERIFIED. Host-only fake
 builder/programmer/CDC tests cover these gates; no new physical-board validation.
+Real CubeIDE 2.2.0 BuildOnly also passes all three builds, signing and manifest
+validation after repairing Windows drive-colon dependencies between referenced
+project builds (including escaped spaces in paths). No hardware was accessed.
 See [factory operation](training/README_HE.md#13--שחזורהתקנת-מפעל-למעגל-ריק).
 
 2026-10-25 ST67 UART preparation and feedback: close radio-board SB31/SB34

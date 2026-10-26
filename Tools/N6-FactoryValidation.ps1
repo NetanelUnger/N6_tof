@@ -61,6 +61,14 @@ function Invoke-N6FactoryCleanBuild {
         }
     }
     foreach ($target in $targets) {
+        # CubeIDE may incrementally rebuild project references while cleaning
+        # another target. Repair every generated dependency set between builds.
+        foreach ($dependencyTarget in $targets) {
+            $dependencyRoot = Join-Path $ProjectRoot ($dependencyTarget[0] + '\Debug')
+            if (Test-Path -LiteralPath $dependencyRoot) {
+                Repair-N6MakeDependencyFiles -BuildRoot $dependencyRoot -ProjectRoot $ProjectRoot
+            }
+        }
         $debug = Join-Path $ProjectRoot ($target[0] + '\Debug')
         $backup = Join-Path $SessionRoot ('previous-artifacts\' + $target[0])
         New-Item -ItemType Directory -Path $backup -Force | Out-Null
@@ -83,6 +91,9 @@ function Invoke-N6FactoryCleanBuild {
             }
         }
         Write-Host "Fresh build artifacts verified: $($target[1])/Debug"
+    }
+    foreach ($target in $targets) {
+        Repair-N6MakeDependencyFiles -BuildRoot (Join-Path $ProjectRoot ($target[0] + '\Debug')) -ProjectRoot $ProjectRoot
     }
 }
 

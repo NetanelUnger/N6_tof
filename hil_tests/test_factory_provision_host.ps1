@@ -34,6 +34,12 @@ $builder = Join-Path $root 'headless-build.bat'
 $previousRoot = $env:N6_FACTORY_TEST_ROOT
 $previousMode = $env:N6_FACTORY_TEST_MODE
 $env:N6_FACTORY_TEST_ROOT = $root
+$dependency = Join-Path $root 'FSBL\Debug\test.d'
+$escapedPrefix = ($root.Replace('\','/') + '/').Replace(' ', '\ ')
+[IO.File]::WriteAllText($dependency, ('test.o: ' + $escapedPrefix + 'FSBL/main.c'))
+Repair-N6MakeDependencyFiles -BuildRoot (Join-Path $root 'FSBL\Debug') -ProjectRoot $root
+if ([IO.File]::ReadAllText($dependency) -ne 'test.o: ../../FSBL/main.c') { throw 'Windows spaced-path dependency repair failed' }
+Write-Host 'PASS Windows make dependency repair with escaped spaces'
 function Expect-Rejection([scriptblock]$Action, [string]$Label) {
     $rejected = $false
     try { & $Action } catch { $rejected = $true }

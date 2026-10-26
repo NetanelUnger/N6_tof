@@ -181,6 +181,9 @@ function Repair-N6MakeDependencyFiles {
         $text = [IO.File]::ReadAllText($dependencyFile.FullName)
         $repaired = $text.Replace($projectPrefix, '../../')
         $repaired = $repaired.Replace($escapedProjectPrefix, '../../')
+        # GCC escapes spaces in prerequisites (common in OneDrive paths).
+        $repaired = $repaired.Replace($projectPrefix.Replace(' ', '\ '), '../../')
+        $repaired = $repaired.Replace($escapedProjectPrefix.Replace(' ', '\ '), '../../')
         $repaired = $repaired.Replace($extendedProjectPrefix, '../../')
         $repaired = [regex]::Replace(
             $repaired,
