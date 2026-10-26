@@ -12,8 +12,10 @@ echo.
 echo Required before erase: BOOT0=1-2, BOOT1=2-3, ST-LINK connected, RESET.
 echo Required after write:  BOOT0=1-2, BOOT1=1-2, CN8 connected, RESET.
 echo Pass -BuildOnly to build and verify artifacts without erasing hardware.
+echo Build imports all three CubeIDE projects automatically; no IDE workspace setup is needed.
+echo If CN8 CDC is missing after RESET, follow the complete power-disconnect prompt.
 echo.
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%CD%\Tools\Factory-Provision.ps1" %*
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%CD%\Tools\Invoke-FactoryProvision.ps1" %*
 set "RESULT=%ERRORLEVEL%"
 if not "%N6_NON_INTERACTIVE%"=="1" pause
 exit /b %RESULT%

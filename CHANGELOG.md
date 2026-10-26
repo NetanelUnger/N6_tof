@@ -1,5 +1,13 @@
 # Project change history
 
+## 2026-10-26 - Factory build provenance, manifest gates and CDC recovery
+
+- Automatically import FSBL/Secure/Non-Secure into a new workspace and clean-build all three. Preserve previous final outputs, require newly generated nonempty BIN/ELF/MAP, and reject no-target builds even on exit zero.
+- Require schema-2 factory manifests with exactly four images, matching hashes/version and source/build-input fingerprint; refuse stale or incomplete manifests before erase, including SkipBuild.
+- Separate write success from verified application boot; SkipBootVerification never prints full provision PASS. ConfirmErase confirms erase only; skipping physical prompts requires explicit NonInteractive.
+- Offer one operator cold-power recovery for missing CN8 CDC, disconnecting every supply with LEDs off; retry verification only, never erase/program automatically. RESET insufficiency root cause remains unproven.
+- Add fake-builder and BAT lifecycle tests for silent/no-target builds, manifest gaps/stale inputs, prompt semantics, missing/present CDC, cold-power retry, skipped boot and cancellation. No hardware programming or new real-tool firmware build in this change.
+
 ## 2026-10-25 - UART no-response feedback and radio bridge preparation
 
 - Document radio SB31/SB34 closure for UART programming, power-off isolation of ToF PD8/PD9, and restoration of open bridges before project/HIL use.
