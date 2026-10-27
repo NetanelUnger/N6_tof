@@ -1,11 +1,17 @@
 # Project change history
 
+## 2026-10-27 - Persistent settings for manual product testing
+
+- Enable verified Wi-Fi/Cloud persistence and explicit USB legacy preparation in the normal and XIP profiles; remove the historical one-write-only lock after successful pairing. Preserve inventory, cancellation, readback and unknown-outcome guards.
+- Restore explicit Wi-Fi connection/IP visibility in status, expose settings readiness without credentials, support cloud stats and distinguish malformed pairing codes from unavailable admission.
+- Actual-C regression covers repeated saves after first pairing/reload and interruption boundaries. All three firmware contexts build; signed XIP A49 package validated, RAM heap397776 and XIP heap852528 bytes. A49 subsequently installed over CDC and Secure-confirmed; HIL100 exact/NPU100/delta0/CRC0 and real status/alias checks pass. Settings empty/writes enabled; real credential/pairing persistence remains pending. TLS/HTTP release limitation remains explicit.
+
 ## 2026-10-27 - Fast append-only UART boot
 
 - Replace three 50-row splash screens with compact Nati Lab banners; remove the three 5-second waits, cursor hiding and terminal erase sequences.
 - Retain FSBL/Secure logs and add NOR/authentication/update-service progress. Print NonSecure pre-scheduler milestones through the existing bounded polling writer even with runtime diagnostics disabled.
 - Preserve authentication, A/B rollback, watchdog and hardware timeout/settling requirements. No IOC change; the added Secure progress line is adjacent to existing manually maintained initialization outside USER blocks. Generate Code is not required.
-- Hardware installation, elapsed boot timing and HIL are deferred until the user connects the board. See docs/fast-boot-20261027.md for build evidence and acceptance steps.
+- Installed FSBL/Secure and confirmed XIP B48. Three banners/no erase/0.565s FSBL-log-to-ThreadX and a one-minute software-reboot capture pass. HIL100 passes after opening radio SB31/SB34: 100 exact tensors/NPU/classes, maxdelta6, CRC0. Earlier failures retained in docs/fast-boot-20261027.md.
 
 ## 2026-10-26 - Factory build provenance, manifest gates and CDC recovery
 

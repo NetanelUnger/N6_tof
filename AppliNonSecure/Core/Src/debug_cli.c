@@ -10,6 +10,7 @@
 
 #include "app_console.h"
 #include "app_features.h"
+#include "app_settings.h"
 #include "app_logging.h"
 #include "app_route.h"
 #include "cloud_relay.h"
@@ -1666,11 +1667,30 @@ static void cli_command_version(Menu_t *menu, const char *command)
                    "Firmware version: " NATI_LAB_FIRMWARE_VERSION_TEXT);
 }
 
+/* Metadata only: never print stored passwords or bearer tokens. */
+static void cli_settings_status(void)
+{
+  static const char *const names[] = {"ready", "empty", "legacy - run cloud prepare yes over USB after Wi-Fi connects",
+    "corrupt", "I/O error", "busy", "read-only", "invalid", "unavailable", "unsupported"};
+  AppSettings_Status status;
+  AppSettings_GetStatus(&status);
+  cli_print("Settings: %s; writes %s; generation %lu; Wi-Fi saved %s, autoconnect %s; Cloud saved %s\r\n",
+    (unsigned)status.result < sizeof(names)/sizeof(names[0]) ? names[status.result] : "unknown",
+    status.writes_enabled ? "enabled" : "blocked", (unsigned long)status.generation,
+    (status.flags & APP_SETTINGS_WIFI_PRESENT) ? "yes" : "no",
+    (status.flags & APP_SETTINGS_WIFI_DESIRED) ? "yes" : "no",
+    (status.flags & APP_SETTINGS_CLOUD_PRESENT) ? "yes" : "no");
+}
+
 static void cli_command_status(Menu_t *menu, const char *command)
 {
   (void)menu;
   (void)command;
   cli_show_status();
+#if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+  cli_wifi_status();
+#endif
+  cli_settings_status();
 }
 
 static void cli_command_usb(Menu_t *menu, const char *command)
@@ -2663,8 +2683,9 @@ static void cli_command_cloud(Menu_t *menu, const char *command)
         (unsigned long)training.failures,(unsigned long)training.goal,(unsigned long)training.remaining_ms);
     return;
   }
-  if ((argc == 2) && (strcmp(argv[1], "status") == 0))
+  if ((argc == 2) && ((strcmp(argv[1], "status") == 0) || (strcmp(argv[1], "stats") == 0)))
   {
+    cli_settings_status();
     CloudRelay_Status_t status;
     CloudRelay_GetStatus(&status);
     cli_print("Cloud Relay: %s, %s, endpoint %s://%s\r\n"
@@ -2718,14 +2739,17 @@ static void cli_command_cloud(Menu_t *menu, const char *command)
     UINT result=TX_NOT_AVAILABLE;
     if(cli_active_session->route.transport==APP_TRANSPORT_USB)
       result=CloudRelay_RequestSettingsTransition();
-    cli_print("Settings transition: %s. Check UART prepare result before pairing.\r\n",
-      result==TX_SUCCESS ? "queued; legacy retained" : "unavailable; USB and candidate required");
+    cli_print("Settings transition: %s. Run cloud status to check settings readiness before pairing.\r\n",
+      result==TX_SUCCESS ? "queued; legacy retained" : "unavailable; requires USB, legacy storage and connected retained Wi-Fi");
   }
   else if ((argc == 3) && (strcmp(argv[1], "pair") == 0))
   {
     UINT result = CloudRelay_RequestPair(argv[2]);
-    cli_print("Cloud pairing request: %s.\r\n",
-              (result == TX_SUCCESS) ? "queued" : "invalid code or unavailable");
+    cli_print("Cloud pairing request: %s (status %u).\r\n",
+      result == TX_SUCCESS ? "queued; check cloud status for completion" :
+      (result == TX_SIZE_ERROR || result == TX_OPTION_ERROR) ? "code must contain exactly 6 digits" :
+      "not admitted; check settings below, existing pairing and control queue", (unsigned)result);
+    if (result != TX_SUCCESS) cli_settings_status();
   }
   else if ((argc == 2) && (strcmp(argv[1], "enable") == 0))
   {
@@ -3940,6 +3964,8 @@ static void cli_wifi_status(void)
 
   WIFI_BLE_App_GetWifiStatus(&status);
   WIFI_BLE_App_GetRuntimeStatus(&runtime);
+  cli_print("Wi-Fi CONNECTED: %s; IPv4 ready: %s\r\n",
+    status.connected ? "YES" : "NO", status.ip_valid ? "YES" : "NO");
   cli_print("Wi-Fi station: %s%s\r\n",
             W6X_WiFi_StateToStr(status.station_state),
             (status.operation_active != 0U) ? " (operation in progress)" : "");

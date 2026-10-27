@@ -189,9 +189,6 @@ static AppSettings_Result settings_merge_ready(uint32_t pairing)
   (void)pairing;
 #endif
   if(!settings.loaded) return settings.result;
-#if APP_SETTINGS_TRANSITION_ENABLED
-  if(!settings_transition_armed)return APP_SETTINGS_READ_ONLY; /* one first-pairing write only */
-#endif
   settings.pending=settings.current; return APP_SETTINGS_OK;
 }
 static SETTINGS_NOINLINE int copy_field(char *out,size_t capacity,uint16_t *length,const char *in)
@@ -233,8 +230,9 @@ void AppSettings_GetStatus(AppSettings_Status *status)
 uint32_t AppSettings_WritesEnabled(void)
 {
 #if APP_SETTINGS_TRANSITION_ENABLED
-  return APP_SETTINGS_WRITES_ENABLED && settings_transition_armed && settings.loaded &&
-    settings.result==APP_SETTINGS_ABSENT && settings_transition_epoch==settings_cancel_epoch;
+  return APP_SETTINGS_WRITES_ENABLED && settings.loaded &&
+    (settings.result==APP_SETTINGS_OK || settings.result==APP_SETTINGS_ABSENT) &&
+    (!settings_transition_armed || settings_transition_epoch==settings_cancel_epoch);
 #else
   return APP_SETTINGS_WRITES_ENABLED;
 #endif

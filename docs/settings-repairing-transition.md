@@ -1,3 +1,10 @@
+> 2026-10-27 product-profile update: the historical one-shot/read-only policy below
+> is superseded for current source. Writes and explicit transition default ON.
+> A successful first pairing and subsequent reload permit normal alternating-slot
+> Wi-Fi/Cloud updates. Uncommitted legacy seeds still allow only the first pairing;
+> cancellation, complete inventory/readback, and unknown-outcome protections remain.
+> See [current acceptance and limitations](product-settings49_HE.md).
+
 # Approved RAM settings transition and user re-pairing (2026-10-11)
 
 Prepared on local `ble` / `d89a5108a458e2adafcb1fc30c1976bbe5e3abb5`, preserving

@@ -1,5 +1,15 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+2026-10-27 manual-test profile: settings persistence and explicit legacy preparation
+are enabled by default, including signed XIP builds. Normal writes remain enabled
+after a successful first pairing and reload. `status` reports explicit Wi-Fi/IP
+readiness and settings metadata; `cloud stats` aliases `cloud status`.
+A49 installed through CDC OTA and Secure-confirmed; HIL100 exact/NPU100/delta0
+and on-board status/cloud-stats checks pass. Settings empty/writes enabled;
+real Wi-Fi credentials and Cloud pairing persistence still need manual validation.
+Cloud still uses the existing lab HTTP profile: TLS endpoint interoperability
+remains an open product-release blocker. See [manual acceptance](docs/product-settings49_HE.md).
+
 2026-10-27 fast UART boot: FSBL, Secure and NonSecure now append a compact
 Nati Lab logo and progress messages without clearing the terminal or waiting
 for a splash timer. Removes three explicit 5000 ms waits (15 seconds total);
@@ -7,7 +17,10 @@ actual reset-to-ready improvement still requires HIL measurement. NonSecure
 pre-ThreadX milestones use the bounded polling UART writer even when runtime
 diagnostics are disabled. Authentication, rollback, watchdog, peripheral
 settling and trial-confirmation timing are unchanged. No Generate Code needed.
-See [boot verification](docs/fast-boot-20261027.md).
+Hardware follow-up: confirmed XIP B48; three append-only banners and 0.565s
+FSBL-log-to-ThreadX verified. HIL100 passes after opening radio SB31/SB34;
+one-minute software-reboot capture shows no repeated reset. ToF/NPU/SPI healthy.
+See [boot verification and limits](docs/fast-boot-20261027.md).
 
 2026-10-26 factory provisioning reliability: the full build now imports all
 three CubeIDE projects into a fresh workspace and requires newly generated

@@ -37,8 +37,8 @@ $output = Join-Path $root ".local-dependencies/xip/v$FirmwareVersion-$Slot$suffi
 if (Test-Path -LiteralPath $output) { throw 'Immutable build already exists; choose another version or archive explicitly.' }
 New-Item -ItemType Directory -Force $output | Out-Null
 $settings = [IO.File]::ReadAllText((Join-Path $root 'AppliNonSecure/Core/Inc/app_settings.h'))
-if ($settings -notmatch '#define APP_SETTINGS_WRITES_ENABLED 0U' -or
-    $settings -notmatch '#define APP_SETTINGS_TRANSITION_ENABLED 0U') { throw 'Settings writes must remain disabled.' }
+if ($settings -notmatch '#define APP_SETTINGS_WRITES_ENABLED 1U' -or
+    $settings -notmatch '#define APP_SETTINGS_TRANSITION_ENABLED 1U') { throw 'Product XIP builds require settings persistence and explicit legacy preparation.' }
 try {
     Assert-XipBranch
     $versionText = [Text.Encoding]::UTF8.GetString($saved[$headers[0]])
@@ -232,7 +232,7 @@ try {
     foreach ($item in Get-ChildItem $output -File | Where-Object Extension -in '.elf','.map','.bin','.n6fw') {
         $hashes[$item.Name] = @{sha256=Get-N6FileSha256 $item.FullName;bytes=$item.Length}
     }
-    $result = [ordered]@{status='BUILT_NOT_INSTALLED';branch='feature/n6-xip-ota-usb';source_commit=(& git -c "safe.directory=$root" -C $root rev-parse HEAD);slot=$Slot;version=$FirmwareVersion;execution_base=$base;ncp_preserve=$true;settings_writes=$false;cloud_auto_map=$false;fault_probe=[bool]$FaultProbe;budgets=$budgets;source_sha256=$sourceHashes;hashes=$hashes}
+    $result = [ordered]@{status='BUILT_NOT_INSTALLED';branch='feature/n6-xip-ota-usb';source_commit=(& git -c "safe.directory=$root" -C $root rev-parse HEAD);slot=$Slot;version=$FirmwareVersion;execution_base=$base;ncp_preserve=$true;settings_writes=$true;settings_transition=$true;cloud_auto_map=$false;fault_probe=[bool]$FaultProbe;budgets=$budgets;source_sha256=$sourceHashes;hashes=$hashes}
     Assert-XipBranch
     $result['rx_backpressure']=[bool]$RxBackpressure
     $result['resource_diagnostics']=[bool]$ResourceDiagnostics
