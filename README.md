@@ -1,5 +1,14 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+2026-10-27 fast UART boot: FSBL, Secure and NonSecure now append a compact
+Nati Lab logo and progress messages without clearing the terminal or waiting
+for a splash timer. Removes three explicit 5000 ms waits (15 seconds total);
+actual reset-to-ready improvement still requires HIL measurement. NonSecure
+pre-ThreadX milestones use the bounded polling UART writer even when runtime
+diagnostics are disabled. Authentication, rollback, watchdog, peripheral
+settling and trial-confirmation timing are unchanged. No Generate Code needed.
+See [boot verification](docs/fast-boot-20261027.md).
+
 2026-10-26 factory provisioning reliability: the full build now imports all
 three CubeIDE projects into a fresh workspace and requires newly generated
 BIN/ELF/MAP outputs from clean builds. Schema-2 factory manifests require exactly

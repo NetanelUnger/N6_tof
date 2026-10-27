@@ -1,5 +1,12 @@
 # Project change history
 
+## 2026-10-27 - Fast append-only UART boot
+
+- Replace three 50-row splash screens with compact Nati Lab banners; remove the three 5-second waits, cursor hiding and terminal erase sequences.
+- Retain FSBL/Secure logs and add NOR/authentication/update-service progress. Print NonSecure pre-scheduler milestones through the existing bounded polling writer even with runtime diagnostics disabled.
+- Preserve authentication, A/B rollback, watchdog and hardware timeout/settling requirements. No IOC change; the added Secure progress line is adjacent to existing manually maintained initialization outside USER blocks. Generate Code is not required.
+- Hardware installation, elapsed boot timing and HIL are deferred until the user connects the board. See docs/fast-boot-20261027.md for build evidence and acceptance steps.
+
 ## 2026-10-26 - Factory build provenance, manifest gates and CDC recovery
 
 - Automatically import FSBL/Secure/Non-Secure into a new workspace and clean-build all three. Preserve previous final outputs, require newly generated nonempty BIN/ELF/MAP, and reject no-target builds even on exit zero.

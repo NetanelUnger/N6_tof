@@ -83,7 +83,6 @@ static void MX_UCPD1_Init(void);
 /* USER CODE BEGIN PFP */
 
 static void Application_SplashWrite(const char *text);
-static void Application_SplashDelay(uint32_t milliseconds);
 
 /* USER CODE END PFP */
 
@@ -94,13 +93,9 @@ static void Application_SplashWrite(const char *text)
 {
   if (text != NULL)
   {
-    (void)Debug_UART_Write(text, strlen(text));
+    /* Only used before ThreadX; retain boot output in quiet mode. */
+    (void)Debug_UART_EmergencyWrite(text, strlen(text));
   }
-}
-
-static void Application_SplashDelay(uint32_t milliseconds)
-{
-  HAL_Delay(milliseconds);
 }
 
 /* USER CODE END 0 */
@@ -129,15 +124,16 @@ int main(void)
     .detail_1 = "VL53L9CX 54 x 42 depth processing",
     .detail_2 = "USB CDC interactive control menu",
     .detail_3 = "Authenticated A/B firmware updates",
-    .detail_4 = "Sensor services are starting"
+    .detail_4 = "Initializing NonSecure peripherals and services"
   };
-  N6_BootSplashShow(Application_SplashWrite, Application_SplashDelay,
+  N6_BootSplashShow(Application_SplashWrite,
                     &application_splash);
-  Debug_UART_Log("BOOT", "Non-secure application entered; USART1 VCP is alive");
+  Application_SplashWrite("[BOOT] Non-secure application entered; USART1 VCP is alive\r\n");
 
   /* USER CODE END Init */
 
   /* USER CODE BEGIN SysInit */
+  Application_SplashWrite("[BOOT] Initializing GPIO, DMA, I3C, SPI and USB-PD\r\n");
 
   /* USER CODE END SysInit */
 
@@ -153,7 +149,7 @@ int main(void)
   /* Call PreOsInit function */
   USBPD_PreInitOs();
   /* USER CODE BEGIN 2 */
-  Debug_UART_Log("BOOT", "Peripheral initialization complete; starting ThreadX");
+  Application_SplashWrite("[BOOT] Peripheral initialization complete; starting ThreadX\r\n");
 
   /* USER CODE END 2 */
 
@@ -211,7 +207,7 @@ static void MX_GPDMA1_Init(void)
 
   /* USER CODE END GPDMA1_Init 1 */
   /* USER CODE BEGIN GPDMA1_Init 2 */
-  Debug_UART_Log("BOOT", "GPDMA1 initialized");
+  Application_SplashWrite("[BOOT] GPDMA1 initialized\r\n");
 
   /* USER CODE END GPDMA1_Init 2 */
 
@@ -276,7 +272,7 @@ static void MX_I3C1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN I3C1_Init 2 */
-  Debug_UART_Log("BOOT", "I3C1 initialized");
+  Application_SplashWrite("[BOOT] I3C1 initialized\r\n");
 
   /* USER CODE END I3C1_Init 2 */
 
@@ -326,7 +322,7 @@ static void MX_SPI4_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN SPI4_Init 2 */
-  Debug_UART_Log("BOOT", "SPI4 initialized for GC9A01 display TX DMA");
+  Application_SplashWrite("[BOOT] SPI4 initialized for GC9A01 display TX DMA\r\n");
 
   /* USER CODE END SPI4_Init 2 */
 
@@ -376,7 +372,7 @@ static void MX_SPI5_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN SPI5_Init 2 */
-  Debug_UART_Log("BOOT", "SPI5 initialized for ST67W6X radio");
+  Application_SplashWrite("[BOOT] SPI5 initialized for ST67W6X radio\r\n");
 
   /* USER CODE END SPI5_Init 2 */
 
@@ -463,7 +459,7 @@ static void MX_UCPD1_Init(void)
 
   /* USER CODE END UCPD1_Init 1 */
   /* USER CODE BEGIN UCPD1_Init 2 */
-  Debug_UART_Log("BOOT", "UCPD1 initialized");
+  Application_SplashWrite("[BOOT] UCPD1 initialized\r\n");
 
   /* USER CODE END UCPD1_Init 2 */
 
@@ -620,7 +616,7 @@ static void MX_GPIO_Init(void)
 
   HAL_NVIC_SetPriority(EXTI9_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI9_IRQn);
-  Debug_UART_Log("BOOT", "GPIO initialized");
+  Application_SplashWrite("[BOOT] GPIO initialized\r\n");
 
   /* USER CODE END MX_GPIO_Init_2 */
 }

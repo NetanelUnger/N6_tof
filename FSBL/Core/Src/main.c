@@ -62,7 +62,6 @@ static void MX_XSPI2_Init(void);
 static void FSBL_Trace_Init(void);
 static void FSBL_Trace(const char *message);
 static void FSBL_SplashWrite(const char *text);
-static void FSBL_SplashDelay(uint32_t milliseconds);
 
 /* USER CODE END PFP */
 
@@ -106,11 +105,6 @@ static void FSBL_SplashWrite(const char *text)
   {
     (void)printf("%s", text);
   }
-}
-
-static void FSBL_SplashDelay(uint32_t milliseconds)
-{
-  HAL_Delay(milliseconds);
 }
 
 /* USER CODE END 0 */
@@ -157,9 +151,9 @@ int main(void)
     .detail_1 = "Target: STM32N657",
     .detail_2 = "Boot media: external NOR @ 0x70000000",
     .detail_3 = "Security: ECDSA P-256 + SHA-256",
-    .detail_4 = "Selecting and authenticating A/B firmware"
+    .detail_4 = "Initializing external NOR boot path"
   };
-  N6_BootSplashShow(FSBL_SplashWrite, FSBL_SplashDelay, &fsbl_splash);
+  N6_BootSplashShow(FSBL_SplashWrite, &fsbl_splash);
   FSBL_Trace("entered from BootROM; USART1 VCP is alive");
   FSBL_Trace("VDDA, VDDIO2-5, and VDDUSB supply domains enabled");
 
@@ -175,7 +169,9 @@ int main(void)
   FSBL_Trace("GPIO and GPDMA initialized");
   MX_XSPI2_Init();
   FSBL_Trace("XSPI2 initialized");
+  FSBL_Trace("mapping external NOR");
   MX_EXTMEM_Init();
+  FSBL_Trace("selecting and authenticating A/B firmware");
   if (Firmware_Boot_Prepare() != 0)
   {
     FSBL_Trace("ERROR: no authenticated NonSecure image is bootable");

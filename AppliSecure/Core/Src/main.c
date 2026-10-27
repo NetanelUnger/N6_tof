@@ -71,7 +71,6 @@ static void SecureFirmwareUpdateIsolation_Config(void);
 static void SecureNPU_Config(void);
 static void NonSecure_StartCached(void);
 static void Secure_SplashWrite(const char *text);
-static void Secure_SplashDelay(uint32_t milliseconds);
 
 /* USER CODE END PFP */
 
@@ -136,11 +135,6 @@ static void Secure_RedLedOn(void)
 static void Secure_SplashWrite(const char *text)
 {
   Secure_Trace(text);
-}
-
-static void Secure_SplashDelay(uint32_t milliseconds)
-{
-  HAL_Delay(milliseconds);
 }
 
 static void SecureFirmwareUpdateIsolation_Config(void)
@@ -220,7 +214,7 @@ int main(void)
     .detail_3 = "Protected XSPI2 firmware-update writer",
     .detail_4 = "Preparing the NonSecure application"
   };
-  N6_BootSplashShow(Secure_SplashWrite, Secure_SplashDelay, &secure_splash);
+  N6_BootSplashShow(Secure_SplashWrite, &secure_splash);
 
   Secure_Trace("[SECURE] application entered\r\n");
   Secure_TraceHex("[SECURE] pre-RISAF Secure-alias NS MSP = ",
@@ -250,6 +244,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPDMA1_Init();
+  Secure_Trace("[SECURE] initializing protected firmware update service\r\n");
   SecureFirmwareUpdateIsolation_Config();
   int32_t firmware_update_init_status = SecureFirmwareUpdate_Init();
   if (firmware_update_init_status != SECURE_FW_INIT_OK)
