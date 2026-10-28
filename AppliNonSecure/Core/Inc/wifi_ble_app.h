@@ -1,5 +1,7 @@
 #ifndef WIFI_BLE_APP_H
 #define WIFI_BLE_APP_H
+#include "demo_map.h"
+
 
 #include "tof_image_codec.h"
 #include "rps_ai.h"
@@ -350,6 +352,10 @@ UINT WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
                                   const float *pixels, uint8_t width,
                                   uint8_t height, const RPS_AI_Status_t *rps, uint32_t timestamp_ms);
 
+
+/* Timer-driven diagnostic source. OFF selects sensor source without changing route. */
+UINT WIFI_BLE_App_SetDemoMap(uint32_t fps, uint32_t destination);
+void WIFI_BLE_App_GetDemoMapStatus(DemoMap_Status *status);
 
 /* Wireless encoding setting; captured once when accepting a frame. */
 UINT WIFI_BLE_App_SetImageEncoding(uint8_t mode);

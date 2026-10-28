@@ -46,3 +46,22 @@ HIL100 עבר: 100 טנסורים מדויקים, 100 תוצאות NPU, maxdelta
 - תצוגת GC9A01 נשארת כבויה לפי הגדרת הפרויקט הקיימת; ניתוב תמונה אוטומטי לאחר pairing כבוי ב־XIP. ניתן להפעיל זרם ידנית. Radio, Wi-Fi, BLE GATT, Cloud relay, USB CLI ו־NPU מופעלים; watchdog פעיל בבניית XIP.
 - כלי guarded RAM ההיסטורי מיועד לפרופיל read-only ואינו מסלול התקנת המוצר; הוא ממשיך לסרב לטעינה של קושחה כותבת. אין לשנות את הגנותיו כדי לעקוף את פרופיל XIP.
 - אין Generate Code לשינוי זה.
+
+## אימות שמירת Wi-Fi בפועל
+
+לאחר הזנת סיסמה מקומית על ידי המשתמש: Settings ready, generation1, Wi-Fi saved yes, autoconnect yes. בוצע reboot yes אחד דרך CDC. לאחר העלייה A49 התחברה אוטומטית ל־nati_sash וקיבלה 192.168.68.74 ללא הזנת סיסמה. דור ההגדרות נשאר1; בדיקת המשך אישרה שאין operation in progress, ו־ToF/NPU/SPI תקינים ללא שגיאות או התאוששויות. זו בדיקת אתחול תוכנה, לא ניתוק מתח. Cloud עדיין אינו מצומד; שמירת צימוד לא נבדקה.
+
+ראיות: `.local-dependencies/xip/product-settings49/wifi-before-reboot.json`, `wifi-reboot-verification.json`, וכן `.local-dependencies/xip/status-settings49-wifi-reboot-final.json`.
+
+## השלמת בדיקות עצמאית ומסירה לבדיקה ידנית
+
+- סריקת Wi-Fi בזמן חיבור לרשת: PASS, כולל מציאת nati_sash ושימור חיבור/IP.
+- בדיקת יציבות בת שתי דקות: 11 דגימות ו־55 פקודות USB עברו. זמן הריצה ומספרי הפריימים מתקדמים; דור ההגדרות נשאר1; ללא שגיאות SPI/NCP/NPU.
+- HIL נוסף עם Wi-Fi פעיל: 100/100 טנסורים מדויקים, 100/100 תוצאות NPU, maxdelta0, CRC0, משך26.281s.
+- BLE אמיתי: 5/5 פקודות PONG עברו, 94–109ms. פקודות help (2632 bytes), status ו־cloud stats עברו במלואן עם סיום תגובה תקין. לא בוצע OS pairing, וחיבור BLE נסגר.
+- בריאות שרת מהמחשב: HTTPS GET /api/health החזיר200/status ok. זו אינה הוכחת TLS או העברת Cloud מהמודול. קושחה ללא צימוד אינה שולחת בקשות Cloud רגילות, גם כאשר מבקשים reconnect/test.
+- בסיום: A49, Wi-Fi/IP מחוברים, הגדרות ready/saved/autoconnect, ToF/NPU תקינים; BLE מנותק ומפרסם, נתיב תמונה NONE ו־dataset כבוי. כל חיבורי הבדיקה נסגרו.
+
+נשארו לבדיקה ידנית: צימוד בקוד חדש ושמירתו, זרימת Cloud/אתר בפועל, והפעלה לאחר ניתוק מתח. TLS נשאר פער להפצה; החיבור הנוכחי של הקושחה הוא HTTP של המעבדה. לא נדרשת עזרת המשתמש להשלמת הבדיקות המפורטות כ־PASS.
+
+ראיות נוספות: connected-soak.json, ble-multiline.json ו־host-cloud-health.json בתוך תיקיית product-settings49; תוצאת BLE הראשונה נכשלה רק בשל סביבת Python ללא bleak לפני גישה לחומרה, ונשמרה. הרצה בסביבת הפרויקט עברה. נתוני HIL נשמרו ב־hil-XIP-v49-product-settings49-wifi-online.json; מצב המסירה ב־status-settings49-manual-handoff.json.

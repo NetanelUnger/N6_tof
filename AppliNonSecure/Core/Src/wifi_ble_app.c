@@ -517,6 +517,30 @@ static void error_callback(W6X_Status_t status, const char *function_name);
 static void log_output(const char *message);
 
 static volatile uint8_t image_encoding = TOF_IMAGE_RAW;
+static DemoMap_Status demo_map;
+static void demo_map_process(void);
+
+UINT WIFI_BLE_App_SetDemoMap(uint32_t fps,uint32_t destination)
+{
+  if(fps>2U || (fps && destination!=TOF_STREAM_BLE && destination!=TOF_STREAM_CLOUD))return TX_OPTION_ERROR;
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  if(fps && (TOF_App_IsDatasetStreamEnabled() || !radio_manager.queues.ble_tof_image_context))return TX_NOT_AVAILABLE;
+  UINT posture=tx_interrupt_control(TX_INT_DISABLE);
+  if(fps)DemoMap_Start(&demo_map,fps,destination,HAL_GetTick());
+  else {demo_map.fps=0U;++demo_map.epoch;}
+  if(fps)TOF_App_RequestStream((TOF_StreamDestination_t)destination);
+  (void)tx_interrupt_control(posture);return TX_SUCCESS;
+#else
+  return fps ? TX_NOT_AVAILABLE : TX_SUCCESS;
+#endif
+}
+void WIFI_BLE_App_GetDemoMapStatus(DemoMap_Status *status)
+{
+  if(!status)return;
+  UINT posture=tx_interrupt_control(TX_INT_DISABLE);*status=demo_map;
+  (void)tx_interrupt_control(posture);
+}
+
 
 UINT WIFI_BLE_App_SetImageEncoding(uint8_t mode)
 {
@@ -1973,17 +1997,17 @@ uint32_t WIFI_BLE_App_IsTofImageIdle(void)
 #endif
 }
 
-UINT __attribute__((optimize("Os")))
-WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
+static UINT __attribute__((optimize("Os")))
+wifi_publish_image(uint32_t frame_id, uint8_t channel_id,
                              const float *pixels, uint8_t width,
-                             uint8_t height, const RPS_AI_Status_t *rps, uint32_t timestamp_ms)
+                             uint8_t height, const RPS_AI_Status_t *rps, uint32_t timestamp_ms, uint32_t demo_epoch)
 {
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   size_t pixel_count;
   size_t payload_length;
   UINT posture;
 
-  if ((pixels == NULL) || (width == 0U) || (height == 0U) ||
+  if (((pixels == NULL) && !demo_epoch) || (width == 0U) || (height == 0U) ||
       (width > BLE_TOF_IMAGE_MAX_WIDTH) ||
       (height > BLE_TOF_IMAGE_MAX_HEIGHT))
   {
@@ -2003,6 +2027,10 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   }
 
   posture = tx_interrupt_control(TX_INT_DISABLE);
+  if ((demo_epoch && (!demo_map.fps || demo_epoch!=demo_map.epoch)) ||
+      (!demo_epoch && demo_map.fps)) {
+    (void)tx_interrupt_control(posture);return TX_NOT_AVAILABLE;
+  }
   if (radio_manager.queues.ble_tof_image_context->state != BLE_TOF_IMAGE_FREE)
   {
     radio_manager.queues.ble_tof_image_context->stats.frames_dropped_busy++;
@@ -2013,7 +2041,7 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   radio_manager.queues.ble_tof_image_context->generation = radio_manager.shadow.ble_session_generation;
   (void)tx_interrupt_control(posture);
 
-  uint32_t training = TOF_App_IsDatasetStreamEnabled();
+  uint32_t training = !demo_epoch && TOF_App_IsDatasetStreamEnabled();
   if (training && TOF_App_GetStreamDestination() != TOF_STREAM_BLE &&
       (TOF_App_GetStreamDestination() != TOF_STREAM_CLOUD || !CloudRelay_IsTrainingFrameDue())) {
     radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE; return TX_NOT_AVAILABLE;
@@ -2023,7 +2051,8 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
         sizeof(radio_manager.queues.ble_tof_image_context->payload), pixels, width, height,
         frame_id, timestamp_ms, TOF_IMAGE_FILTER_NONE);
     if (!payload_length) { radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE; return TX_SIZE_ERROR; }
-  } else (void)memcpy(radio_manager.queues.ble_tof_image_context->payload, pixels, payload_length);
+  } else if(demo_epoch) DemoMap_Fill(radio_manager.queues.ble_tof_image_context->payload,pixel_count,frame_id);
+  else (void)memcpy(radio_manager.queues.ble_tof_image_context->payload, pixels, payload_length);
   radio_manager.queues.ble_tof_image_context->frame_id = frame_id;
   radio_manager.queues.ble_tof_image_context->image_info = (TofImageInfo){
       .frame_id=frame_id, .timestamp_ms=timestamp_ms, .width=width,
@@ -2057,6 +2086,9 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   /* The processing task cannot change active owner inside this publication.
    * A Cloud frame goes directly to WAIT_CLOUD, never BLE READY. Admission
    * failure releases immediately; there is no second-destination fallback. */
+  if(demo_epoch && (!demo_map.fps || demo_epoch!=demo_map.epoch)) {
+    radio_manager.queues.ble_tof_image_context->state=BLE_TOF_IMAGE_FREE;return TX_NOT_AVAILABLE;
+  }
   TOF_StreamDestination_t destination = TOF_App_GetStreamDestination();
   UINT admitted = TX_SUCCESS;
   if (destination == TOF_STREAM_CLOUD)
@@ -2087,7 +2119,32 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   (void)height;
   (void)rps;
   (void)timestamp_ms;
+  (void)demo_epoch;
   return TX_NOT_AVAILABLE;
+#endif
+}
+
+UINT WIFI_BLE_App_PublishTofImage(uint32_t frame_id,uint8_t channel_id,
+    const float *pixels,uint8_t width,uint8_t height,const RPS_AI_Status_t *rps,uint32_t timestamp_ms)
+{
+  return wifi_publish_image(frame_id,channel_id,pixels,width,height,rps,timestamp_ms,0U);
+}
+
+static void demo_map_process(void)
+{
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  UINT posture=tx_interrupt_control(TX_INT_DISABLE);
+  if(demo_map.fps && (TOF_App_IsDatasetStreamEnabled() ||
+      (uint32_t)TOF_App_GetRequestedStreamDestination()!=demo_map.destination)) {
+    demo_map.fps=0U;++demo_map.epoch;
+  }
+  if(!DemoMap_Due(&demo_map,HAL_GetTick())){(void)tx_interrupt_control(posture);return;}
+  uint32_t sequence=demo_map.sequence,epoch=demo_map.epoch,timestamp=demo_map.last_ms;
+  (void)tx_interrupt_control(posture);
+  UINT result=wifi_publish_image(sequence,1U,NULL,54U,42U,NULL,timestamp,epoch);
+  posture=tx_interrupt_control(TX_INT_DISABLE);
+  if(epoch==demo_map.epoch){if(result==TX_SUCCESS)++demo_map.accepted;else ++demo_map.skipped;}
+  (void)tx_interrupt_control(posture);
 #endif
 }
 
@@ -4649,6 +4706,7 @@ static void ble_process_pending_events(void)
   ble_stream_process_tx(WIFI_BLE_STREAM_DEBUG);
   ble_rps_process_tx();
   ble_tof_image_process_tx();
+  demo_map_process();
   ble_probe_shadow(HAL_GetTick());
 }
 

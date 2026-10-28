@@ -1,5 +1,12 @@
 # Project change history
 
+## 2026-10-27 - Timed diagnostic maps, XIP B50
+
+- Add 1/2 FPS moving-pixel demo through the existing single snapshot, codec and BLE/Cloud routes. Count scheduled/admitted/skipped frames; preserve timed sequence gaps and avoid catch-up bursts. Ordinary MAP returns to the sensor.
+- Signed B50 installed and Secure-confirmed, A49 retained. Actual-C scheduler and 90 codec cases pass; 31 real BLE frames pass all four codecs and browser decoding; HIL100 exact/NPU100/delta0/CRC0.
+- Live Cloud: 61/122 scheduled, 50 admitted each, 49/50 browser frames, 99 HTTP acknowledgements and no new request errors. Source lateness18/1ms; serialized one-second command polling remains a throughput issue, not fixed in this release. See docs/demo-map50_HE.md.
+- Confirmation harness checks idle image route instead of lifetime sent=0. Future XIP source manifests include non-ignored untracked source files.
+
 ## 2026-10-27 - Persistent settings for manual product testing
 
 - Enable verified Wi-Fi/Cloud persistence and explicit USB legacy preparation in the normal and XIP profiles; remove the historical one-write-only lock after successful pairing. Preserve inventory, cancellation, readback and unknown-outcome guards.

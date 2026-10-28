@@ -199,7 +199,7 @@ try {
         -Output (Join-Path $output "N6-XIP-$Slot-v$FirmwareVersion.n6fw")
     & (Join-Path $PSScriptRoot 'Test-XipPackage.ps1') -Package (Join-Path $output "N6-XIP-$Slot-v$FirmwareVersion.n6fw") -ExpectedSlot $Slot -ExpectedVersion $FirmwareVersion | Out-Null
     $sourceHashes = [ordered]@{}
-    foreach ($relative in (& git -c "safe.directory=$root" -C $root ls-files FSBL AppliSecure AppliNonSecure Common Drivers Middlewares ThirdParty Secure_nsclib)) {
+    foreach ($relative in (& git -c "safe.directory=$root" -C $root ls-files --cached --others --exclude-standard FSBL AppliSecure AppliNonSecure Common Drivers Middlewares ThirdParty Secure_nsclib)) {
         if ($relative -match '/\.settings/') { continue }
         $sourceHashes[$relative] = Get-N6FileSha256 (Join-Path $root $relative)
     }

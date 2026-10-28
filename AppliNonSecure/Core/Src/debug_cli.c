@@ -250,6 +250,7 @@ static int cli_completion_candidate(size_t index, char *candidate,
                                     size_t capacity);
 static void cli_command_help(Menu_t *menu, const char *command);
 static void cli_command_version(Menu_t *menu, const char *command);
+static void cli_command_demo(Menu_t *menu, const char *command);
 static void cli_command_status(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static void cli_command_usb(Menu_t *menu, const char *command) __attribute__((optimize("Os")));
 static void cli_command_clear(Menu_t *menu, const char *command);
@@ -323,6 +324,8 @@ static const Menu_Object_t cli_menu_objects[] =
   MENU_OBJECT("status", cli_command_status),
   MENU_OBJECT("usb", cli_command_usb),
   MENU_OBJECT("clear", cli_command_clear),
+  MENU_OBJECT("DEMO", cli_command_demo),
+  MENU_OBJECT("demo", cli_command_demo),
   MENU_OBJECT("MAP", cli_command_map),
   MENU_OBJECT("map", cli_command_map),
   MENU_OBJECT("tof", cli_command_tof),
@@ -1691,6 +1694,9 @@ static void cli_command_status(Menu_t *menu, const char *command)
   cli_wifi_status();
 #endif
   cli_settings_status();
+  DemoMap_Status demo;WIFI_BLE_App_GetDemoMapStatus(&demo);
+  if(demo.fps)cli_print("Image source: DEMO %lu FPS, sequence %lu, accepted %lu, skipped %lu\r\n",
+    (unsigned long)demo.fps,(unsigned long)demo.sequence,(unsigned long)demo.accepted,(unsigned long)demo.skipped);
 }
 
 static void cli_command_usb(Menu_t *menu, const char *command)
@@ -1714,6 +1720,37 @@ static void cli_command_clear(Menu_t *menu, const char *command)
 {
   (void)command;
   (void)Menu_Reply(menu, "\033[2J\033[H");
+}
+
+static void cli_command_demo(Menu_t *menu,const char *command)
+{
+  char copy[CLI_LINE_SIZE];char *argv[CLI_MAX_ARGUMENTS];
+  int argc=cli_get_arguments(command,copy,sizeof(copy),argv,CLI_MAX_ARGUMENTS);
+  DemoMap_Status status;
+  if(argc>=3 && cli_token_equals(argv[1],"map")) {
+    if(argc==3 && cli_token_equals(argv[2],"off")) {
+      WIFI_BLE_App_GetDemoMapStatus(&status);
+      (void)WIFI_BLE_App_SetDemoMap(0U,0U);
+      if(status.fps)TOF_App_ReleaseStream((TOF_StreamDestination_t)status.destination);
+    } else if((argc==4 || argc==5) && cli_token_equals(argv[2],"on") &&
+              (strcmp(argv[3],"1")==0 || strcmp(argv[3],"2")==0)) {
+      uint32_t destination=cli_active_session->route.transport==APP_TRANSPORT_BLE ? TOF_STREAM_BLE : TOF_STREAM_CLOUD;
+      if(argc==5)destination=cli_token_equals(argv[4],"ble") ? TOF_STREAM_BLE :
+        cli_token_equals(argv[4],"cloud") ? TOF_STREAM_CLOUD : TOF_STREAM_NONE;
+      UINT result=WIFI_BLE_App_SetDemoMap((uint32_t)(argv[3][0]-'0'),destination);
+      if(result!=TX_SUCCESS){cli_print("Demo map rejected: %u; requires idle dataset and BLE/CLOUD destination.\r\n",(unsigned)result);return;}
+    } else if(!(argc==3 && cli_token_equals(argv[2],"status")))goto usage;
+    WIFI_BLE_App_GetDemoMapStatus(&status);
+    cli_print("Demo map: %s, %lu FPS, destination %s, encoding %u\r\n"
+      "Scheduled %lu, accepted %lu, skipped %lu, late slots %lu, max lateness %lu ms\r\n"
+      "Frame ID is the scheduled sequence; hot pixel=(ID-1) modulo 2268. NPU off for demo frames.\r\n",
+      status.fps ? "ON" : "OFF",(unsigned long)status.fps,TOF_App_StreamName((TOF_StreamDestination_t)status.destination),
+      WIFI_BLE_App_GetImageEncoding(),(unsigned long)status.sequence,(unsigned long)status.accepted,
+      (unsigned long)status.skipped,(unsigned long)status.late_slots,(unsigned long)status.max_late_ms);
+    return;
+  }
+usage:
+  (void)Menu_Reply(menu,"Usage: DEMO MAP ON 1|2 [CLOUD|BLE] | DEMO MAP OFF | DEMO MAP STATUS");
 }
 
 static void cli_command_map(Menu_t *menu, const char *command)
@@ -1773,6 +1810,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
 #endif
   if ((argc == 2) && (cli_token_equals(argv[1], "on") != 0U))
   {
+    (void)WIFI_BLE_App_SetDemoMap(0U,0U);
     if (cli_active_session->route.transport == APP_TRANSPORT_BLE)
     {
       TOF_App_RequestStream(TOF_STREAM_BLE);
@@ -1793,6 +1831,7 @@ static void cli_command_map(Menu_t *menu, const char *command)
   }
   else if ((argc == 2) && (cli_token_equals(argv[1], "off") != 0U))
   {
+    (void)WIFI_BLE_App_SetDemoMap(0U,0U);
     if (cli_active_session->route.transport == APP_TRANSPORT_BLE)
     {
       TOF_App_ReleaseStream(TOF_STREAM_BLE);
@@ -3440,6 +3479,7 @@ static void cli_show_help(void)
 
   cli_print("\r\nRadio and Wi-Fi:\r\n"
             "  debug off|error|warn|info|debug\r\n"
+            "  DEMO MAP ON 1|2 [CLOUD|BLE]   timed moving-pixel source; DEMO MAP OFF/STATUS\r\n"
             "  debug ping <token>           transport-only latency probe\r\n"
             "  debug route                  session generations + M2 isolation diagnostic\r\n"
             "  debug uart                   asynchronous UART counters\r\n"

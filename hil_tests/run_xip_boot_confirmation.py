@@ -69,7 +69,8 @@ def cli_main():
                 port.dtr=True;time.sleep(.3)
                 result['before']={cmd:protocol.status(port,cmd) for cmd in ['version','rps status','tof status','cloud status']}
                 assert f'Firmware version: {version}\r\n' in result['before']['version']
-                assert 'ToF: sent 0' in result['before']['cloud status'] and 'errors=0' in result['before']['rps status']
+                assert 'requested NONE, active NONE' in result['before']['tof status'], 'Stop image streaming before confirmation'
+                assert 'errors=0' in result['before']['rps status']
                 port.write(b'update\r');port.flush()
                 protocol.until(port,lambda b:b'Waiting: ' in b and b.endswith(b'C'));time.sleep(.5)
                 port.write(packets[0]);port.flush();protocol.until(port,lambda b:b'\x06' in b)
