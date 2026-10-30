@@ -63,7 +63,7 @@ def cli_main():
         print('HOST PREFLIGHT PASS original package hash/slot/version and CRC fixture; no valid manifest will be sent')
         return
     import re,subprocess,threading,serial
-    assert subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),'branch','--show-current'],text=True).strip()=='feature/n6-xip-ota-usb'
+    assert subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),'branch','--show-current'],text=True).strip() in ('main', 'feature/n6-xip-ota-usb')
     owner=json.loads((root.parent/'project/.local-dependencies/diagnostics/n6-hardware-owner.json').read_text())
     assert args.owner_thread and owner['thread']==args.owner_thread
     assert args.label and re.fullmatch('[a-z0-9-]+',args.label)

@@ -12,7 +12,7 @@ def main():
     p.add_argument('--version',type=int,required=True);p.add_argument('--package',required=True)
     p.add_argument('--install-proof',required=True);p.add_argument('--label',required=True);a=p.parse_args()
     root=Path(__file__).resolve().parents[1]
-    assert subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip()=='feature/n6-xip-ota-usb'
+    assert subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip() in ('main', 'feature/n6-xip-ota-usb')
     binary=(root/a.package).resolve();proof_path=(root/a.install_proof).resolve()
     assert binary.is_relative_to(root) and proof_path.is_relative_to(root)
     build=json.loads((binary.parent/'build.json').read_text(encoding='utf8'))

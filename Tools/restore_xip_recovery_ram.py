@@ -71,7 +71,7 @@ def main():
     p.add_argument('--owner-thread');p.add_argument('--output',type=Path,required=True);a=p.parse_args()
     root=Path(__file__).resolve().parents[1]
     git=['git','-c','safe.directory='+str(root),'-C',str(root)]
-    if subprocess.check_output(git+['branch','--show-current'],text=True).strip()!='feature/n6-xip-ota-usb':raise RuntimeError('Wrong branch')
+    if subprocess.check_output(git+['branch','--show-current'],text=True).strip() not in ('main', 'feature/n6-xip-ota-usb'):raise RuntimeError('Wrong branch')
     build=root/'.local-dependencies/xip/v27-B-resource-margin';info=json.loads((build/'build.json').read_text())
     for name in ['ram.bin','ram.elf','AppliSecure.bin','AppliSecure.elf','FSBL.elf']:
         if hashlib.sha256((build/name).read_bytes()).hexdigest()!=info['hashes'][name]['sha256'].lower():raise RuntimeError('Artifact hash mismatch: '+name)

@@ -13,7 +13,7 @@ def main():
     p.add_argument('--build',default='.local-dependencies/xip/v34-A-timebase-probe-repaired')
     p.add_argument('--boot-proof',default='.local-dependencies/xip/usb-update-a34-timebase-probe/result.json');a=p.parse_args()
     root=Path(__file__).resolve().parents[1]
-    assert subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip()=='feature/n6-xip-ota-usb'
+    assert subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip() in ('main', 'feature/n6-xip-ota-usb')
     build=(root/a.build).resolve();assert build.is_relative_to(root);meta=json.loads((build/'build.json').read_text())
     package=build/f'N6-XIP-{meta["slot"]}-v{a.version}.n6fw';assert hashlib.sha256(package.read_bytes()).hexdigest()==meta['hashes'][package.name]['sha256'].lower()
     proof_path=(root/a.boot_proof).resolve();assert proof_path.is_relative_to(root);proof=json.loads(proof_path.read_text())

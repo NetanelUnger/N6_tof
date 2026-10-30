@@ -27,7 +27,7 @@ def main():
       'Secure/FSBL resource sites inventoried only, no permission/ABI or fault-path changes.']}
     text=json.dumps(result,indent=2)+'\n'
     if args.output:
-      assert subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip()=='feature/n6-xip-ota-usb'
+      assert subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip() in ('main', 'feature/n6-xip-ota-usb')
       out=(root/args.output).resolve();assert out.is_relative_to(root);out.write_text(text,encoding='utf8')
     print(json.dumps({'macros':len(macros),'arrays':len(arrays),'call_sites':len(calls),'instrumented_scopes':len(sources)}))
 if __name__=='__main__':main()

@@ -108,7 +108,7 @@ def cli_main():
     if not args.execute or args.preflight_only:
         return
     git=['git','-c','safe.directory='+str(root),'-C',str(root)]
-    if subprocess.check_output(git+['branch','--show-current'],text=True).strip() != 'feature/n6-xip-ota-usb':
+    if subprocess.check_output(git+['branch','--show-current'],text=True).strip() not in ('main', 'feature/n6-xip-ota-usb'):
         raise RuntimeError('Wrong branch')
     common=Path(subprocess.check_output(git+['rev-parse','--path-format=absolute','--git-common-dir'],text=True).strip())
     owner=json.loads((common.parent/'.local-dependencies/diagnostics/n6-hardware-owner.json').read_text())

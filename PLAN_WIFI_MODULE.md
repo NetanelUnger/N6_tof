@@ -1092,11 +1092,11 @@ as permission to execute their flashing scripts or security operations.
   `../pdf/um3475-getting-started-with-xcubest67w61-stmicroelectronics.pdf`
 - ST UM3449, *X-NUCLEO-67W61M1 expansion board user manual*:
   `../pdf/20_X-NUCLEO-67W61M1_UM3449_User_Manual.pdf`
-- Local vendor package: `../x-cube-st67w61-main/`
+- Local vendor package (archived after the main checkout consolidation): `.local-dependencies/retired-20261030/x-cube-st67w61-main/`
 - Locking script reviewed for the safety gate:
-  `../x-cube-st67w61-main/Projects/ST67W6X_Scripts/Binaries/NCP_update_mission_profile_t01.bat`
+  `.local-dependencies/retired-20261030/x-cube-st67w61-main/Projects/ST67W6X_Scripts/Binaries/NCP_update_mission_profile_t01.bat`
 - Vendor binary warning:
-  `../x-cube-st67w61-main/Projects/ST67W6X_Scripts/Binaries/README.md`
+  `.local-dependencies/retired-20261030/x-cube-st67w61-main/Projects/ST67W6X_Scripts/Binaries/README.md`
 - Vendored T01 APIs used by the new design:
   `ThirdParty/ST67W6X_Network_Driver/Api/w6x_api.h`, especially DNS,
   `W6X_Net_*`, TLS credential, socket, and NCP filesystem calls.

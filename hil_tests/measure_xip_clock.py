@@ -6,7 +6,7 @@ def main():
     parser.add_argument('--owner-thread');parser.add_argument('--label');args=parser.parse_args()
     if not args.execute:print('PASS clock preflight; no hardware');return
     root=Path(__file__).resolve().parents[1]
-    assert subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),'branch','--show-current'],text=True).strip()=='feature/n6-xip-ota-usb'
+    assert subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),'branch','--show-current'],text=True).strip() in ('main', 'feature/n6-xip-ota-usb')
     owner=json.loads((root.parent/'project/.local-dependencies/diagnostics/n6-hardware-owner.json').read_text());assert args.owner_thread==owner['thread']
     spec=importlib.util.spec_from_file_location('lease',root/'hil_tests/n6_hardware_lease.py');lease=importlib.util.module_from_spec(spec);spec.loader.exec_module(lease)
     ident=lease.windows_process_identity(owner['pid']);assert ident['state']=='alive' and ident['created_utc']==owner['process_created_utc']

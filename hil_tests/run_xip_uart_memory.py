@@ -13,7 +13,7 @@ def main():
     p.add_argument('--seconds',type=int,choices=range(8,121),default=75,help='Bounded capture; short captures do not imply all stacks sampled')
     p.add_argument('--overflow',action='store_true');a=p.parse_args()
     root=Path(__file__).resolve().parents[1]
-    if subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip()!='feature/n6-xip-ota-usb':raise RuntimeError('Wrong branch')
+    if subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip() not in ('main', 'feature/n6-xip-ota-usb'):raise RuntimeError('Wrong branch')
     print('HOST PREFLIGHT PASS bounded local UART/memory control; no hardware opened',flush=True)
     if not a.execute:return
     def load(name,path):

@@ -11,7 +11,7 @@ def main():
     p.add_argument('--package',required=True);p.add_argument('--ota-proof',required=True);p.add_argument('--label',required=True);a=p.parse_args()
     if not a.execute:print('PASS software-reset preflight; no hardware/network/subprocess');return
     root=Path(__file__).resolve().parents[1]
-    assert subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),'branch','--show-current'],text=True).strip()=='feature/n6-xip-ota-usb'
+    assert subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),'branch','--show-current'],text=True).strip() in ('main', 'feature/n6-xip-ota-usb')
     binary=(root/a.package).resolve();proof_path=(root/a.ota_proof).resolve()
     assert binary.is_relative_to(root) and proof_path.is_relative_to(root)
     meta=json.loads((binary.parent/'build.json').read_text(encoding='utf-8'));proof=json.loads(proof_path.read_text(encoding='utf-8'))

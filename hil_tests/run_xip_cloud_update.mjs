@@ -44,7 +44,7 @@ export async function main(args=process.argv.slice(2)){
     return {deviceId:ids[0],allowedDeviceCount:ids.length,packageBytes:firmware?.length??0};
   }
   const git=['-c',`safe.directory=${root}`,'-C',root];
-  assert(execFileSync('git',[...git,'branch','--show-current'],{encoding:'utf8'}).trim()==='feature/n6-xip-ota-usb','Wrong branch');
+  assert(['main','feature/n6-xip-ota-usb'].includes(execFileSync('git',[...git,'branch','--show-current'],{encoding:'utf8'}).trim()),'Wrong branch');
   const owner=JSON.parse(fs.readFileSync(path.join(path.dirname(root),'project/.local-dependencies/diagnostics/n6-hardware-owner.json'),'utf8'));
   assert(arg('--owner-thread')&&owner.thread===arg('--owner-thread'),'Shared device ownership missing');
   const python=path.join(path.dirname(root),'project/hil_tests/.venv/Scripts/python.exe');

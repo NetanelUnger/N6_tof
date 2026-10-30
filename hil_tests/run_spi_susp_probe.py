@@ -15,7 +15,7 @@ def main():
     p.add_argument('--usb-proof',default='.local-dependencies/xip/usb-update-b31-susp-probe/result.json')
     p.add_argument('--proof-kind',choices=('usb','ota-acceptance','ota'),default='usb');a=p.parse_args()
     root=Path(__file__).resolve().parents[1]
-    if subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip()!='feature/n6-xip-ota-usb':raise RuntimeError('Wrong branch')
+    if subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip() not in ('main', 'feature/n6-xip-ota-usb'):raise RuntimeError('Wrong branch')
     binary=(root/a.package).resolve();proof_path=(root/a.usb_proof).resolve()
     if not binary.is_relative_to(root) or not proof_path.is_relative_to(root):raise RuntimeError('Input outside feature')
     build=json.loads((binary.parent/'build.json').read_text())

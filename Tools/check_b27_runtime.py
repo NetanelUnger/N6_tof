@@ -14,7 +14,7 @@ def main():
     parser.add_argument('--version',type=int,default=27);a=parser.parse_args()
     if a.version<=23:raise RuntimeError('Old fixture must precede expected version')
     root=Path(__file__).resolve().parents[1]
-    if subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip()!='feature/n6-xip-ota-usb':raise RuntimeError('Wrong branch')
+    if subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip() not in ('main', 'feature/n6-xip-ota-usb'):raise RuntimeError('Wrong branch')
     package=(root/'.local-dependencies/xip/v23-A-rx-resume-probe-tifre/N6-XIP-A-v23.n6fw').read_bytes()
     if hashlib.sha256(package).hexdigest()!='c7f03bda984741b82d1332aaa64e2a27d2827a6abc7ea3f2184e50b9659cc953':raise RuntimeError('Old fixture mismatch')
     print('HOST PREFLIGHT PASS old signed manifest256bytes only, no image/EOT/reset; no hardware opened',flush=True)

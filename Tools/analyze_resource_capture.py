@@ -44,7 +44,7 @@ def main():
     result=dict(kind='OBSERVED_ONLY_NOT_VERIFIED_WORST_CASE',log=str(a.log),elf=str(a.elf),usage=list(usage.values()),failure_rows=list(failures.values()),invalid_resource_lines=invalid,
                 limits=['Finite expected receive timeouts retained silently as POLL','Queue free-lists may validly be full; no generic10percent queue-admission claim','Addresses reused across instances may retain conservative historical peaks','Pool free percentage is not proof of largest allocatable block','No proof that every thread or interrupt nesting peak was sampled'])
     if a.output:
-        if subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip()!='feature/n6-xip-ota-usb':raise RuntimeError('Wrong branch')
+        if subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip() not in ('main', 'feature/n6-xip-ota-usb'):raise RuntimeError('Wrong branch')
         target=a.output.resolve()
         if not target.is_relative_to(root):raise RuntimeError('Output outside feature')
         target.write_text(json.dumps(result,indent=2)+'\n')

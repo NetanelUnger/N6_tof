@@ -26,6 +26,14 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- 2026-10-30 checkout consolidation: active work is `N6/project` on `main` after
+  the XIP branch merge. XIP host tools accept main and the legacy XIP branch;
+  build manifests record the actual branch. Keep all hardware-owner, explicit
+  execute, artifact/hash/signature/version and recovery guards. Preserved XIP
+  packages/evidence live in `.local-dependencies/xip`; retired local folders are
+  archived in `.local-dependencies/retired-20261030`. Older feature-only workflow
+  notes below are historical. This migration performs no build or hardware action.
+
 - Latest2026-10-23 19:00UTC: B44 XIP confirmed/A43 retained, sourcef71957f.
   Actual OTA with WDT active PASS517472bytes/506data+EOT/507ACK/0timeout/
   0retry/562.032s. Signature0/hash accepted; automatic MCU reboot, IWDG0,

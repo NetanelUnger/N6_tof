@@ -11,7 +11,7 @@ def main():
     args=parser.parse_args()
     if not args.execute:print('PASS BLE preflight; no hardware access');return
     root=Path(__file__).resolve().parents[1]
-    assert subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),'branch','--show-current'],text=True).strip()=='feature/n6-xip-ota-usb'
+    assert subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),'branch','--show-current'],text=True).strip() in ('main', 'feature/n6-xip-ota-usb')
     owner=json.loads((root.parent/'project/.local-dependencies/diagnostics/n6-hardware-owner.json').read_text())
     assert args.owner_thread and owner['thread']==args.owner_thread
     spec=importlib.util.spec_from_file_location('lease',root/'hil_tests/n6_hardware_lease.py');lease=importlib.util.module_from_spec(spec);spec.loader.exec_module(lease)

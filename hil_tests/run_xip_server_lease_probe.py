@@ -7,7 +7,7 @@ def main():
     parser.add_argument('--execute',action='store_true');args=parser.parse_args()
     if not args.execute:print('PASS host preflight; no files, subprocess or network');return
     root=Path(__file__).resolve().parents[1]
-    assert subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip()=='feature/n6-xip-ota-usb'
+    assert subprocess.check_output(['git','branch','--show-current'],cwd=root,text=True).strip() in ('main', 'feature/n6-xip-ota-usb')
     server=root.parent.parent/'Web_N6_ST67W611M1_VL53L9CX/server/N6.CloudRelay'
     source=(server/'RelayRegistry.cs').read_text(encoding='utf8')
     actual='using System.Threading.Channels;\nnamespace N6.CloudRelay;\n'+source[source.index('public enum OutputAcceptance'):]

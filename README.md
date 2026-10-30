@@ -1,5 +1,13 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+2026-10-30: the active development checkout is `N6/project` on `main`. XIP build,
+capture and update tools now accept `main` and record the actual build branch;
+legacy XIP branch compatibility remains. Hardware ownership, artifact hashes,
+signature/version checks and explicit execution gates are unchanged. Existing
+XIP artifacts are retained under `project/.local-dependencies/xip`; retired local
+folders are archived under `project/.local-dependencies/retired-20261030`.
+No firmware build, programming or CubeMX Generate Code is needed for this host-only change.
+
 2026-10-30: signed USB **A59 confirmed/B58 retained**. Firmware normalizes ST67 diagnostic blank lines; dual-COM handles split CRLF and enables Windows VT colors. Actual20s UART capture:2223 complete lines/0 blank/0 bare LF; real USB map emits5411 color codes. HIL100 exact/NPU100/delta0/CRC0 passes. Initial post-boot status timeout retained; fresh checks pass. [Details](docs/full-diagnostics57_HE.md#עדכון-עיצוב-לוגים-וצבעי-מסוף--30-באוקטובר).
 
 2026-10-30: B58 mixed Cloud/BLE load PASS: three image phases/180s,404 images and294 BLE pings alongside81 Cloud load commands; max BLE500ms/Cloud3619ms, CRC0 and no unexpected disconnect. Source busy skips and UART log saturation remain. [Detailed results](docs/ble-console-20261029.md#executed-mixed-load-on-b58).

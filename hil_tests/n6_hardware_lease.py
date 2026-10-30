@@ -145,11 +145,11 @@ def cli_main():
     if args.recover_stale_from:
         branch = subprocess.check_output(['git','-c','safe.directory='+str(repository),'-C',str(repository),
                                           'branch','--show-current'], text=True).strip()
-        if branch != 'feature/n6-xip-ota-usb' or not args.evidence_dir:
-            raise SystemExit('Recovery requires the feature branch and explicit evidence directory')
+        if branch not in ('main', 'feature/n6-xip-ota-usb') or not args.evidence_dir:
+            raise SystemExit('Recovery requires main or the legacy XIP branch and explicit evidence directory')
         for path in (args.recover_stale_from.resolve(), args.evidence_dir.resolve()):
             if not path.is_relative_to(repository):
-                raise SystemExit('Recovery evidence must stay within the feature worktree')
+                raise SystemExit('Recovery evidence must stay within the current checkout')
         print(json.dumps(recover_owned_stale(folder,args.recover_stale_from,args.evidence_dir,args.owner_thread,
                                             authorized_xip=args.recover_owned_xip)),flush=True)
         return

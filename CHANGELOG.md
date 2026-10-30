@@ -1,5 +1,11 @@
 # Project change history
 
+## 2026-10-30 - Consolidate development on main
+
+- Use `N6/project` as the active checkout after merging the XIP branch. Admit `main` in the existing XIP host-tool branch guards and record the actual branch in build manifests; retain legacy branch compatibility and all execution/ownership/artifact protections.
+- Retain XIP packages and evidence under `project/.local-dependencies/xip` and archive retired local folders under `.local-dependencies/retired-20261030`. Keep existing project data and IDE edits.
+- Host-only validation covers main/legacy acceptance, refusal of unrelated and detached branches before device access, and existing recovery/import checks. No firmware or hardware changes; no Generate Code required.
+
 ## 2026-10-30 - Compact diagnostic records and Windows ANSI support, A59
 
 - Normalize ST67 diagnostic records in their existing owned buffers: remove blank/whitespace-only lines and emit consistent CRLF without shared state or extra stack buffers. CLI framing and raw transport payloads are untouched.

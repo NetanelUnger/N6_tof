@@ -76,14 +76,14 @@ class Tests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaises(ValueError):capture.receive_bounded(Port(),Path(temporary),{},1200)
             self.assertEqual(list(Path(temporary).iterdir()),[])
-    def main_failure(self,close_error=False):
+    def main_failure(self,close_error=False,branch='main'):
         import types
         import serial
         from serial.tools import list_ports
         with tempfile.TemporaryDirectory(prefix='capture-host-',dir=ROOT/'.local-dependencies') as temporary:
             folder=Path(temporary);diag=folder/'.local-dependencies/diagnostics';diag.mkdir(parents=True)
             port=Port([OSError('fixture read failure')],close_error=close_error);port.open=lambda:None
-            def command(args,**kw):return 'feature/n6-xip-ota-usb\n' if 'branch' in args else str(folder/'.git')+'\n'
+            def command(args,**kw):return branch+'\n' if 'branch' in args else str(folder/'.git')+'\n'
             argv=['capture','--owner-thread','fixture','--output',str(folder/'capture'),'--seconds','30']
             with patch('sys.argv',argv),patch('subprocess.check_output',command),patch.object(serial,'Serial',lambda **kw:port),patch.object(list_ports,'comports',lambda:[types.SimpleNamespace(device='COM6',serial_number='000C00344142501620353451')]):
                 with self.assertRaisesRegex(OSError,'fixture read failure'):capture.cli_main()
@@ -93,6 +93,14 @@ class Tests(unittest.TestCase):
             self.assertEqual((diag/'n6-hardware-owner.lock').exists(),close_error)
     def test_main_read_failure_releases_own_lease_without_hardware(self):self.main_failure()
     def test_main_close_failure_preserves_owner_for_explicit_recovery(self):self.main_failure(True)
+    def test_legacy_branch_remains_compatible(self):self.main_failure(branch='feature/n6-xip-ota-usb')
+    def test_unapproved_or_detached_branch_rejected_before_device_access(self):
+        import serial
+        from serial.tools import list_ports
+        for branch in ('topic/unapproved',''):
+            with self.subTest(branch=branch),patch('sys.argv',['capture']),patch('subprocess.check_output',return_value=branch+'\n'),patch.object(serial,'Serial') as open_port,patch.object(list_ports,'comports') as ports:
+                with self.assertRaisesRegex(RuntimeError,'Wrong branch'):capture.cli_main()
+                open_port.assert_not_called();ports.assert_not_called()
     def test_active_dtr_rejected_before_any_device_access(self):
         import contextlib,io
         with patch('sys.argv',['capture','--dtr','1']),contextlib.redirect_stderr(io.StringIO()):

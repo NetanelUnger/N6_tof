@@ -93,7 +93,7 @@ def cli_main():
     from serial.tools import list_ports
     spec=importlib.util.spec_from_file_location('lease',root/'hil_tests/n6_hardware_lease.py')
     lease=importlib.util.module_from_spec(spec);spec.loader.exec_module(lease)
-    assert subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),'branch','--show-current'],text=True).strip()=='feature/n6-xip-ota-usb'
+    assert subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),'branch','--show-current'],text=True).strip() in ('main', 'feature/n6-xip-ota-usb')
     owner=json.loads((root.parent/'project/.local-dependencies/diagnostics/n6-hardware-owner.json').read_text())
     assert args.owner_thread and owner['thread']==args.owner_thread
     identity=lease.windows_process_identity(owner['pid'])

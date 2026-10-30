@@ -10,8 +10,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 function Assert-XipBranch {
-    if ((& git -c "safe.directory=$root" -C $root branch --show-current) -ne 'feature/n6-xip-ota-usb') {
-        throw 'XIP builds require feature/n6-xip-ota-usb. No main writes are permitted.'
+    $branch = & git -c "safe.directory=$root" -C $root branch --show-current
+    if ($LASTEXITCODE -ne 0 -or $branch -notin @('main', 'feature/n6-xip-ota-usb')) {
+        throw 'XIP builds require main or the legacy feature/n6-xip-ota-usb branch.'
     }
 }
 Assert-XipBranch
@@ -232,7 +233,7 @@ try {
     foreach ($item in Get-ChildItem $output -File | Where-Object Extension -in '.elf','.map','.bin','.n6fw') {
         $hashes[$item.Name] = @{sha256=Get-N6FileSha256 $item.FullName;bytes=$item.Length}
     }
-    $result = [ordered]@{status='BUILT_NOT_INSTALLED';branch='feature/n6-xip-ota-usb';source_commit=(& git -c "safe.directory=$root" -C $root rev-parse HEAD);slot=$Slot;version=$FirmwareVersion;execution_base=$base;ncp_preserve=$true;settings_writes=$true;settings_transition=$true;cloud_auto_map=$false;fault_probe=[bool]$FaultProbe;budgets=$budgets;source_sha256=$sourceHashes;hashes=$hashes}
+    $result = [ordered]@{status='BUILT_NOT_INSTALLED';branch=(& git -c "safe.directory=$root" -C $root branch --show-current);source_commit=(& git -c "safe.directory=$root" -C $root rev-parse HEAD);slot=$Slot;version=$FirmwareVersion;execution_base=$base;ncp_preserve=$true;settings_writes=$true;settings_transition=$true;cloud_auto_map=$false;fault_probe=[bool]$FaultProbe;budgets=$budgets;source_sha256=$sourceHashes;hashes=$hashes}
     Assert-XipBranch
     $result['rx_backpressure']=[bool]$RxBackpressure
     $result['resource_diagnostics']=[bool]$ResourceDiagnostics
