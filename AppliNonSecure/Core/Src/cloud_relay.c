@@ -145,6 +145,7 @@ typedef struct
   uint8_t tof_height;
   uint8_t tof_channel_id;
   uint32_t tof_pending;
+  uint32_t image_yield_poll; /* At most one ordinary image between command polls. */
   uint8_t tof_header[TOF_IMAGE_HEADER_SIZE];
   TofImageInfo tof_info;
   int32_t socket;
@@ -1261,6 +1262,9 @@ static int cloud_send_all(int32_t socket, const void *data, size_t length)
     if ((sent <= 0) || ((size_t)sent > slice)) return -1;
     cursor += (size_t)sent;
     length -= (size_t)sent;
+    /* Each completed AT send releases ownership. Give Radio a scheduling
+     * point before the next bounded slice, without replay or mid-send preemption. */
+    if (length != 0U) tx_thread_sleep(1U);
   }
   return 0;
 }
@@ -1788,10 +1792,25 @@ static void cloud_start_next_request(void)
     return;
   }
 
+  /* ACK/output above remain first. A continuous camera must not prevent
+   * fetching the next control command. Poll between images (the current server
+   * clamps even waitSeconds=0 to a minimum one-second wait);
+   * retain the existing single borrowed snapshot and bounded output queue. */
+  if (cloud->image_yield_poll && !cloud->hold_command && !cloud->input_ready)
+  {
+    if (cloud_begin_request(CLOUD_HTTP_POLL, "GET",
+                            "/api/device/commands?waitSeconds=0",
+                            "application/json", NULL, 0U, NULL, 0U, 1U) == 0)
+      cloud->image_yield_poll = 0U;
+    else cloud_backoff();
+    return;
+  }
+
   if (cloud_training_next()) return;
 
   if (cloud->tof_pending != 0U)
   {
+    cloud->image_yield_poll = 1U;
     /* The Cloud worker exclusively owns this borrowed snapshot until release. */
     if (TofImage_Encode(cloud->tof_payload,
                         (size_t)cloud->tof_width * cloud->tof_height * sizeof(float),

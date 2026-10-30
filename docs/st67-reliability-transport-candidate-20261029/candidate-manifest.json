@@ -1,0 +1,22 @@
+[
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c",
+    "original_sha256": "cca72d585021c348e5d985743340b91c0a2bad6db014fa628526db9354b04dc2",
+    "candidate_sha256": "6ce3d8d6c0a2e538fc16d79d45989c83bdfbe926b88b9627f9f6ade236942f78"
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.h",
+    "original_sha256": "b4ad4a534d0ba1f0e5f5a73ea160093079459b359693e30c2ff4ebec5774366c",
+    "candidate_sha256": "ace0289cab56b8ce95dbb8caaa527604e9a5a1d1304b1a6e81e41e12b84d1285"
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.c",
+    "original_sha256": "b20f10d296b84eb269681efb798a6b471b879ccde9586ca6d3611507bc39fb33",
+    "candidate_sha256": "e67f3dbedc6e4d3b330677f59f95cddf5cd70d550e0d20d63bbce56e67b52d68"
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/wifi_ble_app.c",
+    "original_sha256": "30c4460f5673c7635197f55fc198e33b337c983512c18b4f7d6223731e3cc1a0",
+    "candidate_sha256": "9281fa767db3e5f2b52c0f97f8c00d9f999657c95200928b3ae808c58a3d4ab1"
+  }
+]

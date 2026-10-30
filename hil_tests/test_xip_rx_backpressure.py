@@ -35,7 +35,7 @@ handle.Init.Mode=SPI_MODE_MASTER;handle.Init.Direction=SPI_DIRECTION_2LINES;
 handle.Init.DataSize=SPI_DATASIZE_8BIT;handle.Init.MasterReceiverAutoSusp=0;registers.CR1=0x1000;power=0;transaction_complete_callback=0;}
 int main(void){
 ready();assert(spi_port_init(complete)==0);assert(power==1&&transaction_complete_callback==complete);
-#if N6_XIP_RX_BACKPRESSURE
+#if N6_SPI_RX_FLOW_CONTROL
 assert(registers.CR1==0x1100&&handle.Init.MasterReceiverAutoSusp==256);
 for(int n=0;n<5;n++){ready();if(n==0)registers.CR1|=SPI_CR1_SPE;
 if(n==1)handle.Init.Mode=0;if(n==2)handle.Init.Direction=1;if(n==3)handle.Init.DataSize=3;if(n==4)handle.State=2;
@@ -45,7 +45,7 @@ assert(registers.CR1==original&&handle.Init.MasterReceiverAutoSusp==0&&power==0&
 assert(registers.CR1==0x1000&&handle.Init.MasterReceiverAutoSusp==0);
 #endif
 ready();handle.State=HAL_SPI_STATE_RESET;assert(spi_port_init(complete)==-1&&power==0);
-puts("PASS actual startup: opt-in flow control, disabled default, unsafe modes fail before chip power");}
+puts("PASS actual startup: flow-control modes, production default on, unsafe modes fail before chip power");}
 '''
 
 def main():
@@ -53,6 +53,6 @@ def main():
     source=(root/'AppliNonSecure/Core/Src/spi_port.c').read_text()
     body=source[source.index('int32_t spi_port_init('):source.index('int32_t spi_port_deinit(')]
     for enabled in [0,1]:
-        run_native(PREFIX+f'\n#define N6_XIP_RX_BACKPRESSURE {enabled}\n'+body+TEST)
+        run_native(PREFIX+f'\n#define N6_SPI_RX_FLOW_CONTROL {enabled}\n'+body+TEST)
 
 if __name__=='__main__':main()

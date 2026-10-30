@@ -1,0 +1,26 @@
+{
+  "source": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\run_ble_npu_soak.py",
+  "source_sha256": "2dcbbd13723bad73e79943cddae7952fea786faaee5e4735350a92968a95f1d4",
+  "adaptations": {
+    "here.parent/'n6-hardware-owner.json'": "root.parent/'project/.local-dependencies/diagnostics/n6-hardware-owner.json'",
+    "here.parent/'n6-hardware-owner.lock'": "root.parent/'project/.local-dependencies/diagnostics/n6-hardware-owner.lock'",
+    "'scope':'BLE_ONLY'": "'scope':'B52_BLE_IMAGES_NPU_CLI_WITH_EXISTING_WIFI_CLOUD_POLLING_NOT_ACTIVE_CLOUD_CONTROL'",
+    "'radio_ready':'state=available reason=READY' in radio": "'radio_ready':'manager: ready' in radio and 'W6X_Init: passed' in radio and 'NCP recovery: state=0 stage=0' in radio",
+    "assert not before['wifi_ip'] and not before['http_active'] and before['cloud_paired']": "assert before['wifi_ip'] and before['cloud_paired']",
+    "assert not snap['wifi_ip'] and not snap['http_active'] and snap['cloud_paired']": "assert snap['wifi_ip'] and snap['cloud_paired']",
+    "assert not current['wifi_ip'] and not current['http_active'] and current['cloud_frames']==before['cloud_frames']": "assert current['wifi_ip'] and current['cloud_frames']==before['cloud_frames']",
+    "for kind in ('public','random','automatic'):": "for kind in ('automatic',):",
+    "opts={'use_cached_services':True}": "opts={'use_cached_services':False}",
+    "at=len(cli);await client.write_gatt_char(RX,b'map on\\r',response=True)": "at=len(cli);report['map_on_requested']=True;await client.write_gatt_char(RX,b'map on\\r',response=True)",
+    "before=state();report['baseline']=before;": "report['version']=usb.command('version',3);assert 'Firmware version: 52\\r\\n' in report['version'];report['image_encoding']=usb.command('MAP ENCODING',3);before=state();report['baseline']=before;",
+    "PASS BLE-only image/NPU cycle ": "PASS B52 BLE-image/NPU background-Wi-Fi cycle "
+  },
+  "additional_changes": [
+    "USB identity exact VID/PID/serial",
+    "BLE address read from current status",
+    "fresh immutable CP8 output",
+    "assert Cloud204 before profile",
+    "frozen receive window preserved"
+  ],
+  "purpose": "New baseline after Cloud409->204 activation; BLE images+NPU+CLI with active Cloud polling, not actual Cloud CLI workload or BLE-only acceptance"
+}

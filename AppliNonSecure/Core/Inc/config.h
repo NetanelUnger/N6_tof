@@ -1,11 +1,11 @@
 #ifndef N6_CONFIG_H
 #define N6_CONFIG_H
 
-/* Customer-demo defaults. Change application diagnostic output here, then rebuild.
+/* Development diagnostics. Change application diagnostic output here, then rebuild.
  * Fault reporting and explicitly requested CLI status/data are operational
  * output and remain available. Resource counters and watchdog stay active. */
-#define N6_DEBUG_OUTPUT_ENABLED       (0U)
-#define N6_CLI_DIAGNOSTICS_ENABLED    (0U)
+#define N6_DEBUG_OUTPUT_ENABLED       (1U)
+#define N6_CLI_DIAGNOSTICS_ENABLED    (1U)
 
 /* Optional GC9A01 screen: uncomment to build its task, driver and hardware. */
 /* #define APP_GC9A01_DISPLAY_ENABLED */

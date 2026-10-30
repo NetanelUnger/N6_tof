@@ -1,5 +1,38 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+2026-10-30: signed USB **A59 confirmed/B58 retained**. Firmware normalizes ST67 diagnostic blank lines; dual-COM handles split CRLF and enables Windows VT colors. Actual20s UART capture:2223 complete lines/0 blank/0 bare LF; real USB map emits5411 color codes. HIL100 exact/NPU100/delta0/CRC0 passes. Initial post-boot status timeout retained; fresh checks pass. [Details](docs/full-diagnostics57_HE.md#עדכון-עיצוב-לוגים-וצבעי-מסוף--30-באוקטובר).
+
+2026-10-30: B58 mixed Cloud/BLE load PASS: three image phases/180s,404 images and294 BLE pings alongside81 Cloud load commands; max BLE500ms/Cloud3619ms, CRC0 and no unexpected disconnect. Source busy skips and UART log saturation remain. [Detailed results](docs/ble-console-20261029.md#executed-mixed-load-on-b58).
+
+2026-10-30: signed USB **B58 confirmed/A57 retained**. USB CLI teardown now stops only USB-owned streams. Nine real USB open/close cycles preserve BLE demo1000/demo300/sensor images and commands; HIL100 exact/NPU100/CRC0 passes. Initial post-boot status timeout retained; fresh status verification passed without reflashing. [Fix and evidence](docs/ble-console-20261029.md#usb-stream-isolation-fix-b58-2026-10-30).
+
+2026-10-29: BLE console now supports text commands and real sensor images in RAW/UINT16/UINT8/JPEG. A57 passes a 15-minute images+CLI connection test (2,189 images/1,485 pings, max281ms, no unexpected disconnect), followed by four30-second codec checks. UART log saturation remains visible; prior disconnect cause is unproven. [Usage](training/README_HE.md), [evidence and limits](docs/ble-console-20261029.md).
+
+2026-10-29: `training/BLE_CONSOLE.bat` adds a small Windows BLE diagnostic console and unattended CLI runner. Three real connection cycles/60 pings pass on A57 (max187ms); reports retain command failures and latency. See [usage](training/README_HE.md) and [validation](docs/ble-console-20261029.md).
+
+2026-10-29: signed USB **A57 confirmed/B56 retained**. UART/ST67 and CLI diagnostics enabled, default DEBUG level and NCP trace ON. Actual COM6 `?`, `a`, and `n` toggles and HIL100 pass. Full verbosity causes bounded UART queue drops (1759 cumulative after verification); it is not lossless capture. [Verification and controls](docs/full-diagnostics57_HE.md).
+
+2026-10-29: signed USB **B56 confirmed/A55 retained**. Compact retained recovery trace (`radio status`), categorized demo publication rejections, and local UI source/validated-reception counters. Single BLE 1000→300ms transition and HIL100 pass; prior recovery root cause remains unproven. UI not published. [Results](docs/recovery56/report.md).
+
+2026-10-29: signed USB A55 confirmed, B54 retained. `DEMO MAP ON 1000` = 1s; `ON 300` = 300ms (100..60000ms). Legacy ON1/ON2 rejected. Source-ID skips explained by live counters. Host/HIL and separate timing checks passed; one BLE transition recovery remains open. [Evidence and limits](docs/demo-ms55_HE.md).
+
+2026-10-29: signed USB B54 installs the three scoped continuity fixes. Native/HIL results and explicit load-test limitations: [results](docs/st67-continuity-20261029/report.md). This supersedes the broad ST67 campaign below.
+
+2026-10-28 ST67 CP5: B52 also records two SPI overruns (remaining RX, HAL OVR).
+USB/ToF/NPU remain responsive; no cable action needed. Independent native tests
+expose possible retransmission after ambiguous SPI completion and quiet logger
+bookkeeping failure. Fourteen host suites pass after a stale Cloud fixture repair;
+firmware repairs and acceptance remain gated. See [fault audit and evidence](docs/st67-reliability-fault-audit-20261028/report.md).
+
+2026-10-28 ST67 baseline: signed **B52 confirmed**, A51 retained, USB-only.
+Source5432d4a and immutable build/package hashes are recorded; original51 host
+artifact was not found. HIL100 exact/NPU100/delta0/CRC0 and120s BLE CLI controls
+pass. A bounded BLE-image profile misses the unchanged image-rate reference
+floor99/100 after correcting a host measurement-window bug; no ST67 fix or
+endurance acceptance is claimed. Existing Cloud workspace activation and P0
+profiles remain open. See [baseline/install](docs/st67-reliability-known-baseline-20261028/report.md)
+and [measurements, test fix and remaining work](docs/st67-reliability-baseline-tests-20261028/report.md).
+
 2026-10-27 XIP B50: confirmed timed moving-pixel demo via `DEMO MAP ON 1|2`,
 using the existing BLE/Cloud compression path. Live Cloud measurements expose
 pre-transmission skips; no Cloud throughput fix is claimed. See [commands and evidence](docs/demo-map50_HE.md).

@@ -23,7 +23,7 @@ typedef unsigned UINT;typedef uint32_t TickType_t;
 #define portTICK_PERIOD_MS 10U
 typedef unsigned WifiBle_WifiOperation_t;
 typedef struct {unsigned state;const char *reason;unsigned elapsed_ms,remaining_ms;} WifiBle_ServiceStatus_t;
-typedef struct {struct {struct {bool tx_desynchronized,dns_drain_active;uint32_t dns_drain_until;}handler_data;
+typedef struct {struct {struct {bool tx_desynchronized,dns_drain_active,dns_wait_active;uint32_t dns_drain_until;}handler_data;
  unsigned notify_phase,notify_started,notify_budget;bool notify_late;}Modem;} W61_Object_t;
 static W61_Object_t driver;
 static struct {struct {unsigned operation_active;}status;unsigned active_operation;}control;
@@ -34,6 +34,7 @@ static struct {struct{unsigned state;}shadow;struct{unsigned wifi_service_starte
 typedef struct {unsigned elapsed_ms,remaining_ms;} AppSettings_Status;
 static unsigned settings_busy;static unsigned AppSettings_IsBusy(void){return settings_busy;}
 static void AppSettings_GetStatus(AppSettings_Status*s){s->elapsed_ms=4800;s->remaining_ms=8450;}
+static int spi_transaction_faulted(void){return 0;}
 static unsigned tick,hal,irq;static W61_Object_t *W61_ObjGet(void){return &driver;}
 static struct {unsigned state,started_ms,stage;}radio_recovery;
 static unsigned tx_interrupt_control(unsigned n){unsigned old=irq;irq=n;return old;}
@@ -44,7 +45,7 @@ static void reset(void){memset(&driver,0,sizeof driver);memset(&radio_manager,0,
 TESTS=r'''
 int main(void){WifiBle_ServiceStatus_t s;
  reset();WIFI_BLE_App_GetServiceStatus(&s);assert(s.state==0 && !strcmp(s.reason,"READY") && !irq);
- driver.Modem.handler_data.dns_drain_active=true;driver.Modem.handler_data.dns_drain_until=2000;tick=674;
+ driver.Modem.handler_data.dns_wait_active=true;driver.Modem.handler_data.dns_drain_active=true;driver.Modem.handler_data.dns_drain_until=2000;tick=674;
  WIFI_BLE_App_GetServiceStatus(&s);assert(s.state==1 && s.elapsed_ms==6740 && s.remaining_ms==13260);
  assert(driver.Modem.handler_data.dns_drain_active && !driver.Modem.handler_data.tx_desynchronized);
  puts("PASS DNS waiting exposes original elapsed/remaining budget without altering ownership");

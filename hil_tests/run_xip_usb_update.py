@@ -30,9 +30,25 @@ def wait_usb_disconnect(enumerate_ports,now=time.monotonic,sleep=time.sleep,seco
         sleep(.05)
 
 
+def validate_source_cloud_idle(before, recheck=None):
+    """A historical counter is allowed only with a second idle, stable sample."""
+    assert 'requested NONE, active NONE' in before['tof status']
+    match=re.search(r'ToF: sent (\d+)',before['cloud status']);assert match
+    count=int(match[1])
+    if recheck is None:
+        assert count==0
+    else:
+        assert 'requested NONE, active NONE' in recheck['tof status']
+        after=re.search(r'ToF: sent (\d+)',recheck['cloud status']);assert after
+        assert int(after[1])==count
+    return count
+
+
 def cli_main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--preflight-only',action='store_true')
+    parser.add_argument('--allow-historical-cloud-exports',action='store_true',
+                        help='Permit a nonzero source sent counter only after idle routing and a stable second sample')
     parser.add_argument('--execute',action='store_true')
     parser.add_argument('--owner-thread')
     parser.add_argument('--label')
@@ -95,7 +111,13 @@ def cli_main():
             port.dtr=True;time.sleep(.3)
             result['before']={line:command(port,line) for line in ['version','tof status','rps status','cloud status','dataset stream status']}
             assert f'Firmware version: {source_version}\r\n' in result['before']['version']
-            assert 'ToF: sent 0' in result['before']['cloud status'] and 'requested NONE, active NONE' in result['before']['tof status']
+            assert 'requested NONE, active NONE' in result['before']['tof status']
+            if args.allow_historical_cloud_exports:
+                time.sleep(1)
+                result['source_idle_recheck']={line:command(port,line) for line in ['tof status','cloud status']}
+                result['source_historical_cloud_exports']=validate_source_cloud_idle(result['before'],result['source_idle_recheck'])
+            else:
+                validate_source_cloud_idle(result['before'])
             assert 'Dataset stream: off' in result['before']['dataset stream status']
         uart=serial.Serial(port=None,baudrate=115200,timeout=.1,write_timeout=1)
         uart.dtr=False;uart.rts=False;uart.port='COM6';uart.open()

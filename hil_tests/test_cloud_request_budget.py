@@ -34,9 +34,12 @@ int main(void) {
  puts("PASS actual scoped CIPSEND epoch rejection records zero bus attempts");
  epoch=7;change_epoch_on_lock=lock_wait=0;await_timeout=1;
  assert(modem_cmd_send_ext(&iface,&handler,NULL,0,(const uint8_t*)"AT",2,100,0)==-ETIMEDOUT);
- assert(data.tx_desynchronized && !held);
- puts("PASS unresolved scoped command response keeps a real AT fence; no unsafe retry");
- data.tx_desynchronized=false;data.raw_command_attempted=false;
+ assert(!data.tx_desynchronized && data.dns_drain_active && !held);
+ assert(modem_cmd_handler_wait_tx_ready(&data,0,true)==-EBUSY);
+ tick=data.dns_drain_until;
+ assert(modem_cmd_handler_wait_tx_ready(&data,0,true)==-EIO && data.tx_desynchronized);
+ puts("PASS text timeout drains without retry/reset, then fences if its terminal remains missing");
+ data.tx_desynchronized=false;data.raw_command_attempted=false;tick=0;
  assert(modem_cmd_send_ext(&iface,&handler,NULL,0,(const uint8_t*)"AT+CIPSEND=0,527",2,100,
                           MODEM_TX_TRACK_RAW_WRITE)==-ETIMEDOUT);
  assert(data.raw_command_attempted && data.tx_desynchronized);
@@ -49,7 +52,7 @@ int main(void) {
  assert(modem_cmd_send_ext(&iface,&handler,NULL,0,(const uint8_t*)"AT",2,10,0)==-ETIMEDOUT && writes==before);
  tick=660;modem_cmd_handler_dns_drain_complete(&data);
  assert(!data.dns_drain_active && !data.tx_desynchronized);
- data.budget_owner=NULL;await_timeout=0;
+ data.budget_owner=NULL;await_timeout=0;tick=data.tx_quiet_until;
  assert(modem_cmd_send_ext(&iface,&handler,NULL,0,(const uint8_t*)"AT",2,10,0)==0 && writes==before+1);
  puts("PASS late DNS retains read-only admission after request timeout; terminal permits fresh requests");
  data.dns_drain_active=true;data.dns_drain_until=700;tick=700;
@@ -79,14 +82,18 @@ CLOUD_PREFIX = r'''
 #define APP_ST67W6X_CLOUD_USE_TLS 0
 #define CLOUD_RECORD_MAGIC 123U
 #define TOF_STREAM_CLOUD 3U
+#define TOF_IMAGE_TRAINING_N6DF 5U
 enum {CLOUD_HTTP_NONE,CLOUD_HTTP_TOF};
 enum {CLOUD_RELAY_STATE_WAIT_WIFI,CLOUD_RELAY_STATE_DISABLED,CLOUD_RELAY_STATE_UNPAIRED};
 typedef unsigned UINT;
-static unsigned tick,close_failed,close_calls,releases,receives,starts;
+static unsigned tick,close_failed,close_calls,releases,receives,starts,training_ticks;
+static struct {unsigned active,failures;} training;
+static void cloud_training_tick(void){++training_ticks;}
 static volatile uint32_t cloud_network_epoch;
 static struct {
  unsigned network_epoch,tof_pending,http_kind,address_valid,backoff_step,next_action_tick;
  int socket; struct {unsigned enabled,backoff_seconds,tof_frames_dropped,state;} status;
+ struct {unsigned mode;} tof_info;
  unsigned pair_pending;struct {unsigned magic,enabled;} pairing;
 } context,*cloud=&context;
 static unsigned HAL_GetTick(void){return tick;}
@@ -117,6 +124,18 @@ int main(void) {
  puts("PASS confirmed retirement restores requests using the retained desired state");
  cloud_process(0);assert(cloud->status.state==CLOUD_RELAY_STATE_WAIT_WIFI && starts==2);
  puts("PASS loss of IP leaves Cloud waiting while enabled/pairing intent is preserved");
+ unsigned before_ticks=training_ticks;
+ training.active=1;cloud->tof_info.mode=TOF_IMAGE_TRAINING_N6DF;
+ cloud->tof_pending=1;cloud_network_epoch++;
+ cloud_process(1);assert(training.failures==1 && !cloud->tof_pending);
+ cloud_process(1);assert(training.failures==1 && training_ticks==before_ticks+2);
+ puts("PASS network epoch retires a pending training frame exactly once while training receives every worker tick");
+ cloud->tof_pending=1;cloud->tof_info.mode=0;cloud_network_epoch++;
+ cloud_process(1);assert(training.failures==1);
+ training.active=0;cloud->tof_pending=1;cloud->tof_info.mode=TOF_IMAGE_TRAINING_N6DF;cloud_network_epoch++;
+ cloud_process(1);assert(training.failures==1);
+ puts("PASS ordinary image and inactive training do not add a false training failure");
+ before_ticks=training_ticks;cloud=NULL;cloud_process(1);assert(training_ticks==before_ticks);
  return 0;
 }
 '''

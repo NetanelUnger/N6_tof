@@ -1,0 +1,154 @@
+{
+  "recorded_utc": "2026-10-29T08:49:49.283425+00:00",
+  "checkpoint": "CP10",
+  "source_revision": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5",
+  "candidate_status": "PROPOSED_NOT_APPLIED",
+  "production_firmware_source_hashes_unchanged": true,
+  "native_results": [
+    {
+      "suite": "spi",
+      "generated_c": "candidate-v2-spi.c",
+      "log": "candidate-v2-spi.log",
+      "result": "PASS",
+      "process_exit_code": 0,
+      "printed_assertion_groups": 10,
+      "generated_c_sha256": "e7b3030d9f49ab2e796cc09aa4c6cf44a486e66696af4f789c2375d248f0a14d",
+      "log_sha256": "75076291e5c30cfb74f352bdf1902a00e65e33f45652631ba3d5a82bff80f45b",
+      "original_command": "C:\\Python314\\python.exe -B .\\test_st67_cp10.py --suite spi --label candidate-v2-spi"
+    },
+    {
+      "suite": "parser",
+      "generated_c": "candidate-v2-parser.c",
+      "log": "candidate-v2-parser.log",
+      "result": "PASS",
+      "process_exit_code": 0,
+      "printed_assertion_groups": 5,
+      "generated_c_sha256": "d76cf2484fa7d924c2dda8c48c047aac0bfad5a30de96b25b282aa00869bd2a9",
+      "log_sha256": "85f4e5105cc3c13f3d0c097467ed6f54478372b94fbe9e5b4c5a3abb7873238e",
+      "original_command": "C:\\Python314\\python.exe -B .\\test_st67_cp10.py --suite parser --label candidate-v2-parser"
+    },
+    {
+      "suite": "coordinator",
+      "generated_c": "candidate-v2-coordinator.c",
+      "log": "candidate-v2-coordinator.log",
+      "result": "PASS",
+      "process_exit_code": 0,
+      "printed_assertion_groups": 11,
+      "generated_c_sha256": "43b38969e856861943cef04c95c1b859f93409756ba7ff75564b0c866e9d5223",
+      "log_sha256": "1decce12946cc4370029a149a3fc44066e56fa21defac197b2e766da9a53b3ef",
+      "original_command": "C:\\Python314\\python.exe -B .\\test_st67_cp10.py --suite coordinator --label candidate-v2-coordinator"
+    },
+    {
+      "suite": "availability",
+      "generated_c": "candidate-v1-availability.c",
+      "log": "candidate-v1-availability.log",
+      "result": "PASS",
+      "process_exit_code": 0,
+      "printed_assertion_groups": 9,
+      "generated_c_sha256": "86352f0504bff3422ed286fed6ebb5ff6f1871a9337de6430aa03df5fe20a46b",
+      "log_sha256": "08b74daaaf5c005d3556bbd1a3f9bbf906a40c420b220a4df1aed02a5396ec81",
+      "original_command": "C:\\Python314\\python.exe -B .\\test_st67_cp10.py --suite availability --label candidate-v1-availability"
+    },
+    {
+      "suite": "framing",
+      "generated_c": "candidate-v1-framing.c",
+      "log": "candidate-v1-framing.log",
+      "result": "PASS",
+      "process_exit_code": 0,
+      "printed_assertion_groups": 4,
+      "generated_c_sha256": "a8b3d752e35259e53d2767ad703f86e65ce4e0dc228cfaed5e095c7eccdf53d5",
+      "log_sha256": "a705a1cc17c0e32cf74397252d1038b97dc5020d4124bfeb3772fe0eefdae933",
+      "original_command": "C:\\Python314\\python.exe -B .\\test_st67_cp10.py --suite framing --label candidate-v1-framing"
+    },
+    {
+      "suite": "shutdown",
+      "generated_c": "candidate-v2-shutdown.c",
+      "log": "candidate-v2-shutdown.log",
+      "result": "PASS",
+      "process_exit_code": 0,
+      "printed_assertion_groups": 4,
+      "generated_c_sha256": "2c9916989dc18dc25ace306f3cba17a0e55073b3a7ac412e091a1242f996351e",
+      "log_sha256": "7686fefa824f48f357bb44e996ab0bf0c1b5671bc57b55cf2e57a02595da2225",
+      "original_command": "C:\\Python314\\python.exe -B .\\test_st67_cp10.py --suite shutdown --label candidate-v2-shutdown"
+    },
+    {
+      "suite": "write_bridge",
+      "generated_c": "candidate-v2-write_bridge.c",
+      "log": "candidate-v2-write_bridge.log",
+      "result": "PASS",
+      "process_exit_code": 0,
+      "printed_assertion_groups": 3,
+      "generated_c_sha256": "d5f34e3787fb24ffc3967f92fa5c3e0a2cdf1c4874ec44cff2cd41e0e72866c6",
+      "log_sha256": "a2b7aadbae2d6a6644896ac4b314a8894572e5232935384c1315a71ce4503e1a",
+      "original_command": "C:\\Python314\\python.exe -B .\\test_st67_cp10.py --suite write_bridge --label candidate-v2-write_bridge"
+    }
+  ],
+  "verification": [
+    {
+      "argv": [
+        "git",
+        "apply",
+        "--check",
+        "C:\\Users\\netan\\Documents\\Codex\\2026-10-28\\task-2\\evidence\\st67-cp10-transport-candidate\\PROPOSED-NOT-APPLIED-spi-fence.patch"
+      ],
+      "cwd": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "warning: in the working copy of 'AppliNonSecure/Core/Inc/app_features.h', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'CHANGELOG.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'hil_tests/run_ble_npu_soak.py', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'hil_tests/test_cloud_radio_barrier.py', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'hil_tests/test_cloud_request_budget.py', LF will be replaced by CRLF the next time Git touches it\n"
+    }
+  ],
+  "retained_failures": [
+    {
+      "label": "production-no-replay-red",
+      "result": "EXPECTED_FAIL",
+      "kind": "actual production C behavioral no-replay assertion"
+    },
+    {
+      "label": "candidate-v1-parser",
+      "result": "FAIL",
+      "kind": "candidate bug: fault during queued receive published bytes; repaired in v2"
+    },
+    {
+      "label": "candidate-v1-spi",
+      "result": "FAIL",
+      "kind": "fixture compilation: incomplete multiline macro; corrected extractor"
+    },
+    {
+      "label": "candidate-v1-coordinator",
+      "result": "FAIL",
+      "kind": "fixture extraction: public UINT signature unsupported; corrected extractor"
+    }
+  ],
+  "unchanged_v1_suite_reuse": "Availability uses unchanged wifi_ble_app.c; framing uses unchanged spi_iface.c. Only w61_at_common.c changed between candidate v1/v2.",
+  "not_run": [
+    "ARM full-context build/link/memory",
+    "scheduler/ISR concurrency proof",
+    "physical fault injection",
+    "candidate installation",
+    "endurance"
+  ],
+  "hardware_handles_opened": 0,
+  "browser_actions": 0,
+  "firmware_versions_consumed": 0,
+  "signed_packages_created": 0,
+  "production_C_changes": 0,
+  "settings_security_pairing_changes": 0,
+  "commit_push": false,
+  "main_plan_tasks": {
+    "completed": 4,
+    "unchecked": 42,
+    "total": 46
+  },
+  "manual_cloud_evidence": "manual-cloud-version.json"
+}

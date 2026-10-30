@@ -50,7 +50,7 @@ def main():
     root=Path(__file__).resolve().parents[1]
     source=(root/'AppliNonSecure/Core/Src/spi_port.c').read_text()
     body=source[source.index('void spi_port_service_rx_flow('):source.index('static HAL_StatusTypeDef spi_port_restore_dma(')]
-    prefix=PREFIX+'\n#define NCP_SPI_HANDLE h\n#define N6_XIP_RX_BACKPRESSURE 1\n'
+    prefix=PREFIX+'\n#define NCP_SPI_HANDLE h\n#define N6_SPI_RX_FLOW_CONTROL 1\n'
     test=r'''
 static void ready(void){memset(&h,0,sizeof h);memset(&rx,0,sizeof rx);memset(&spi,0,sizeof spi);memset(&dma,0,sizeof dma);
 h.State=5;h.Instance=&spi;h.hdmarx=&rx;rx.State=2;rx.Instance=&dma;dma.CCR=1;
@@ -78,7 +78,7 @@ puts("PASS drained-FIFO resume only;20 unsafe states refuse; IRQ posture and DMA
 #include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
-#define N6_XIP_RX_BACKPRESSURE 1
+#define N6_SPI_RX_FLOW_CONTROL 1
 typedef uint32_t TickType_t;
 typedef uint32_t EventBits_t;
 struct spi_xfer_engine {void *event;};

@@ -51,7 +51,7 @@ async def run(args):
         original=await command('MAP ENCODING')
         original_mode=next((m for m in ('RAW','UINT16','UINT8','JPEG') if 'Wireless encoding: '+m in original),None)
         assert original_mode,'firmware does not implement codec selection'
-        await client.start_notify(IMAGE,receive);await command('DEMO MAP ON 2 BLE')
+        await client.start_notify(IMAGE,receive);await command('DEMO MAP ON 500 BLE')
         try:
             for mode,code in [('RAW',1),('UINT16',2),('UINT8',3),('JPEG',4),('RAW',1)]:
                 await command('MAP ENCODING '+mode);begin=len(report['frames']);deadline=time.monotonic()+25

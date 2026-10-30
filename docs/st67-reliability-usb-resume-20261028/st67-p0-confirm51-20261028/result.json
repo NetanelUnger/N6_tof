@@ -1,0 +1,39 @@
+{
+  "started_utc": "2026-10-28T21:01:29.204345+00:00",
+  "owner": {
+    "thread": "n6-xip-st67-reliability-20261028",
+    "pid": 28648,
+    "started_utc": "2026-10-28T21:01:29.204328+00:00",
+    "process_created_utc": "2026-10-28T21:01:28.817409+00:00",
+    "scope": "read confirmed version via old signed manifest only; no image bytes, EOT, reset, settings or credential writes"
+  },
+  "result": "PASS",
+  "expected_running_version": 51,
+  "replay_manifest_version": 50,
+  "manifest_bytes_sent": 256,
+  "image_bytes_sent": 0,
+  "EOT_sent": false,
+  "reset_sent": false,
+  "handles_closed": true,
+  "lease_released": true,
+  "before": {
+    "version": "version\r\nFirmware version: 51\r\nn6> ",
+    "tof status": "tof status\r\nImage destination: requested NONE, active NONE, switches 0, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 7983, rate: 3.8 fps\r\nPipeline: acquired 7987, processed 3065, dropped 4919, queue failures 0\r\nLast valid range: 122..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 7\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+    "rps status": "rps status\r\nRPS status: enabled=1 ready=1 frame=7983 class=scissors class_id=3 confidence_permille=543 scores=-109,-42,-115,11 runs=3065 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> ",
+    "dataset stream status": "dataset stream status\r\nDataset stream: off, submitted 0, dropped 0, last frame 0, last CRC32 0x00000000\r\nn6> "
+  },
+  "start": "update\r\n\r\nSigned firmware update mode.\r\nSend a .n6fw package now using XMODEM-CRC (128-byte or 1K blocks).\r\nPress Ctrl-X twice in the sender to cancel. Waiting: C",
+  "replay_reply_hex": "1818",
+  "terminal": "\r\nFirmware update failed: transfer cancelled or rejected\r\nn6> ",
+  "confirmed_version": 51,
+  "confirmed_state_proven": true,
+  "after": {
+    "version": "version\r\nFirmware version: 51\r\nn6> ",
+    "debug ping ST67CONF": "debug ping ST67CONF\r\nPONG ST67CONF 800247\r\nn6> ",
+    "tof status": "tof status\r\nImage destination: requested NONE, active NONE, switches 0, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 1, rate: 3.8 fps\r\nPipeline: acquired 7993, processed 3069, dropped 4922, queue failures 0\r\nLast valid range: 123..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 11\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+    "rps status": "rps status\r\nRPS status: enabled=1 ready=1 frame=1 class=scissors class_id=3 confidence_permille=543 scores=-109,-42,-115,11 runs=3069 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> ",
+    "cloud status": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: polling, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 0, last 409, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 0, dropped 0; request errors 2\r\nWorker: loops 28038, last tick 800265, max step 1121 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+  },
+  "slot_and_fallback": "Not exposed by this rejection; unknown, not inferred from odd/even version",
+  "finished_utc": "2026-10-28T21:01:30.909047+00:00"
+}

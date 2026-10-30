@@ -172,6 +172,9 @@ typedef enum
   * @brief  Initialize SPI transaction context
   * @return 0 on success, negative error code on failure
   */
+/** Sticky transport/protocol fault; only successful deinit clears it. */
+int32_t spi_transaction_faulted(void);
+
 int32_t spi_transaction_init(void);
 
 /**

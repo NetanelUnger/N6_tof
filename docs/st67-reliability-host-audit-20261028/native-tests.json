@@ -1,0 +1,140 @@
+{
+  "scope": "Host actual-C with mocked boundaries; no HIL or firmware writes",
+  "source_revision": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5",
+  "tests": [
+    {
+      "test": "test_wifi_assoc_admission.py",
+      "sha256": "033e5f7dd21dbcb5e1eb9085dde9143882887d8fb910cc31eedf8794ffe716b3",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_wifi_assoc_admission.py"
+      ],
+      "started_utc": "2026-10-28T21:14:17.916536+00:00",
+      "finished_utc": "2026-10-28T21:14:24.195679+00:00",
+      "exit_code": 0,
+      "pass_lines": [
+        "PASS parser publishes settling immediately; BLE admission is nonblocking",
+        "PASS ordinary command settling consumes its existing response budget",
+        "PASS insufficient admission budget returns before handlers or bus writes",
+        "PASS fire-and-forget/raw announcement cannot bypass association settling",
+        "PASS AT-lock waiting and settling share the same total deadline",
+        "PASS tick-counter wrap preserves settling and operation budgets",
+        "PASS repeated association extends settling without extending command deadline",
+        "PASS existing raw fence wins over settling and is never cleared",
+        "PASS association during an announced command does not block its response",
+        "PASS bus zero-byte BUSY records no raw announcement and cannot falsely fence",
+        "PASS partial raw command copy records ambiguity and retains a real AT fence",
+        "PASS callback keeps the original settling period, publishes CONNECTED, and maps BUSY",
+        "PASS 768-byte SPI owner captures terminal scalars without formatting, allocation or waiting"
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "test_ble_recovery_barrier.py",
+      "sha256": "c95df5ad99bd6c86c6c6daf8286afb84b608b7965658e1de4c4275fd0147b3bb",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_ble_recovery_barrier.py"
+      ],
+      "started_utc": "2026-10-28T21:14:24.195914+00:00",
+      "finished_utc": "2026-10-28T21:14:29.820880+00:00",
+      "exit_code": 0,
+      "pass_lines": [
+        "PASS late old-parser records and failed recovery cannot resurrect link, generation, subscription or input",
+        "PASS old ToF subscription cannot steal the exclusive image route during quiescence",
+        "PASS fresh initialization retains automatic reconnect/CCCD/MTU observations while writes remain closed",
+        "PASS appended DEBUG RPS subscription never changes image destination",
+        "PASS completed recovery restores normal input and last-request-wins image subscription behavior",
+        "PASS malformed null input remains harmless while admission is closed"
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "test_cloud_socket_recovery.py",
+      "sha256": "346a2042edf2514654ea168c8cad208a90ab3fbc7bc24ec4e82305475390aa4c",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_cloud_socket_recovery.py"
+      ],
+      "started_utc": "2026-10-28T21:14:29.821083+00:00",
+      "finished_utc": "2026-10-28T21:14:35.528386+00:00",
+      "exit_code": 0,
+      "pass_lines": [
+        "PASS confirmed matching NCP receive size never reallocates the buffer",
+        "PASS mismatched confirmed receive size is explicitly configured",
+        "PASS unsupported query may configure; real configuration rejection is never ignored",
+        "PASS uncertain timed-out query and BUSY cannot trigger a new configuration command",
+        "PASS pre-open local failure returns its descriptor/credentials exactly once",
+        "PASS CLOSING retry retains identity until remote absence is proven, then frees once",
+        "PASS ambiguous CIPSTART cannot be discarded as merely ALLOCATED",
+        "PASS CLOSED callback is sufficient proof; no stale close query or duplicate retirement",
+        "PASS invalid connection/descriptor never indexes connection storage"
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "test_wifi_link_restore.py",
+      "sha256": "6e5fdd0808fd39d5b8b2108ebb6590b10128f969d9f8d4ac591cfd8acb8fa22b",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_wifi_link_restore.py"
+      ],
+      "started_utc": "2026-10-28T21:14:35.528583+00:00",
+      "finished_utc": "2026-10-28T21:14:41.195879+00:00",
+      "exit_code": 0,
+      "pass_lines": [
+        "PASS ordinary confirmed link loss restores via existing owner and reports waiting during the call",
+        "PASS explicit disconnect cancels automatic restoration",
+        "PASS no credentials, unconfirmed state, DHCP, other work, missing driver and reset never submit",
+        "PASS true fence and owned DNS/BLE replies are preserved without retry submission",
+        "PASS at most three attempts, spaced from call completion; no unbounded retry",
+        "PASS new successful-IP lifecycle and uptime wraparound keep retry admission correct",
+        "PASS only existing worker performs restoration, after queued user work; callback only wakes"
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "test_ble_recovery_notice.py",
+      "sha256": "04d4c0ff17af46f0aa21b195ca31b4cdc22f13a00a5d8336d8aae2618cc3f516",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_ble_recovery_notice.py"
+      ],
+      "started_utc": "2026-10-28T21:14:41.196062+00:00",
+      "finished_utc": "2026-10-28T21:14:46.842045+00:00",
+      "exit_code": 0,
+      "pass_lines": [
+        "PASS slot backpressure retains notice; old-generation UNKNOWN is an event, input waits for actual terminal drain",
+        "PASS restored CCCD delivery is repeated once after fresh application input; no command or final replay",
+        "PASS a later ordinary connection does not resurrect an already acknowledged recovery event",
+        "PASS input already present at first publication needs no duplicate event",
+        "PASS input arriving during the proactive event remains held through the confirmed event drain",
+        "PASS publication failure never clears pending notice",
+        "PASS link replacement resends an undrained event without replaying a command",
+        "PASS a newer recovery during publication cannot be acknowledged by an older notice",
+        "PASS maximal scalar metadata fits existing bounded response storage",
+        "PASS CLI publishes event before reading new commands and excludes binary firmware-update input"
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "test_cloud_radio_barrier.py",
+      "sha256": "03c4ee1cf715d8924258b71503c54c4a04ff6dea05e20da90cf01082500eb462",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_cloud_radio_barrier.py"
+      ],
+      "started_utc": "2026-10-28T21:14:46.842250+00:00",
+      "finished_utc": "2026-10-28T21:14:52.598015+00:00",
+      "exit_code": 1,
+      "pass_lines": [],
+      "result": "FAIL"
+    }
+  ]
+}

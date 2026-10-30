@@ -1,0 +1,1260 @@
+{
+  "started_utc": "2026-10-29T12:17:57.778927+00:00",
+  "owner": {
+    "thread": "n6-xip-st67-reliability-20261028",
+    "pid": 46160,
+    "started_utc": "2026-10-29T12:17:57.778927+00:00",
+    "process_created_utc": "2026-10-29T12:17:57.308823+00:00",
+    "scope": "120-second images to existing NatiLab Cloud Relay; BLE/USB control probes; runtime image route off at finish; no reset, update, saved-settings or pairing writes"
+  },
+  "result": "PASS",
+  "profile": "BLE CLI + USB; existing Wi-Fi/Cloud enabled; existing Cloud images active",
+  "requested_seconds": 120,
+  "source_revision": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5",
+  "running_image_provenance": "B54 source5432d4a plus scoped working diff, packageSHA256 112299106456df407d5618096244c1095e8bbad7a8fded0e4a9a2ef62453c697, installed and Secure-confirmed; debug output OFF",
+  "pair_requested": false,
+  "firmware_bytes_sent": 0,
+  "settings_commands": false,
+  "pings": [
+    {
+      "token": "ST67B-0000",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0000 1899351\n",
+      "host_monotonic": 189814.625
+    },
+    {
+      "token": "ST67B-0001",
+      "elapsed_ms": 78.00000000861473,
+      "response": "PONG ST67B-0001 1900361\n",
+      "host_monotonic": 189815.609
+    },
+    {
+      "token": "ST67B-0002",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0002 1901381\n",
+      "host_monotonic": 189816.625
+    },
+    {
+      "token": "ST67B-0003",
+      "elapsed_ms": 172.0000000204891,
+      "response": "PONG ST67B-0003 1902411\n",
+      "host_monotonic": 189817.703
+    },
+    {
+      "token": "ST67B-0004",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0004 1903411\n",
+      "host_monotonic": 189818.671
+    },
+    {
+      "token": "ST67B-0005",
+      "elapsed_ms": 46.999999991385266,
+      "response": "PONG ST67B-0005 1904341\n",
+      "host_monotonic": 189819.593
+    },
+    {
+      "token": "ST67B-0006",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0006 1905371\n",
+      "host_monotonic": 189820.64
+    },
+    {
+      "token": "ST67B-0007",
+      "elapsed_ms": 109.0000000258442,
+      "response": "PONG ST67B-0007 1906381\n",
+      "host_monotonic": 189821.64
+    },
+    {
+      "token": "ST67B-0008",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0008 1907381\n",
+      "host_monotonic": 189822.625
+    },
+    {
+      "token": "ST67B-0009",
+      "elapsed_ms": 140.00000001396984,
+      "response": "PONG ST67B-0009 1908401\n",
+      "host_monotonic": 189823.671
+    },
+    {
+      "token": "ST67B-0010",
+      "elapsed_ms": 140.00000001396984,
+      "response": "PONG ST67B-0010 1909401\n",
+      "host_monotonic": 189824.671
+    },
+    {
+      "token": "ST67B-0011",
+      "elapsed_ms": 141.00000000325963,
+      "response": "PONG ST67B-0011 1910421\n",
+      "host_monotonic": 189825.687
+    },
+    {
+      "token": "ST67B-0012",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0012 1911341\n",
+      "host_monotonic": 189826.593
+    },
+    {
+      "token": "ST67B-0013",
+      "elapsed_ms": 157.00000000651926,
+      "response": "PONG ST67B-0013 1912441\n",
+      "host_monotonic": 189827.703
+    },
+    {
+      "token": "ST67B-0014",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0014 1913321\n",
+      "host_monotonic": 189828.593
+    },
+    {
+      "token": "ST67B-0015",
+      "elapsed_ms": 140.00000001396984,
+      "response": "PONG ST67B-0015 1914421\n",
+      "host_monotonic": 189829.671
+    },
+    {
+      "token": "ST67B-0016",
+      "elapsed_ms": 78.00000000861473,
+      "response": "PONG ST67B-0016 1915351\n",
+      "host_monotonic": 189830.609
+    },
+    {
+      "token": "ST67B-0017",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0017 1916351\n",
+      "host_monotonic": 189831.625
+    },
+    {
+      "token": "ST67B-0018",
+      "elapsed_ms": 109.99999998603016,
+      "response": "PONG ST67B-0018 1917341\n",
+      "host_monotonic": 189832.656
+    },
+    {
+      "token": "ST67B-0019",
+      "elapsed_ms": 78.00000000861473,
+      "response": "PONG ST67B-0019 1918361\n",
+      "host_monotonic": 189833.609
+    },
+    {
+      "token": "ST67B-0020",
+      "elapsed_ms": 31.000000017229468,
+      "response": "PONG ST67B-0020 1919312\n",
+      "host_monotonic": 189834.562
+    },
+    {
+      "token": "ST67B-0021",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0021 1920312\n",
+      "host_monotonic": 189835.593
+    },
+    {
+      "token": "ST67B-0022",
+      "elapsed_ms": 140.00000001396984,
+      "response": "PONG ST67B-0022 1921401\n",
+      "host_monotonic": 189836.671
+    },
+    {
+      "token": "ST67B-0023",
+      "elapsed_ms": 31.000000017229468,
+      "response": "PONG ST67B-0023 1922321\n",
+      "host_monotonic": 189837.562
+    },
+    {
+      "token": "ST67B-0024",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0024 1923351\n",
+      "host_monotonic": 189838.625
+    },
+    {
+      "token": "ST67B-0025",
+      "elapsed_ms": 78.00000000861473,
+      "response": "PONG ST67B-0025 1924352\n",
+      "host_monotonic": 189839.609
+    },
+    {
+      "token": "ST67B-0026",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0026 1925351\n",
+      "host_monotonic": 189840.593
+    },
+    {
+      "token": "ST67B-0027",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0027 1926371\n",
+      "host_monotonic": 189841.625
+    },
+    {
+      "token": "ST67B-0028",
+      "elapsed_ms": 109.0000000258442,
+      "response": "PONG ST67B-0028 1927391\n",
+      "host_monotonic": 189842.64
+    },
+    {
+      "token": "ST67B-0029",
+      "elapsed_ms": 156.00000001722947,
+      "response": "PONG ST67B-0029 1928391\n",
+      "host_monotonic": 189843.687
+    },
+    {
+      "token": "ST67B-0030",
+      "elapsed_ms": 140.00000001396984,
+      "response": "PONG ST67B-0030 1929412\n",
+      "host_monotonic": 189844.671
+    },
+    {
+      "token": "ST67B-0031",
+      "elapsed_ms": 203.00000000861473,
+      "response": "PONG ST67B-0031 1930412\n",
+      "host_monotonic": 189845.734
+    },
+    {
+      "token": "ST67B-0032",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0032 1931401\n",
+      "host_monotonic": 189846.656
+    },
+    {
+      "token": "ST67B-0033",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0033 1932391\n",
+      "host_monotonic": 189847.656
+    },
+    {
+      "token": "ST67B-0034",
+      "elapsed_ms": 109.0000000258442,
+      "response": "PONG ST67B-0034 1933391\n",
+      "host_monotonic": 189848.64
+    },
+    {
+      "token": "ST67B-0035",
+      "elapsed_ms": 109.99999998603016,
+      "response": "PONG ST67B-0035 1934412\n",
+      "host_monotonic": 189849.656
+    },
+    {
+      "token": "ST67B-0036",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0036 1935411\n",
+      "host_monotonic": 189850.671
+    },
+    {
+      "token": "ST67B-0037",
+      "elapsed_ms": 78.00000000861473,
+      "response": "PONG ST67B-0037 1936342\n",
+      "host_monotonic": 189851.609
+    },
+    {
+      "token": "ST67B-0038",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0038 1937342\n",
+      "host_monotonic": 189852.593
+    },
+    {
+      "token": "ST67B-0039",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0039 1938371\n",
+      "host_monotonic": 189853.625
+    },
+    {
+      "token": "ST67B-0040",
+      "elapsed_ms": 109.0000000258442,
+      "response": "PONG ST67B-0040 1939402\n",
+      "host_monotonic": 189854.64
+    },
+    {
+      "token": "ST67B-0041",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0041 1940332\n",
+      "host_monotonic": 189855.593
+    },
+    {
+      "token": "ST67B-0042",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0042 1941332\n",
+      "host_monotonic": 189856.625
+    },
+    {
+      "token": "ST67B-0043",
+      "elapsed_ms": 157.00000000651926,
+      "response": "PONG ST67B-0043 1942442\n",
+      "host_monotonic": 189857.703
+    },
+    {
+      "token": "ST67B-0044",
+      "elapsed_ms": 46.999999991385266,
+      "response": "PONG ST67B-0044 1943342\n",
+      "host_monotonic": 189858.593
+    },
+    {
+      "token": "ST67B-0045",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0045 1944342\n",
+      "host_monotonic": 189859.593
+    },
+    {
+      "token": "ST67B-0046",
+      "elapsed_ms": 47.0000000204891,
+      "response": "PONG ST67B-0046 1945342\n",
+      "host_monotonic": 189860.578
+    },
+    {
+      "token": "ST67B-0047",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0047 1946342\n",
+      "host_monotonic": 189861.656
+    },
+    {
+      "token": "ST67B-0048",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0048 1947342\n",
+      "host_monotonic": 189862.593
+    },
+    {
+      "token": "ST67B-0049",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0049 1948371\n",
+      "host_monotonic": 189863.64
+    },
+    {
+      "token": "ST67B-0050",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0050 1949371\n",
+      "host_monotonic": 189864.625
+    },
+    {
+      "token": "ST67B-0051",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0051 1950302\n",
+      "host_monotonic": 189865.625
+    },
+    {
+      "token": "ST67B-0052",
+      "elapsed_ms": 140.00000001396984,
+      "response": "PONG ST67B-0052 1951402\n",
+      "host_monotonic": 189866.671
+    },
+    {
+      "token": "ST67B-0053",
+      "elapsed_ms": 141.00000000325963,
+      "response": "PONG ST67B-0053 1952421\n",
+      "host_monotonic": 189867.687
+    },
+    {
+      "token": "ST67B-0054",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0054 1953343\n",
+      "host_monotonic": 189868.625
+    },
+    {
+      "token": "ST67B-0055",
+      "elapsed_ms": 62.999999994644895,
+      "response": "PONG ST67B-0055 1954342\n",
+      "host_monotonic": 189869.609
+    },
+    {
+      "token": "ST67B-0056",
+      "elapsed_ms": 46.999999991385266,
+      "response": "PONG ST67B-0056 1955342\n",
+      "host_monotonic": 189870.593
+    },
+    {
+      "token": "ST67B-0057",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0057 1956332\n",
+      "host_monotonic": 189871.593
+    },
+    {
+      "token": "ST67B-0058",
+      "elapsed_ms": 62.999999994644895,
+      "response": "PONG ST67B-0058 1957351\n",
+      "host_monotonic": 189872.609
+    },
+    {
+      "token": "ST67B-0059",
+      "elapsed_ms": 78.99999999790452,
+      "response": "PONG ST67B-0059 1958351\n",
+      "host_monotonic": 189873.625
+    },
+    {
+      "token": "ST67B-0060",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0060 1959351\n",
+      "host_monotonic": 189874.656
+    },
+    {
+      "token": "ST67B-0061",
+      "elapsed_ms": 78.00000000861473,
+      "response": "PONG ST67B-0061 1960361\n",
+      "host_monotonic": 189875.609
+    },
+    {
+      "token": "ST67B-0062",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0062 1961351\n",
+      "host_monotonic": 189876.625
+    },
+    {
+      "token": "ST67B-0063",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0063 1962351\n",
+      "host_monotonic": 189877.625
+    },
+    {
+      "token": "ST67B-0064",
+      "elapsed_ms": 78.00000000861473,
+      "response": "PONG ST67B-0064 1963362\n",
+      "host_monotonic": 189878.609
+    },
+    {
+      "token": "ST67B-0065",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0065 1964382\n",
+      "host_monotonic": 189879.625
+    },
+    {
+      "token": "ST67B-0066",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0066 1965392\n",
+      "host_monotonic": 189880.656
+    },
+    {
+      "token": "ST67B-0067",
+      "elapsed_ms": 140.00000001396984,
+      "response": "PONG ST67B-0067 1966391\n",
+      "host_monotonic": 189881.671
+    },
+    {
+      "token": "ST67B-0068",
+      "elapsed_ms": 109.99999998603016,
+      "response": "PONG ST67B-0068 1967391\n",
+      "host_monotonic": 189882.656
+    },
+    {
+      "token": "ST67B-0069",
+      "elapsed_ms": 234.0000000258442,
+      "response": "PONG ST67B-0069 1968421\n",
+      "host_monotonic": 189883.765
+    },
+    {
+      "token": "ST67B-0070",
+      "elapsed_ms": 32.00000000651926,
+      "response": "PONG ST67B-0070 1969321\n",
+      "host_monotonic": 189884.578
+    },
+    {
+      "token": "ST67B-0071",
+      "elapsed_ms": 78.99999999790452,
+      "response": "PONG ST67B-0071 1970351\n",
+      "host_monotonic": 189885.625
+    },
+    {
+      "token": "ST67B-0072",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0072 1971351\n",
+      "host_monotonic": 189886.625
+    },
+    {
+      "token": "ST67B-0073",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0073 1972381\n",
+      "host_monotonic": 189887.64
+    },
+    {
+      "token": "ST67B-0074",
+      "elapsed_ms": 109.99999998603016,
+      "response": "PONG ST67B-0074 1973391\n",
+      "host_monotonic": 189888.656
+    },
+    {
+      "token": "ST67B-0075",
+      "elapsed_ms": 172.0000000204891,
+      "response": "PONG ST67B-0075 1974303\n",
+      "host_monotonic": 189889.703
+    },
+    {
+      "token": "ST67B-0076",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0076 1975402\n",
+      "host_monotonic": 189890.671
+    },
+    {
+      "token": "ST67B-0077",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0077 1976381\n",
+      "host_monotonic": 189891.625
+    },
+    {
+      "token": "ST67B-0078",
+      "elapsed_ms": 156.00000001722947,
+      "response": "PONG ST67B-0078 1977411\n",
+      "host_monotonic": 189892.687
+    },
+    {
+      "token": "ST67B-0079",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0079 1978422\n",
+      "host_monotonic": 189893.671
+    },
+    {
+      "token": "ST67B-0080",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0080 1979322\n",
+      "host_monotonic": 189894.656
+    },
+    {
+      "token": "ST67B-0081",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0081 1980341\n",
+      "host_monotonic": 189895.593
+    },
+    {
+      "token": "ST67B-0082",
+      "elapsed_ms": 187.9999999946449,
+      "response": "PONG ST67B-0082 1981432\n",
+      "host_monotonic": 189896.734
+    },
+    {
+      "token": "ST67B-0083",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0083 1982341\n",
+      "host_monotonic": 189897.593
+    },
+    {
+      "token": "ST67B-0084",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0084 1983341\n",
+      "host_monotonic": 189898.593
+    },
+    {
+      "token": "ST67B-0085",
+      "elapsed_ms": 78.00000000861473,
+      "response": "PONG ST67B-0085 1984342\n",
+      "host_monotonic": 189899.609
+    },
+    {
+      "token": "ST67B-0086",
+      "elapsed_ms": 78.99999999790452,
+      "response": "PONG ST67B-0086 1985352\n",
+      "host_monotonic": 189900.625
+    },
+    {
+      "token": "ST67B-0087",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0087 1986341\n",
+      "host_monotonic": 189901.593
+    },
+    {
+      "token": "ST67B-0088",
+      "elapsed_ms": 78.00000000861473,
+      "response": "PONG ST67B-0088 1987330\n",
+      "host_monotonic": 189902.609
+    },
+    {
+      "token": "ST67B-0089",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0089 1988322\n",
+      "host_monotonic": 189903.593
+    },
+    {
+      "token": "ST67B-0090",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0090 1989362\n",
+      "host_monotonic": 189904.625
+    },
+    {
+      "token": "ST67B-0091",
+      "elapsed_ms": 109.0000000258442,
+      "response": "PONG ST67B-0091 1990382\n",
+      "host_monotonic": 189905.64
+    },
+    {
+      "token": "ST67B-0092",
+      "elapsed_ms": 47.0000000204891,
+      "response": "PONG ST67B-0092 1991297\n",
+      "host_monotonic": 189906.578
+    },
+    {
+      "token": "ST67B-0093",
+      "elapsed_ms": 156.00000001722947,
+      "response": "PONG ST67B-0093 1992391\n",
+      "host_monotonic": 189907.687
+    },
+    {
+      "token": "ST67B-0094",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0094 1993402\n",
+      "host_monotonic": 189908.671
+    },
+    {
+      "token": "ST67B-0095",
+      "elapsed_ms": 109.99999998603016,
+      "response": "PONG ST67B-0095 1994402\n",
+      "host_monotonic": 189909.656
+    },
+    {
+      "token": "ST67B-0096",
+      "elapsed_ms": 78.99999999790452,
+      "response": "PONG ST67B-0096 1995341\n",
+      "host_monotonic": 189910.625
+    },
+    {
+      "token": "ST67B-0097",
+      "elapsed_ms": 62.999999994644895,
+      "response": "PONG ST67B-0097 1996341\n",
+      "host_monotonic": 189911.609
+    },
+    {
+      "token": "ST67B-0098",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0098 1997371\n",
+      "host_monotonic": 189912.656
+    },
+    {
+      "token": "ST67B-0099",
+      "elapsed_ms": 109.99999998603016,
+      "response": "PONG ST67B-0099 1998381\n",
+      "host_monotonic": 189913.656
+    },
+    {
+      "token": "ST67B-0100",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0100 1999382\n",
+      "host_monotonic": 189914.64
+    },
+    {
+      "token": "ST67B-0101",
+      "elapsed_ms": 109.99999998603016,
+      "response": "PONG ST67B-0101 2000381\n",
+      "host_monotonic": 189915.656
+    },
+    {
+      "token": "ST67B-0102",
+      "elapsed_ms": 203.00000000861473,
+      "response": "PONG ST67B-0102 2001391\n",
+      "host_monotonic": 189916.734
+    },
+    {
+      "token": "ST67B-0103",
+      "elapsed_ms": 78.00000000861473,
+      "response": "PONG ST67B-0103 2002331\n",
+      "host_monotonic": 189917.609
+    },
+    {
+      "token": "ST67B-0104",
+      "elapsed_ms": 109.99999998603016,
+      "response": "PONG ST67B-0104 2003381\n",
+      "host_monotonic": 189918.656
+    },
+    {
+      "token": "ST67B-0105",
+      "elapsed_ms": 109.99999998603016,
+      "response": "PONG ST67B-0105 2004382\n",
+      "host_monotonic": 189919.656
+    },
+    {
+      "token": "ST67B-0106",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0106 2005391\n",
+      "host_monotonic": 189920.671
+    },
+    {
+      "token": "ST67B-0107",
+      "elapsed_ms": 46.999999991385266,
+      "response": "PONG ST67B-0107 2006322\n",
+      "host_monotonic": 189921.593
+    },
+    {
+      "token": "ST67B-0108",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0108 2007322\n",
+      "host_monotonic": 189922.593
+    },
+    {
+      "token": "ST67B-0109",
+      "elapsed_ms": 62.999999994644895,
+      "response": "PONG ST67B-0109 2008322\n",
+      "host_monotonic": 189923.609
+    },
+    {
+      "token": "ST67B-0110",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0110 2009322\n",
+      "host_monotonic": 189924.593
+    },
+    {
+      "token": "ST67B-0111",
+      "elapsed_ms": 141.00000000325963,
+      "response": "PONG ST67B-0111 2010402\n",
+      "host_monotonic": 189925.687
+    },
+    {
+      "token": "ST67B-0112",
+      "elapsed_ms": 78.00000000861473,
+      "response": "PONG ST67B-0112 2011312\n",
+      "host_monotonic": 189926.609
+    },
+    {
+      "token": "ST67B-0113",
+      "elapsed_ms": 78.99999999790452,
+      "response": "PONG ST67B-0113 2012312\n",
+      "host_monotonic": 189927.625
+    },
+    {
+      "token": "ST67B-0114",
+      "elapsed_ms": 62.000000005355105,
+      "response": "PONG ST67B-0114 2013321\n",
+      "host_monotonic": 189928.593
+    },
+    {
+      "token": "ST67B-0115",
+      "elapsed_ms": 109.0000000258442,
+      "response": "PONG ST67B-0115 2014351\n",
+      "host_monotonic": 189929.64
+    },
+    {
+      "token": "ST67B-0116",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0116 2015361\n",
+      "host_monotonic": 189930.656
+    },
+    {
+      "token": "ST67B-0117",
+      "elapsed_ms": 125.0,
+      "response": "PONG ST67B-0117 2016361\n",
+      "host_monotonic": 189931.656
+    },
+    {
+      "token": "ST67B-0118",
+      "elapsed_ms": 94.00000001187436,
+      "response": "PONG ST67B-0118 2017361\n",
+      "host_monotonic": 189932.64
+    },
+    {
+      "token": "ST67B-0119",
+      "elapsed_ms": 109.99999998603016,
+      "response": "PONG ST67B-0119 2018351\n",
+      "host_monotonic": 189933.656
+    }
+  ],
+  "usb_pings": [
+    {
+      "token": "ST67U-0000",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0000\r\nPONG ST67U-0000 1899460\r\nn6> "
+    },
+    {
+      "token": "ST67U-0001",
+      "elapsed_ms": 328.00000000861473,
+      "response": "debug ping ST67U-0001\r\nPONG ST67U-0001 1900785\r\nn6> "
+    },
+    {
+      "token": "ST67U-0002",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0002\r\nPONG ST67U-0002 1902120\r\nn6> "
+    },
+    {
+      "token": "ST67U-0003",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0003\r\nPONG ST67U-0003 1903445\r\nn6> "
+    },
+    {
+      "token": "ST67U-0004",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0004\r\nPONG ST67U-0004 1904776\r\nn6> "
+    },
+    {
+      "token": "ST67U-0005",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0005\r\nPONG ST67U-0005 1906086\r\nn6> "
+    },
+    {
+      "token": "ST67U-0006",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0006\r\nPONG ST67U-0006 1907401\r\nn6> "
+    },
+    {
+      "token": "ST67U-0007",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0007\r\nPONG ST67U-0007 1908703\r\nn6> "
+    },
+    {
+      "token": "ST67U-0008",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0008\r\nPONG ST67U-0008 1910026\r\nn6> "
+    },
+    {
+      "token": "ST67U-0009",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0009\r\nPONG ST67U-0009 1911340\r\nn6> "
+    },
+    {
+      "token": "ST67U-0010",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0010\r\nPONG ST67U-0010 1912625\r\nn6> "
+    },
+    {
+      "token": "ST67U-0011",
+      "elapsed_ms": 328.00000000861473,
+      "response": "debug ping ST67U-0011\r\nPONG ST67U-0011 1913928\r\nn6> "
+    },
+    {
+      "token": "ST67U-0012",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0012\r\nPONG ST67U-0012 1915259\r\nn6> "
+    },
+    {
+      "token": "ST67U-0013",
+      "elapsed_ms": 296.0000000020955,
+      "response": "debug ping ST67U-0013\r\nPONG ST67U-0013 1916549\r\nn6> "
+    },
+    {
+      "token": "ST67U-0014",
+      "elapsed_ms": 328.00000000861473,
+      "response": "debug ping ST67U-0014\r\nPONG ST67U-0014 1917866\r\nn6> "
+    },
+    {
+      "token": "ST67U-0015",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0015\r\nPONG ST67U-0015 1919211\r\nn6> "
+    },
+    {
+      "token": "ST67U-0016",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0016\r\nPONG ST67U-0016 1920502\r\nn6> "
+    },
+    {
+      "token": "ST67U-0017",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0017\r\nPONG ST67U-0017 1921825\r\nn6> "
+    },
+    {
+      "token": "ST67U-0018",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0018\r\nPONG ST67U-0018 1923153\r\nn6> "
+    },
+    {
+      "token": "ST67U-0019",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0019\r\nPONG ST67U-0019 1924452\r\nn6> "
+    },
+    {
+      "token": "ST67U-0020",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0020\r\nPONG ST67U-0020 1925778\r\nn6> "
+    },
+    {
+      "token": "ST67U-0021",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0021\r\nPONG ST67U-0021 1927091\r\nn6> "
+    },
+    {
+      "token": "ST67U-0022",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0022\r\nPONG ST67U-0022 1928410\r\nn6> "
+    },
+    {
+      "token": "ST67U-0023",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0023\r\nPONG ST67U-0023 1929718\r\nn6> "
+    },
+    {
+      "token": "ST67U-0024",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0024\r\nPONG ST67U-0024 1931004\r\nn6> "
+    },
+    {
+      "token": "ST67U-0025",
+      "elapsed_ms": 296.0000000020955,
+      "response": "debug ping ST67U-0025\r\nPONG ST67U-0025 1932297\r\nn6> "
+    },
+    {
+      "token": "ST67U-0026",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0026\r\nPONG ST67U-0026 1933614\r\nn6> "
+    },
+    {
+      "token": "ST67U-0027",
+      "elapsed_ms": 328.00000000861473,
+      "response": "debug ping ST67U-0027\r\nPONG ST67U-0027 1934916\r\nn6> "
+    },
+    {
+      "token": "ST67U-0028",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0028\r\nPONG ST67U-0028 1936248\r\nn6> "
+    },
+    {
+      "token": "ST67U-0029",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0029\r\nPONG ST67U-0029 1937576\r\nn6> "
+    },
+    {
+      "token": "ST67U-0030",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0030\r\nPONG ST67U-0030 1938908\r\nn6> "
+    },
+    {
+      "token": "ST67U-0031",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0031\r\nPONG ST67U-0031 1940232\r\nn6> "
+    },
+    {
+      "token": "ST67U-0032",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0032\r\nPONG ST67U-0032 1941545\r\nn6> "
+    },
+    {
+      "token": "ST67U-0033",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0033\r\nPONG ST67U-0033 1942847\r\nn6> "
+    },
+    {
+      "token": "ST67U-0034",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0034\r\nPONG ST67U-0034 1944145\r\nn6> "
+    },
+    {
+      "token": "ST67U-0035",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0035\r\nPONG ST67U-0035 1945440\r\nn6> "
+    },
+    {
+      "token": "ST67U-0036",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0036\r\nPONG ST67U-0036 1946749\r\nn6> "
+    },
+    {
+      "token": "ST67U-0037",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0037\r\nPONG ST67U-0037 1948079\r\nn6> "
+    },
+    {
+      "token": "ST67U-0038",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0038\r\nPONG ST67U-0038 1949404\r\nn6> "
+    },
+    {
+      "token": "ST67U-0039",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0039\r\nPONG ST67U-0039 1950709\r\nn6> "
+    },
+    {
+      "token": "ST67U-0040",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0040\r\nPONG ST67U-0040 1952021\r\nn6> "
+    },
+    {
+      "token": "ST67U-0041",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0041\r\nPONG ST67U-0041 1953342\r\nn6> "
+    },
+    {
+      "token": "ST67U-0042",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0042\r\nPONG ST67U-0042 1954647\r\nn6> "
+    },
+    {
+      "token": "ST67U-0043",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0043\r\nPONG ST67U-0043 1955935\r\nn6> "
+    },
+    {
+      "token": "ST67U-0044",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0044\r\nPONG ST67U-0044 1957254\r\nn6> "
+    },
+    {
+      "token": "ST67U-0045",
+      "elapsed_ms": 296.0000000020955,
+      "response": "debug ping ST67U-0045\r\nPONG ST67U-0045 1958550\r\nn6> "
+    },
+    {
+      "token": "ST67U-0046",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0046\r\nPONG ST67U-0046 1959863\r\nn6> "
+    },
+    {
+      "token": "ST67U-0047",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0047\r\nPONG ST67U-0047 1961151\r\nn6> "
+    },
+    {
+      "token": "ST67U-0048",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0048\r\nPONG ST67U-0048 1962462\r\nn6> "
+    },
+    {
+      "token": "ST67U-0049",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0049\r\nPONG ST67U-0049 1963780\r\nn6> "
+    },
+    {
+      "token": "ST67U-0050",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0050\r\nPONG ST67U-0050 1965095\r\nn6> "
+    },
+    {
+      "token": "ST67U-0051",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0051\r\nPONG ST67U-0051 1966397\r\nn6> "
+    },
+    {
+      "token": "ST67U-0052",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0052\r\nPONG ST67U-0052 1967720\r\nn6> "
+    },
+    {
+      "token": "ST67U-0053",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0053\r\nPONG ST67U-0053 1969027\r\nn6> "
+    },
+    {
+      "token": "ST67U-0054",
+      "elapsed_ms": 328.9999999979045,
+      "response": "debug ping ST67U-0054\r\nPONG ST67U-0054 1970350\r\nn6> "
+    },
+    {
+      "token": "ST67U-0055",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0055\r\nPONG ST67U-0055 1971683\r\nn6> "
+    },
+    {
+      "token": "ST67U-0056",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0056\r\nPONG ST67U-0056 1972996\r\nn6> "
+    },
+    {
+      "token": "ST67U-0057",
+      "elapsed_ms": 296.0000000020955,
+      "response": "debug ping ST67U-0057\r\nPONG ST67U-0057 1974302\r\nn6> "
+    },
+    {
+      "token": "ST67U-0058",
+      "elapsed_ms": 328.00000000861473,
+      "response": "debug ping ST67U-0058\r\nPONG ST67U-0058 1975584\r\nn6> "
+    },
+    {
+      "token": "ST67U-0059",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0059\r\nPONG ST67U-0059 1976913\r\nn6> "
+    },
+    {
+      "token": "ST67U-0060",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0060\r\nPONG ST67U-0060 1978227\r\nn6> "
+    },
+    {
+      "token": "ST67U-0061",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0061\r\nPONG ST67U-0061 1979541\r\nn6> "
+    },
+    {
+      "token": "ST67U-0062",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0062\r\nPONG ST67U-0062 1980835\r\nn6> "
+    },
+    {
+      "token": "ST67U-0063",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0063\r\nPONG ST67U-0063 1982149\r\nn6> "
+    },
+    {
+      "token": "ST67U-0064",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0064\r\nPONG ST67U-0064 1983444\r\nn6> "
+    },
+    {
+      "token": "ST67U-0065",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0065\r\nPONG ST67U-0065 1984756\r\nn6> "
+    },
+    {
+      "token": "ST67U-0066",
+      "elapsed_ms": 296.0000000020955,
+      "response": "debug ping ST67U-0066\r\nPONG ST67U-0066 1986045\r\nn6> "
+    },
+    {
+      "token": "ST67U-0067",
+      "elapsed_ms": 328.00000000861473,
+      "response": "debug ping ST67U-0067\r\nPONG ST67U-0067 1987328\r\nn6> "
+    },
+    {
+      "token": "ST67U-0068",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0068\r\nPONG ST67U-0068 1988661\r\nn6> "
+    },
+    {
+      "token": "ST67U-0069",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0069\r\nPONG ST67U-0069 1989984\r\nn6> "
+    },
+    {
+      "token": "ST67U-0070",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0070\r\nPONG ST67U-0070 1991296\r\nn6> "
+    },
+    {
+      "token": "ST67U-0071",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0071\r\nPONG ST67U-0071 1992600\r\nn6> "
+    },
+    {
+      "token": "ST67U-0072",
+      "elapsed_ms": 328.00000000861473,
+      "response": "debug ping ST67U-0072\r\nPONG ST67U-0072 1993902\r\nn6> "
+    },
+    {
+      "token": "ST67U-0073",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0073\r\nPONG ST67U-0073 1995246\r\nn6> "
+    },
+    {
+      "token": "ST67U-0074",
+      "elapsed_ms": 328.00000000861473,
+      "response": "debug ping ST67U-0074\r\nPONG ST67U-0074 1996571\r\nn6> "
+    },
+    {
+      "token": "ST67U-0075",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0075\r\nPONG ST67U-0075 1997888\r\nn6> "
+    },
+    {
+      "token": "ST67U-0076",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0076\r\nPONG ST67U-0076 1999187\r\nn6> "
+    },
+    {
+      "token": "ST67U-0077",
+      "elapsed_ms": 327.9999999795109,
+      "response": "debug ping ST67U-0077\r\nPONG ST67U-0077 2000494\r\nn6> "
+    },
+    {
+      "token": "ST67U-0078",
+      "elapsed_ms": 328.9999999979045,
+      "response": "debug ping ST67U-0078\r\nPONG ST67U-0078 2001835\r\nn6> "
+    },
+    {
+      "token": "ST67U-0079",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0079\r\nPONG ST67U-0079 2003184\r\nn6> "
+    },
+    {
+      "token": "ST67U-0080",
+      "elapsed_ms": 327.9999999795109,
+      "response": "debug ping ST67U-0080\r\nPONG ST67U-0080 2004493\r\nn6> "
+    },
+    {
+      "token": "ST67U-0081",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0081\r\nPONG ST67U-0081 2005825\r\nn6> "
+    },
+    {
+      "token": "ST67U-0082",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0082\r\nPONG ST67U-0082 2007123\r\nn6> "
+    },
+    {
+      "token": "ST67U-0083",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0083\r\nPONG ST67U-0083 2008421\r\nn6> "
+    },
+    {
+      "token": "ST67U-0084",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0084\r\nPONG ST67U-0084 2009709\r\nn6> "
+    },
+    {
+      "token": "ST67U-0085",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0085\r\nPONG ST67U-0085 2011015\r\nn6> "
+    },
+    {
+      "token": "ST67U-0086",
+      "elapsed_ms": 328.9999999979045,
+      "response": "debug ping ST67U-0086\r\nPONG ST67U-0086 2012327\r\nn6> "
+    },
+    {
+      "token": "ST67U-0087",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0087\r\nPONG ST67U-0087 2013656\r\nn6> "
+    },
+    {
+      "token": "ST67U-0088",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0088\r\nPONG ST67U-0088 2014966\r\nn6> "
+    },
+    {
+      "token": "ST67U-0089",
+      "elapsed_ms": 296.0000000020955,
+      "response": "debug ping ST67U-0089\r\nPONG ST67U-0089 2016261\r\nn6> "
+    },
+    {
+      "token": "ST67U-0090",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0090\r\nPONG ST67U-0090 2017555\r\nn6> "
+    },
+    {
+      "token": "ST67U-0091",
+      "elapsed_ms": 594.0000000118744,
+      "response": "debug ping ST67U-0091\r\nPONG ST67U-0091 2019141\r\nn6> "
+    }
+  ],
+  "events": [],
+  "max_host_loop_lag_ms": 28.99999999790452,
+  "handles_closed": true,
+  "lease_released": true,
+  "before": {
+    "version": "version\r\nFirmware version: 54\r\nn6> ",
+    "radio info": "radio info\r\nModule: C6AFDBD111400004 (-B)\r\nNCP MAC: 40:82:7B:03:B8:FA\r\nBuild: Mar 20 2026 09:32:19\r\nSDK: 2.0.106.0, AT: 1.0.0.0\r\nWi-Fi MAC FW: 1.6.44.0\r\nBLE controller: 1.6.128.0, stack: 1.10.83.0\r\nAnti-rollback (read-only): bootloader=0, app=0\r\nManufacturing: BOM=2, year=25, week=16\r\nn6> ",
+    "radio status": "radio status\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: ready, advertising: on, link: disconnected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=104152 last_ms=1889141 max_gap_ms=22\r\n  BLE TX pump: last_ms=1889141 max_gap_ms=25\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=0 op=5 submitted=110 completed=110 deferred=24 stale=0 queue_max=253 ms call_max=510 ms last=0\r\n  NCP recovery: state=0 stage=0 attempts=0 ready=0 failed=0 elapsed=0 ms owners radio/cloud=0/0 last=0\r\n  SPI fault: count=0 tick=0 source=0 phase=0 len=0 HAL_error=00000000 SR=00000000 TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=0 pending=0 old_generation=0 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> ",
+    "ble status": "ble status\r\nBLE GATT: ready, link: disconnected, advertising: on, MTU: 23\r\nBLE advertising desired: on; manager init 1/0 fail, advertising 2/0 fail, disconnect fail 0, driver errors 1 (last 2)\r\nBLE ADV evidence: command ACK (not RF proof), retry 0/3; mode/link confirmed 1/1, recovery pending 0\r\nBLE probes: mode 54, link 54, failed 0, corrected 0, last tick 1882001/status 0; BLE repair 0/0 fail; ADV exhausted 0\r\nBLE init stage: 14, last W6X status: 0\r\nName: N6-MAINT-B8FB\r\nAddress: 40:82:7B:03:B8:FB\r\nCLI TX notifications: off; DEBUG TX notifications: off; ToF image notifications: off\r\nStream transport: ready, generation 2, ATT payload 20 bytes\r\nRadio SRAM4 pool: 17292 bytes available, 32 fragments\r\nCLI RX: queued 0/1 high-water, accepted 154 events/3112 bytes, dropped 0/0\r\nCLI TX: queued 0/2 high-water, accepted 156 messages/3462 bytes, sent 3462, dropped 0/0, retries 0, errors 0\r\nCLI TX contention: busy 380, timeout 0, streak 0/14, duration_ticks 0/24, recoveries 156\r\nDEBUG RX: disabled by policy, dropped 0 events/0 bytes\r\nDEBUG TX: queued 0/0 high-water, accepted 0 messages/0 bytes, sent 0, dropped 0/0, retries 0, errors 0\r\nDEBUG TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nStale generation drops: CLI 0, DEBUG 0; total GATT writes 154, discarded bytes 0\r\nToF image: submitted 994, complete 92, busy drops 5786, aborted 1; fragments 4518, payload bytes 836504, retries 0, errors 0; last 18881/2471\r\nToF TX contention: busy 10514, timeout 0, streak 0/16, duration_ticks 0/40, recoveries 4518\r\nn6> ",
+    "tof status": "tof status\r\nImage destination: requested CLOUD, active CLOUD, switches 9, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 18900, rate: 3.4 fps\r\nPipeline: acquired 18905, processed 7210, dropped 11692, queue failures 0\r\nLast valid range: 118..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 39\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+    "rps status": "rps status\r\nRPS status: enabled=1 ready=1 frame=18903 class=scissors class_id=3 confidence_permille=938 scores=-126,-120,-122,112 runs=7211 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> ",
+    "cloud status": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: polling, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 1, last 202, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 899, dropped 2; request errors 0\r\nWorker: loops 7886, last tick 1889663, max step 1191 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+  },
+  "verified_endpoint": "http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net",
+  "pause_for_setup": "dataset route none\r\nCapture route restored.\r\nn6> ",
+  "image_encoding": "MAP ENCODING\r\nWireless encoding: UINT8 affine\r\nApplies to newly accepted BLE/Cloud frames; USB MAP unchanged.\r\nn6> ",
+  "ble_address": "40:82:7B:03:B8:FB",
+  "ble_name": "N6-MAINT-B8FB",
+  "mtu": 247,
+  "os_is_paired": false,
+  "cloud_measurement_before": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: polling, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 1, last 204, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 899, dropped 3; request errors 0\r\nWorker: loops 7911, last tick 1897652, max step 1191 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> ",
+  "image_start_utc": "2026-10-29T12:18:09.948191+00:00",
+  "image_start_command": "dataset route cloud\r\nCapture route restored.\r\nn6> ",
+  "image_stop_command": "dataset route none\r\nCapture route restored.\r\nn6> ",
+  "image_stop_ack_utc": "2026-10-29T12:20:10.277311+00:00",
+  "image_route_enabled_s": 120.3289999999979,
+  "elapsed_s": 120.0,
+  "image_stop_status": "tof status\r\nImage destination: requested NONE, active NONE, switches 12, drain frames 2\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 20198, rate: 3.8 fps\r\nPipeline: acquired 20202, processed 7705, dropped 12494, queue failures 0\r\nLast valid range: 118..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 42\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+  "image_transmission_stopped": true,
+  "after": {
+    "version": "version\r\nFirmware version: 54\r\nn6> ",
+    "radio info": "radio info\r\nModule: C6AFDBD111400004 (-B)\r\nNCP MAC: 40:82:7B:03:B8:FA\r\nBuild: Mar 20 2026 09:32:19\r\nSDK: 2.0.106.0, AT: 1.0.0.0\r\nWi-Fi MAC FW: 1.6.44.0\r\nBLE controller: 1.6.128.0, stack: 1.10.83.0\r\nAnti-rollback (read-only): bootloader=0, app=0\r\nManufacturing: BOM=2, year=25, week=16\r\nn6> ",
+    "radio status": "radio status\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: ready, advertising: off, link: connected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=111000 last_ms=2021221 max_gap_ms=22\r\n  BLE TX pump: last_ms=2021221 max_gap_ms=25\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=0 op=1 submitted=111 completed=111 deferred=24 stale=0 queue_max=253 ms call_max=522 ms last=0\r\n  NCP recovery: state=0 stage=0 attempts=0 ready=0 failed=0 elapsed=0 ms owners radio/cloud=0/0 last=0\r\n  SPI fault: count=0 tick=0 source=0 phase=0 len=0 HAL_error=00000000 SR=00000000 TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=0 pending=0 old_generation=0 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> ",
+    "ble status": "ble status\r\nBLE GATT: ready, link: connected, advertising: off, MTU: 247\r\nBLE advertising desired: on; manager init 1/0 fail, advertising 2/0 fail, disconnect fail 0, driver errors 2 (last 2)\r\nBLE ADV evidence: connection event (not RF proof), retry 0/3; mode/link confirmed 1/1, recovery pending 0\r\nBLE probes: mode 54, link 54, failed 0, corrected 0, last tick 1882001/status 0; BLE repair 0/0 fail; ADV exhausted 0\r\nBLE init stage: 14, last W6X status: 0\r\nName: N6-MAINT-B8FB\r\nAddress: 40:82:7B:03:B8:FB\r\nCLI TX notifications: off; DEBUG TX notifications: off; ToF image notifications: off\r\nStream transport: ready, generation 3, ATT payload 244 bytes\r\nRadio SRAM4 pool: 17292 bytes available, 32 fragments\r\nCLI RX: queued 0/1 high-water, accepted 274 events/5752 bytes, dropped 0/0\r\nCLI TX: queued 0/2 high-water, accepted 278 messages/6411 bytes, sent 6411, dropped 0/0, retries 0, errors 0\r\nCLI TX contention: busy 666, timeout 0, streak 0/14, duration_ticks 0/24, recoveries 278\r\nDEBUG RX: disabled by policy, dropped 0 events/0 bytes\r\nDEBUG TX: queued 0/0 high-water, accepted 0 messages/0 bytes, sent 0, dropped 0/0, retries 0, errors 0\r\nDEBUG TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nStale generation drops: CLI 0, DEBUG 0; total GATT writes 274, discarded bytes 0\r\nToF image: submitted 1061, complete 92, busy drops 6180, aborted 1; fragments 4518, payload bytes 836504, retries 0, errors 0; last 20187/2471\r\nToF TX contention: busy 10514, timeout 0, streak 0/16, duration_ticks 0/40, recoveries 4518\r\nn6> ",
+    "tof status": "tof status\r\nImage destination: requested NONE, active NONE, switches 12, drain frames 2\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 20221, rate: 3.8 fps\r\nPipeline: acquired 20226, processed 7714, dropped 12509, queue failures 0\r\nLast valid range: 119..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 42\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+    "rps status": "rps status\r\nRPS status: enabled=1 ready=1 frame=20224 class=scissors class_id=3 confidence_permille=832 scores=-121,-108,-112,85 runs=7715 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> ",
+    "cloud status": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: polling, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 1, last 204, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 964, dropped 4; request errors 0\r\nWorker: loops 8382, last tick 2022471, max step 1191 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+  },
+  "cloud_images_http_accepted": 65,
+  "cloud_images_http_accepted_per_second": 0.5401856576552713,
+  "cloud_image_drops_delta": 1,
+  "cloud_request_errors_delta": 0,
+  "spi_faults_delta": 0,
+  "ncp_recoveries_delta": 0,
+  "cloud_receiver_validated": false,
+  "finished_utc": "2026-10-29T12:20:13.956653+00:00",
+  "ble_latency_ms": {
+    "p50": 94.00000001187436,
+    "p95": 157.00000000651926,
+    "p99": 203.00000000861473,
+    "max": 234.0000000258442
+  },
+  "usb_latency_ms": {
+    "p50": 312.0000000053551,
+    "p95": 328.00000000861473,
+    "p99": 594.0000000118744,
+    "max": 594.0000000118744
+  }
+}

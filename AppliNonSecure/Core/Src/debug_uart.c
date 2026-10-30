@@ -128,7 +128,7 @@ static volatile uint32_t debug_uart_rx_errors;
 static volatile uint32_t debug_uart_rx_armed;
 static volatile uint32_t debug_uart_watch_component;
 static ULONG debug_uart_watch_last_tick;
-static volatile uint32_t debug_uart_ncp_trace_enabled;
+static volatile uint32_t debug_uart_ncp_trace_enabled = N6_DEBUG_OUTPUT_ENABLED;
 static volatile uint32_t debug_uart_ncp_trace_sequence;
 static volatile uint32_t debug_uart_ncp_terminal_spi_tick;
 static volatile uint32_t debug_uart_ncp_terminal_spi_sequence;

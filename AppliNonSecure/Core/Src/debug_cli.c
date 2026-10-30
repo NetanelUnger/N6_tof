@@ -708,8 +708,8 @@ static void cli_session_reset(CliSession_t *session, uint32_t stop_usb_streams)
   }
   if (stop_usb_streams != 0U)
   {
-    TOF_App_SetMapEnabled(0U);
-    TOF_App_SetDatasetStreamEnabled(0U);
+    /* USB session teardown must not release another transport's stream. */
+    TOF_App_StopUsbStreams();
   }
   cli_active_session = previous;
 }
@@ -1695,8 +1695,8 @@ static void cli_command_status(Menu_t *menu, const char *command)
 #endif
   cli_settings_status();
   DemoMap_Status demo;WIFI_BLE_App_GetDemoMapStatus(&demo);
-  if(demo.fps)cli_print("Image source: DEMO %lu FPS, sequence %lu, accepted %lu, skipped %lu\r\n",
-    (unsigned long)demo.fps,(unsigned long)demo.sequence,(unsigned long)demo.accepted,(unsigned long)demo.skipped);
+  if(demo.interval_ms)cli_print("Image source: DEMO interval %lu ms, sequence %lu, accepted %lu, skipped %lu\r\n",
+    (unsigned long)demo.interval_ms,(unsigned long)demo.sequence,(unsigned long)demo.accepted,(unsigned long)demo.skipped);
 }
 
 static void cli_command_usb(Menu_t *menu, const char *command)
@@ -1727,30 +1727,33 @@ static void cli_command_demo(Menu_t *menu,const char *command)
   char copy[CLI_LINE_SIZE];char *argv[CLI_MAX_ARGUMENTS];
   int argc=cli_get_arguments(command,copy,sizeof(copy),argv,CLI_MAX_ARGUMENTS);
   DemoMap_Status status;
+  uint32_t interval_ms=0U;
   if(argc>=3 && cli_token_equals(argv[1],"map")) {
     if(argc==3 && cli_token_equals(argv[2],"off")) {
       WIFI_BLE_App_GetDemoMapStatus(&status);
       (void)WIFI_BLE_App_SetDemoMap(0U,0U);
-      if(status.fps)TOF_App_ReleaseStream((TOF_StreamDestination_t)status.destination);
+      if(status.interval_ms)TOF_App_ReleaseStream((TOF_StreamDestination_t)status.destination);
     } else if((argc==4 || argc==5) && cli_token_equals(argv[2],"on") &&
-              (strcmp(argv[3],"1")==0 || strcmp(argv[3],"2")==0)) {
+              cli_parse_u32(argv[3],&interval_ms) && DemoMap_ValidInterval(interval_ms)) {
       uint32_t destination=cli_active_session->route.transport==APP_TRANSPORT_BLE ? TOF_STREAM_BLE : TOF_STREAM_CLOUD;
       if(argc==5)destination=cli_token_equals(argv[4],"ble") ? TOF_STREAM_BLE :
         cli_token_equals(argv[4],"cloud") ? TOF_STREAM_CLOUD : TOF_STREAM_NONE;
-      UINT result=WIFI_BLE_App_SetDemoMap((uint32_t)(argv[3][0]-'0'),destination);
+      UINT result=WIFI_BLE_App_SetDemoMap(interval_ms,destination);
       if(result!=TX_SUCCESS){cli_print("Demo map rejected: %u; requires idle dataset and BLE/CLOUD destination.\r\n",(unsigned)result);return;}
     } else if(!(argc==3 && cli_token_equals(argv[2],"status")))goto usage;
     WIFI_BLE_App_GetDemoMapStatus(&status);
-    cli_print("Demo map: %s, %lu FPS, destination %s, encoding %u\r\n"
+    cli_print("Demo map: %s, interval %lu ms, destination %s, encoding %u\r\n"
       "Scheduled %lu, accepted %lu, skipped %lu, late slots %lu, max lateness %lu ms\r\n"
-      "Frame ID is the scheduled sequence; hot pixel=(ID-1) modulo 2268. NPU off for demo frames.\r\n",
-      status.fps ? "ON" : "OFF",(unsigned long)status.fps,TOF_App_StreamName((TOF_StreamDestination_t)status.destination),
+      "Source ID is the scheduled sequence; accepted means queued, not delivered. NPU off for demo frames.\r\n",
+      status.interval_ms ? "ON" : "OFF",(unsigned long)status.interval_ms,TOF_App_StreamName((TOF_StreamDestination_t)status.destination),
       WIFI_BLE_App_GetImageEncoding(),(unsigned long)status.sequence,(unsigned long)status.accepted,
       (unsigned long)status.skipped,(unsigned long)status.late_slots,(unsigned long)status.max_late_ms);
+    cli_print("Publish rejected: busy=%lu unavailable=%lu other=%lu; skipped includes these plus late slots.\r\n",
+      (unsigned long)status.publish_busy,(unsigned long)status.publish_unavailable,(unsigned long)status.publish_other);
     return;
   }
 usage:
-  (void)Menu_Reply(menu,"Usage: DEMO MAP ON 1|2 [CLOUD|BLE] | DEMO MAP OFF | DEMO MAP STATUS");
+  (void)Menu_Reply(menu,"Usage: DEMO MAP ON <100..60000 ms> [CLOUD|BLE] | DEMO MAP OFF | DEMO MAP STATUS; 1000=1s, 300=300ms; legacy ON 1/2 rejected");
 }
 
 static void cli_command_map(Menu_t *menu, const char *command)
@@ -2472,6 +2475,19 @@ static void cli_command_radio(Menu_t *menu, const char *command)
               (unsigned long)recovery.failures, (unsigned long)recovery.elapsed_ms,
               (unsigned long)recovery.radio_quiesced, (unsigned long)recovery.cloud_quiesced,
               (long)recovery.last_status);
+    const WifiBle_RecoveryTrace_t *trace = &recovery.trace;
+    const char *trigger = trace->reason == 1U ? "SPI_FENCED" : trace->reason == 2U ? "AT_FENCED" :
+        trace->reason == 3U ? "TERMINAL_EXPIRED" : trace->reason == 4U ? "TEST_MISSING_RESPONSE" :
+        trace->reason == 5U ? "EXPLICIT_REQUEST" : "NONE";
+    cli_print("  Recovery trace: sequence=%lu tick_ms=%lu trigger=%s modem_error=%ld\r\n",
+        (unsigned long)trace->sequence, (unsigned long)trace->tick_ms, trigger, (long)trace->modem_error);
+    if (trace->sequence)
+      cli_print("  Last notification context: id=%lu source=%lu phase=%lu bytes=%lu/%lu elapsed=%lu budget=%lu ms finished=%lu result=%ld recv=%lu response=%lu\r\n",
+          (unsigned long)trace->notification_id, (unsigned long)trace->notification_source,
+          (unsigned long)trace->notification_phase, (unsigned long)trace->notification_written,
+          (unsigned long)trace->notification_length, (unsigned long)trace->notification_elapsed_ms,
+          (unsigned long)trace->notification_budget_ms, (unsigned long)trace->notification_finished,
+          (long)trace->notification_result, (unsigned long)trace->recv_seen, (unsigned long)trace->response_seen);
     if (recovery.wifi_reconnect_required)
       cli_print("  Wi-Fi restore pending/unavailable; check UART WIFI_RESTORE and credentials store result. Pairing retained.\r\n");
 #if (APP_ST67W6X_ENABLED == 1U)
@@ -3479,7 +3495,7 @@ static void cli_show_help(void)
 
   cli_print("\r\nRadio and Wi-Fi:\r\n"
             "  debug off|error|warn|info|debug\r\n"
-            "  DEMO MAP ON 1|2 [CLOUD|BLE]   timed moving-pixel source; DEMO MAP OFF/STATUS\r\n"
+            "  DEMO MAP ON <100..60000 ms> [CLOUD|BLE]; 1000=1s, 300=300ms; OFF/STATUS\r\n"
             "  debug ping <token>           transport-only latency probe\r\n"
             "  debug route                  session generations + M2 isolation diagnostic\r\n"
             "  debug uart                   asynchronous UART counters\r\n"

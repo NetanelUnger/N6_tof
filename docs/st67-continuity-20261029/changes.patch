@@ -1,0 +1,488 @@
+diff --git a/AppliNonSecure/Core/Src/cloud_relay.c b/AppliNonSecure/Core/Src/cloud_relay.c
+index cded535..fa9721f 100644
+--- a/AppliNonSecure/Core/Src/cloud_relay.c
++++ b/AppliNonSecure/Core/Src/cloud_relay.c
+@@ -145,6 +145,7 @@ typedef struct
+   uint8_t tof_height;
+   uint8_t tof_channel_id;
+   uint32_t tof_pending;
++  uint32_t image_yield_poll; /* At most one ordinary image between command polls. */
+   uint8_t tof_header[TOF_IMAGE_HEADER_SIZE];
+   TofImageInfo tof_info;
+   int32_t socket;
+@@ -1261,6 +1262,9 @@ static int cloud_send_all(int32_t socket, const void *data, size_t length)
+     if ((sent <= 0) || ((size_t)sent > slice)) return -1;
+     cursor += (size_t)sent;
+     length -= (size_t)sent;
++    /* Each completed AT send releases ownership. Give Radio a scheduling
++     * point before the next bounded slice, without replay or mid-send preemption. */
++    if (length != 0U) tx_thread_sleep(1U);
+   }
+   return 0;
+ }
+@@ -1788,10 +1792,25 @@ static void cloud_start_next_request(void)
+     return;
+   }
+ 
++  /* ACK/output above remain first. A continuous camera must not prevent
++   * fetching the next control command. Poll between images (the current server
++   * clamps even waitSeconds=0 to a minimum one-second wait);
++   * retain the existing single borrowed snapshot and bounded output queue. */
++  if (cloud->image_yield_poll && !cloud->hold_command && !cloud->input_ready)
++  {
++    if (cloud_begin_request(CLOUD_HTTP_POLL, "GET",
++                            "/api/device/commands?waitSeconds=0",
++                            "application/json", NULL, 0U, NULL, 0U, 1U) == 0)
++      cloud->image_yield_poll = 0U;
++    else cloud_backoff();
++    return;
++  }
++
+   if (cloud_training_next()) return;
+ 
+   if (cloud->tof_pending != 0U)
+   {
++    cloud->image_yield_poll = 1U;
+     /* The Cloud worker exclusively owns this borrowed snapshot until release. */
+     if (TofImage_Encode(cloud->tof_payload,
+                         (size_t)cloud->tof_width * cloud->tof_height * sizeof(float),
+diff --git a/AppliNonSecure/Core/Src/spi_port.c b/AppliNonSecure/Core/Src/spi_port.c
+index 289a77d..fce17b2 100644
+--- a/AppliNonSecure/Core/Src/spi_port.c
++++ b/AppliNonSecure/Core/Src/spi_port.c
+@@ -35,16 +35,19 @@ static uint32_t cs_hold_timer_fallbacks;
+ static volatile SpiPortFault_t spi_fault;
+ static volatile uint32_t transfer_id, transfer_phase, transfer_length, transfer_rx_only;
+ static volatile uint32_t fault_reported; /* Radio writes; IRQ capture reads. */
+-#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
++#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
+ static volatile uint32_t rx_flow_resumes;
+ static uint32_t rx_flow_reported;
+ static volatile uint32_t transfer_started_tick;
+ uint32_t spi_port_transfer_started_tick(void){return transfer_started_tick;}
++#else
++uint32_t spi_port_transfer_started_tick(void){return 0;}
++#endif
++#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+ #include "spi_flow_probe_impl.inc"
+ #else
+ int32_t spi_port_arm_rx_flow_test(void){return -1;}
+ int32_t spi_port_cancel_rx_flow_test(void){return -1;}
+-uint32_t spi_port_transfer_started_tick(void){return 0;}
+ #endif
+ 
+ void spi_port_set_phase(uint32_t phase) { transfer_phase = phase; }
+@@ -126,7 +129,7 @@ void spi_port_report_fault(void)
+ #if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+   spi_port_report_flow_test();
+ #endif
+-#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
++#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
+   uint32_t resumed=rx_flow_resumes;
+   if (resumed!=rx_flow_reported)
+   {
+@@ -190,8 +193,8 @@ int32_t spi_port_init(spi_transaction_complete_t callback)
+     return -1;
+   }
+ 
+-#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+-  /* Experimental XIP-only policy. ST AN5543 Rev5 section4.1.1 describes
++#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
++  /* Production RX flow control. ST AN5543 Rev5 section4.1.1 describes
+    * MASRX flow control when the receive FIFO cannot drain promptly. The N6
+    * HAL supports it for master >=8bit transfers, including two-line mode.
+    * Configure only while disabled, before the NCP is powered. Keep Init in
+@@ -205,7 +208,7 @@ int32_t spi_port_init(spi_transaction_complete_t callback)
+       (NCP_SPI_HANDLE.Init.DataSize != SPI_DATASIZE_8BIT)) return -1;
+   NCP_SPI_HANDLE.Init.MasterReceiverAutoSusp=SPI_MASTER_RX_AUTOSUSP_ENABLE;
+   SET_BIT(NCP_SPI_HANDLE.Instance->CR1,SPI_CR1_MASRX);
+-  Debug_UART_Log("SPI-FLOW","experimental MASRX enabled; CR1=%08lX",
++  Debug_UART_Log("SPI-FLOW","MASRX enabled; CR1=%08lX",
+       (unsigned long)NCP_SPI_HANDLE.Instance->CR1);
+ #endif
+ 
+@@ -272,7 +275,7 @@ int32_t spi_port_transfer_dma(void *tx_buf, void *rx_buf, uint16_t len)
+ #endif
+ 
+   transaction_failed = 0;
+-#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
++#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
+   transfer_started_tick=tx_time_get();
+ #endif
+   if (tx_buf != NULL)
+@@ -314,7 +317,7 @@ int32_t spi_port_transfer_dma_status(void)
+ 
+ void spi_port_service_rx_flow(void)
+ {
+-#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
++#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
+   uint32_t saved=__get_PRIMASK();
+   __disable_irq();
+   uint32_t sr=NCP_SPI_HANDLE.Instance->SR;
+diff --git a/AppliNonSecure/Core/Src/wifi_ble_app.c b/AppliNonSecure/Core/Src/wifi_ble_app.c
+index b7dfc71..505049a 100644
+--- a/AppliNonSecure/Core/Src/wifi_ble_app.c
++++ b/AppliNonSecure/Core/Src/wifi_ble_app.c
+@@ -1001,6 +1001,7 @@ static void radio_recovery_pump(void)
+   {
+     W61_Object_t *driver = W61_ObjGet();
+     struct modem_cmd_handler_data *handler = &driver->Modem.handler_data;
++    if (spi_transaction_faulted() != 0) handler->tx_desynchronized = true;
+     if (handler->tx_desynchronized || (handler->dns_drain_active &&
+         (int32_t)(xTaskGetTickCount() - handler->dns_drain_until) >= 0))
+       (void)WIFI_BLE_App_RequestRadioRecovery();
+@@ -1047,8 +1048,9 @@ static void radio_recovery_pump(void)
+         (unsigned long)ble_recovery_notice.reply_active);
+ #endif
+     W61_Object_t *driver = W61_ObjGet();
+-    const char *reason = driver->Modem.handler_data.tx_desynchronized ? "AT_FENCED" :
+-        driver->Modem.handler_data.dns_drain_active ? "DNS_EXPIRED" :
++    const char *reason = spi_transaction_faulted() != 0 ? "SPI_FENCED" :
++        driver->Modem.handler_data.tx_desynchronized ? "AT_FENCED" :
++        driver->Modem.handler_data.dns_drain_active ? "TERMINAL_EXPIRED" :
+         recovery_fault_test ? "TEST_MISSING_RESPONSE" : "EXPLICIT_REQUEST";
+     Debug_UART_Log("RADIO-RECOVERY", "START reason=%s started_ms=%lu", reason,
+                    (unsigned long)radio_recovery.started_ms);
+@@ -1109,6 +1111,10 @@ static void radio_recovery_execute(void)
+     W6X_Net_RequestScopeEnd();
+     Debug_UART_Log("RADIO-RECOVERY", "TEST missing NCP response status=%ld genuine_fence=%lu",
+                    (long)status, (unsigned long)driver->Modem.handler_data.tx_desynchronized);
++    /* The test's powered-off NCP cannot finish the new plain-terminal drain. */
++    if (driver->Modem.handler_data.dns_drain_active)
++      (void)modem_cmd_handler_wait_tx_ready(&driver->Modem.handler_data,
++                                           pdMS_TO_TICKS(1100U), false);
+     if (!driver->Modem.handler_data.tx_desynchronized) goto failed;
+     if (xSemaphoreTake(driver->Modem.handler_data.sem_tx_lock, 0U) != pdTRUE) goto failed;
+   }
+@@ -1226,13 +1232,16 @@ void WIFI_BLE_App_GetServiceStatus(WifiBle_ServiceStatus_t *status)
+     status->state = radio_manager.shadow.state == WIFI_BLE_STATE_ERROR ?
+         WIFI_BLE_SERVICE_FAULT : WIFI_BLE_SERVICE_WAITING;
+     status->reason = radio_manager.shadow.state == WIFI_BLE_STATE_ERROR ? "INIT_FAILED" : "STARTING";
++  } else if (spi_transaction_faulted() != 0) {
++    status->state = WIFI_BLE_SERVICE_FAULT; status->reason = "SPI_FENCED";
+   } else if (driver->Modem.handler_data.tx_desynchronized) {
+     status->state = WIFI_BLE_SERVICE_FAULT; status->reason = "AT_FENCED";
+   } else if (driver->Modem.handler_data.dns_drain_active) {
+     TickType_t deadline = driver->Modem.handler_data.dns_drain_until;
+-    status->elapsed_ms = (now - (deadline - pdMS_TO_TICKS(20000U))) * portTICK_PERIOD_MS;
++    uint32_t drain_ms = driver->Modem.handler_data.dns_wait_active ? 20000U : 1000U;
++    status->elapsed_ms = (now - (deadline - pdMS_TO_TICKS(drain_ms))) * portTICK_PERIOD_MS;
+     status->state = (int32_t)(now - deadline) >= 0 ? WIFI_BLE_SERVICE_FAULT : WIFI_BLE_SERVICE_WAITING;
+-    status->reason = "DNS_REPLY";
++    status->reason = driver->Modem.handler_data.dns_wait_active ? "DNS_REPLY" : "AT_REPLY";
+     status->remaining_ms = status->state == WIFI_BLE_SERVICE_WAITING ?
+         (deadline - now) * portTICK_PERIOD_MS : 0U;
+   } else if (driver->Modem.notify_phase && driver->Modem.notify_late) {
+@@ -3739,6 +3748,13 @@ static W6X_Status_t ble_notify_fragment(uint32_t source, uint8_t service,
+       (radio_manager.work.notify_source != source)) return W6X_STATUS_BUSY;
+   if (radio_manager.work.notify_source == 0U)
+   {
++    /* Admit a whole CLI reply before best-effort image/NPU fragments. Never
++     * preempt a raw notification that already owns the AT channel. */
++    WifiBle_StreamContext_t *streams = radio_manager.queues.ble_stream_context;
++    if ((source == 3U || source == 5U) && streams &&
++        (streams->stats[WIFI_BLE_STREAM_CLI].rx_queued ||
++         streams->stats[WIFI_BLE_STREAM_CLI].tx_queued || streams->reply.active))
++      return W6X_STATUS_BUSY;
+ #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
+     if (radio_manager.work.wifi_connect_call_active != 0U || AppSettings_IsIoActive()) return W6X_STATUS_BUSY;
+ #endif
+diff --git a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.c b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.c
+index fcb13d8..df33b1b 100644
+--- a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.c
++++ b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.c
+@@ -767,6 +767,14 @@ void modem_cmd_handler_dns_drain_complete(struct modem_cmd_handler_data *data)
+     if ((int32_t)(now - data->dns_drain_until) >= 0)
+       data->tx_desynchronized = true;
+     data->dns_drain_active = false;
++    /* Consume queued duplicate terminals before admitting a new command.
++     * This never clears a genuine fence or extends the request deadline. */
++    if (!data->tx_desynchronized && (!data->tx_quiet_active ||
++        (int32_t)(now + pdMS_TO_TICKS(100U) - data->tx_quiet_until) > 0))
++    {
++      data->tx_quiet_until = now + pdMS_TO_TICKS(100U);
++      data->tx_quiet_active = true;
++    }
+   }
+   data->dns_wait_active = false;
+   fenced = data->tx_desynchronized;
+@@ -819,7 +827,7 @@ int32_t modem_cmd_handler_wait_tx_ready(struct modem_cmd_handler_data *data,
+       if (nonblocking) return -EBUSY;
+       if ((now - started_at) >= budget) return -ETIMEDOUT;
+       /* RX stays runnable; no handler replacement or command bytes while the
+-       * still-owned DNS reply is pending. Every waiter retains its own budget. */
++       * still-owned terminal is pending. Every waiter retains its own budget. */
+       vTaskDelay(1U);
+       continue;
+     }
+@@ -1011,11 +1019,13 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
+     TickType_t elapsed = xTaskGetTickCount() - started_at;
+     remaining = (elapsed >= timeout) ? 0U : (timeout - elapsed);
+     ret = modem_cmd_handler_await(data, sem, remaining);
+-    /* A scoped timeout has no terminal boundary; a late OK must not satisfy
+-     * a new operation. Only module reinitialization clears this real fence. */
+-    if ((ret == -ETIMEDOUT) && (data->budget_owner == xTaskGetCurrentTaskHandle()))
++    /* Any written command missing its terminal has an ambiguous boundary,
++     * including unscoped query/connect callers. Hold admission during a bounded
++     * terminal drain; raw-transfer ambiguity still fences immediately. */
++    if (ret == -ETIMEDOUT)
+     {
+-      if (((flags & MODEM_NO_UNSET_CMDS) == 0U) &&
++      if ((data->budget_owner == xTaskGetCurrentTaskHandle()) &&
++          ((flags & MODEM_NO_UNSET_CMDS) == 0U) &&
+           (strncmp((const char *)buf, "AT+CIPDOMAIN=", 13U) == 0))
+       {
+         /* Only ordinary DNS can finish beyond the application request budget.
+@@ -1041,7 +1051,30 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
+           Debug_UART_Log("RADIO-WAIT", "PENDING reason=DNS_REPLY elapsed_ms=%lu snapshot=request_timeout; terminal ownership was retained",
+                          (unsigned long)pending_elapsed * portTICK_PERIOD_MS);
+       }
+-      else data->tx_desynchronized = true;
++      else if (((flags & (MODEM_NO_UNSET_CMDS | MODEM_TX_TRACK_RAW_WRITE)) == 0U) &&
++               ((strcmp((const char *)buf, "AT") == 0) ||
++                (strcmp((const char *)buf, "AT\r\n") == 0) ||
++                (strncmp((const char *)buf, "AT+CW", 5U) == 0) ||
++                (strncmp((const char *)buf, "AT+BLEINIT?", 11U) == 0) ||
++                (strncmp((const char *)buf, "AT+BLECONN?", 11U) == 0) ||
++                (strncmp((const char *)buf, "AT+CIPCLOSE=", 12U) == 0) ||
++                (strncmp((const char *)buf, "AT+CIPSTART=", 12U) == 0)))
++      {
++        /* Only these text-only operations have no binary response/raw payload.
++         * Unclassified FS/raw commands retain the fence. A plain command has
++         * no raw prompt/payload left to send. Return the
++         * original timeout now, detach caller handlers below, and let only
++         * persistent OK/ERROR drain its terminal. Reuse the existing gate:
++         * no new AT bytes or reset during this fixed one-second grace period.
++         * Expiry is a missing-boundary fault, never permission to replay. */
++        taskENTER_CRITICAL();
++        data->dns_drain_until = xTaskGetTickCount() + pdMS_TO_TICKS(1000U);
++        data->dns_drain_active = true;
++        taskEXIT_CRITICAL();
++        if (xSemaphoreTake(sem, 0U) == pdTRUE)
++          modem_cmd_handler_dns_drain_complete(data);
++      }
++      else data->tx_desynchronized = true; /* Ambiguous raw transfer. */
+     }
+   }
+ 
+diff --git a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.h b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.h
+index 26d033e..58bc2fa 100644
+--- a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.h
++++ b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.h
+@@ -189,7 +189,8 @@ struct modem_cmd_handler_data
+   /** An abandoned raw transaction makes further AT text unsafe until restart. */
+   bool tx_desynchronized;
+   bool raw_command_attempted; /*!< TX-owner-only: distinguishes pre-write cancellation from ambiguous raw transmission */
+-  /** Timed-out scoped DNS still owns the terminal response, without caller storage. */
++  /** Terminal drain without caller storage: DNS uses its original 20s bound;
++   * plain-command timeout uses a separate 1s grace. Legacy field names retained. */
+   volatile bool dns_drain_active;
+   volatile bool dns_wait_active; /*!< Paired UART transition report, owned until reply or failed admission */
+   TickType_t dns_drain_until;
+diff --git a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.c b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.c
+index 7a76460..89ee139 100644
+--- a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.c
++++ b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.c
+@@ -1238,6 +1238,11 @@ static int32_t modem_iface_spi_write(struct modem_iface *iface,
+   }
+   AT_LOG_HOST_OUT((uint8_t *)buf, size);
+   struct modem *mdm = CONTAINER_OF(iface, struct modem, iface);
++  if (spi_transaction_faulted() != 0)
++  {
++    mdm->handler_data.tx_desynchronized = true;
++    return -EIO;
++  }
+   bool notification = (mdm->notify_phase != 0U) &&
+                       (mdm->notify_owner == xTaskGetCurrentTaskHandle());
+   result = BusIo_SPI_SendData(SPI_MSG_CTRL_TRAFFIC_AT_CMD, (uint8_t *)buf, size,
+@@ -1264,6 +1269,14 @@ static int32_t modem_iface_spi_read(struct modem_iface *iface,
+ 
+   mdm = CONTAINER_OF(iface, struct modem, iface);
+   *bytes_read = 0U;
++  if (spi_transaction_faulted() != 0)
++  {
++    mdm->handler_data.tx_desynchronized = true;
++    /* Retained packet tail belongs to teardown; do not feed a later parser.
++     * The parser must yield while the existing recovery owner quiesces it. */
++    vTaskDelay(1U);
++    return -EIO;
++  }
+   if (mdm->spi_rx_pending == NULL)
+   {
+     /* Take ownership of the complete framed SPI packet. Never ask spi_read()
+@@ -1288,6 +1301,14 @@ static int32_t modem_iface_spi_read(struct modem_iface *iface,
+     mdm->spi_rx_pending_offset = 0U;
+   }
+ 
++  /* A bus wait may have overlapped the fault. Recheck after packet ownership
++   * transfer, before publishing any bytes or releasing the retained packet. */
++  if (spi_transaction_faulted() != 0)
++  {
++    mdm->handler_data.tx_desynchronized = true;
++    vTaskDelay(1U);
++    return -EIO;
++  }
+   available = mdm->spi_rx_pending_len - mdm->spi_rx_pending_offset;
+   copy_len = (available < size) ? available : size;
+   (void)memcpy(buf, mdm->spi_rx_pending_data + mdm->spi_rx_pending_offset,
+diff --git a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c
+index eaa1684..2dcc037 100644
+--- a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c
++++ b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c
+@@ -85,6 +85,9 @@
+ /** A local SPI polling/DMA transfer failed or did not complete. */
+ #define SPI_XFER_TRANSPORT_ERROR        (-3)
+ 
++/** Peer framing cannot establish a safe transaction boundary. */
++#define SPI_XFER_PROTOCOL_ERROR         (-4)
++
+ /** Maximum digits for 64-bit integer string representation */
+ #define STR64BIT_DIGIT                  (20 + 1)
+ 
+@@ -146,6 +149,8 @@ struct spi_xfer_engine
+   volatile int32_t stop; /* 0 running, 1 requested, 2 worker acknowledged */
+   /** Initialization flag */
+   int32_t initialized;
++  /** Sticky ambiguity; cleared only by proven transport teardown. */
++  volatile int32_t transport_fault;
+   /** Event flags for synchronization */
+   EventGroupHandle_t event;
+   /** Current transfer state */
+@@ -497,7 +502,7 @@ static int32_t spi_wait_event(void *evnt_ctx, uint32_t event, int32_t timeout_ms
+     ticks = portMAX_DELAY;
+   }
+ 
+-#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
++#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
+   if ((event==SPI_EVT_HW_XFER_DONE) && (timeout_ms>0) && (ticks>0))
+   {
+     /* Anchor before HAL start, including any explicit bounded flow-test hold.
+@@ -752,6 +757,7 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
+             ", type %" PRIx16 "flags 0x%" PRIx16 ", rsvd 0x%" PRIx16 "\n",
+             psh->magic, psh->len, psh->len, psh->version, psh->type, psh->flags, psh->rsvd);
+     SPI_STAT_INC(&engine->stat, hdr_err, 1U);
++    err = SPI_XFER_PROTOCOL_ERROR;
+     goto out;
+   }
+ 
+@@ -901,6 +907,11 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
+   return 0;
+ 
+ out:
++  /* Bytes may already have reached the NCP. Local DMA cleanup cannot prove
++   * rejection or restore the peer parser boundary. Stop before any replay;
++   * retain TX ownership for the existing coordinated teardown. */
++  engine->transport_fault = err;
++  engine->stop = 1;
+   /* A timed-out DMA can still reference this destination. Never release it
+    * before both local DMA channels have stopped. Failure closes this worker. */
+   if ((err == SPI_XFER_TRANSPORT_ERROR) && (spi_port_abort() != 0))
+@@ -969,23 +980,13 @@ static int32_t spi_do_xfer(struct spi_xfer_engine *engine, uint32_t flags)
+ 
+       if (xfer_status != 0)
+       {
++        /* spi_xfer_one has already completed or retained DMA cleanup. A
++         * sticky transport/protocol fault cannot retry now or on a later RDY
++         * event, including an RX-only failure or a malformed peer header. */
++        if (engine->transport_fault != 0) break;
+         int32_t ready_after_failure = spi_port_is_ready();
+ 
+         retry_count++;
+-        if (xfer_status == SPI_XFER_TRANSPORT_ERROR)
+-        {
+-          /* A timed-out DMA leaves HAL_SPI busy, so another transfer would
+-           * fail immediately. Abort only the local peripheral/DMA state after
+-           * CS is low; the NCP is not reset and the owned TX buffer is kept. */
+-          if (spi_port_abort() == 0)
+-          {
+-            SPI_STAT_INC(&engine->stat, transport_recoveries, 1U);
+-          }
+-          else
+-          {
+-            spi_err("failed to abort incomplete local spi transaction\n");
+-          }
+-        }
+         if (xfer_status == SPI_XFER_TXN_RDY_TIMEOUT)
+         {
+           /* The level may have changed while CS was being deasserted.  Count
+@@ -997,10 +998,10 @@ static int32_t spi_do_xfer(struct spi_xfer_engine *engine, uint32_t flags)
+           }
+         }
+ 
+-        /* A polling/DMA failure can leave SPI_RDY high with no future edge.
+-         * Retry the same owned buffer while the NCP still requests service.
+-         * If a TX buffer is retained, a low level is also safe: the next
+-         * spi_xfer_one() performs its normal bounded ready wait. */
++        /* Only pre-transfer failure reaches this path: no RX allocation or
++         * no ready handshake. No command bytes were sent, so retaining and
++         * retrying this TX is safe. Explicit peer rx_stall uses the separate
++         * successful-transaction path above and remains unchanged. */
+         if ((retry_count < SPI_XFER_MAX_RETRIES) &&
+             ((ready_after_failure != 0) || (engine->txbuf != NULL)))
+         {
+@@ -1072,9 +1073,16 @@ static void spi_xfer_engine_task(void *arg)
+   for (;;) vTaskDelay(pdMS_TO_TICKS(100U)); /* foreign owner deletes this task */
+ }
+ 
++int32_t spi_transaction_faulted(void)
++{
++  return xfer_engine.transport_fault;
++}
++
+ int32_t spi_transaction_init(void)
+ {
+   int32_t ret;
++  /* Fault recovery must quiesce/deinit first, never clear the fence in place. */
++  if (xfer_engine.transport_fault != 0) return -1;
+ 
+   /* Initialize rxq array to NULL and rxq_bound to 0 */
+   (void)memset(xfer_engine.rxq, 0, sizeof(xfer_engine.rxq));
+@@ -1211,6 +1219,7 @@ int32_t spi_transaction_deinit(void)
+ 
+ int32_t spi_read(struct spi_msg *msg, int32_t timeout_ms)
+ {
++  if ((xfer_engine.transport_fault != 0) || (xfer_engine.stop != 0)) return -6;
+   BaseType_t ret;
+   TickType_t ticks;
+   struct spi_buffer *buf = NULL;
+@@ -1340,6 +1349,8 @@ int32_t spi_read(struct spi_msg *msg, int32_t timeout_ms)
+ 
+ int32_t spi_write(struct spi_msg *msg, int32_t timeout_ms)
+ {
++  /* -6 is a hard lifecycle/fence error, never the zero-byte BUSY codes. */
++  if ((xfer_engine.transport_fault != 0) || (xfer_engine.stop != 0)) return -6;
+   BaseType_t ret;
+   struct spi_buffer *buf;
+   TickType_t ticks;
+diff --git a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.h b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.h
+index 867803d..c8f8776 100644
+--- a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.h
++++ b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.h
+@@ -172,6 +172,9 @@ typedef enum
+   * @brief  Initialize SPI transaction context
+   * @return 0 on success, negative error code on failure
+   */
++/** Sticky transport/protocol fault; only successful deinit clears it. */
++int32_t spi_transaction_faulted(void);
++
+ int32_t spi_transaction_init(void);
+ 
+ /**
+diff --git a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_port.h b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_port.h
+index 4b56f5e..94e6091 100644
+--- a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_port.h
++++ b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_port.h
+@@ -26,6 +26,13 @@
+ #ifndef SPI_PORT_H
+ #define SPI_PORT_H
+ 
++/* Production receive backpressure: pause SPI clocks before the RX FIFO
++ * overruns, then resume only after DMA drains it. Fault-injection hooks keep
++ * their separate N6_XIP_RX_BACKPRESSURE diagnostic opt-in. */
++#ifndef N6_SPI_RX_FLOW_CONTROL
++#define N6_SPI_RX_FLOW_CONTROL 1
++#endif
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif /* __cplusplus */

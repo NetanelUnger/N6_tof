@@ -4,10 +4,10 @@
 #include "logging_levels.h"
 #include "config.h"
 
-/* Compile all levels in; the runtime default remains INFO and the USB CLI can
+/* Compile all levels in; the runtime default is DEBUG and the USB CLI can
  * raise or lower it without rebuilding the firmware. */
 #define LOG_LEVEL               (N6_DEBUG_OUTPUT_ENABLED ? LOG_DEBUG : LOG_NONE)
-#define LOG_DEFAULT_LEVEL       (N6_DEBUG_OUTPUT_ENABLED ? LOG_INFO : LOG_NONE)
+#define LOG_DEFAULT_LEVEL       (N6_DEBUG_OUTPUT_ENABLED ? LOG_DEBUG : LOG_NONE)
 #define MAX_LOG_LEVEL           LOG_LEVEL
 #define LOG_INCLUDE_TASKNAME    (1)
 #define LOG_INCLUDE_FILENAME    (1)

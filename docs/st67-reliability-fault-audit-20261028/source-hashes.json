@@ -1,0 +1,58 @@
+[
+  {
+    "path": "AppliNonSecure/Core/Src/wifi_ble_app.c",
+    "sha256": "30c4460f5673c7635197f55fc198e33b337c983512c18b4f7d6223731e3cc1a0"
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/spi_port.c",
+    "sha256": "199cb71e235cf95826882a2c0b6cc3165ce746d2a0df84a1a3c8fb7cb2e29d3c"
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/debug_uart.c",
+    "sha256": "026a57975a2981134d514e59d7c9696e157796df12492b88ccf5d0113a8c50be"
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/debug_cli.c",
+    "sha256": "2f3bef20ee1a4e045d08ca2e4cdfd0e34a33c674ddb72aefc6bda4350ce8388f"
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/resource_diag_impl.inc",
+    "sha256": "5e2e8a90df9f4b6e7f787a69c1de568d5c812a4d3f23740ba33a6f0fddef18bb"
+  },
+  {
+    "path": "AppliNonSecure/Core/Inc/resource_diag.h",
+    "sha256": "fbfcc2b6f4de52c1a5c50ab5f9f2e5c33c4a4d50800a46feadf9646048c54e68"
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/cloud_relay.c",
+    "sha256": "0aa11eed898ce7b62dde04acce893ba8447c4c91d939641b130b50b4d9fffb59"
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Core/w6x_sys.c",
+    "sha256": "541a78c3b1d22ba19a0dc083e69ef112604994b88e7c8ff8c787e1ef6d28fc6a"
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Core/w6x_ble.c",
+    "sha256": "ccfa40817f45d9e2915097f952ed52f12b37838fa23358f59caad4dcdb329197"
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c",
+    "sha256": "cca72d585021c348e5d985743340b91c0a2bad6db014fa628526db9354b04dc2"
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Api/w6x_types.h",
+    "sha256": "c68fc77986e47bc308607372ccc435461fa4abf511dbe58be0d88ebea3a61459"
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_api.h",
+    "sha256": "b4598c3e0cfed56a43d635182fe83cb2c8879fab1c9ba8b2dee3961d14c5b564"
+  },
+  {
+    "path": "Drivers/STM32N6xx_HAL_Driver/Inc/stm32n6xx_hal_spi.h",
+    "sha256": "01b0cc8c5143102af2b5a96caf2c42f9e06a7665d7e5c1e13c8f2a0446ce9057"
+  },
+  {
+    "path": "Drivers/CMSIS/Device/ST/STM32N6xx/Include/stm32n657xx.h",
+    "sha256": "336868904c15c74959bc32518b16741cbf044a7d965be53d0e82066f7814368d"
+  }
+]

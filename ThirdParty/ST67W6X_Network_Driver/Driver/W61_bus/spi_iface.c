@@ -85,6 +85,9 @@
 /** A local SPI polling/DMA transfer failed or did not complete. */
 #define SPI_XFER_TRANSPORT_ERROR        (-3)
 
+/** Peer framing cannot establish a safe transaction boundary. */
+#define SPI_XFER_PROTOCOL_ERROR         (-4)
+
 /** Maximum digits for 64-bit integer string representation */
 #define STR64BIT_DIGIT                  (20 + 1)
 
@@ -146,6 +149,8 @@ struct spi_xfer_engine
   volatile int32_t stop; /* 0 running, 1 requested, 2 worker acknowledged */
   /** Initialization flag */
   int32_t initialized;
+  /** Sticky ambiguity; cleared only by proven transport teardown. */
+  volatile int32_t transport_fault;
   /** Event flags for synchronization */
   EventGroupHandle_t event;
   /** Current transfer state */
@@ -497,7 +502,7 @@ static int32_t spi_wait_event(void *evnt_ctx, uint32_t event, int32_t timeout_ms
     ticks = portMAX_DELAY;
   }
 
-#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
   if ((event==SPI_EVT_HW_XFER_DONE) && (timeout_ms>0) && (ticks>0))
   {
     /* Anchor before HAL start, including any explicit bounded flow-test hold.
@@ -752,6 +757,7 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
             ", type %" PRIx16 "flags 0x%" PRIx16 ", rsvd 0x%" PRIx16 "\n",
             psh->magic, psh->len, psh->len, psh->version, psh->type, psh->flags, psh->rsvd);
     SPI_STAT_INC(&engine->stat, hdr_err, 1U);
+    err = SPI_XFER_PROTOCOL_ERROR;
     goto out;
   }
 
@@ -901,6 +907,11 @@ static int32_t spi_xfer_one(struct spi_xfer_engine *engine, struct spi_buffer *t
   return 0;
 
 out:
+  /* Bytes may already have reached the NCP. Local DMA cleanup cannot prove
+   * rejection or restore the peer parser boundary. Stop before any replay;
+   * retain TX ownership for the existing coordinated teardown. */
+  engine->transport_fault = err;
+  engine->stop = 1;
   /* A timed-out DMA can still reference this destination. Never release it
    * before both local DMA channels have stopped. Failure closes this worker. */
   if ((err == SPI_XFER_TRANSPORT_ERROR) && (spi_port_abort() != 0))
@@ -969,23 +980,13 @@ static int32_t spi_do_xfer(struct spi_xfer_engine *engine, uint32_t flags)
 
       if (xfer_status != 0)
       {
+        /* spi_xfer_one has already completed or retained DMA cleanup. A
+         * sticky transport/protocol fault cannot retry now or on a later RDY
+         * event, including an RX-only failure or a malformed peer header. */
+        if (engine->transport_fault != 0) break;
         int32_t ready_after_failure = spi_port_is_ready();
 
         retry_count++;
-        if (xfer_status == SPI_XFER_TRANSPORT_ERROR)
-        {
-          /* A timed-out DMA leaves HAL_SPI busy, so another transfer would
-           * fail immediately. Abort only the local peripheral/DMA state after
-           * CS is low; the NCP is not reset and the owned TX buffer is kept. */
-          if (spi_port_abort() == 0)
-          {
-            SPI_STAT_INC(&engine->stat, transport_recoveries, 1U);
-          }
-          else
-          {
-            spi_err("failed to abort incomplete local spi transaction\n");
-          }
-        }
         if (xfer_status == SPI_XFER_TXN_RDY_TIMEOUT)
         {
           /* The level may have changed while CS was being deasserted.  Count
@@ -997,10 +998,10 @@ static int32_t spi_do_xfer(struct spi_xfer_engine *engine, uint32_t flags)
           }
         }
 
-        /* A polling/DMA failure can leave SPI_RDY high with no future edge.
-         * Retry the same owned buffer while the NCP still requests service.
-         * If a TX buffer is retained, a low level is also safe: the next
-         * spi_xfer_one() performs its normal bounded ready wait. */
+        /* Only pre-transfer failure reaches this path: no RX allocation or
+         * no ready handshake. No command bytes were sent, so retaining and
+         * retrying this TX is safe. Explicit peer rx_stall uses the separate
+         * successful-transaction path above and remains unchanged. */
         if ((retry_count < SPI_XFER_MAX_RETRIES) &&
             ((ready_after_failure != 0) || (engine->txbuf != NULL)))
         {
@@ -1072,9 +1073,16 @@ static void spi_xfer_engine_task(void *arg)
   for (;;) vTaskDelay(pdMS_TO_TICKS(100U)); /* foreign owner deletes this task */
 }
 
+int32_t spi_transaction_faulted(void)
+{
+  return xfer_engine.transport_fault;
+}
+
 int32_t spi_transaction_init(void)
 {
   int32_t ret;
+  /* Fault recovery must quiesce/deinit first, never clear the fence in place. */
+  if (xfer_engine.transport_fault != 0) return -1;
 
   /* Initialize rxq array to NULL and rxq_bound to 0 */
   (void)memset(xfer_engine.rxq, 0, sizeof(xfer_engine.rxq));
@@ -1211,6 +1219,7 @@ int32_t spi_transaction_deinit(void)
 
 int32_t spi_read(struct spi_msg *msg, int32_t timeout_ms)
 {
+  if ((xfer_engine.transport_fault != 0) || (xfer_engine.stop != 0)) return -6;
   BaseType_t ret;
   TickType_t ticks;
   struct spi_buffer *buf = NULL;
@@ -1340,6 +1349,8 @@ int32_t spi_read(struct spi_msg *msg, int32_t timeout_ms)
 
 int32_t spi_write(struct spi_msg *msg, int32_t timeout_ms)
 {
+  /* -6 is a hard lifecycle/fence error, never the zero-byte BUSY codes. */
+  if ((xfer_engine.transport_fault != 0) || (xfer_engine.stop != 0)) return -6;
   BaseType_t ret;
   struct spi_buffer *buf;
   TickType_t ticks;

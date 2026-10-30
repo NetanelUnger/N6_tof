@@ -1,0 +1,17 @@
+[
+  {
+    "path": "compatibility.json",
+    "sha256": "53441eb6c4d7d66a1ade83c72a46975b3bd50dcb078bc2072ea122e3352e6b8d",
+    "bytes": 3196
+  },
+  {
+    "path": "plan-after.sha256",
+    "sha256": "6d7440acc63e9da572f28b203f4a721777732f2b7804c104d920506502da5064",
+    "bytes": 66
+  },
+  {
+    "path": "report.md",
+    "sha256": "cc1a98221079d7ab7e4569efe9973f4e1900b9fac574355f0b0984b58ccb047f",
+    "bytes": 5161
+  }
+]

@@ -1,0 +1,12 @@
+--- a/AppliNonSecure/Core/Src/debug_uart.c
++++ b/AppliNonSecure/Core/Src/debug_uart.c
+@@ -1142,7 +1142,8 @@
+ {
+ #if (N6_DEBUG_OUTPUT_ENABLED == 0U)
+   (void)buffer;
+-  return (int32_t)length;
++  (void)length;
++  return 0; /* Same zero-success contract as enabled output. */
+ #endif
+   if ((buffer == NULL) || (length == 0U))
+   {

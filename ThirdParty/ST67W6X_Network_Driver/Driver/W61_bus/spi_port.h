@@ -26,6 +26,13 @@
 #ifndef SPI_PORT_H
 #define SPI_PORT_H
 
+/* Production receive backpressure: pause SPI clocks before the RX FIFO
+ * overruns, then resume only after DMA drains it. Fault-injection hooks keep
+ * their separate N6_XIP_RX_BACKPRESSURE diagnostic opt-in. */
+#ifndef N6_SPI_RX_FLOW_CONTROL
+#define N6_SPI_RX_FLOW_CONTROL 1
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */

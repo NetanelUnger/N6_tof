@@ -1,0 +1,66 @@
+{
+  "reviewed_utc": "2026-10-28T23:00:22.333026+00:00",
+  "scope": "Independent P6 source/document preparation; dependent phase exit is not accepted",
+  "sources": {
+    "ncp": "https://github.com/STMicroelectronics/x-cube-st67w61/blob/572b72d/Projects/ST67W6X_Scripts/Release_Notes.html",
+    "driver": "https://github.com/STMicroelectronics/x-cube-st67w61/blob/572b72d/Middlewares/ST/ST67W6X_Network_Driver/Release_Notes.html",
+    "version": "https://github.com/STMicroelectronics/x-cube-st67w61/blob/572b72d/Middlewares/ST/ST67W6X_Network_Driver/Api/w6x_version.h",
+    "clock": "https://wiki.st.com/stm32mcu/index.php?title=Connectivity:ST67W611M1_32KHz_management&oldid=80818"
+  },
+  "manufacturer_release": "V1.3.0 / 10-April-2026",
+  "local_profile": "T01",
+  "local_binary_sha256": "33198f446ac7c1b9c48e25573f3498e7277119dff43da12a3e25791078b552f3",
+  "manufacturer_binary_sha256": "33198f446ac7c1b9c48e25573f3498e7277119dff43da12a3e25791078b552f3",
+  "live_identity_evidence": "../st67-reliability-baseline-tests-20261028/ncp-compatibility-baseline.json",
+  "current_N6_firmware": 52,
+  "live_sdk": "2.0.106.0",
+  "AT": "1.0.0.0",
+  "host_driver": "1.3.0",
+  "configuration": {
+    "W6X_POWER_SAVE_AUTO": 0,
+    "W6X_CLOCK_MODE": 1,
+    "W6X_NET_DHCP": 1,
+    "APP_ST67W6X_CLOUD_USE_TLS": 0,
+    "W61_CONFIG_PRESERVE_for_B52": 1
+  },
+  "runtime_power_state": "NOT freshly queried: W61_GetPowerMode returns cached PSMode; W6X_Init ignores SetPowerMode return",
+  "clock_evidence": "Known build checks required mode and refuses persistent change when preservation is on; no physical clock accuracy measurement",
+  "decision": "Retain contracted T01/2.0.106 and current runtime intent; no upgrade or one-variable setting change justified by evidence",
+  "installed_NCP_hash": "NOT_READ",
+  "hardware_actions": 0,
+  "firmware_changes": 0,
+  "source_hashes": [
+    {
+      "path": "radio_firmware/contract.json",
+      "sha256": "6af814328d8f713e3ececeafe725e07ebdae9a5263de6161dce2052409ec8c58"
+    },
+    {
+      "path": "AppliNonSecure/Core/Inc/w6x_config.h",
+      "sha256": "148a84348409bd73ccbd937c4846bc2468e720cf9998371db0ca007e82ed7c60"
+    },
+    {
+      "path": "ThirdParty/ST67W6X_Network_Driver/Api/w6x_version.h",
+      "sha256": "e3938ac6a4582873ca37284a305713d4b1cdea630b427915a84d95ab9c1386f7"
+    },
+    {
+      "path": "ThirdParty/ST67W6X_Network_Driver/Core/w6x_sys.c",
+      "sha256": "541a78c3b1d22ba19a0dc083e69ef112604994b88e7c8ff8c787e1ef6d28fc6a"
+    },
+    {
+      "path": "ThirdParty/ST67W6X_Network_Driver/Core/w6x_ble.c",
+      "sha256": "ccfa40817f45d9e2915097f952ed52f12b37838fa23358f59caad4dcdb329197"
+    },
+    {
+      "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_sys.c",
+      "sha256": "adc33b65251095a0a7a3f2f50f8b3e1696a81a65f4f1912509da6d2519912c1f"
+    },
+    {
+      "path": "AppliNonSecure/Core/Src/wifi_ble_app.c",
+      "sha256": "30c4460f5673c7635197f55fc198e33b337c983512c18b4f7d6223731e3cc1a0"
+    },
+    {
+      "path": "AppliNonSecure/Core/Inc/app_features.h",
+      "sha256": "f85cc86ce9c165d71200170393f71c72a309a21357344b4e960fab32d4bbc830"
+    }
+  ]
+}

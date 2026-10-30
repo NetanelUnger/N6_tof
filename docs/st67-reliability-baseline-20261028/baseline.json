@@ -1,0 +1,672 @@
+{
+  "schema": 1,
+  "captured_utc": "2026-10-28T20:41:29.5771802Z",
+  "scope": "P0 host baseline; no device connection or programming",
+  "worktree": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb",
+  "branch": "feature/n6-xip-ota-usb",
+  "revision": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5",
+  "initial_worktree_status": [],
+  "plan_original": {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\docs\\st67-reliability-improvement-plan.md",
+    "bytes": 27588,
+    "sha256": "ACBA84D41D792A036E25DE63C4F906D09FB59AF799AC3E601A0B6766CB703231",
+    "modified_utc": "2026-10-28T20:12:06.1007905Z"
+  },
+  "current_running_application": "UNKNOWN: CN8 CDC absent",
+  "current_running_ncp": "UNKNOWN: radio info NOT_RUN",
+  "present_com_ports": [
+    "COM6"
+  ],
+  "tracked_header_version": 11,
+  "baseline_hil": "NOT_RUN",
+  "fresh_firmware_build": "NOT_RUN",
+  "installation": "NOT_RUN",
+  "hardware_handles_opened": 0,
+  "dependencies": "P1-P7 not started: P0 running identity, workload and acceptance freeze incomplete",
+  "host_tools": {
+    "powershell": "7.6.5",
+    "git": "git version 2.47.1.windows.2",
+    "python": "Python 3.14.4",
+    "python_packages": {
+      "pyserial": "3.5",
+      "numpy": "2.4.4"
+    },
+    "native_compiler": {
+      "file_version": "19.50.35728.0",
+      "path": "C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\Hostx64\\x64\\cl.exe"
+    }
+  },
+  "source_files": [
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AGENTS.md",
+      "bytes": 155495,
+      "sha256": "55482CC36E1BE117E08B0AABA0233F2286CBFC9CBFD70D14CC202C4725AFD04F",
+      "modified_utc": "2026-10-24T14:29:26.9108652Z",
+      "relative_path": "AGENTS.md"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\README.md",
+      "bytes": 193902,
+      "sha256": "553C42A4ADECE285A2D5EB2AA54348448CB4220F62EB10DBD5809130FF19DE46",
+      "modified_utc": "2026-10-27T21:33:20.8422586Z",
+      "relative_path": "README.md"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\N6.ioc",
+      "bytes": 67008,
+      "sha256": "6ADDD1123992C2321B6BEAC4A88A4E1F734E6BD935F4DA6BF7B0428B012689C4",
+      "modified_utc": "2026-10-22T07:47:56.1192724Z",
+      "relative_path": "N6.ioc"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\radio_firmware\\contract.json",
+      "bytes": 1180,
+      "sha256": "6AF814328D8F713E3ECECEAFE725E07EBDAE9A5263DE6161DCE2052409EC8C58",
+      "modified_utc": "2026-10-22T07:47:56.3718287Z",
+      "relative_path": "radio_firmware/contract.json"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\Tools\\Build-Xip.ps1",
+      "bytes": 18734,
+      "sha256": "CA780D61D2C3108DAD8CA17540D416CF57145CB1570C1E121E0262D61E1159D3",
+      "modified_utc": "2026-10-27T21:33:20.8332541Z",
+      "relative_path": "Tools/Build-Xip.ps1"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\Tools\\Install-NonSecureUpdate.ps1",
+      "bytes": 5223,
+      "sha256": "65229F99B1A71FD460ADDAB2CF5C163CC2F842AE39D3F05DA423A3559A60404F",
+      "modified_utc": "2026-10-22T07:47:56.2197901Z",
+      "relative_path": "Tools/Install-NonSecureUpdate.ps1"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\Tools\\Test-XipPackage.ps1",
+      "bytes": 3204,
+      "sha256": "3A64B0614681BB746AE1CF23FC6E73FF5F52D73193B7EA898099FDBE0C212C37",
+      "modified_utc": "2026-10-22T08:17:57.5694131Z",
+      "relative_path": "Tools/Test-XipPackage.ps1"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\Common\\Update\\firmware_build_version.h",
+      "bytes": 281,
+      "sha256": "ADAFE3DE544ADCF81C28B99B6A92FDA592E0799906A1AFBE10BE5F82E98D999E",
+      "modified_utc": "2026-10-27T21:21:51.8703379Z",
+      "relative_path": "Common/Update/firmware_build_version.h"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\.cproject",
+      "bytes": 46770,
+      "sha256": "341191BF506AF2C7D3535587FCC20FDF2BEC3A221E46FBF3469EC187F85968BC",
+      "modified_utc": "2026-10-22T07:47:54.3032029Z",
+      "relative_path": "AppliNonSecure/.cproject"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\Core\\Inc\\config.h",
+      "bytes": 884,
+      "sha256": "112A51D600BF9DD36178B2EBE5977DC15BFCE1387D93E4461B56CD7E798E86AD",
+      "modified_utc": "2026-10-24T14:29:12.5865992Z",
+      "relative_path": "AppliNonSecure/Core/Inc/config.h"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\Core\\Inc\\app_features.h",
+      "bytes": 4078,
+      "sha256": "F85CC86CE9C165D71200170393F71C72A309A21357344B4E960FAB32D4BBC830",
+      "modified_utc": "2026-10-27T21:21:51.8753394Z",
+      "relative_path": "AppliNonSecure/Core/Inc/app_features.h"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\Core\\Inc\\app_settings.h",
+      "bytes": 3875,
+      "sha256": "AFF8AA3A40DE55F38BFC0D1A1C5B3121A25A63820C7805F6C78649BEC81E0859",
+      "modified_utc": "2026-10-27T14:14:37.0555843Z",
+      "relative_path": "AppliNonSecure/Core/Inc/app_settings.h"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\Core\\Inc\\w61_driver_config.h",
+      "bytes": 508,
+      "sha256": "91F9D3FA838FC485AA368F20D68F92DB882FF70D47AE356A679FA8D951AC1BA9",
+      "modified_utc": "2026-10-27T21:21:51.8713388Z",
+      "relative_path": "AppliNonSecure/Core/Inc/w61_driver_config.h"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\Core\\Src\\wifi_ble_app.c",
+      "bytes": 196809,
+      "sha256": "30C4460F5673C7635197F55FC198E33B337C983512C18B4F7D6223731E3CC1A0",
+      "modified_utc": "2026-10-27T21:18:47.6939501Z",
+      "relative_path": "AppliNonSecure/Core/Src/wifi_ble_app.c"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\Core\\Src\\cloud_relay.c",
+      "bytes": 86130,
+      "sha256": "0AA11EED898CE7B62DDE04ACCE893BA8447C4C91D939641B130B50B4D9FFFB59",
+      "modified_utc": "2026-10-24T12:26:50.2909636Z",
+      "relative_path": "AppliNonSecure/Core/Src/cloud_relay.c"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\Core\\Src\\spi_port.c",
+      "bytes": 17090,
+      "sha256": "199CB71E235CF95826882A2C0B6CC3165CE746D2A0DF84A1A3C8FB7CB2E29D3C",
+      "modified_utc": "2026-10-24T14:28:06.6262340Z",
+      "relative_path": "AppliNonSecure/Core/Src/spi_port.c"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\ThirdParty\\ST67W6X_Network_Driver\\Driver\\W61_at\\modem_cmd_handler.c",
+      "bytes": 41023,
+      "sha256": "928C535604B0E96EDC17B86ED9CDB46FE77A7C6BC47DAB88139A81B000D0686E",
+      "modified_utc": "2026-10-22T07:47:56.1777889Z",
+      "relative_path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.c"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\ThirdParty\\ST67W6X_Network_Driver\\Driver\\W61_at\\modem_cmd_handler.h",
+      "bytes": 21403,
+      "sha256": "594510822DC381F13144AEF81076C6FD82F5958D738556BC71595278D2751088",
+      "modified_utc": "2026-10-22T07:47:56.1797903Z",
+      "relative_path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.h"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\ThirdParty\\ST67W6X_Network_Driver\\Driver\\W61_at\\w61_at_common.c",
+      "bytes": 53556,
+      "sha256": "B20F10D296B84EB269681EFB798A6B471B879CCDE9586CA6D3611507BC39FB33",
+      "modified_utc": "2026-10-22T07:47:56.1857887Z",
+      "relative_path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.c"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\ThirdParty\\ST67W6X_Network_Driver\\Driver\\W61_bus\\spi_iface.c",
+      "bytes": 50301,
+      "sha256": "CCA72D585021C348E5D985743340B91C0A2BAD6DB014FA628526DB9354B04DC2",
+      "modified_utc": "2026-10-23T13:34:04.1846870Z",
+      "relative_path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c"
+    }
+  ],
+  "artifact_sets": [
+    {
+      "folder": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings",
+      "build_record": {
+        "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\build.json",
+        "bytes": 145225,
+        "sha256": "9F3D53AFA848A8470B7B4AD7819596C28F3544B3BC87207CBB82C649F90E2ECC",
+        "modified_utc": "2026-10-27T14:17:31.1959640Z"
+      },
+      "metadata": {
+        "status": "BUILT_NOT_INSTALLED",
+        "branch": "feature/n6-xip-ota-usb",
+        "source_commit": "38d384f46eb3144fb673240ca98e7621ddf77cf3",
+        "slot": "A",
+        "version": 49,
+        "execution_base": "0x70180000",
+        "ncp_preserve": true,
+        "settings_writes": true,
+        "settings_transition": true,
+        "cloud_auto_map": false,
+        "fault_probe": false,
+        "rx_backpressure": false,
+        "resource_diagnostics": true,
+        "watchdog": true,
+        "budgets": {
+          "ram": {
+            "stack_limit": "0x241ff800",
+            "heap_start": "0x2419e630",
+            "heap_capacity_bytes": 397776
+          },
+          "application": {
+            "stack_limit": "0x241ff5c0",
+            "heap_start": "0x2412f390",
+            "heap_capacity_bytes": 852528
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\application-trusted.bin",
+          "bytes": 482944,
+          "sha256": "F2CB30A4ACFF119C519B284CDC611C278F174D5CF06B9A8B0A960CD52B8DCE69",
+          "modified_utc": "2026-10-27T14:17:12.7688503Z",
+          "name": "application-trusted.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\application.bin",
+          "bytes": 481892,
+          "sha256": "E4ACBFC033A66C6B78EC68732662465E1073065D846D96FFA151E7CAAC0CD50E",
+          "modified_utc": "2026-10-27T14:17:10.7686269Z",
+          "name": "application.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\application.elf",
+          "bytes": 9244416,
+          "sha256": "A176128D91EF0C24236CE7FC8D43A8E46E3E163C0F3FE75F913A5001D38D9714",
+          "modified_utc": "2026-10-27T14:17:10.6524856Z",
+          "name": "application.elf",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\application.map",
+          "bytes": 5397240,
+          "sha256": "5D5B6E400A4869E4BB035ACFA90A059C269D376B580E7A17FE124ACF91B5099B",
+          "modified_utc": "2026-10-27T14:17:10.6936168Z",
+          "name": "application.map",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\AppliSecure-trusted.bin",
+          "bytes": 128768,
+          "sha256": "1E9354AD4ED0D5181D370AA68FCB897EF39DE2F815F8B6E3E6E6822275EB182A",
+          "modified_utc": "2026-10-27T14:16:45.0437957Z",
+          "name": "AppliSecure-trusted.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\AppliSecure.bin",
+          "bytes": 127740,
+          "sha256": "A939BB2A164A908F672D9B311E1C1055C33EBFAD9C1F326F8E5227E639B732F1",
+          "modified_utc": "2026-10-27T09:27:26.5951747Z",
+          "name": "AppliSecure.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\AppliSecure.elf",
+          "bytes": 3039908,
+          "sha256": "36595500E708FA40F9E01235A922431E30DBC083FE05D114AA9CD26B77998288",
+          "modified_utc": "2026-10-27T09:27:26.3615461Z",
+          "name": "AppliSecure.elf",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\AppliSecure.map",
+          "bytes": 642577,
+          "sha256": "593CF76E23256A4F6E2B9B95940DAAA602A9786654D09645D3C200B88A47D789",
+          "modified_utc": "2026-10-27T09:27:26.3695490Z",
+          "name": "AppliSecure.map",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\FSBL-trusted.bin",
+          "bytes": 86080,
+          "sha256": "7EE6B15FFC7E5E1FB5EB7938EB48945F614582877698A945F938F75623283DD9",
+          "modified_utc": "2026-10-27T14:16:43.7768238Z",
+          "name": "FSBL-trusted.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\FSBL.bin",
+          "bytes": 85056,
+          "sha256": "3FA5F236AC9CE8BB4186D4F6E30B707325F56536C8CF9963FB1D23A6FBEF6C36",
+          "modified_utc": "2026-10-27T09:27:21.5675353Z",
+          "name": "FSBL.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\FSBL.elf",
+          "bytes": 3103876,
+          "sha256": "33A988E8D698FDADFFAE9001B0BFC65C67C1A448BB34FC82A9589AB2EF9CA529",
+          "modified_utc": "2026-10-27T09:27:20.6086609Z",
+          "name": "FSBL.elf",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\FSBL.map",
+          "bytes": 764768,
+          "sha256": "1BB9973825037102E70B9924CAC274B890BAE3C5310C42DBA1D9173B63971CF6",
+          "modified_utc": "2026-10-27T09:27:20.6186611Z",
+          "name": "FSBL.map",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\N6-XIP-A-v49.n6fw",
+          "bytes": 483200,
+          "sha256": "753B8CC6C2A4C9C8C393E6D78F0AD2C699787437195E0A3CF519D2486F33E3BC",
+          "modified_utc": "2026-10-27T14:17:13.0745365Z",
+          "name": "N6-XIP-A-v49.n6fw",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\ram.bin",
+          "bytes": 469448,
+          "sha256": "EC23C0079728B7E9AFB18DA1BC6F2D330612B43A93045CC6B12ECB26D6B614CE",
+          "modified_utc": "2026-10-27T14:16:42.6699485Z",
+          "name": "ram.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\ram.elf",
+          "bytes": 9081204,
+          "sha256": "4CDF3592AAF7056F052EBB0A3B3ED8374D756212E4617B4FE80348852B2067CA",
+          "modified_utc": "2026-10-27T14:16:41.7621955Z",
+          "name": "ram.elf",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\ram.map",
+          "bytes": 5388762,
+          "sha256": "0A8992BD69EEF14325214CCBC0CE9940F1DE86D6C3EF7872E6F9B9C65A3DB009",
+          "modified_utc": "2026-10-27T14:16:41.8107365Z",
+          "name": "ram.map",
+          "matches_build_record": true
+        }
+      ],
+      "offline_package_verification": {
+        "status": "VERIFIED_OFFLINE",
+        "slot": "A",
+        "version": 49,
+        "bytes": 483200,
+        "reset": "0x701A1CA1",
+        "sha256": "753b8cc6c2a4c9c8c393e6d78f0ad2c699787437195e0a3cf519d2486f33e3bc"
+      },
+      "current_source_comparison": {
+        "differences": [
+          {
+            "current": "F85CC86CE9C165D71200170393F71C72A309A21357344B4E960FAB32D4BBC830",
+            "path": "AppliNonSecure/Core/Inc/app_features.h",
+            "expected": "86A044D049EB5208AA208E48EA7F5FE87267D2E8D3B048329958DD57A4580AE5"
+          },
+          {
+            "current": "91F9D3FA838FC485AA368F20D68F92DB882FF70D47AE356A679FA8D951AC1BA9",
+            "path": "AppliNonSecure/Core/Inc/w61_driver_config.h",
+            "expected": "7C7D19C6A6ACE6B3DA71F5FDE6A2F4DBB88BE3D80C58EBD7A976757AD7ADBD6F"
+          },
+          {
+            "current": "78086FBB5C879C4CE8A09532E5D0DB8308809940AB903D3FD6B8B74E42F9D4F2",
+            "path": "AppliNonSecure/Core/Inc/wifi_ble_app.h",
+            "expected": "C32D7B115298BAFE9422D09C96A37A6A43B0095A3EB6F490C91D1D93DB73B170"
+          },
+          {
+            "current": "2F3BEF20EE1A4E045D08CA2E4CDFD0E34A33C674DDB72AEFC6BDA4350CE8388F",
+            "path": "AppliNonSecure/Core/Src/debug_cli.c",
+            "expected": "5B6591D37A920F2841480543EFC1D9FAB58F15ED4850D8DBA80DB2271DF6937F"
+          },
+          {
+            "current": "30C4460F5673C7635197F55FC198E33B337C983512C18B4F7D6223731E3CC1A0",
+            "path": "AppliNonSecure/Core/Src/wifi_ble_app.c",
+            "expected": "A044F9723AC8B6EB1BBAB944B47313EF4A7741B54198181863E54BA49BF1F827"
+          },
+          {
+            "current": "ADAFE3DE544ADCF81C28B99B6A92FDA592E0799906A1AFBE10BE5F82E98D999E",
+            "path": "Common/Update/firmware_build_version.h",
+            "expected": "3CB576BCAF31319B5ABCE4BF2B3C37B2C47C52637776E7EF81C5F499ADDD9847"
+          }
+        ],
+        "compared": 1044
+      },
+      "live_board_equivalence": "NOT_ESTABLISHED"
+    },
+    {
+      "folder": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map",
+      "build_record": {
+        "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\build.json",
+        "bytes": 145225,
+        "sha256": "E3058E8EFA9FA4A529119680B1BD9CC4937468642C98C1079D485572E07FBEA7",
+        "modified_utc": "2026-10-27T21:21:51.7868129Z"
+      },
+      "metadata": {
+        "status": "BUILT_NOT_INSTALLED",
+        "branch": "feature/n6-xip-ota-usb",
+        "source_commit": "6948f70475749bf9a7407cd62edc6b69ddeca664",
+        "slot": "B",
+        "version": 50,
+        "execution_base": "0x70280000",
+        "ncp_preserve": true,
+        "settings_writes": true,
+        "settings_transition": true,
+        "cloud_auto_map": false,
+        "fault_probe": false,
+        "rx_backpressure": false,
+        "resource_diagnostics": true,
+        "watchdog": true,
+        "budgets": {
+          "ram": {
+            "stack_limit": "0x241ff800",
+            "heap_start": "0x2419eeb8",
+            "heap_capacity_bytes": 395592
+          },
+          "application": {
+            "stack_limit": "0x241ff5c0",
+            "heap_start": "0x2412f3b8",
+            "heap_capacity_bytes": 852488
+          }
+        }
+      },
+      "files": [
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\application-trusted.bin",
+          "bytes": 485216,
+          "sha256": "4AACFF7D4998640F6DFFABA98A101EE7AA6D4508D75402519F6FF593ED2C62D2",
+          "modified_utc": "2026-10-27T21:21:31.7842127Z",
+          "name": "application-trusted.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\application.bin",
+          "bytes": 484172,
+          "sha256": "F251B0119F6C94A375E16E360EFA22782962149D9351FF5E3712BE8B0636B318",
+          "modified_utc": "2026-10-27T21:21:29.8453726Z",
+          "name": "application.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\application.elf",
+          "bytes": 9260844,
+          "sha256": "BDFE25881C791A4BE9CEC81682348C82BFC507D441C2DAB0D1E10B7A20894629",
+          "modified_utc": "2026-10-27T21:21:29.7313216Z",
+          "name": "application.elf",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\application.map",
+          "bytes": 5398084,
+          "sha256": "5DAD2AB788BD4DC40C000021F89D5AE35C84CB026E8FAB30575BC5A94F6C6C4B",
+          "modified_utc": "2026-10-27T21:21:29.7718392Z",
+          "name": "application.map",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\AppliSecure-trusted.bin",
+          "bytes": 128768,
+          "sha256": "C7D93FD57658203D9DA76DB917497A9023B434A077F960C0857754E6DE5E8A94",
+          "modified_utc": "2026-10-27T21:21:03.8172675Z",
+          "name": "AppliSecure-trusted.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\AppliSecure.bin",
+          "bytes": 127740,
+          "sha256": "A939BB2A164A908F672D9B311E1C1055C33EBFAD9C1F326F8E5227E639B732F1",
+          "modified_utc": "2026-10-27T09:27:26.5951747Z",
+          "name": "AppliSecure.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\AppliSecure.elf",
+          "bytes": 3039908,
+          "sha256": "36595500E708FA40F9E01235A922431E30DBC083FE05D114AA9CD26B77998288",
+          "modified_utc": "2026-10-27T09:27:26.3615461Z",
+          "name": "AppliSecure.elf",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\AppliSecure.map",
+          "bytes": 642577,
+          "sha256": "593CF76E23256A4F6E2B9B95940DAAA602A9786654D09645D3C200B88A47D789",
+          "modified_utc": "2026-10-27T09:27:26.3695490Z",
+          "name": "AppliSecure.map",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\FSBL-trusted.bin",
+          "bytes": 86080,
+          "sha256": "3FD6A036613A2B7D4AD3311D817AA4EEBE13F98C556AC4CAA1E86FE6BE8730C8",
+          "modified_utc": "2026-10-27T21:21:01.9781306Z",
+          "name": "FSBL-trusted.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\FSBL.bin",
+          "bytes": 85056,
+          "sha256": "3FA5F236AC9CE8BB4186D4F6E30B707325F56536C8CF9963FB1D23A6FBEF6C36",
+          "modified_utc": "2026-10-27T09:27:21.5675353Z",
+          "name": "FSBL.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\FSBL.elf",
+          "bytes": 3103876,
+          "sha256": "33A988E8D698FDADFFAE9001B0BFC65C67C1A448BB34FC82A9589AB2EF9CA529",
+          "modified_utc": "2026-10-27T09:27:20.6086609Z",
+          "name": "FSBL.elf",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\FSBL.map",
+          "bytes": 764768,
+          "sha256": "1BB9973825037102E70B9924CAC274B890BAE3C5310C42DBA1D9173B63971CF6",
+          "modified_utc": "2026-10-27T09:27:20.6186611Z",
+          "name": "FSBL.map",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\N6-XIP-B-v50.n6fw",
+          "bytes": 485472,
+          "sha256": "2A7AEDB4FCD156F8EAFA0BD322116452CF8FBD1F1E4AEC7989ED7E84B5D9E156",
+          "modified_utc": "2026-10-27T21:21:32.5228434Z",
+          "name": "N6-XIP-B-v50.n6fw",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\ram.bin",
+          "bytes": 471600,
+          "sha256": "100FB8BCC83FBDD0B93C0CDF81A97EE8F1F4BA4B49AEEDB1CF35EACE4B8E590C",
+          "modified_utc": "2026-10-27T21:21:00.9037316Z",
+          "name": "ram.bin",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\ram.elf",
+          "bytes": 9095132,
+          "sha256": "1751DA340F17CF18EB7D4D943B8EC7787020F87A1BD060DE1CEDC98E4CAE528E",
+          "modified_utc": "2026-10-27T21:21:00.0694874Z",
+          "name": "ram.elf",
+          "matches_build_record": true
+        },
+        {
+          "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\ram.map",
+          "bytes": 5389728,
+          "sha256": "5FD1D327FA47B7B6A32B759D23755431CA3B6A21C1B20B4EC6F480A32F4A7E5C",
+          "modified_utc": "2026-10-27T21:21:00.1104937Z",
+          "name": "ram.map",
+          "matches_build_record": true
+        }
+      ],
+      "offline_package_verification": {
+        "status": "VERIFIED_OFFLINE",
+        "slot": "B",
+        "version": 50,
+        "bytes": 485472,
+        "reset": "0x702A2381",
+        "sha256": "2a7aedb4fcd156f8eafa0bd322116452cf8fbd1f1e4aec7989ed7e84b5d9e156"
+      },
+      "current_source_comparison": {
+        "differences": [
+          {
+            "current": "F85CC86CE9C165D71200170393F71C72A309A21357344B4E960FAB32D4BBC830",
+            "path": "AppliNonSecure/Core/Inc/app_features.h",
+            "expected": "86A044D049EB5208AA208E48EA7F5FE87267D2E8D3B048329958DD57A4580AE5"
+          },
+          {
+            "current": "91F9D3FA838FC485AA368F20D68F92DB882FF70D47AE356A679FA8D951AC1BA9",
+            "path": "AppliNonSecure/Core/Inc/w61_driver_config.h",
+            "expected": "7C7D19C6A6ACE6B3DA71F5FDE6A2F4DBB88BE3D80C58EBD7A976757AD7ADBD6F"
+          },
+          {
+            "current": "ADAFE3DE544ADCF81C28B99B6A92FDA592E0799906A1AFBE10BE5F82E98D999E",
+            "path": "Common/Update/firmware_build_version.h",
+            "expected": "C3B6131A2C589F77173ED7588FAE0F00F62FFF13EF0FB1E4900D2CC9AADC8DED"
+          }
+        ],
+        "compared": 1044
+      },
+      "live_board_equivalence": "NOT_ESTABLISHED"
+    }
+  ],
+  "tests": [
+    {
+      "log": {
+        "path": "C:\\Users\\netan\\Documents\\Codex\\2026-10-28\\task-2\\evidence\\st67-p0-20261028\\test_wifi_scan_lifetime.py.log",
+        "bytes": 442,
+        "sha256": "FA57345FFF9C9F2066B98C988A0C543A80F35B4CB28FD9DC1AC01B6EC9A9015C",
+        "modified_utc": "2026-10-28T20:39:17.8055857Z"
+      },
+      "command": "C:\\Python314\\python.exe -B -u \"C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_wifi_scan_lifetime.py\"",
+      "pass_lines": 7,
+      "test": "test_wifi_scan_lifetime.py",
+      "result": "PASS",
+      "evidence_type": "native actual-C extracted functions plus limited source audits; mocked hardware, not HIL",
+      "exit_code": 0,
+      "source": {
+        "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_wifi_scan_lifetime.py",
+        "bytes": 5622,
+        "sha256": "121BFC833633F7F77418EB27B38032D88C5C723385E70A06D7B7908BB3FF2BF4",
+        "modified_utc": "2026-10-22T07:47:56.3618271Z"
+      }
+    },
+    {
+      "log": {
+        "path": "C:\\Users\\netan\\Documents\\Codex\\2026-10-28\\task-2\\evidence\\st67-p0-20261028\\test_dns_reply_lifetime.py.log",
+        "bytes": 914,
+        "sha256": "9455981DA3522EC77F0355A28E68A73ABA0748DD4A677EC76A1ABC1EDB91DEC6",
+        "modified_utc": "2026-10-28T20:39:28.6068595Z"
+      },
+      "command": "C:\\Python314\\python.exe -B -u \"C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_dns_reply_lifetime.py\"",
+      "pass_lines": 6,
+      "test": "test_dns_reply_lifetime.py",
+      "result": "PASS",
+      "evidence_type": "native actual-C extracted functions plus limited source audits; mocked hardware, not HIL",
+      "exit_code": 0,
+      "source": {
+        "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_dns_reply_lifetime.py",
+        "bytes": 5794,
+        "sha256": "82C5ED5A0E64C386FA60B5303A413A3B187979E90D7CCF145E6389628C348B28",
+        "modified_utc": "2026-10-22T07:47:56.3173067Z"
+      }
+    },
+    {
+      "log": {
+        "path": "C:\\Users\\netan\\Documents\\Codex\\2026-10-28\\task-2\\evidence\\st67-p0-20261028\\test_radio_wait_diagnostics.py.log",
+        "bytes": 1366,
+        "sha256": "CF520098CCDD717717C935C6C23326E7A471898827872C201CB926F88461CA21",
+        "modified_utc": "2026-10-28T20:39:34.0112547Z"
+      },
+      "command": "C:\\Python314\\python.exe -B -u \"C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_radio_wait_diagnostics.py\"",
+      "pass_lines": 11,
+      "test": "test_radio_wait_diagnostics.py",
+      "result": "PASS",
+      "evidence_type": "native actual-C extracted functions plus limited source audits; mocked hardware, not HIL",
+      "exit_code": 0,
+      "source": {
+        "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_radio_wait_diagnostics.py",
+        "bytes": 6294,
+        "sha256": "A9E0C1A21D9F3E05CD561B4E489E9E734CAEC8E7D5780FB6106DB6B0458CC3BE",
+        "modified_utc": "2026-10-22T07:47:56.3363135Z"
+      }
+    },
+    {
+      "log": {
+        "path": "C:\\Users\\netan\\Documents\\Codex\\2026-10-28\\task-2\\evidence\\st67-p0-20261028\\test_spi_cs_hold.py.log",
+        "bytes": 289,
+        "sha256": "8BA4BCBC623A63BD207CA6F243130F6C420A68745C1ADAACBAC6B16C3F4A178D",
+        "modified_utc": "2026-10-28T20:39:39.6895132Z"
+      },
+      "command": "C:\\Python314\\python.exe -B -u \"C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_spi_cs_hold.py\"",
+      "pass_lines": 5,
+      "test": "test_spi_cs_hold.py",
+      "result": "PASS",
+      "evidence_type": "native actual-C extracted functions plus limited source audits; mocked hardware, not HIL",
+      "exit_code": 0,
+      "source": {
+        "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_spi_cs_hold.py",
+        "bytes": 3123,
+        "sha256": "018ABC8491F1C211B60B1FC5BA7E6B646EAC1F16B9D62E7F1F5284EA5D434A9F",
+        "modified_utc": "2026-10-22T07:47:56.3433143Z"
+      }
+    }
+  ]
+}

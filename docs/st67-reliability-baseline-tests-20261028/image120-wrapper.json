@@ -1,0 +1,43 @@
+{
+  "owner": {
+    "thread": "n6-xip-st67-reliability-20261028",
+    "pid": 32372,
+    "started_utc": "2026-10-28T22:29:33.131853+00:00",
+    "process_created_utc": "2026-10-28T22:29:32.776068+00:00",
+    "scope": "B52 BLE image/NPU/CLI120s with existing Wi-Fi/Cloud; restore map off; no reset/firmware/pair/settings writes"
+  },
+  "result": "FAIL",
+  "handles_closed": true,
+  "lease_released": true,
+  "before": {
+    "version": "version\r\nFirmware version: 52\r\nn6> ",
+    "tof status": "tof status\r\nImage destination: requested NONE, active NONE, switches 2, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 5839, rate: 3.7 fps\r\nPipeline: acquired 6346, processed 2437, dropped 3906, queue failures 0\r\nLast valid range: 123..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 24\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+    "dataset stream status": "dataset stream status\r\nDataset stream: off, submitted 100, dropped 0, last frame 2315, last CRC32 0x9C9F1867\r\nn6> ",
+    "rps status": "rps status\r\nRPS status: enabled=1 ready=1 frame=5839 class=scissors class_id=3 confidence_permille=543 scores=-109,-42,-115,11 runs=2437 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> ",
+    "cloud status": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: polling, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 0, last 409, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 0, dropped 0; request errors 0\r\nWorker: loops 22401, last tick 634351, max step 1204 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+  },
+  "command": [
+    "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\training\\.venv\\Scripts\\python.exe",
+    "-B",
+    "-u",
+    "C:\\Users\\netan\\Documents\\Codex\\2026-10-28\\task-2\\st67_image52.py",
+    "--owner-thread",
+    "n6-xip-st67-reliability-20261028",
+    "--label",
+    "st67-baseline52-images",
+    "--duration",
+    "120"
+  ],
+  "child_pid": 42268,
+  "exit_code": 1,
+  "after": {
+    "version": "version\r\nFirmware version: 52\r\nn6> ",
+    "tof status": "tof status\r\nImage destination: requested NONE, active NONE, switches 2, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 5853, rate: 3.7 fps\r\nPipeline: acquired 6360, processed 2442, dropped 3915, queue failures 0\r\nLast valid range: 122..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 27\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+    "dataset stream status": "dataset stream status\r\nDataset stream: off, submitted 100, dropped 0, last frame 2315, last CRC32 0x9C9F1867\r\nn6> ",
+    "rps status": "rps status\r\nRPS status: enabled=1 ready=1 frame=5853 class=scissors class_id=3 confidence_permille=543 scores=-109,-42,-115,11 runs=2442 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> ",
+    "radio status": "radio status\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: ready, advertising: on, link: disconnected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=31909 last_ms=635720 max_gap_ms=100\r\n  BLE TX pump: last_ms=635720 max_gap_ms=100\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=0 op=4 submitted=35 completed=35 deferred=37 stale=0 queue_max=255 ms call_max=520 ms last=0\r\n  NCP recovery: state=0 stage=0 attempts=0 ready=0 failed=0 elapsed=0 ms owners radio/cloud=0/0 last=0\r\n  SPI fault: count=0 tick=0 source=0 phase=0 len=0 HAL_error=00000000 SR=00000000 TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=0 pending=0 old_generation=0 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> ",
+    "cloud status": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: polling, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 0, last 409, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 0, dropped 0; request errors 0\r\nWorker: loops 22449, last tick 635761, max step 1204 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+  },
+  "failure": "AssertionError()",
+  "finished_utc": "2026-10-28T22:29:34.910715+00:00"
+}

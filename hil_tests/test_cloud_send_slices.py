@@ -16,7 +16,8 @@ PREFIX = r'''
 typedef long ssize_t;
 static uint8_t input[9092], received[9092];
 static size_t offset, calls, partial, fail_after;
-static int failure;
+static int failure;static unsigned yields;
+static void tx_thread_sleep(unsigned n){assert(n==1);++yields;}
 static ssize_t W6X_Net_Send(int socket,const void *data,size_t length,int flags) {
  assert(socket==5 && flags==0 && length>0 && length<=512);
  /* A MTU-sized TX used to consume the contiguous space needed by RX. */
@@ -28,13 +29,13 @@ static ssize_t W6X_Net_Send(int socket,const void *data,size_t length,int flags)
  memcpy(received+offset,data,accepted);offset+=accepted;
  return (ssize_t)accepted;
 }
-static void reset(void) {offset=calls=partial=fail_after=0;failure=0;memset(received,0,sizeof received);}
+static void reset(void) {offset=calls=partial=fail_after=yields=0;failure=0;memset(received,0,sizeof received);}
 '''
 TESTS = r'''
 int main(void) {
  for(size_t i=0;i<sizeof input;i++)input[i]=(uint8_t)(i*37);
  reset();assert(cloud_send_all(5,input,sizeof input)==0);
- assert(offset==sizeof input && calls==18 && !memcmp(input,received,sizeof input));
+ assert(offset==sizeof input && calls==18 && yields==17 && !memcmp(input,received,sizeof input));
  puts("PASS image body preserves exact bytes while each TX leaves modeled RX headroom");
  reset();partial=73;assert(cloud_send_all(5,input,sizeof input)==0);
  assert(offset==sizeof input && !memcmp(input,received,sizeof input));
@@ -43,7 +44,7 @@ int main(void) {
  assert(cloud_send_all(5,input,7)==0 && calls==1 && offset==7);
  puts("PASS empty and short HTTP components need no padding or extra send");
  reset();failure=-1;fail_after=512;assert(cloud_send_all(5,input,sizeof input)==-1);
- assert(calls==2 && offset==512);
+ assert(calls==2 && offset==512 && yields==1);
  puts("PASS failed send stops without replaying already accepted bytes");
  reset();failure=513;assert(cloud_send_all(5,input,sizeof input)==-1 && calls==1);
  puts("PASS invalid oversized driver acceptance cannot overrun the byte cursor");

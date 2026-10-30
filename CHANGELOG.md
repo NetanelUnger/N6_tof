@@ -1,5 +1,63 @@
 # Project change history
 
+## 2026-10-30 - Compact diagnostic records and Windows ANSI support, A59
+
+- Normalize ST67 diagnostic records in their existing owned buffers: remove blank/whitespace-only lines and emit consistent CRLF without shared state or extra stack buffers. CLI framing and raw transport payloads are untouched.
+- Preserve CRLF boundaries across dual-COM serial reads and enable Windows virtual-terminal output while preserving existing console-mode bits. Device ANSI remains unchanged in capture logs.
+- Actual-C fixtures and510 capacity guards pass;11 Python host tests pass. Real Windows PTY reports TTY=True/VT=True and emits foreground/background ANSI. A59 installed/confirmed17823ms; B58 retained. Actual20s UART capture2223 lines/0 blank/0 bare LF; USB map5411 color codes; HIL100 exact/NPU100/delta0/CRC0. No Generate Code required.
+- Preserve the failed preflight and post-boot rps-status timeout evidence. Explicit historical-Cloud-counter admission requires idle routes and a stable second sample (4 tests); source counter674 was not reset. Fresh postflight succeeds without another transfer.
+
+## 2026-10-30 - USB stream ownership isolation, B58
+
+- Replace global map/dataset shutdown in USB CLI session reset with the existing atomic USB-owner cleanup helper. BLE/Cloud desired state is preserved; USB-owned map/dataset still stops.
+- Actual-C regression fails before the fix and passes after it, covering16 destination/map/dataset combinations, repeated cleanup and interrupt restoration. Existing demo scheduler/CLI tests pass.
+- Signed USB B58 confirmed17723ms; A57 retained. Nine hardware USB cycles preserve BLE demo1000/demo300/sensor images and CLI. HIL100 exact/NPU100/max score delta1/CRC0 passes. Initial post-boot rps-status timeout retained; subsequent fresh USB health check passes, no second transfer. No Generate Code required. Details: docs/ble-console-20261029.md.
+
+## 2026-10-29 - BLE sensor viewer and sustained connection checks
+
+- Add protocol-v3 image assembly/CRC validation, RAW/Q16/Q8/JPEG decoding, invalid-pixel masks, latest-frame Tk display, same-frame NPU metadata and stale indicators. Accept ordinary text commands; interactive credential and binary-upload flows remain unsupported.
+- Add bounded image+ping soak with timestamped UART capture, independent USB snapshots, command timing, failure evidence before host cleanup, and final decoded sensor PNG. Separate per-measurement assembly drops from earlier stream teardown.
+- A57: 900s/2,189 images/1,485 pings PASS, max281ms and CRC0; four30s codec checks PASS and advertising rediscovered after disconnect. Firmware UART log drops rise under full DEBUG; no NCP recovery or SPI fault during the long run. Earlier disconnect cause remains unknown. No new firmware change. See docs/ble-console-20261029.md.
+
+## 2026-10-29 - Python BLE diagnostic console
+
+- Add a Tk window and CLI entrypoint sharing a bounded serialized Bleak session, read-only diagnostic checks,1500ms ping gate, cancellation, unique JSON reports, and the existing cross-worktree hardware lease.
+- Order normal teardown as device `ble disconnect` while CLI notifications remain active, then host cleanup. Retain earlier failed reconnect evidence; do not replay timed-out commands or reset firmware.
+- Three actual A57 cycles/60 pings pass, max187ms, final advertisement rediscovered. Tk widget workflow tested with simulated GATT; independent Windows visual automation unavailable. No firmware change. See docs/ble-console-20261029.md.
+
+## 2026-10-29 - Restore full development diagnostics, A57
+
+- Enable UART/ST67 and CLI diagnostic switches, default ST67 verbosity to DEBUG, and enable the existing NCP trace at startup. Runtime `n` remains a toggle; no buffer, transport or watchdog changes.
+- Signed USB A57 confirmed at 17723ms; B56 retained. UART keys and HIL100 exact tensors/NPU100/max score delta1/CRC0 pass. UART queue drops increased1058->1759 during verification; transport/HAL/timeouts/RX errors remain0. All handles and shared lease released. See docs/full-diagnostics57_HE.md. No Generate Code required.
+
+## 2026-10-29 - Recovery breadcrumb and truthful image counters, B56
+
+- Retain scalar trigger/notification context through NCP recovery; no verbose logging or reset-policy change. Distinguish demo busy/unavailable/other rejections from late slots.
+- Local UI separates source ID from CRC-validated receptions; not published. Signed USB B56/A55, targeted native/browser/HIL and one BLE transition pass; prior 23.7s recovery cause remains unknown. See docs/recovery56/report.md.
+
+## 2026-10-29 - Explicit demo millisecond intervals, A55
+
+- Use 100..60000ms, with 1000/300 examples; reject legacy 1/2 operands and update CLI/status/client/test examples. Preserve scheduled IDs and bounded image admission.
+- USB A55 Secure-confirmed, B54 retained. Native/HIL/timing evidence and one unresolved BLE transition recovery: docs/demo-ms55_HE.md. No server deployment, push or new Cloud image test.
+
+## 2026-10-29 - Three scoped ST67 continuity fixes, B54
+
+- Bound late text-terminal recovery without replay; prioritize control over images; fence ambiguous SPI transfers and enable tested MASRX receive flow control.
+- Signed USB B54 confirmed. Native/HIL and bounded-load results, A53 failure and limitations: docs/st67-continuity-20261029/report.md. No Generate Code, Secure/FSBL/NCP firmware update, push or server change.
+
+## 2026-10-28 - ST67 independent fault audit and Cloud host fixture
+
+- Record two real SPI overruns on confirmed B52; USB/ToF/NPU continue. Preserve the failed image-rate reference and unresolved root cause.
+- Repair Cloud request-budget host fixture for current training context and verify one-time frame retirement across a network epoch. Fourteen focused native suites pass; original fixture failure retained.
+- Reproduce shared error-counter ambiguity, quiet logger bookkeeping mismatch and possible SPI retransmission after unknown completion in actual-C host models. Prepare an isolated logger patch only; no firmware change or installation. Evidence: docs/st67-reliability-fault-audit-20261028/report.md. Generate Code not required.
+
+## 2026-10-28 - Known ST67 baseline B52 and test acceptance repair
+
+- Establish a reproducible signed B52 via CN8 USB, keeping confirmed A51 as the previous image; no FSBL/Secure/NCP programming. Exact51 host provenance remains unknown, but known52 artifacts and HIL100 now provide the next baseline.
+- HIL100 exact/NPU100/delta0/CRC0 and bounded BLE control pass. BLE RAW image profile delivers99 measured images against100 reference minimum; original raw PASS counted a post-window image and is explicitly superseded by FAIL.
+- Fix the host soak to use frozen measurement-window counts; four boundary regressions pass. Add native manifest-only no-write/abort regression and repair Cloud barrier watchdog fixture. No reliability firmware fix or full/endurance acceptance; Cloud workspace activation and remaining P0 profiles are pending.
+- Evidence: docs/st67-reliability-known-baseline-20261028/report.md and docs/st67-reliability-baseline-tests-20261028/report.md. No Generate Code required.
+
 ## 2026-10-27 - Timed diagnostic maps, XIP B50
 
 - Add 1/2 FPS moving-pixel demo through the existing single snapshot, codec and BLE/Cloud routes. Count scheduled/admitted/skipped frames; preserve timed sequence gaps and avoid catch-up bursts. Ordinary MAP returns to the sensor.

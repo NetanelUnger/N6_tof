@@ -1,0 +1,30 @@
+{
+  "raw_receiver_passed": true,
+  "raw_evidence_preserved": true,
+  "duration_s": 120.14100000000326,
+  "start": {
+    "drops": 0,
+    "images": 1,
+    "pings": 1,
+    "results": 17
+  },
+  "end": {
+    "images": 100,
+    "pings": 200,
+    "results": 247
+  },
+  "measured": {
+    "cli_finals": 199,
+    "images": 99,
+    "results": 230
+  },
+  "final_buffer_images": 101,
+  "reference_minimum_images": 100,
+  "reference_minimum_results": 200,
+  "overall": "FAIL",
+  "reason": "images in measurement window: 99 < 100",
+  "latency_gate": "PASS 219ms maximum <=1500ms",
+  "gap_gates": "PASS NPU0.641s<3s, image1.406s<5s",
+  "crc_gate": "PASS zero",
+  "scope": "BLE RAW float32 images/NPU/CLI, Wi-Fi connected and Cloud polling409; not BLE-only or active Cloud control"
+}

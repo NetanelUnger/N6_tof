@@ -1,0 +1,428 @@
+[
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\backup\\nor-first.bin",
+    "bytes": 4194304,
+    "sha256": "5ec84d5c0da6f7852fe013230f3b9ff36429776855cfba46b6d9c7cfb9186626",
+    "compiled_version_strings": [
+      11
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\backup\\nor-second.bin",
+    "bytes": 4194304,
+    "sha256": "5ec84d5c0da6f7852fe013230f3b9ff36429776855cfba46b6d9c7cfb9186626",
+    "compiled_version_strings": [
+      11
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\after-first.bin",
+    "bytes": 4194304,
+    "sha256": "1a977463859221d5a3c950062fbc27df5f6762703bcfc062f2fb917a6b817237",
+    "compiled_version_strings": [
+      11,
+      48
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\after-second.bin",
+    "bytes": 4194304,
+    "sha256": "1a977463859221d5a3c950062fbc27df5f6762703bcfc062f2fb917a6b817237",
+    "compiled_version_strings": [
+      11,
+      48
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\before.bin",
+    "bytes": 4194304,
+    "sha256": "5ec84d5c0da6f7852fe013230f3b9ff36429776855cfba46b6d9c7cfb9186626",
+    "compiled_version_strings": [
+      11
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\expected-text.bin",
+    "bytes": 80916,
+    "sha256": "e36efd1c24679ea610c43511aa0c74bd0ba58e42ac4020884133ba2c8d1c8149",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\ram-text.bin",
+    "bytes": 80916,
+    "sha256": "e36efd1c24679ea610c43511aa0c74bd0ba58e42ac4020884133ba2c8d1c8149",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-000000.bin",
+    "bytes": 65536,
+    "sha256": "5effe96448d74c6c2598c17359d295fe20a0ac4436a5a2e5b086e904faf5fdc8",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-010000.bin",
+    "bytes": 65536,
+    "sha256": "3196c4d82f7c92c312447451522873550afb5ac378b40afc0cd5a209212b94e8",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-100000.bin",
+    "bytes": 65536,
+    "sha256": "89a41dd2c437ab99e21fa4ca85c782096ac175d524a4a73d525c186d365eef6b",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-110000.bin",
+    "bytes": 65536,
+    "sha256": "80ecdad1d9735d3f2a4436ee109fe5abbfc85bdd00498e10f03101f06d653d95",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-280000.bin",
+    "bytes": 65536,
+    "sha256": "e9ba1b76aabca55f9628d9dbd26f55dd7f3e5b6e77601627f16989782cd24059",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-290000.bin",
+    "bytes": 65536,
+    "sha256": "0ad9264b043ba50c6570a3d0627b81ec3b85ec6efbcef7beadb6aaa14c8cd087",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-2a0000.bin",
+    "bytes": 65536,
+    "sha256": "5951ce2cc9d62f3d094594027186e64ca75913074f6eac3cb427ebdeba0af215",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-2b0000.bin",
+    "bytes": 65536,
+    "sha256": "e7c1fec8e7c22504bea5137a37c1652db44b5f2d57d6399acccca1093e454be3",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-2c0000.bin",
+    "bytes": 65536,
+    "sha256": "6347ef58f10ce1985c0e82b089bd580117b54558aec0f95d186e77cecea1633b",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-2d0000.bin",
+    "bytes": 65536,
+    "sha256": "72424f46052e2f23bd482222d2151373155950df4ad5202d4e9f05dd9d1f1819",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-2e0000.bin",
+    "bytes": 65536,
+    "sha256": "63f53c579f78b9c60ae0fd24e219b614832e97ebfa252cc23143e44b2f2cb513",
+    "compiled_version_strings": [
+      48
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-2f0000.bin",
+    "bytes": 65536,
+    "sha256": "58334b0c8da3ac6fbdb8f5131133a0ad45e549bb9d3a32fbcba98f29975a87b3",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-3f0000.bin",
+    "bytes": 65536,
+    "sha256": "810fd71c03f2548a5ec5df9bb4b5744b27e2805115267955e85f50eb92080387",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\application-trusted.bin",
+    "bytes": 478656,
+    "sha256": "731026763509f06fb976530ead54100b7161d8677bae4cbbf686a9a5552aa7e6",
+    "compiled_version_strings": [
+      48
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\application.bin",
+    "bytes": 477628,
+    "sha256": "c303273b83a8f9ba82e63309ccd61603f61dfb9c9486327d2e1c4df619001a0d",
+    "compiled_version_strings": [
+      48
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\application.elf",
+    "bytes": 9228972,
+    "sha256": "42d671f8423a6db2841197c23a421b4e714a51312e4aff19ae90ffeaa9ae12f1",
+    "compiled_version_strings": [
+      48
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\AppliSecure-trusted.bin",
+    "bytes": 128768,
+    "sha256": "2202658609d7a751b891f31a9fb60b254029e10d05b5a40ea83d345a3d08a478",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\AppliSecure.bin",
+    "bytes": 127740,
+    "sha256": "a939bb2a164a908f672d9b311e1c1055c33ebfad9c1f326f8e5227e639b732f1",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\AppliSecure.elf",
+    "bytes": 3039908,
+    "sha256": "36595500e708fa40f9e01235a922431e30dbc083fe05d114aa9cd26b77998288",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\FSBL-trusted.bin",
+    "bytes": 86080,
+    "sha256": "3e4b333e0c2d82891282b88d2ef10ec322a64d8837d3bdbe668f0759009396b6",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\FSBL.bin",
+    "bytes": 85056,
+    "sha256": "3fa5f236ac9ce8bb4186d4f6e30b707325f56536c8cf9963fb1d23a6fbef6c36",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\FSBL.elf",
+    "bytes": 3103876,
+    "sha256": "33a988e8d698fdadffae9001b0bfc65c67c1a448bb34fc82a9589ab2ef9ca529",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\N6-XIP-B-v48.n6fw",
+    "bytes": 478912,
+    "sha256": "5b66c7298786a82602d758ce14143fc652bc561f56802cb72a10c3d9dd9d964a",
+    "compiled_version_strings": [
+      48
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\ram.bin",
+    "bytes": 465064,
+    "sha256": "bd1365ee10e3b0749eb85b14bc94517d80d0d3a26b314605f2cd2da7c29c747d",
+    "compiled_version_strings": [
+      48
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\ram.elf",
+    "bytes": 9065016,
+    "sha256": "71992c1e29f0f6a22ace48eb93b1d60b657c3288f29de336195d51488e213051",
+    "compiled_version_strings": [
+      48
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\application-trusted.bin",
+    "bytes": 482944,
+    "sha256": "f2cb30a4acff119c519b284cdc611c278f174d5cf06b9a8b0a960cd52b8dce69",
+    "compiled_version_strings": [
+      49
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\application.bin",
+    "bytes": 481892,
+    "sha256": "e4acbfc033a66c6b78ec68732662465e1073065d846d96ffa151e7caac0cd50e",
+    "compiled_version_strings": [
+      49
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\application.elf",
+    "bytes": 9244416,
+    "sha256": "a176128d91ef0c24236ce7fc8d43a8e46e3e163c0f3fe75f913a5001d38d9714",
+    "compiled_version_strings": [
+      49
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\AppliSecure-trusted.bin",
+    "bytes": 128768,
+    "sha256": "1e9354ad4ed0d5181d370aa68fcb897ef39de2f815f8b6e3e6e6822275eb182a",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\AppliSecure.bin",
+    "bytes": 127740,
+    "sha256": "a939bb2a164a908f672d9b311e1c1055c33ebfad9c1f326f8e5227e639b732f1",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\AppliSecure.elf",
+    "bytes": 3039908,
+    "sha256": "36595500e708fa40f9e01235a922431e30dbc083fe05d114aa9cd26b77998288",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\FSBL-trusted.bin",
+    "bytes": 86080,
+    "sha256": "7ee6b15ffc7e5e1fb5eb7938eb48945f614582877698a945f938f75623283dd9",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\FSBL.bin",
+    "bytes": 85056,
+    "sha256": "3fa5f236ac9ce8bb4186d4f6e30b707325f56536c8cf9963fb1d23a6fbef6c36",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\FSBL.elf",
+    "bytes": 3103876,
+    "sha256": "33a988e8d698fdadffae9001b0bfc65c67c1a448bb34fc82a9589ab2ef9ca529",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\N6-XIP-A-v49.n6fw",
+    "bytes": 483200,
+    "sha256": "753b8cc6c2a4c9c8c393e6d78f0ad2c699787437195e0a3cf519d2486f33e3bc",
+    "compiled_version_strings": [
+      49
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\ram.bin",
+    "bytes": 469448,
+    "sha256": "ec23c0079728b7e9afb18da1bc6f2d330612b43a93045cc6b12ecb26d6b614ce",
+    "compiled_version_strings": [
+      49
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\ram.elf",
+    "bytes": 9081204,
+    "sha256": "4cdf3592aaf7056f052ebb0a3b3ed8374d756212e4617b4fe80348852b2067ca",
+    "compiled_version_strings": [
+      49
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\application-trusted.bin",
+    "bytes": 485216,
+    "sha256": "4aacff7d4998640f6dffaba98a101ee7aa6d4508d75402519f6ff593ed2c62d2",
+    "compiled_version_strings": [
+      50
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\application.bin",
+    "bytes": 484172,
+    "sha256": "f251b0119f6c94a375e16e360efa22782962149d9351ff5e3712be8b0636b318",
+    "compiled_version_strings": [
+      50
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\application.elf",
+    "bytes": 9260844,
+    "sha256": "bdfe25881c791a4be9cec81682348c82bfc507d441c2dab0d1e10b7a20894629",
+    "compiled_version_strings": [
+      50
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\AppliSecure-trusted.bin",
+    "bytes": 128768,
+    "sha256": "c7d93fd57658203d9da76db917497a9023b434a077f960c0857754e6de5e8a94",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\AppliSecure.bin",
+    "bytes": 127740,
+    "sha256": "a939bb2a164a908f672d9b311e1c1055c33ebfad9c1f326f8e5227e639b732f1",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\AppliSecure.elf",
+    "bytes": 3039908,
+    "sha256": "36595500e708fa40f9e01235a922431e30dbc083fe05d114aa9cd26b77998288",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\FSBL-trusted.bin",
+    "bytes": 86080,
+    "sha256": "3fd6a036613a2b7d4ad3311d817aa4eebe13f98c556ac4caa1e86fe6be8730c8",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\FSBL.bin",
+    "bytes": 85056,
+    "sha256": "3fa5f236ac9ce8bb4186d4f6e30b707325f56536c8cf9963fb1d23a6fbef6c36",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\FSBL.elf",
+    "bytes": 3103876,
+    "sha256": "33a988e8d698fdadffae9001b0bfc65c67c1a448bb34fc82a9589ab2ef9ca529",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\N6-XIP-B-v50.n6fw",
+    "bytes": 485472,
+    "sha256": "2a7aedb4fcd156f8eafa0bd322116452cf8fbd1f1e4aec7989ed7e84b5d9e156",
+    "compiled_version_strings": [
+      50
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\ram.bin",
+    "bytes": 471600,
+    "sha256": "100fb8bcc83fbdd0b93c0cdf81a97ee8f1f4ba4b49aeedb1cf35eace4b8e590c",
+    "compiled_version_strings": [
+      50
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\ram.elf",
+    "bytes": 9095132,
+    "sha256": "1751da340f17cf18eb7d4d943b8ec7787020f87a1bd060de1cedc98e4cae528e",
+    "compiled_version_strings": [
+      50
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\Debug\\N6_AppliNonSecure.bin",
+    "bytes": 483896,
+    "sha256": "b4e1d6da51bd6a37da05d52b55820f8030c3628b1d2a64fce4b0b6db3c6da301",
+    "compiled_version_strings": [
+      50
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\Debug\\N6_AppliNonSecure.elf",
+    "bytes": 9257008,
+    "sha256": "7b6ac94591e44784bd2ba8746ad686dda8413d82b756abf753f5c65729b08207",
+    "compiled_version_strings": [
+      50
+    ]
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliSecure\\Debug\\N6_AppliSecure.bin",
+    "bytes": 127740,
+    "sha256": "a939bb2a164a908f672d9b311e1c1055c33ebfad9c1f326f8e5227e639b732f1",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliSecure\\Debug\\N6_AppliSecure.elf",
+    "bytes": 3039908,
+    "sha256": "36595500e708fa40f9e01235a922431e30dbc083fe05d114aa9cd26b77998288",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\FSBL\\Debug\\N6_FSBL.bin",
+    "bytes": 85056,
+    "sha256": "3fa5f236ac9ce8bb4186d4f6e30b707325f56536c8cf9963fb1d23a6fbef6c36",
+    "compiled_version_strings": []
+  },
+  {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\FSBL\\Debug\\N6_FSBL.elf",
+    "bytes": 3103876,
+    "sha256": "33a988e8d698fdadffae9001b0bfc65c67c1a448bb34fc82a9589ab2ef9ca529",
+    "compiled_version_strings": []
+  }
+]

@@ -1,0 +1,102 @@
+[
+  {
+    "path": "AGENTS.md",
+    "sha256": "55482cc36e1be117e08b0aaba0233f2286cbfc9cbfd70d14cc202c4725afd04f",
+    "unchanged": true
+  },
+  {
+    "path": "README.md",
+    "sha256": "553c42a4adece285a2d5eb2aa54348448cb4220f62eb10dbd5809130ff19de46",
+    "unchanged": true
+  },
+  {
+    "path": "N6.ioc",
+    "sha256": "6addd1123992c2321b6beac4a88a4e1f734e6bd935f4da6bf7b0428b012689c4",
+    "unchanged": true
+  },
+  {
+    "path": "radio_firmware/contract.json",
+    "sha256": "6af814328d8f713e3ececeafe725e07ebdae9a5263de6161dce2052409ec8c58",
+    "unchanged": true
+  },
+  {
+    "path": "Tools/Build-Xip.ps1",
+    "sha256": "ca780d61d2c3108dad8ca17540d416cf57145cb1570c1e121e0262d61e1159d3",
+    "unchanged": true
+  },
+  {
+    "path": "Tools/Install-NonSecureUpdate.ps1",
+    "sha256": "65229f99b1a71fd460addab2cf5c163cc2f842ae39d3f05da423a3559a60404f",
+    "unchanged": true
+  },
+  {
+    "path": "Tools/Test-XipPackage.ps1",
+    "sha256": "3a64b0614681bb746ae1cf23fc6e73ff5f52d73193b7ea898099fdbe0c212c37",
+    "unchanged": true
+  },
+  {
+    "path": "Common/Update/firmware_build_version.h",
+    "sha256": "adafe3de544adcf81c28b99b6a92fda592e0799906a1afbe10be5f82e98d999e",
+    "unchanged": true
+  },
+  {
+    "path": "AppliNonSecure/.cproject",
+    "sha256": "341191bf506af2c7d3535587fcc20fdf2bec3a221e46fbf3469ec187f85968bc",
+    "unchanged": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Inc/config.h",
+    "sha256": "112a51d600bf9dd36178b2ebe5977dc15bfce1387d93e4461b56cd7e798e86ad",
+    "unchanged": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Inc/app_features.h",
+    "sha256": "f85cc86ce9c165d71200170393f71c72a309a21357344b4e960fab32d4bbc830",
+    "unchanged": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Inc/app_settings.h",
+    "sha256": "aff8aa3a40de55f38bfc0d1a1c5b3121a25a63820c7805f6c78649bec81e0859",
+    "unchanged": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Inc/w61_driver_config.h",
+    "sha256": "91f9d3fa838fc485aa368f20d68f92db882ff70d47ae356a679fa8d951ac1ba9",
+    "unchanged": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/wifi_ble_app.c",
+    "sha256": "30c4460f5673c7635197f55fc198e33b337c983512c18b4f7d6223731e3cc1a0",
+    "unchanged": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/cloud_relay.c",
+    "sha256": "0aa11eed898ce7b62dde04acce893ba8447c4c91d939641b130b50b4d9fffb59",
+    "unchanged": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/spi_port.c",
+    "sha256": "199cb71e235cf95826882a2c0b6cc3165ce746d2a0df84a1a3c8fb7cb2e29d3c",
+    "unchanged": true
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.c",
+    "sha256": "928c535604b0e96edc17b86ed9cdb46fe77a7c6bc47dab88139a81b000d0686e",
+    "unchanged": true
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.h",
+    "sha256": "594510822dc381f13144aef81076c6fd82f5958d738556bc71595278d2751088",
+    "unchanged": true
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.c",
+    "sha256": "b20f10d296b84eb269681efb798a6b471b879ccde9586ca6d3611507bc39fb33",
+    "unchanged": true
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c",
+    "sha256": "cca72d585021c348e5d985743340b91c0a2bad6db014fa628526db9354b04dc2",
+    "unchanged": true
+  }
+]

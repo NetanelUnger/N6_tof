@@ -1,0 +1,27 @@
+[
+  {
+    "path": "plan-after.sha256",
+    "sha256": "0547b5043c5c4765f641dce86346a5f2b4e3d62833b692c395ac7ddc8232b058",
+    "bytes": 66
+  },
+  {
+    "path": "report.md",
+    "sha256": "1e7a30b218c427614fd1e4dfbaaa63f9205d5898613895d6cb1bf73e3169f2bb",
+    "bytes": 4005
+  },
+  {
+    "path": "summary.json",
+    "sha256": "4479bd0f7f7f0734fc9ba93f693d630ab913d09943fc28610f83d5e07df04da0",
+    "bytes": 1664
+  },
+  {
+    "path": "usb-resume/owner-start.json",
+    "sha256": "2e14437a387ba7e5537230d936564928c9120bdde8c5a7ea2025a0859dc603dd",
+    "bytes": 304
+  },
+  {
+    "path": "usb-resume/result.json",
+    "sha256": "085c9824f1d320ceeb3a6c193cd891eff8638053568aa5070945646e6a982f99",
+    "bytes": 25829
+  }
+]

@@ -1,0 +1,34 @@
+{
+  "cli_finals": 17,
+  "duration_target_s": 120,
+  "elapsed_s": 9.469,
+  "failure": "AssertionError: BLE latency >1500ms",
+  "hardware_events": 0,
+  "image_crc_errors": 0,
+  "image_drops_during_soak": 0,
+  "images": 9,
+  "io_errors": 0,
+  "io_write_max_s": 0.0,
+  "last_snapshot": null,
+  "latency_ms": {
+    "max": 1953.0,
+    "p50": 109.0,
+    "p95": 1953.0,
+    "p99": 1953.0
+  },
+  "max_age_ms": null,
+  "max_event_loop_lag_s": 0.012999999994644892,
+  "max_image_receive_gap_s": 2.0929999999934807,
+  "max_result_receive_gap_s": 1.1719999999913853,
+  "parser_errors": 0,
+  "results": 38,
+  "snapshots": 0,
+  "stale_probe": {
+    "browser_rendering_observed": false,
+    "fresh_inference_after_resubscribe": true,
+    "host_model_expiry_elapsed": true,
+    "no_callbacks_after_drain": true,
+    "unsubscribe_silence_s": 3.2
+  },
+  "status": "FAILED"
+}

@@ -1,0 +1,1700 @@
+{
+  "started_utc": "2026-10-28T20:53:59.452514+00:00",
+  "owner": {
+    "thread": "n6-xip-st67-reliability-20261028",
+    "pid": 32200,
+    "started_utc": "2026-10-28T20:53:59.452496+00:00",
+    "process_created_utc": "2026-10-28T20:53:58.933065+00:00",
+    "scope": "read-only CN8 version/status and bounded USB stability; no reset, update, settings, or pairing writes"
+  },
+  "source_revision": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5",
+  "requested_seconds": 120,
+  "result": "PASS",
+  "commands": [
+    {
+      "utc": "2026-10-28T20:54:01.067355+00:00",
+      "command": "version",
+      "latency_ms": 62.194,
+      "response": "version\r\nFirmware version: 51\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:01.129375+00:00",
+      "command": "status",
+      "latency_ms": 60.484,
+      "response": "status\r\nUptime: 350884 ms\r\nUSB CDC: active, session 2, TX queue 6, RX queue 0\r\nToF: ready, map off, channels 0x01, active 1, dataset off, frame 3497, 3.8 fps\r\nST67: ready, Wi-Fi IP ready, BLE disconnected, advertising on\r\nLog level: info\r\nWi-Fi CONNECTED: YES; IPv4 ready: YES\r\nWi-Fi station: STA GOT IP\r\nWi-Fi shadow: event/query confirmed, query 2/0 failed, last tick 21065/status 0\r\nSSID: nati_sash, channel: 3, RSSI: -64 dBm\r\nAP: B4:B0:24:D8:B3:72\r\nIPv4: 192.168.68.53\r\nGateway: 192.168.68.1, netmask: 255.255.252.0\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:01.192072+00:00",
+      "command": "radio info",
+      "latency_ms": 62.712,
+      "response": "radio info\r\nModule: C6AFDBD111400004 (-B)\r\nNCP MAC: 40:82:7B:03:B8:FA\r\nBuild: Mar 20 2026 09:32:19\r\nSDK: 2.0.106.0, AT: 1.0.0.0\r\nWi-Fi MAC FW: 1.6.44.0\r\nBLE controller: 1.6.128.0, stack: 1.10.83.0\r\nAnti-rollback (read-only): bootloader=0, app=0\r\nManufacturing: BOM=2, year=25, week=16\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:01.255007+00:00",
+      "command": "radio status",
+      "latency_ms": 62.882,
+      "response": "radio status\r\n[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: ready, advertising: on, link: disconnected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=17424 last_ms=350991 max_gap_ms=27\r\n  BLE TX pump: last_ms=350991 max_gap_ms=27\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=0 op=4 submitted=23 completed=23 deferred=0 stale=0 queue_max=251 ms call_max=505 ms last=0\r\n  NCP recovery: state=0 stage=0 attempts=0 ready=0 failed=0 elapsed=0 ms owners radio/cloud=0/0 last=0\r\n  SPI fault: count=1 tick=341692 source=1 phase=2 len=468 HAL_error=00000004 SR=014a0040 TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=0 pending=0 old_generation=0 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:01.317423+00:00",
+      "command": "ble status",
+      "latency_ms": 62.391,
+      "response": "ble status\r\nBLE GATT: ready, link: disconnected, advertising: on, MTU: 23\r\nBLE advertising desired: on; manager init 1/0 fail, advertising 1/0 fail, disconnect fail 0, driver errors 0 (last 0)\r\nBLE ADV evidence: command ACK (not RF proof), retry 0/3; mode/link confirmed 1/1, recovery pending 0\r\nBLE probes: mode 12, link 11, failed 0, corrected 0, last tick 347532/status 0; BLE repair 0/0 fail; ADV exhausted 0\r\nBLE init stage: 14, last W6X status: 0\r\nName: N6-MAINT-B8FB\r\nAddress: 40:82:7B:03:B8:FB\r\nCLI TX notifications: off; DEBUG TX notifications: off; ToF image notifications: off\r\nStream transport: ready, generation 0, ATT payload 20 bytes\r\nRadio SRAM4 pool: 17296 bytes available, 32 fragments\r\nCLI RX: queued 0/0 high-water, accepted 0 events/0 bytes, dropped 0/0\r\nCLI TX: queued 0/0 high-water, accepted 0 messages/0 bytes, sent 0, dropped 0/0, retries 0, errors 0\r\nCLI TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nDEBUG RX: disabled by policy, dropped 0 events/0 bytes\r\nDEBUG TX: queued 0/0 high-water, accepted 0 messages/0 bytes, sent 0, dropped 0/0, retries 0, errors 0\r\nDEBUG TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nStale generation drops: CLI 0, DEBUG 0; total GATT writes 0, discarded bytes 0\r\nToF image: submitted 0, complete 0, busy drops 0, aborted 0; fragments 0, payload bytes 0, retries 0, errors 0; last 0/0\r\nToF TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:01.379764+00:00",
+      "command": "tof status",
+      "latency_ms": 62.329,
+      "response": "tof status\r\nImage destination: requested NONE, active NONE, switches 0, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 3500, rate: 3.7 fps\r\nPipeline: acquired 3505, processed 1352, dropped 2150, queue failures 0\r\nLast valid range: 123..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 1\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:01.441620+00:00",
+      "command": "rps status",
+      "latency_ms": 61.837,
+      "response": "rps status\r\nRPS status: enabled=1 ready=1 frame=3500 class=scissors class_id=3 confidence_permille=543 scores=-109,-42,-115,11 runs=1352 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:01.504578+00:00",
+      "command": "cloud status",
+      "latency_ms": 62.926,
+      "response": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: connecting, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 1, last 409, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 0, dropped 0; request errors 1\r\nWorker: loops 12393, last tick 351129, max step 1121 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:01.567282+00:00",
+      "command": "dataset stream status",
+      "latency_ms": 62.723,
+      "response": "dataset stream status\r\nDataset stream: off, submitted 0, dropped 0, last frame 0, last CRC32 0x00000000\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:01.628742+00:00",
+      "command": "debug ping ST67P0-0000",
+      "latency_ms": 51.746,
+      "response": "debug ping ST67P0-0000\r\nPONG ST67P0-0000 351397\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:03.702719+00:00",
+      "command": "debug ping ST67P0-0001",
+      "latency_ms": 62.589,
+      "response": "debug ping ST67P0-0001\r\nPONG ST67P0-0001 353459\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:05.774021+00:00",
+      "command": "debug ping ST67P0-0002",
+      "latency_ms": 58.525,
+      "response": "debug ping ST67P0-0002\r\nPONG ST67P0-0002 355535\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:07.843448+00:00",
+      "command": "debug ping ST67P0-0003",
+      "latency_ms": 57.881,
+      "response": "debug ping ST67P0-0003\r\nPONG ST67P0-0003 357605\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:09.919299+00:00",
+      "command": "debug ping ST67P0-0004",
+      "latency_ms": 64.328,
+      "response": "debug ping ST67P0-0004\r\nPONG ST67P0-0004 359674\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:11.993717+00:00",
+      "command": "debug ping ST67P0-0005",
+      "latency_ms": 57.813,
+      "response": "debug ping ST67P0-0005\r\nPONG ST67P0-0005 361754\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:14.071213+00:00",
+      "command": "debug ping ST67P0-0006",
+      "latency_ms": 64.371,
+      "response": "debug ping ST67P0-0006\r\nPONG ST67P0-0006 363823\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:16.138099+00:00",
+      "command": "debug ping ST67P0-0007",
+      "latency_ms": 52.087,
+      "response": "debug ping ST67P0-0007\r\nPONG ST67P0-0007 365900\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:18.207784+00:00",
+      "command": "debug ping ST67P0-0008",
+      "latency_ms": 59.117,
+      "response": "debug ping ST67P0-0008\r\nPONG ST67P0-0008 367960\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:20.272835+00:00",
+      "command": "debug ping ST67P0-0009",
+      "latency_ms": 53.106,
+      "response": "debug ping ST67P0-0009\r\nPONG ST67P0-0009 370029\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:22.342130+00:00",
+      "command": "debug ping ST67P0-0010",
+      "latency_ms": 57.531,
+      "response": "debug ping ST67P0-0010\r\nPONG ST67P0-0010 372092\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:24.416437+00:00",
+      "command": "debug ping ST67P0-0011",
+      "latency_ms": 62.704,
+      "response": "debug ping ST67P0-0011\r\nPONG ST67P0-0011 374161\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:26.480080+00:00",
+      "command": "debug ping ST67P0-0012",
+      "latency_ms": 54.144,
+      "response": "debug ping ST67P0-0012\r\nPONG ST67P0-0012 376232\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:28.543350+00:00",
+      "command": "debug ping ST67P0-0013",
+      "latency_ms": 50.549,
+      "response": "debug ping ST67P0-0013\r\nPONG ST67P0-0013 378295\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:30.611579+00:00",
+      "command": "debug ping ST67P0-0014",
+      "latency_ms": 57.326,
+      "response": "debug ping ST67P0-0014\r\nPONG ST67P0-0014 380355\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:32.687907+00:00",
+      "command": "debug ping ST67P0-0015",
+      "latency_ms": 65.094,
+      "response": "debug ping ST67P0-0015\r\nPONG ST67P0-0015 382423\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:34.756976+00:00",
+      "command": "debug ping ST67P0-0016",
+      "latency_ms": 58.358,
+      "response": "debug ping ST67P0-0016\r\nPONG ST67P0-0016 384496\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:36.832213+00:00",
+      "command": "debug ping ST67P0-0017",
+      "latency_ms": 63.902,
+      "response": "debug ping ST67P0-0017\r\nPONG ST67P0-0017 386565\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:38.901544+00:00",
+      "command": "debug ping ST67P0-0018",
+      "latency_ms": 55.435,
+      "response": "debug ping ST67P0-0018\r\nPONG ST67P0-0018 388642\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:40.977713+00:00",
+      "command": "debug ping ST67P0-0019",
+      "latency_ms": 65.079,
+      "response": "debug ping ST67P0-0019\r\nPONG ST67P0-0019 390705\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:43.048340+00:00",
+      "command": "debug ping ST67P0-0020",
+      "latency_ms": 57.483,
+      "response": "debug ping ST67P0-0020\r\nPONG ST67P0-0020 392781\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:45.111588+00:00",
+      "command": "debug ping ST67P0-0021",
+      "latency_ms": 52.533,
+      "response": "debug ping ST67P0-0021\r\nPONG ST67P0-0021 394847\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:47.188773+00:00",
+      "command": "debug ping ST67P0-0022",
+      "latency_ms": 65.949,
+      "response": "debug ping ST67P0-0022\r\nPONG ST67P0-0022 396910\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:49.264398+00:00",
+      "command": "debug ping ST67P0-0023",
+      "latency_ms": 65.053,
+      "response": "debug ping ST67P0-0023\r\nPONG ST67P0-0023 398983\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:51.326408+00:00",
+      "command": "debug ping ST67P0-0024",
+      "latency_ms": 50.539,
+      "response": "debug ping ST67P0-0024\r\nPONG ST67P0-0024 401057\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:53.391690+00:00",
+      "command": "debug ping ST67P0-0025",
+      "latency_ms": 52.607,
+      "response": "debug ping ST67P0-0025\r\nPONG ST67P0-0025 403117\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:55.466507+00:00",
+      "command": "debug ping ST67P0-0026",
+      "latency_ms": 62.531,
+      "response": "debug ping ST67P0-0026\r\nPONG ST67P0-0026 405180\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:57.538720+00:00",
+      "command": "debug ping ST67P0-0027",
+      "latency_ms": 61.186,
+      "response": "debug ping ST67P0-0027\r\nPONG ST67P0-0027 407252\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:54:59.608222+00:00",
+      "command": "debug ping ST67P0-0028",
+      "latency_ms": 53.153,
+      "response": "debug ping ST67P0-0028\r\nPONG ST67P0-0028 409328\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:01.672668+00:00",
+      "command": "debug ping ST67P0-0029",
+      "latency_ms": 49.918,
+      "response": "debug ping ST67P0-0029\r\nPONG ST67P0-0029 411395\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:03.741010+00:00",
+      "command": "debug ping ST67P0-0030",
+      "latency_ms": 51.527,
+      "response": "debug ping ST67P0-0030\r\nPONG ST67P0-0030 413462\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:05.817445+00:00",
+      "command": "debug ping ST67P0-0031",
+      "latency_ms": 60.355,
+      "response": "debug ping ST67P0-0031\r\nPONG ST67P0-0031 415529\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:07.890874+00:00",
+      "command": "debug ping ST67P0-0032",
+      "latency_ms": 61.734,
+      "response": "debug ping ST67P0-0032\r\nPONG ST67P0-0032 417600\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:09.969300+00:00",
+      "command": "debug ping ST67P0-0033",
+      "latency_ms": 65.107,
+      "response": "debug ping ST67P0-0033\r\nPONG ST67P0-0033 419675\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:12.047315+00:00",
+      "command": "debug ping ST67P0-0034",
+      "latency_ms": 62.515,
+      "response": "debug ping ST67P0-0034\r\nPONG ST67P0-0034 421752\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:14.124978+00:00",
+      "command": "debug ping ST67P0-0035",
+      "latency_ms": 63.309,
+      "response": "debug ping ST67P0-0035\r\nPONG ST67P0-0035 423826\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:16.194206+00:00",
+      "command": "debug ping ST67P0-0036",
+      "latency_ms": 55.414,
+      "response": "debug ping ST67P0-0036\r\nPONG ST67P0-0036 425902\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:18.269338+00:00",
+      "command": "debug ping ST67P0-0037",
+      "latency_ms": 61.431,
+      "response": "debug ping ST67P0-0037\r\nPONG ST67P0-0037 427970\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:20.336451+00:00",
+      "command": "debug ping ST67P0-0038",
+      "latency_ms": 50.804,
+      "response": "debug ping ST67P0-0038\r\nPONG ST67P0-0038 430045\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:22.406898+00:00",
+      "command": "debug ping ST67P0-0039",
+      "latency_ms": 60.224,
+      "response": "debug ping ST67P0-0039\r\nPONG ST67P0-0039 432105\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:24.481308+00:00",
+      "command": "debug ping ST67P0-0040",
+      "latency_ms": 62.941,
+      "response": "debug ping ST67P0-0040\r\nPONG ST67P0-0040 434173\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:26.555558+00:00",
+      "command": "debug ping ST67P0-0041",
+      "latency_ms": 63.451,
+      "response": "debug ping ST67P0-0041\r\nPONG ST67P0-0041 436246\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:28.621915+00:00",
+      "command": "debug ping ST67P0-0042",
+      "latency_ms": 56.387,
+      "response": "debug ping ST67P0-0042\r\nPONG ST67P0-0042 438316\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:30.698126+00:00",
+      "command": "debug ping ST67P0-0043",
+      "latency_ms": 64.049,
+      "response": "debug ping ST67P0-0043\r\nPONG ST67P0-0043 440385\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:32.772803+00:00",
+      "command": "debug ping ST67P0-0044",
+      "latency_ms": 62.195,
+      "response": "debug ping ST67P0-0044\r\nPONG ST67P0-0044 442461\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:34.838716+00:00",
+      "command": "debug ping ST67P0-0045",
+      "latency_ms": 54.362,
+      "response": "debug ping ST67P0-0045\r\nPONG ST67P0-0045 444531\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:36.912718+00:00",
+      "command": "debug ping ST67P0-0046",
+      "latency_ms": 64.402,
+      "response": "debug ping ST67P0-0046\r\nPONG ST67P0-0046 446592\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:38.985852+00:00",
+      "command": "debug ping ST67P0-0047",
+      "latency_ms": 61.501,
+      "response": "debug ping ST67P0-0047\r\nPONG ST67P0-0047 448667\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:41.047024+00:00",
+      "command": "debug ping ST67P0-0048",
+      "latency_ms": 50.889,
+      "response": "debug ping ST67P0-0048\r\nPONG ST67P0-0048 450738\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:43.121878+00:00",
+      "command": "debug ping ST67P0-0049",
+      "latency_ms": 63.534,
+      "response": "debug ping ST67P0-0049\r\nPONG ST67P0-0049 452800\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:45.194872+00:00",
+      "command": "debug ping ST67P0-0050",
+      "latency_ms": 62.41,
+      "response": "debug ping ST67P0-0050\r\nPONG ST67P0-0050 454873\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:47.272674+00:00",
+      "command": "debug ping ST67P0-0051",
+      "latency_ms": 64.296,
+      "response": "debug ping ST67P0-0051\r\nPONG ST67P0-0051 456946\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:49.345819+00:00",
+      "command": "debug ping ST67P0-0052",
+      "latency_ms": 61.722,
+      "response": "debug ping ST67P0-0052\r\nPONG ST67P0-0052 459021\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:51.421219+00:00",
+      "command": "debug ping ST67P0-0053",
+      "latency_ms": 64.407,
+      "response": "debug ping ST67P0-0053\r\nPONG ST67P0-0053 461092\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:53.485716+00:00",
+      "command": "debug ping ST67P0-0054",
+      "latency_ms": 54.7,
+      "response": "debug ping ST67P0-0054\r\nPONG ST67P0-0054 463165\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:55.556780+00:00",
+      "command": "debug ping ST67P0-0055",
+      "latency_ms": 58.581,
+      "response": "debug ping ST67P0-0055\r\nPONG ST67P0-0055 465233\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:57.628866+00:00",
+      "command": "debug ping ST67P0-0056",
+      "latency_ms": 61.32,
+      "response": "debug ping ST67P0-0056\r\nPONG ST67P0-0056 467301\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:55:59.703574+00:00",
+      "command": "debug ping ST67P0-0057",
+      "latency_ms": 58.114,
+      "response": "debug ping ST67P0-0057\r\nPONG ST67P0-0057 469378\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:56:01.623158+00:00",
+      "command": "version",
+      "latency_ms": 55.175,
+      "response": "version\r\nFirmware version: 51\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:56:01.685811+00:00",
+      "command": "radio status",
+      "latency_ms": 62.646,
+      "response": "radio status\r\n[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: ready, advertising: on, link: disconnected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=23442 last_ms=471352 max_gap_ms=27\r\n  BLE TX pump: last_ms=471352 max_gap_ms=27\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=0 op=4 submitted=31 completed=31 deferred=0 stale=0 queue_max=251 ms call_max=505 ms last=0\r\n  NCP recovery: state=0 stage=0 attempts=0 ready=0 failed=0 elapsed=0 ms owners radio/cloud=0/0 last=0\r\n  SPI fault: count=1 tick=341692 source=1 phase=2 len=468 HAL_error=00000004 SR=014a0040 TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=0 pending=0 old_generation=0 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:56:01.749680+00:00",
+      "command": "tof status",
+      "latency_ms": 63.848,
+      "response": "tof status\r\nImage destination: requested NONE, active NONE, switches 0, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 4703, rate: 3.7 fps\r\nPipeline: acquired 4709, processed 1812, dropped 2894, queue failures 0\r\nLast valid range: 123..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 1\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:56:01.813220+00:00",
+      "command": "rps status",
+      "latency_ms": 63.511,
+      "response": "rps status\r\nRPS status: enabled=1 ready=1 frame=4703 class=scissors class_id=3 confidence_permille=543 scores=-109,-42,-115,11 runs=1812 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T20:56:01.876739+00:00",
+      "command": "cloud status",
+      "latency_ms": 63.503,
+      "response": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: polling, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 1, last 204, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 0, dropped 0; request errors 1\r\nWorker: loops 16606, last tick 471435, max step 1121 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+    }
+  ],
+  "pings": [
+    {
+      "uptime_ms": 351397,
+      "latency_ms": 51.746
+    },
+    {
+      "uptime_ms": 353459,
+      "latency_ms": 62.589
+    },
+    {
+      "uptime_ms": 355535,
+      "latency_ms": 58.525
+    },
+    {
+      "uptime_ms": 357605,
+      "latency_ms": 57.881
+    },
+    {
+      "uptime_ms": 359674,
+      "latency_ms": 64.328
+    },
+    {
+      "uptime_ms": 361754,
+      "latency_ms": 57.813
+    },
+    {
+      "uptime_ms": 363823,
+      "latency_ms": 64.371
+    },
+    {
+      "uptime_ms": 365900,
+      "latency_ms": 52.087
+    },
+    {
+      "uptime_ms": 367960,
+      "latency_ms": 59.117
+    },
+    {
+      "uptime_ms": 370029,
+      "latency_ms": 53.106
+    },
+    {
+      "uptime_ms": 372092,
+      "latency_ms": 57.531
+    },
+    {
+      "uptime_ms": 374161,
+      "latency_ms": 62.704
+    },
+    {
+      "uptime_ms": 376232,
+      "latency_ms": 54.144
+    },
+    {
+      "uptime_ms": 378295,
+      "latency_ms": 50.549
+    },
+    {
+      "uptime_ms": 380355,
+      "latency_ms": 57.326
+    },
+    {
+      "uptime_ms": 382423,
+      "latency_ms": 65.094
+    },
+    {
+      "uptime_ms": 384496,
+      "latency_ms": 58.358
+    },
+    {
+      "uptime_ms": 386565,
+      "latency_ms": 63.902
+    },
+    {
+      "uptime_ms": 388642,
+      "latency_ms": 55.435
+    },
+    {
+      "uptime_ms": 390705,
+      "latency_ms": 65.079
+    },
+    {
+      "uptime_ms": 392781,
+      "latency_ms": 57.483
+    },
+    {
+      "uptime_ms": 394847,
+      "latency_ms": 52.533
+    },
+    {
+      "uptime_ms": 396910,
+      "latency_ms": 65.949
+    },
+    {
+      "uptime_ms": 398983,
+      "latency_ms": 65.053
+    },
+    {
+      "uptime_ms": 401057,
+      "latency_ms": 50.539
+    },
+    {
+      "uptime_ms": 403117,
+      "latency_ms": 52.607
+    },
+    {
+      "uptime_ms": 405180,
+      "latency_ms": 62.531
+    },
+    {
+      "uptime_ms": 407252,
+      "latency_ms": 61.186
+    },
+    {
+      "uptime_ms": 409328,
+      "latency_ms": 53.153
+    },
+    {
+      "uptime_ms": 411395,
+      "latency_ms": 49.918
+    },
+    {
+      "uptime_ms": 413462,
+      "latency_ms": 51.527
+    },
+    {
+      "uptime_ms": 415529,
+      "latency_ms": 60.355
+    },
+    {
+      "uptime_ms": 417600,
+      "latency_ms": 61.734
+    },
+    {
+      "uptime_ms": 419675,
+      "latency_ms": 65.107
+    },
+    {
+      "uptime_ms": 421752,
+      "latency_ms": 62.515
+    },
+    {
+      "uptime_ms": 423826,
+      "latency_ms": 63.309
+    },
+    {
+      "uptime_ms": 425902,
+      "latency_ms": 55.414
+    },
+    {
+      "uptime_ms": 427970,
+      "latency_ms": 61.431
+    },
+    {
+      "uptime_ms": 430045,
+      "latency_ms": 50.804
+    },
+    {
+      "uptime_ms": 432105,
+      "latency_ms": 60.224
+    },
+    {
+      "uptime_ms": 434173,
+      "latency_ms": 62.941
+    },
+    {
+      "uptime_ms": 436246,
+      "latency_ms": 63.451
+    },
+    {
+      "uptime_ms": 438316,
+      "latency_ms": 56.387
+    },
+    {
+      "uptime_ms": 440385,
+      "latency_ms": 64.049
+    },
+    {
+      "uptime_ms": 442461,
+      "latency_ms": 62.195
+    },
+    {
+      "uptime_ms": 444531,
+      "latency_ms": 54.362
+    },
+    {
+      "uptime_ms": 446592,
+      "latency_ms": 64.402
+    },
+    {
+      "uptime_ms": 448667,
+      "latency_ms": 61.501
+    },
+    {
+      "uptime_ms": 450738,
+      "latency_ms": 50.889
+    },
+    {
+      "uptime_ms": 452800,
+      "latency_ms": 63.534
+    },
+    {
+      "uptime_ms": 454873,
+      "latency_ms": 62.41
+    },
+    {
+      "uptime_ms": 456946,
+      "latency_ms": 64.296
+    },
+    {
+      "uptime_ms": 459021,
+      "latency_ms": 61.722
+    },
+    {
+      "uptime_ms": 461092,
+      "latency_ms": 64.407
+    },
+    {
+      "uptime_ms": 463165,
+      "latency_ms": 54.7
+    },
+    {
+      "uptime_ms": 465233,
+      "latency_ms": 58.581
+    },
+    {
+      "uptime_ms": 467301,
+      "latency_ms": 61.32
+    },
+    {
+      "uptime_ms": 469378,
+      "latency_ms": 58.114
+    }
+  ],
+  "enumerations": [
+    {
+      "utc": "2026-10-28T20:53:59.543315+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:01.576999+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:03.640130+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:05.715483+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:07.785573+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:09.854997+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:11.935897+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:14.006843+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:16.085989+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:18.148646+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:20.219726+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:22.284605+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:24.353754+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:26.425935+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:28.492801+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:30.554249+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:32.622806+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:34.698612+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:36.768312+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:38.846104+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:40.912636+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:42.990863+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:45.059052+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:47.122819+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:49.199347+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:51.275887+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:53.339078+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:55.403966+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:57.477536+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:54:59.555062+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:01.622723+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:03.689471+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:05.757088+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:07.829149+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:09.904196+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:11.984790+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:14.061658+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:16.138797+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:18.207897+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:20.285635+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:22.346632+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:24.418362+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:26.492136+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:28.565530+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:30.634076+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:32.710630+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:34.784354+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:36.848323+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:38.924346+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:40.996139+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:43.058362+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:45.132466+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:47.208363+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:49.284098+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:51.356816+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:53.431012+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:55.498202+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:57.567560+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T20:55:59.645444+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    }
+  ],
+  "hardware_handles_closed": true,
+  "lease_released": true,
+  "firmware_bytes_sent": 0,
+  "resets_sent": 0,
+  "open_output": "\u001b[?25h\u001b[2J\u001b[H+------------------------------------------------+\r\n|            NATI LAB N6 CONTROL MENU            |\r\n+------------------------------------------------+\r\n  Application firmware version: 51\r\n  USB CDC carries menu/map/update traffic only.\r\n  All debug diagnostics are on the ST-LINK VCP.\r\n\r\nCLI HELP (USB CDC)\r\nThe same commands are available on USB CDC, BLE and Cloud CLI.\r\nKeys: Tab=complete, Up/Down=history, Ctrl-C=cancel.\r\n\r\nGeneral:\r\n  help | menu | ?\r\n  version\r\n  status\r\n  usb status\r\n  clear\r\n\r\nSensor and AI:\r\n  MAP ON | MAP OFF               ToF stream; dedicated image channel on BLE/Cloud\r\n  MAP CHANNELS [1..5]            list/toggle channels\r\n  MAP ENCODING                   show wireless image compression\r\n  MAP ENCODING RAW|UINT16|UINT8|JPEG\r\n                                 BLE/Cloud only; JPEG lossy; USB unchanged\r\n  tof status|pause|resume\r\n  DATASET STREAM ON|OFF|STATUS\r\n  RPS ON|OFF|STATUS\r\n\r\nMap processing (USB+BLE+Cloud):\r\n  MAP PROCESSING                       list filters/values/ranges\r\n  MAP PROCESSING OFF|BOX|MEDIAN|GAUSSIAN|SHARPEN|MIN|MAX\r\n  MAP PROCESSING OBJECT 1..7 | NPU    stages or exact NPU input\r\n  MAP PROCESSING <filter> <value>      single-parameter form\r\n  MAP PROCESSING <filter> <parameter> <value>\r\n  Parameters: BOX radius/passes; MEDIAN radius/threshold_mm;\r\n              GAUSSIAN radius/passes; SHARPEN radius/amount_percent;\r\n              MIN/MAX radius; OBJECT 7 threshold.\r\n\r\nRadio and Wi-Fi:\r\n  debug off|error|warn|info|debug\r\n  DEMO MAP ON 1|2 [CLOUD|BLE]   timed moving-pixel source; DEMO MAP OFF/STATUS\r\n  debug ping <token>           transport-only latency probe\r\n  debug route                  session generations + M2 isolation diagnostic\r\n  debug uart                   asynchronous UART counters\r\n  debug uart burst             emit 100 ordered UART test lines\r\n  debug uart overflow          force bounded-queue drops; never stall\r\n  radio hardware|status|info\r\n  wifi status | wifi ip         link/DHCP addresses\r\n  wifi scan                     scan <=15 networks\r\n  wifi connect \"SSID\"          hidden password + DHCP\r\n  wifi disconnect [forget]      optionally erase credentials\r\n\r\nCloud CLI via http Relay:\r\n  cloud status | cloud endpoint\r\n  cloud pair <6-digit-code>     available from USB or BLE\r\n  cloud prepare yes            USB: approved RAM transition candidate\r\n  cloud enable | cloud disable\r\n  cloud reconnect | cloud test\r\n  cloud unpair yes              delete the saved device token\r\n  CLI text/XMODEM and ToF use independent Cloud channels.\r\n\r\nBLE, update and reset:\r\n  ble status                   GATT/link/MTU/queues\r\n  ble adv on | ble adv off\r\n  ble disconnect\r\n  BLE modes: CLI RX=Write, CLI TX=Notify; ToF image=dedicated Notify.\r\n             DEBUG TX=Notify; DEBUG RX is disabled by policy.\r\n  BLE ToF pixels stay on the dedicated ToF-image CCCD.\r\n  update                       signed XMODEM firmware update\r\n  reboot yes\r\n  W arm | W | W cancel         local USB CLI task hang/reset diagnostic\r\n  UART: w then W within5s; s then W tests supervisor\r\n\r\nn6> ",
+  "running_version": 51,
+  "elapsed_s": 120.00018930001534,
+  "latency_ms": {
+    "p50": 60.224,
+    "p95": 65.094,
+    "p99": 65.949,
+    "max": 65.949
+  },
+  "finished_utc": "2026-10-28T20:56:01.897058+00:00"
+}

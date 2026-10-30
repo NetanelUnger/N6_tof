@@ -1,0 +1,37 @@
+{
+  "owner": {
+    "thread": "n6-xip-st67-passive-demo-20261029",
+    "pid": 10464,
+    "process_created_utc": "2026-10-29T12:40:39.986344+00:00",
+    "started_utc": "2026-10-29T12:40:40.183884+00:00",
+    "scope": "passive ST-LINK COM6 RX only; DTR/RTS false; no TX, reset, settings, image control, or firmware change"
+  },
+  "status": "STOP_REQUESTED",
+  "windows": [
+    {
+      "status": "STOP_REQUESTED",
+      "opened_utc": "2026-10-29T12:40:40.197335+00:00",
+      "window": 1,
+      "port": "COM6",
+      "dtr": false,
+      "rts": false,
+      "serial_writes": 0,
+      "gap_from_initial_open_s": 0.0,
+      "bytes": 0,
+      "elapsed_seconds": 74.688,
+      "last_heartbeat_utc": "2026-10-29T12:41:51.218866+00:00",
+      "port_free_verified": false,
+      "owned_port_close_returned": true
+    }
+  ],
+  "serial_writes": 0,
+  "lease_released": true,
+  "port_closed": true,
+  "maximum_elapsed_seconds": 600,
+  "dtr": false,
+  "rts": false,
+  "opened_utc": "2026-10-29T12:40:40.196329+00:00",
+  "finished_utc": "2026-10-29T12:41:54.897260+00:00",
+  "elapsed_seconds": 74.688,
+  "bytes": 0
+}

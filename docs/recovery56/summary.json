@@ -1,0 +1,128 @@
+{
+  "firmware": {
+    "running": "B56",
+    "confirmed": 56,
+    "retained_on_board": "A55",
+    "B54_exact_host_artifact_retained": true,
+    "package_sha256": "373d388f099b90b40ce1e8d930beb6658378d6d22343eb8ea4e56b46ab15b960",
+    "bytes": 487104,
+    "USB_transfer_s": 16.797
+  },
+  "native_tests": {
+    "recovery_trace": "PASS actual C retained snapshot, trigger codes, tick wrap",
+    "demo_map": "PASS actual C parser/timing/admission and rejection categories",
+    "ble_priority": "PASS actual C command precedence without raw preemption",
+    "coordinated_recovery": "PASS actual C owner barriers, deadlines, restart budget and one trace per recovery"
+  },
+  "web": {
+    "tests": 65,
+    "passed": 65,
+    "build": "PASS",
+    "lint": "PASS",
+    "published": false,
+    "browser_visual_validation": "NOT_RUN; existing browser restriction respected"
+  },
+  "BLE_transition": {
+    "passed": true,
+    "modes": [
+      {
+        "mode": "UINT8",
+        "interval_ms": 1000,
+        "frames": 6,
+        "payload": 2268,
+        "frame_ids": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "timestamps_ms": [
+          88071,
+          89071,
+          90071,
+          91071,
+          92071,
+          93071
+        ],
+        "host_times_s": [
+          194407.453,
+          194408.234,
+          194409.062,
+          194410.234,
+          194411.015,
+          194412.093
+        ]
+      },
+      {
+        "mode": "UINT8",
+        "interval_ms": 300,
+        "frames": 6,
+        "payload": 2268,
+        "frame_ids": [
+          1,
+          3,
+          5,
+          7,
+          8,
+          9
+        ],
+        "timestamps_ms": [
+          94171,
+          94771,
+          95371,
+          95971,
+          96271,
+          96571
+        ],
+        "host_times_s": [
+          194413.203,
+          194413.75,
+          194414.468,
+          194414.906,
+          194415.343,
+          194415.484
+        ]
+      }
+    ],
+    "pings": 31,
+    "max_ping_ms": 375.0,
+    "crc_errors": 0,
+    "decoder_incomplete": 0,
+    "demo_status": [
+      "Demo map: ON, interval 1000 ms, destination BLE, encoding 3\rScheduled 6, accepted 6, skipped 0, late slots 0, max lateness 10 ms\rSource ID is the scheduled sequence; accepted means queued, not delivered. NPU off for demo frames.\rPublish rejected: busy=0 unavailable=0 other=0; skipped includes these plus late slots.\rn6> \n",
+      "Demo map: ON, interval 300 ms, destination BLE, encoding 3\rScheduled 10, accepted 7, skipped 3, late slots 0, max lateness 10 ms\rSource ID is the scheduled sequence; accepted means queued, not delivered. NPU off for demo frames.\rPublish rejected: busy=3 unavailable=0 other=0; skipped includes these plus late slots.\rn6> \n"
+    ],
+    "recovery": "none",
+    "SPI_faults": 0,
+    "Cloud_images_sent_delta": 0,
+    "Cloud_request_errors_before": 1,
+    "Cloud_request_errors_after": 1
+  },
+  "HIL100": {
+    "frames": 100,
+    "exact_tensors": 100,
+    "npu_frames": 100,
+    "max_score_delta": 1,
+    "crc_errors": 0,
+    "elapsed_s": 27.155999999988126,
+    "passed": true
+  },
+  "final": {
+    "demo": "OFF",
+    "image_route": "NONE",
+    "dataset": "OFF",
+    "settings_generation": 2,
+    "NCP_recovery_attempts": 0,
+    "handles_closed": true,
+    "lease_released": true
+  },
+  "limitations": [
+    "Earlier A55 recovery trigger/root cause remains unknown; new trace did not fire in the single B56 transition.",
+    "Earlier seven skips are publication rejections but their individual return codes were not recorded.",
+    "B56 300ms run proves three TX_QUEUE_FULL rejections; cannot retrospectively classify the earlier seven.",
+    "Six validated images per phase is a short regression, not sustained-rate/endurance proof. Seven queued images at 300ms is not seven delivered.",
+    "Reset policy and backpressure were not changed. No evidence justified removing either."
+  ]
+}

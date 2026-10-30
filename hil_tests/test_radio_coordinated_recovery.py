@@ -33,6 +33,9 @@ static W61_Object_t driver;
 static volatile WifiBle_RecoveryStatus_t radio_recovery;
 static unsigned recovery_window_started,recovery_window_attempts,recovery_invalid_request_id;
 static unsigned recovery_fault_test;
+static unsigned trace_calls;
+static void radio_capture_recovery_trace(void){++trace_calls;}
+static int spi_transaction_faulted(void){return 0;}
 static unsigned wifi_connection_desired;
 static void wifi_restore_connection(void){}
 static struct {struct {unsigned state,wifi_has_ip,wifi_connected,wifi_state_confirmed;}shadow;struct {unsigned wifi_last_request_id;}work;}radio_manager;
@@ -59,7 +62,7 @@ static int W6X_WiFi_Init(void){return 0;}static int wifi_enable_station_dhcp(voi
 static void wifi_refresh_status(void){}
 static void CloudRelay_SetNetworkState(unsigned r,unsigned ip){(void)r;(void)ip;}
 static void CloudRelay_RadioResetComplete(void){assert(inits && init_result==0);}
-static void reset(void){memset(&driver,0,sizeof driver);memset((void*)&radio_recovery,0,sizeof radio_recovery);memset(&radio_manager,0,sizeof radio_manager);radio_manager.shadow.state=2;radio_manager.work.wifi_last_request_id=5;recovery_window_started=recovery_window_attempts=0;now=1000;cloud_ack=mutex_available=powered=1;spi_result=init_result=destructions=inits=paused=logs=0;driver.Modem.modem_task_handle=(void*)1;}
+static void reset(void){trace_calls=0;memset(&driver,0,sizeof driver);memset((void*)&radio_recovery,0,sizeof radio_recovery);memset(&radio_manager,0,sizeof radio_manager);radio_manager.shadow.state=2;radio_manager.work.wifi_last_request_id=5;recovery_window_started=recovery_window_attempts=0;now=1000;cloud_ack=mutex_available=powered=1;spi_result=init_result=destructions=inits=paused=logs=0;driver.Modem.modem_task_handle=(void*)1;}
 '''
 TESTS = r'''
 int main(void){
@@ -92,7 +95,7 @@ int main(void){
  reset();now=0;cloud_ack=0;WIFI_BLE_App_RequestRadioRecovery();radio_recovery_pump();
  assert(radio_recovery.stage==1 && !radio_recovery.started_ms && paused==1);
  now=20;radio_recovery.radio_quiesced=0;radio_recovery_pump();
- assert(paused==1 && !radio_recovery.started_ms && logs==1);
+ assert(paused==1 && !radio_recovery.started_ms && logs==1 && trace_calls==1);
  now=35000;radio_recovery_execute();
  assert(radio_recovery.state==3 && radio_recovery.elapsed_ms==35000 && !destructions);
  assert(WIFI_BLE_App_RequestRadioRecovery()==0 && !radio_recovery.stage);

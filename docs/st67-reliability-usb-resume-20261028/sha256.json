@@ -1,0 +1,20 @@
+{
+  "prepared_utc": "2026-10-28T21:08:01.283696+00:00",
+  "original_plan_sha256": "BE9DD99F0529845F3ED659DB56CE09531E5E4CAC09BBF7C57EF45227F669138C",
+  "files": {
+    "plan-before-cp1.md": "be9dd99f0529845f3ed659db56ce09531e5e4cac09bbf7c57ef45227f669138c",
+    "report.md": "4b9fac52e5d1843a822be486b0fe4c4fb02d46455ed35a63cb2545fb50d6875a",
+    "st67-p0-confirm51-20261028/result.json": "306ce292910f72a6832f1bc1b5cb31644d96da2855fdd6f297c3ca825162c1cc",
+    "st67-p0-confirm51-20261028/uart.log": "9a8ca442e5d5372fd0650654fc08aca0532655280663ce93aebe2da536c590b7",
+    "st67-p0-control-20261028/owner-start.json": "8b5eed2fc35b282cace36830ffeff4a55ef47d1fdf50b9d15031b292476ef3cf",
+    "st67-p0-control-20261028/result.json": "b7986de0bbd75e4a17d2c48ebaf3e9392831540af7d49c875e2902ff383709c5",
+    "st67-p0-settled-20261028/owner-start.json": "930763c0ecd8789024d31109b9714420067d3c0f6ee3a0ca5fe63fdf1128b3da",
+    "st67-p0-settled-20261028/result.json": "6f7a57d20d6356e5422068f436aa4cb40ed3928bf67663c2b3ed18b424b2d268",
+    "st67-p0-usb-resume-20261028/owner-start.json": "14b5e32550bbe4695c35690c35b182972c6974e398bc30cb35fff094ba0ae916",
+    "st67-p0-usb-resume-20261028/result.json": "32a5f246863f74f92551527011bc29ea3a1550440384f28750fde5c4f363f10c",
+    "st67-reliability-improvement-plan.updated.md": "cc77fd0e1123522219c2f1f5339fa9035f41858bb112bf65a0f1faa70d13e669",
+    "st67_confirm_existing.py": "2333cefd3a9ab7b9b4208beae3bfa6f5d3f73da77646747615c0861c945c0b99",
+    "st67_p0_control_baseline.py": "9cadcd5313be35ba0506d1a5f4e88587ceca2641eacd562897767c5ee99836fa",
+    "st67_usb_preflight.py": "74f29c44d25a12f69a570336776d80d7489854ad4180766b4c45a51314d75881"
+  }
+}

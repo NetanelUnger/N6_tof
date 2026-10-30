@@ -35,16 +35,19 @@ static uint32_t cs_hold_timer_fallbacks;
 static volatile SpiPortFault_t spi_fault;
 static volatile uint32_t transfer_id, transfer_phase, transfer_length, transfer_rx_only;
 static volatile uint32_t fault_reported; /* Radio writes; IRQ capture reads. */
-#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
 static volatile uint32_t rx_flow_resumes;
 static uint32_t rx_flow_reported;
 static volatile uint32_t transfer_started_tick;
 uint32_t spi_port_transfer_started_tick(void){return transfer_started_tick;}
+#else
+uint32_t spi_port_transfer_started_tick(void){return 0;}
+#endif
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
 #include "spi_flow_probe_impl.inc"
 #else
 int32_t spi_port_arm_rx_flow_test(void){return -1;}
 int32_t spi_port_cancel_rx_flow_test(void){return -1;}
-uint32_t spi_port_transfer_started_tick(void){return 0;}
 #endif
 
 void spi_port_set_phase(uint32_t phase) { transfer_phase = phase; }
@@ -126,7 +129,7 @@ void spi_port_report_fault(void)
 #if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
   spi_port_report_flow_test();
 #endif
-#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
   uint32_t resumed=rx_flow_resumes;
   if (resumed!=rx_flow_reported)
   {
@@ -190,8 +193,8 @@ int32_t spi_port_init(spi_transaction_complete_t callback)
     return -1;
   }
 
-#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
-  /* Experimental XIP-only policy. ST AN5543 Rev5 section4.1.1 describes
+#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
+  /* Production RX flow control. ST AN5543 Rev5 section4.1.1 describes
    * MASRX flow control when the receive FIFO cannot drain promptly. The N6
    * HAL supports it for master >=8bit transfers, including two-line mode.
    * Configure only while disabled, before the NCP is powered. Keep Init in
@@ -205,7 +208,7 @@ int32_t spi_port_init(spi_transaction_complete_t callback)
       (NCP_SPI_HANDLE.Init.DataSize != SPI_DATASIZE_8BIT)) return -1;
   NCP_SPI_HANDLE.Init.MasterReceiverAutoSusp=SPI_MASTER_RX_AUTOSUSP_ENABLE;
   SET_BIT(NCP_SPI_HANDLE.Instance->CR1,SPI_CR1_MASRX);
-  Debug_UART_Log("SPI-FLOW","experimental MASRX enabled; CR1=%08lX",
+  Debug_UART_Log("SPI-FLOW","MASRX enabled; CR1=%08lX",
       (unsigned long)NCP_SPI_HANDLE.Instance->CR1);
 #endif
 
@@ -272,7 +275,7 @@ int32_t spi_port_transfer_dma(void *tx_buf, void *rx_buf, uint16_t len)
 #endif
 
   transaction_failed = 0;
-#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
   transfer_started_tick=tx_time_get();
 #endif
   if (tx_buf != NULL)
@@ -314,7 +317,7 @@ int32_t spi_port_transfer_dma_status(void)
 
 void spi_port_service_rx_flow(void)
 {
-#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
   uint32_t saved=__get_PRIMASK();
   __disable_irq();
   uint32_t sr=NCP_SPI_HANDLE.Instance->SR;

@@ -1,0 +1,1113 @@
+{
+  "owner": {
+    "thread": "n6-xip-st67-reliability-20261028",
+    "pid": 27772,
+    "started_utc": "2026-10-29T07:57:30.937032+00:00",
+    "process_created_utc": "2026-10-29T07:57:30.615575+00:00",
+    "scope": "B52 BLE image/NPU/CLI120s with existing Wi-Fi/Cloud; restore map off; no reset/firmware/pair/settings writes"
+  },
+  "result": "FAIL",
+  "handles_closed": true,
+  "lease_released": true,
+  "before": {
+    "version": "version\r\nFirmware version: 52\r\nn6> ",
+    "status": "status\r\nUptime: 34687319 ms\r\nUSB CDC: active, session 2, TX queue 6, RX queue 0\r\nToF: ready, map off, channels 0x01, active 1, dataset off, frame 346602, 3.8 fps\r\nST67: ready, Wi-Fi IP ready, BLE disconnected, advertising on\r\nLog level: off\r\nWi-Fi CONNECTED: YES; IPv4 ready: YES\r\nWi-Fi station: STA GOT IP\r\nWi-Fi shadow: event/query confirmed, query 6/0 failed, last tick 23271713/status 0\r\nSSID: nati_sash, channel: 3, RSSI: -64 dBm\r\nAP: B4:B0:24:D8:B3:72\r\nIPv4: 192.168.68.53\r\nGateway: 192.168.68.1, netmask: 255.255.252.0\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nn6> ",
+    "ble status": "ble status\r\nBLE GATT: ready, link: disconnected, advertising: on, MTU: 23\r\nBLE advertising desired: on; manager init 1/0 fail, advertising 5/0 fail, disconnect fail 0, driver errors 4 (last 3)\r\nBLE ADV evidence: command ACK (not RF proof), retry 0/3; mode/link confirmed 1/1, recovery pending 0\r\nBLE probes: mode 1146, link 1145, failed 1, corrected 0, last tick 34683930/status 0; BLE repair 0/0 fail; ADV exhausted 0\r\nBLE init stage: 14, last W6X status: 0\r\nName: N6-MAINT-B8FB\r\nAddress: 40:82:7B:03:B8:FB\r\nCLI TX notifications: off; DEBUG TX notifications: off; ToF image notifications: off\r\nStream transport: ready, generation 6, ATT payload 20 bytes\r\nRadio SRAM4 pool: 17296 bytes available, 32 fragments\r\nCLI RX: queued 0/1 high-water, accepted 321 events/6739 bytes, dropped 0/0\r\nCLI TX: queued 0/2 high-water, accepted 325 messages/7325 bytes, sent 7325, dropped 0/0, retries 0, errors 0\r\nCLI TX contention: busy 716, timeout 0, streak 0/7, duration_ticks 0/10, recoveries 325\r\nDEBUG RX: disabled by policy, dropped 0 events/0 bytes\r\nDEBUG TX: queued 0/0 high-water, accepted 0 messages/0 bytes, sent 0, dropped 0/0, retries 0, errors 0\r\nDEBUG TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nStale generation drops: CLI 0, DEBUG 0; total GATT writes 321, discarded bytes 0\r\nToF image: submitted 102, complete 101, busy drops 308, aborted 1; fragments 4974, payload bytes 920972, retries 0, errors 0; last 8069/8057\r\nToF TX contention: busy 10936, timeout 0, streak 0/12, duration_ticks 0/17, recoveries 4974\r\nn6> ",
+    "radio status": "radio status\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: ready, advertising: on, link: disconnected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=1745220 last_ms=34687331 max_gap_ms=788\r\n  BLE TX pump: last_ms=34687331 max_gap_ms=24580\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=0 op=4 submitted=2295 completed=2295 deferred=78 stale=0 queue_max=267 ms call_max=2035 ms last=0\r\n  NCP recovery: state=0 stage=0 attempts=2 ready=2 failed=0 elapsed=24556 ms owners radio/cloud=0/1 last=0\r\n  SPI fault: count=121 tick=34367521 source=1 phase=2 len=332 HAL_error=00000004 SR=00b30040 TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=2 pending=1 old_generation=5 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> ",
+    "tof status": "tof status\r\nImage destination: requested NONE, active NONE, switches 4, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 346602, rate: 3.8 fps\r\nPipeline: acquired 347109, processed 133966, dropped 213141, queue failures 0\r\nLast valid range: 119..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 55\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+    "dataset stream status": "dataset stream status\r\nDataset stream: off, submitted 100, dropped 0, last frame 2315, last CRC32 0x9C9F1867\r\nn6> ",
+    "rps status": "rps status\r\nRPS status: enabled=1 ready=1 frame=346602 class=scissors class_id=3 confidence_permille=891 scores=-124,-112,-120,100 runs=133966 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> ",
+    "cloud status": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: polling, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 1, last 204, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 2, acked 2, sent 11\r\nToF: sent 0, dropped 0; request errors 108\r\nWorker: loops 1176661, last tick 34687318, max step 4500 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+  },
+  "command": [
+    "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\training\\.venv\\Scripts\\python.exe",
+    "-B",
+    "-u",
+    "C:\\Users\\netan\\Documents\\Codex\\2026-10-28\\task-2\\st67_cp8_image52.py",
+    "--owner-thread",
+    "n6-xip-st67-reliability-20261028",
+    "--label",
+    "st67-cp8-images-cloud204",
+    "--duration",
+    "120"
+  ],
+  "child_pid": 43600,
+  "exit_code": 1,
+  "profile": {
+    "baseline": {
+      "ble_control": [
+        0,
+        4,
+        2295,
+        2295,
+        78,
+        0,
+        267,
+        2035,
+        0
+      ],
+      "cloud_dropped": 0,
+      "cloud_errors": 108,
+      "cloud_frames": 0,
+      "cloud_paired": true,
+      "http_active": 1,
+      "radio_ready": true,
+      "recovery": [
+        0,
+        0,
+        2,
+        2,
+        0
+      ],
+      "route": [
+        "NONE",
+        "NONE"
+      ],
+      "spi_fault": 121,
+      "tof_frame": 346644,
+      "tof_ready": true,
+      "wifi_ip": true
+    },
+    "connections": [
+      {
+        "cycle": 1,
+        "kind": "automatic",
+        "mtu": 247,
+        "os_is_paired": false,
+        "pair_requested": false,
+        "rps_only": {
+          "ble_control": [
+            0,
+            1,
+            2296,
+            2296,
+            78,
+            0,
+            267,
+            2035,
+            0
+          ],
+          "cloud_dropped": 0,
+          "cloud_errors": 108,
+          "cloud_frames": 0,
+          "cloud_paired": true,
+          "http_active": 1,
+          "radio_ready": true,
+          "recovery": [
+            0,
+            0,
+            2,
+            2,
+            0
+          ],
+          "route": [
+            "NONE",
+            "NONE"
+          ],
+          "spi_fault": 121,
+          "tof_frame": 346789,
+          "tof_ready": true,
+          "wifi_ip": true
+        }
+      }
+    ],
+    "duration_target_s": 120,
+    "elapsed_s": 9.469,
+    "errors": [],
+    "events": [],
+    "failure": "AssertionError: BLE latency >1500ms",
+    "handles_closed": true,
+    "image_encoding": "MAP ENCODING\r\nWireless encoding: RAW float32\r\nApplies to newly accepted BLE/Cloud frames; USB MAP unchanged.\r\nn6> ",
+    "images": [
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 2314984283,
+        "frame_id": 346850,
+        "height": 42,
+        "host_monotonic": 174200.953,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 346850,
+          "inference_ms": 2,
+          "runs": 134063,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 34711981,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 273415721,
+        "frame_id": 346862,
+        "height": 42,
+        "host_monotonic": 174202.218,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 346862,
+          "inference_ms": 3,
+          "runs": 134067,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 34713138,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 2172523657,
+        "frame_id": 346873,
+        "height": 42,
+        "host_monotonic": 174203.468,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 346873,
+          "inference_ms": 3,
+          "runs": 134071,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 34714311,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 114924092,
+        "frame_id": 346888,
+        "height": 42,
+        "host_monotonic": 174204.906,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 346888,
+          "inference_ms": 3,
+          "runs": 134076,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 34715744,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 592791100,
+        "frame_id": 346902,
+        "height": 42,
+        "host_monotonic": 174206.171,
+        "npu": {
+          "class_id": 3,
+          "confidence": 672,
+          "frame_id": 346902,
+          "inference_ms": 3,
+          "runs": 134081,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 34717171,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 1783519916,
+        "frame_id": 346914,
+        "height": 42,
+        "host_monotonic": 174207.39,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 346914,
+          "inference_ms": 3,
+          "runs": 134085,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 34718337,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 2085531902,
+        "frame_id": 346925,
+        "height": 42,
+        "host_monotonic": 174208.578,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 346925,
+          "inference_ms": 3,
+          "runs": 134089,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 34719498,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 1008941749,
+        "frame_id": 346937,
+        "height": 42,
+        "host_monotonic": 174209.75,
+        "npu": {
+          "class_id": 3,
+          "confidence": 672,
+          "frame_id": 346937,
+          "inference_ms": 3,
+          "runs": 134093,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 34720673,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 1976407178,
+        "frame_id": 346949,
+        "height": 42,
+        "host_monotonic": 174211.843,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 346949,
+          "inference_ms": 3,
+          "runs": 134097,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 34721845,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      }
+    ],
+    "io_errors": [],
+    "io_timings": [
+      {
+        "begin_monotonic": 174212.843,
+        "elapsed_s": 0.0,
+        "end_monotonic": 174212.843
+      }
+    ],
+    "map_on_requested": true,
+    "max_event_loop_lag_s": 0.012999999994644892,
+    "max_image_receive_gap_s": 2.0929999999934807,
+    "max_result_receive_gap_s": 1.1719999999913853,
+    "pair_requested": false,
+    "passed": false,
+    "pings": [
+      312.0,
+      47.0,
+      250.0,
+      32.0,
+      172.0,
+      109.0,
+      171.0,
+      125.0,
+      93.0,
+      125.0,
+      265.0,
+      109.0,
+      109.0,
+      94.0,
+      93.0,
+      109.0,
+      1953.0
+    ],
+    "results": [
+      {
+        "a": "0000000249",
+        "c": "scissors",
+        "f": 346740,
+        "g": 7,
+        "host_monotonic": 174189.125,
+        "npu": 1,
+        "ok": 1,
+        "p": 754,
+        "q": [
+          -119,
+          -82,
+          -120,
+          65
+        ],
+        "r": 134020,
+        "v": 1
+      },
+      {
+        "a": "0000000239",
+        "c": "scissors",
+        "f": 346745,
+        "g": 7,
+        "host_monotonic": 174189.625,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134022,
+        "v": 1
+      },
+      {
+        "a": "0000000007",
+        "c": "scissors",
+        "f": 346753,
+        "g": 7,
+        "host_monotonic": 174190.156,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134025,
+        "v": 1
+      },
+      {
+        "a": "0000000005",
+        "c": "scissors",
+        "f": 346758,
+        "g": 7,
+        "host_monotonic": 174190.703,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134027,
+        "v": 1
+      },
+      {
+        "a": "0000000015",
+        "c": "scissors",
+        "f": 346763,
+        "g": 7,
+        "host_monotonic": 174191.25,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134029,
+        "v": 1
+      },
+      {
+        "a": "0000000032",
+        "c": "scissors",
+        "f": 346768,
+        "g": 7,
+        "host_monotonic": 174191.734,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134031,
+        "v": 1
+      },
+      {
+        "a": "0000000095",
+        "c": "scissors",
+        "f": 346773,
+        "g": 7,
+        "host_monotonic": 174192.328,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134033,
+        "v": 1
+      },
+      {
+        "a": "0000000099",
+        "c": "scissors",
+        "f": 346778,
+        "g": 7,
+        "host_monotonic": 174192.812,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134035,
+        "v": 1
+      },
+      {
+        "a": "0000000116",
+        "c": "scissors",
+        "f": 346783,
+        "g": 7,
+        "host_monotonic": 174194.343,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134037,
+        "v": 1
+      },
+      {
+        "a": "0000000148",
+        "c": "scissors",
+        "f": 346789,
+        "g": 7,
+        "host_monotonic": 174194.343,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134039,
+        "v": 1
+      },
+      {
+        "a": "0000000098",
+        "c": "scissors",
+        "f": 346832,
+        "g": 7,
+        "host_monotonic": 174198.187,
+        "npu": 1,
+        "ok": 1,
+        "p": 938,
+        "q": [
+          -126,
+          -120,
+          -122,
+          112
+        ],
+        "r": 134056,
+        "v": 1
+      },
+      {
+        "a": "0000000085",
+        "c": "scissors",
+        "f": 346837,
+        "g": 7,
+        "host_monotonic": 174199.468,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134058,
+        "v": 1
+      },
+      {
+        "a": "0000000090",
+        "c": "scissors",
+        "f": 346842,
+        "g": 7,
+        "host_monotonic": 174199.468,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134060,
+        "v": 1
+      },
+      {
+        "a": "0000000179",
+        "c": "scissors",
+        "f": 346848,
+        "g": 7,
+        "host_monotonic": 174199.812,
+        "npu": 1,
+        "ok": 1,
+        "p": 891,
+        "q": [
+          -124,
+          -115,
+          -117,
+          100
+        ],
+        "r": 134062,
+        "v": 1
+      },
+      {
+        "a": "0000000127",
+        "c": "scissors",
+        "f": 346853,
+        "g": 7,
+        "host_monotonic": 174200.328,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134064,
+        "v": 1
+      },
+      {
+        "a": "0000000067",
+        "c": "scissors",
+        "f": 346859,
+        "g": 7,
+        "host_monotonic": 174200.859,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134066,
+        "v": 1
+      },
+      {
+        "a": "0000000049",
+        "c": "scissors",
+        "f": 346864,
+        "g": 7,
+        "host_monotonic": 174201.421,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134068,
+        "v": 1
+      },
+      {
+        "a": "0000000260",
+        "c": "scissors",
+        "f": 346867,
+        "g": 7,
+        "host_monotonic": 174201.953,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134069,
+        "v": 1
+      },
+      {
+        "a": "0000000202",
+        "c": "scissors",
+        "f": 346873,
+        "g": 7,
+        "host_monotonic": 174202.453,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134071,
+        "v": 1
+      },
+      {
+        "a": "0000000179",
+        "c": "scissors",
+        "f": 346879,
+        "g": 7,
+        "host_monotonic": 174203.015,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134073,
+        "v": 1
+      },
+      {
+        "a": "0000000105",
+        "c": "scissors",
+        "f": 346885,
+        "g": 7,
+        "host_monotonic": 174203.531,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134075,
+        "v": 1
+      },
+      {
+        "a": "0000000069",
+        "c": "scissors",
+        "f": 346890,
+        "g": 7,
+        "host_monotonic": 174204.187,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134077,
+        "v": 1
+      },
+      {
+        "a": "0000000080",
+        "c": "scissors",
+        "f": 346896,
+        "g": 7,
+        "host_monotonic": 174204.64,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 134079,
+        "v": 1
+      },
+      {
+        "a": "0000000042",
+        "c": "scissors",
+        "f": 346902,
+        "g": 7,
+        "host_monotonic": 174205.171,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 134081,
+        "v": 1
+      },
+      {
+        "a": "0000000266",
+        "c": "scissors",
+        "f": 346905,
+        "g": 7,
+        "host_monotonic": 174205.671,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 134082,
+        "v": 1
+      },
+      {
+        "a": "0000000202",
+        "c": "scissors",
+        "f": 346911,
+        "g": 7,
+        "host_monotonic": 174206.203,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 134084,
+        "v": 1
+      },
+      {
+        "a": "0000000140",
+        "c": "scissors",
+        "f": 346916,
+        "g": 7,
+        "host_monotonic": 174206.859,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 134086,
+        "v": 1
+      },
+      {
+        "a": "0000000073",
+        "c": "scissors",
+        "f": 346922,
+        "g": 7,
+        "host_monotonic": 174207.25,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 134088,
+        "v": 1
+      },
+      {
+        "a": "0000000005",
+        "c": "scissors",
+        "f": 346928,
+        "g": 7,
+        "host_monotonic": 174207.734,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 134090,
+        "v": 1
+      },
+      {
+        "a": "0000000232",
+        "c": "scissors",
+        "f": 346931,
+        "g": 7,
+        "host_monotonic": 174208.359,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 134091,
+        "v": 1
+      },
+      {
+        "a": "0000000169",
+        "c": "scissors",
+        "f": 346937,
+        "g": 7,
+        "host_monotonic": 174208.781,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 134093,
+        "v": 1
+      },
+      {
+        "a": "0000000100",
+        "c": "scissors",
+        "f": 346943,
+        "g": 7,
+        "host_monotonic": 174209.281,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134095,
+        "v": 1
+      },
+      {
+        "a": "0000000038",
+        "c": "scissors",
+        "f": 346949,
+        "g": 7,
+        "host_monotonic": 174209.828,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134097,
+        "v": 1
+      },
+      {
+        "a": "0000000257",
+        "c": "scissors",
+        "f": 346951,
+        "g": 7,
+        "host_monotonic": 174210.671,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134098,
+        "v": 1
+      },
+      {
+        "a": "0000000243",
+        "c": "scissors",
+        "f": 346957,
+        "g": 7,
+        "host_monotonic": 174211.843,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 134100,
+        "v": 1
+      },
+      {
+        "a": "0000000003",
+        "c": "scissors",
+        "f": 346966,
+        "g": 7,
+        "host_monotonic": 174211.984,
+        "npu": 1,
+        "ok": 1,
+        "p": 938,
+        "q": [
+          -126,
+          -120,
+          -122,
+          112
+        ],
+        "r": 134103,
+        "v": 1
+      },
+      {
+        "a": "0000000247",
+        "c": "scissors",
+        "f": 346969,
+        "g": 7,
+        "host_monotonic": 174212.171,
+        "npu": 1,
+        "ok": 1,
+        "p": 938,
+        "q": [
+          -126,
+          -120,
+          -122,
+          112
+        ],
+        "r": 134104,
+        "v": 1
+      },
+      {
+        "a": "0000000198",
+        "c": "scissors",
+        "f": 346974,
+        "g": 7,
+        "host_monotonic": 174212.562,
+        "npu": 1,
+        "ok": 1,
+        "p": 938,
+        "q": [
+          -126,
+          -120,
+          -122,
+          112
+        ],
+        "r": 134106,
+        "v": 1
+      }
+    ],
+    "rps_packets": [
+      "7b2276223a312c2267223a372c2266223a3334363734302c2272223a3133343032302c226f6b223a312c2263223a2273636973736f7273222c2270223a3735342c2271223a5b2d3131392c2d38322c2d3132302c36355d2c226e7075223a312c2261223a2230303030303030323439227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363734352c2272223a3133343032322c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323339227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363735332c2272223a3133343032352c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303037227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363735382c2272223a3133343032372c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303035227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363736332c2272223a3133343032392c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303135227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363736382c2272223a3133343033312c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303332227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363737332c2272223a3133343033332c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303935227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363737382c2272223a3133343033352c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303939227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363738332c2272223a3133343033372c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313136227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363738392c2272223a3133343033392c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313438227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363833322c2272223a3133343035362c226f6b223a312c2263223a2273636973736f7273222c2270223a3933382c2271223a5b2d3132362c2d3132302c2d3132322c3131325d2c226e7075223a312c2261223a2230303030303030303938227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363833372c2272223a3133343035382c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303835227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363834322c2272223a3133343036302c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303930227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363834382c2272223a3133343036322c226f6b223a312c2263223a2273636973736f7273222c2270223a3839312c2271223a5b2d3132342c2d3131352c2d3131372c3130305d2c226e7075223a312c2261223a2230303030303030313739227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363835332c2272223a3133343036342c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313237227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363835392c2272223a3133343036362c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303637227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363836342c2272223a3133343036382c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303439227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363836372c2272223a3133343036392c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323630227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363837332c2272223a3133343037312c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323032227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363837392c2272223a3133343037332c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313739227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363838352c2272223a3133343037352c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313035227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363839302c2272223a3133343037372c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303639227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363839362c2272223a3133343037392c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030303830227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363930322c2272223a3133343038312c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030303432227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363930352c2272223a3133343038322c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030323636227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363931312c2272223a3133343038342c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030323032227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363931362c2272223a3133343038362c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030313430227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363932322c2272223a3133343038382c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030303733227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363932382c2272223a3133343039302c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030303035227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363933312c2272223a3133343039312c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030323332227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363933372c2272223a3133343039332c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030313639227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363934332c2272223a3133343039352c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313030227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363934392c2272223a3133343039372c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303338227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363935312c2272223a3133343039382c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323537227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363935372c2272223a3133343130302c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323433227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363936362c2272223a3133343130332c226f6b223a312c2263223a2273636973736f7273222c2270223a3933382c2271223a5b2d3132362c2d3132302c2d3132322c3131325d2c226e7075223a312c2261223a2230303030303030303033227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363936392c2272223a3133343130342c226f6b223a312c2263223a2273636973736f7273222c2270223a3933382c2271223a5b2d3132362c2d3132302c2d3132322c3131325d2c226e7075223a312c2261223a2230303030303030323437227d0a",
+      "7b2276223a312c2267223a372c2266223a3334363937342c2272223a3133343130362c226f6b223a312c2263223a2273636973736f7273222c2270223a3933382c2271223a5b2d3132362c2d3132302c2d3132322c3131325d2c226e7075223a312c2261223a2230303030303030313938227d0a"
+    ],
+    "scope": "B52_BLE_IMAGES_NPU_CLI_WITH_EXISTING_WIFI_CLOUD_POLLING_NOT_ACTIVE_CLOUD_CONTROL",
+    "settings_commands": false,
+    "snapshots": [],
+    "soak_start_counts": {
+      "drops": 0,
+      "images": 1,
+      "pings": 1,
+      "results": 16
+    },
+    "soak_started_monotonic": 174200.984,
+    "stale_probe": {
+      "browser_rendering_observed": false,
+      "fresh_inference_after_resubscribe": true,
+      "host_model_expiry_elapsed": true,
+      "no_callbacks_after_drain": true,
+      "unsubscribe_silence_s": 3.2
+    },
+    "started_utc": "2026-10-29T07:57:31.786930+00:00",
+    "version": "version\r\nFirmware version: 52\r\nn6> "
+  },
+  "map_off_cleanup": "MAP OFF\r\nDepth map disabled; ranging remains active.\r\nn6> ",
+  "after": {
+    "version": "version\r\nFirmware version: 52\r\nn6> ",
+    "status": "status\r\nUptime: 34725737 ms\r\nUSB CDC: active, session 2, TX queue 6, RX queue 0\r\nToF: ready, map off, channels 0x01, active 1, dataset off, frame 346987, 4.0 fps\r\nST67: ready, Wi-Fi IP ready, BLE connected, advertising off\r\nLog level: off\r\nWi-Fi CONNECTED: YES; IPv4 ready: YES\r\nWi-Fi station: STA GOT IP\r\nWi-Fi shadow: event/query confirmed, query 6/0 failed, last tick 23271713/status 0\r\nSSID: nati_sash, channel: 3, RSSI: -64 dBm\r\nAP: B4:B0:24:D8:B3:72\r\nIPv4: 192.168.68.53\r\nGateway: 192.168.68.1, netmask: 255.255.252.0\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nn6> ",
+    "ble status": "ble status\r\nBLE GATT: ready, link: connected, advertising: off, MTU: 247\r\nBLE advertising desired: on; manager init 1/0 fail, advertising 5/0 fail, disconnect fail 0, driver errors 4 (last 3)\r\nBLE ADV evidence: connection event (not RF proof), retry 0/3; mode/link confirmed 1/1, recovery pending 0\r\nBLE probes: mode 1146, link 1145, failed 1, corrected 0, last tick 34683930/status 0; BLE repair 0/0 fail; ADV exhausted 0\r\nBLE init stage: 14, last W6X status: 0\r\nName: N6-MAINT-B8FB\r\nAddress: 40:82:7B:03:B8:FB\r\nCLI TX notifications: off; DEBUG TX notifications: off; ToF image notifications: off\r\nStream transport: ready, generation 7, ATT payload 244 bytes\r\nRadio SRAM4 pool: 17296 bytes available, 32 fragments\r\nCLI RX: queued 0/1 high-water, accepted 339 events/7078 bytes, dropped 0/0\r\nCLI TX: queued 0/2 high-water, accepted 347 messages/8276 bytes, sent 8276, dropped 0/0, retries 0, errors 0\r\nCLI TX contention: busy 772, timeout 0, streak 0/7, duration_ticks 0/10, recoveries 347\r\nDEBUG RX: disabled by policy, dropped 0 events/0 bytes\r\nDEBUG TX: queued 0/0 high-water, accepted 0 messages/0 bytes, sent 0, dropped 0/0, retries 0, errors 0\r\nDEBUG TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nStale generation drops: CLI 0, DEBUG 0; total GATT writes 339, discarded bytes 0\r\nToF image: submitted 112, complete 110, busy drops 342, aborted 2; fragments 5453, payload bytes 1009764, retries 0, errors 0; last 346963/346949\r\nToF TX contention: busy 12035, timeout 0, streak 0/12, duration_ticks 0/17, recoveries 5453\r\nn6> ",
+    "tof status": "tof status\r\nImage destination: requested NONE, active NONE, switches 6, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 346987, rate: 4.0 fps\r\nPipeline: acquired 347493, processed 134111, dropped 213380, queue failures 0\r\nLast valid range: 120..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 65\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+    "dataset stream status": "dataset stream status\r\nDataset stream: off, submitted 100, dropped 0, last frame 2315, last CRC32 0x9C9F1867\r\nn6> ",
+    "rps status": "rps status\r\nRPS status: enabled=1 ready=1 frame=346987 class=scissors class_id=3 confidence_permille=891 scores=-124,-112,-120,100 runs=134111 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> ",
+    "radio status": "radio status\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: ready, advertising: off, link: connected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=1748216 last_ms=34725791 max_gap_ms=788\r\n  BLE TX pump: last_ms=34725791 max_gap_ms=24580\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=0 op=1 submitted=2296 completed=2296 deferred=78 stale=0 queue_max=267 ms call_max=2035 ms last=0\r\n  NCP recovery: state=0 stage=0 attempts=2 ready=2 failed=0 elapsed=24556 ms owners radio/cloud=0/1 last=0\r\n  SPI fault: count=121 tick=34367521 source=1 phase=2 len=332 HAL_error=00000004 SR=00b30040 TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=2 pending=0 old_generation=5 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> ",
+    "cloud status": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: polling, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 1, last 204, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 2, acked 2, sent 11\r\nToF: sent 0, dropped 0; request errors 108\r\nWorker: loops 1176781, last tick 34724794, max step 4500 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+  },
+  "failure": "AssertionError()",
+  "finished_utc": "2026-10-29T07:58:09.755335+00:00"
+}

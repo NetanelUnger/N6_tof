@@ -1,0 +1,11 @@
+{
+  "result": "NOT_RUN",
+  "action_status": "DENIED_BEFORE_EXECUTION",
+  "reason": "Automatic approval review rejected the 120-second Cloud-image plus BLE/USB test because it may export nonpublic sensor images and requires explicit authorization for payload and destination.",
+  "destination": "Existing N6 Cloud Relay workspace at natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net",
+  "pings": [],
+  "usb_pings": [],
+  "handles_closed": true,
+  "lease_released": true,
+  "created_utc": "2026-10-29T11:52:58.5210465Z"
+}

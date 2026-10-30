@@ -10,6 +10,22 @@ from cli_text_protocol import reply_finished, reply_succeeded, reply_results
 
 
 
+def require_receive_window_counts(start, end, duration):
+    """Check the existing delivery floors using the frozen measurement window.
+
+    Notifications arriving during end-state queries or cleanup cannot rescue
+    a window that missed its throughput requirement.
+    """
+    measured = {name: end[name] - start[name] for name in ('images', 'results')}
+    minimum = {'images': duration * 3000 // 3600,
+               'results': duration * 6000 // 3600}
+    for name in ('images', 'results'):
+        assert measured[name] >= minimum[name], (
+            f'{name} in measurement window: {measured[name]} < {minimum[name]}'
+        )
+    return {'measured': measured, 'minimum': minimum}
+
+
 def cli_main():
     global BleakClient, BleakScanner, Path, RPS, RX, TOF, TX, TofFrameAssembler, UsbCli, argparse, args, assembler, asyncio, atomic_json, cli, client, collect, datetime, duration, find_cn8, here, image, json, label, last_image_receipt, last_result_receipt, main, math, measuring, monitor, owner, parser, pending, ping, probe_writer_delay, queue, re, report, result, root, save, serial, snapshot, state, status_jobs, stop, sys, threading, time, timezone, uart, usb, watch_loop, worker, write_status, writer, writer_stop
     import argparse,asyncio,json,re,time,sys,threading,math,queue
@@ -169,7 +185,8 @@ def cli_main():
                 current=await asyncio.to_thread(state);report['connections'][-1]['end']=current
                 assert not current['wifi_ip'] and not current['http_active'] and current['cloud_frames']==before['cloud_frames']
                 assert current['recovery']==before['recovery'] and current['spi_fault']==before['spi_fault']
-                assert len(report['images'])>=start_images+int(duration*3000/3600) and len(report['results'])>=start_results+int(duration*6000/3600) and assembler.crc_errors==0
+                report['receive_count_gate']=require_receive_window_counts(report['soak_start_counts'],report['soak_end_counts'],duration)
+                assert assembler.crc_errors==0
                 report['connections'][-1]['image_crc_errors']=assembler.crc_errors
                 await client.stop_notify(TOF);await client.stop_notify(RPS);await client.stop_notify(TX);await client.disconnect();client=None
                 await asyncio.sleep(2);assert state()['route'][1]=='NONE';save();print('PASS BLE-only image/NPU cycle '+str(cycle+1),flush=True)
