@@ -1,0 +1,219 @@
+{
+  "status": "WATCHDOG_UART_AND_LOCAL_USB_CLI_HARDWARE_PASS_NORMAL_XIP_DEFAULT_ON",
+  "at_utc": "2026-10-23T18:28:31.203343+00:00",
+  "branch": "feature/n6-xip-ota-usb",
+  "firmware": {
+    "version": 43,
+    "slot": "A",
+    "source_commit": "eb809d1bc078a26527cd15735d24fec4ee3058c8",
+    "package_sha256": "3bb06f9b13003566602b8f5cbe3554afc1d92c2a2dc4fcb659c6bf008fc4c553",
+    "package_bytes": 517472,
+    "watchdog_default_on_in_Build_Xip": true,
+    "confirmed": true,
+    "on_board_fallback": "B42 previous confirmed manifest retained",
+    "metadata_sequence_observed": 117,
+    "PC": "701D0AFC",
+    "VTOR": "70180400"
+  },
+  "local_usage": {
+    "UART": "w then W within5s; s then W targets supervisor; other key cancels",
+    "USB_CLI": "W arm, then W within5s; W cancel; no valid arm means reject",
+    "arms_independent": true,
+    "remote_BLE_Cloud": "handler refuses before changing either arm; no authentication/permission changes",
+    "RAM_recovery": "No watchdog in guarded RAM control; local hang commands unavailable there"
+  },
+  "supervisor": {
+    "owner_count": 9,
+    "priority": 6,
+    "reused_confirmation_stack": true,
+    "no_new_task_or_heap_allocation": true,
+    "IWDG_registers": {
+      "PR": 6,
+      "RLR": 1999,
+      "WINR": 4095,
+      "SR": "00000100"
+    },
+    "nominal_timeout_seconds_at_32kHz": 16,
+    "LSI_calibrated": false,
+    "timing_limit": "W-to-USB disappearance is observed, not counter expiry or a calibrated LSI measurement",
+    "feed": "supervisor only, bounded owner progress/startup waits; no ISR/NOR feed; failure latched until reset",
+    "owner_budgets_seconds": [
+      3,
+      4,
+      8,
+      12,
+      6,
+      6,
+      35,
+      45,
+      35
+    ],
+    "startup_grace_seconds": 45
+  },
+  "actual_fault_tests": [
+    {
+      "test": "a41-uart-control-first",
+      "passed": true,
+      "kind": "uart",
+      "IWDG_reset_cause": true,
+      "W_to_USB_disconnect_seconds": 14.228771000052802,
+      "first_stale_masks": [
+        "002"
+      ],
+      "software_reset_commands": 0,
+      "physical_power_cycle": false,
+      "handles_closed": true
+    },
+    {
+      "test": "a41-supervisor-first",
+      "passed": true,
+      "kind": "supervisor",
+      "IWDG_reset_cause": true,
+      "W_to_USB_disconnect_seconds": 11.786490100028459,
+      "first_stale_masks": [],
+      "software_reset_commands": 0,
+      "physical_power_cycle": false,
+      "handles_closed": true
+    },
+    {
+      "test": "a43-uart-command",
+      "passed": true,
+      "kind": "uart",
+      "IWDG_reset_cause": true,
+      "W_to_USB_disconnect_seconds": 13.45313709997572,
+      "first_stale_masks": [
+        "002"
+      ],
+      "software_reset_commands": 0,
+      "physical_power_cycle": false,
+      "handles_closed": true
+    },
+    {
+      "test": "a43-usb-cli-command",
+      "passed": true,
+      "kind": "cli",
+      "IWDG_reset_cause": true,
+      "W_to_USB_disconnect_seconds": 13.214442900032736,
+      "first_stale_masks": [
+        "002"
+      ],
+      "software_reset_commands": 0,
+      "physical_power_cycle": false,
+      "handles_closed": true
+    }
+  ],
+  "guard_tests": {
+    "UART_no_arm_expired_update_busy_rejected": true,
+    "USB_CLI_no_arm_cancel_expiry_same_connection": true,
+    "no_complete_manifest_in_parser_guard": true,
+    "ToF_pause_18_seconds_no_false_reset": true,
+    "first_stale_mask_is_symptom_not_necessarily_faulting_task": true
+  },
+  "update_while_WDT": {
+    "source_version": 41,
+    "target_version": 42,
+    "passed": true,
+    "package_bytes": 516512,
+    "partial_packet_NAK_ms": 10107.505,
+    "same_open_USB": true,
+    "EOT_ACK": true,
+    "authenticated_finalization": true,
+    "reset_cause_after_update": "IWDG=0",
+    "Watchdog_active_during_NOR_erase_program": true
+  },
+  "latest_update": {
+    "source_version": 42,
+    "target_version": 43,
+    "passed": true,
+    "package_bytes": 517472,
+    "sender_exit": 0
+  },
+  "retained_initial_failure": {
+    "test": "B39 to A41 install",
+    "authenticated_finalization": true,
+    "passed": false,
+    "error": "TimeoutError('No complete CLI response to rps status')",
+    "independent_recovery": "a41-independent-confirmation.json plus HIL100; no repeated image transfer"
+  },
+  "regression": {
+    "NPU_frames": 100,
+    "exact_tensors": 100,
+    "max_score_delta": 5,
+    "elapsed_seconds": 27.375,
+    "CRC_errors": 0,
+    "gate_unchanged": true,
+    "scope": "local USB same-frame compute, not field accuracy",
+    "memory_capture_seconds": 60,
+    "stack_samples": 15,
+    "invalid_resource_rows": 0,
+    "RAM_control_heap": 369168,
+    "XIP_heap": 851288
+  },
+  "rollback": {
+    "test": "A40 trial to B39",
+    "passed": true,
+    "software_trial_reset_only": true,
+    "physical_NOR_power_loss": false
+  },
+  "cold_power": {
+    "test": "B39 before watchdog follow-up",
+    "captured": true,
+    "user_confirmed_full_power_removal": true,
+    "latest_A43_cold_power_not_repeated": true
+  },
+  "final_board": {
+    "version": 43,
+    "confirmed": true,
+    "ToF": "ready54x42",
+    "NPU_errors": 0,
+    "SPI_faults": 0,
+    "NCP_recoveries": 0,
+    "UART_drops": 0,
+    "Cloud": "disabled/paired/sensor0",
+    "dataset": "off/localUSB100",
+    "image": "NONE",
+    "all_owned_handles_and_leases_released": true,
+    "no_pending_arm_capture_or_write": true
+  },
+  "recovery": {
+    "A43_backup": ".local-dependencies/xip/recovery-watchdog43-final/readback.json",
+    "B42_backup": ".local-dependencies/xip/recovery-watchdog42-before-local43/readback.json",
+    "older_A38_B39_host_backups_preserved": true,
+    "whole_current_NOR_backup": false
+  },
+  "host_lease_event": {
+    "old_owner_pid": 59832,
+    "process_state": "absent/winerror87",
+    "last_sender_exit": 0,
+    "last_UART_test_passed_handles_closed": true,
+    "marker_OS_lock_verified": true,
+    "action": "archive exact own stale lease, not force-delete",
+    "tests": 12,
+    "denied_action": null,
+    "first_CLI_admission": "aborted before opening hardware; retried only after verified ownership recovery"
+  },
+  "host_tests": {
+    "actual_C_watchdog_groups": 13,
+    "stale_ownership_unit_tests": 12,
+    "actual_C_FSBL_cases": 21
+  },
+  "remaining": [
+    "Physical power loss during NOR programming not performed; plan is unarmed",
+    "IWDG software start occurs in supervisor near NS tick10.4s; earlier ROM/FSBL/Secure/pre-supervisor faults not covered",
+    "Actual OTA last measured A38->B39,504ACK0timeouts0retries; not repeated after watchdog addition",
+    "Latest BLE host GATT not retested; earlier pre-GATT WinRT blocker retained; no pairing/cache changes",
+    "IRQ-masked fault, clock failure and high-priority task starvation not separately injected in hardware",
+    "LSI not calibrated; observed USB timing is not a guaranteed watchdog period",
+    "Pool/PSP observations are not full watermark/WC/fragmentation/vendor allocator proof",
+    "Original intermittent OVR cause and server lease/retry finding remain separate; server unchanged"
+  ],
+  "protected": {
+    "main": "80f2b511029be6d87f9e72c32b00515457671f89",
+    "server": "5905a7df14e1b2c486577297e4d741e82011ce3e",
+    "baseline_qualification": "Previously verified values; closing normal Git reads of primary/server repositories blocked by dubious ownership, no added trust or retry",
+    "closing_Git_actions": "primary branch/HEAD/status; server HEAD/status",
+    "closing_Git_result": "processes started; repository access rejected by Git owner mismatch before requested reads; no persistent change",
+    "merged_pushed_or_deployed": false,
+    "OTP_option_bytes_RIF_debug_policy_credentials_changed": false
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "installed": {
+    "version": 55,
+    "slot": "A",
+    "confirmed": true,
+    "rollback_slot": "B54",
+    "sha256": "72bbfc0911b02d060f36dd2cc7b5e482c08d882f20432763dec563b722265aae",
+    "bytes": 486336,
+    "transfer_seconds": 16.656
+  },
+  "interval_ms": {
+    "min": 100,
+    "max": 60000,
+    "legacy_1_and_2_rejected": true,
+    "requested": [
+      1000,
+      300
+    ]
+  },
+  "baseline_live_demo": {
+    "scheduled_delta": 11,
+    "accepted_delta": 4,
+    "skipped_delta": 7,
+    "late_slots_delta": 0,
+    "cloud_http_accepted_delta": 4,
+    "observation": "live-demo-observation.json"
+  },
+  "passive_uart": {
+    "opened_utc": "2026-10-29T12:40:40.196329+00:00",
+    "ended_utc": "2026-10-29T12:41:54.897260+00:00",
+    "seconds": 74.688,
+    "bytes": 0,
+    "serial_writes": 0,
+    "dtr": false,
+    "rts": false,
+    "stopped_for_new_user_request": true,
+    "not_health_proof": true
+  },
+  "host_checks": {
+    "actual_C_scheduler_and_CLI": "PASS:1000/300,bounds,overflow,legacy rejection,wrap,missed slots,busy IDs1/3/5",
+    "BLE_priority": "PASS",
+    "Cloud_priority": "PASS",
+    "website_build": "PASS; local only"
+  },
+  "hil100": {
+    "frames": 100,
+    "exact_tensors": 100,
+    "npu_frames": 100,
+    "max_score_delta": 1,
+    "crc_errors": 0,
+    "elapsed_s": 26.51600000000326,
+    "passed": true
+  },
+  "ble_1000_ms": {
+    "mode": "UINT8",
+    "interval_ms": 1000,
+    "frames": 6,
+    "payload": 2268,
+    "frame_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "timestamps_ms": [
+      254487,
+      255487,
+      256487,
+      257487,
+      258487,
+      259487
+    ],
+    "host_times_s": [
+      192295.0,
+      192295.906,
+      192296.89,
+      192298.125,
+      192298.875,
+      192299.89
+    ]
+  },
+  "ble_transition_1000_to_300": {
+    "result": "FAIL",
+    "failure": "TimeoutError: No completed reply: debug ping codec-UINT8",
+    "ncp_recoveries": 1,
+    "recovery_elapsed_ms": 23701,
+    "spi_faults": 0,
+    "cause": "not isolated; UART application logs compiled out",
+    "evidence": "ble-transition-failure.json"
+  },
+  "ble_300_isolated": {
+    "result": "PASS",
+    "modes": [
+      {
+        "mode": "UINT8",
+        "interval_ms": 300,
+        "frames": 6,
+        "payload": 2268,
+        "frame_ids": [
+          1,
+          3,
+          5,
+          6,
+          8,
+          10
+        ],
+        "timestamps_ms": [
+          574537,
+          575137,
+          575737,
+          576037,
+          576637,
+          577237
+        ],
+        "host_times_s": [
+          192615.203,
+          192615.875,
+          192616.328,
+          192616.687,
+          192617.406,
+          192617.906
+        ]
+      }
+    ],
+    "crc_errors": 0,
+    "assembly_drops": 0,
+    "max_ping_ms": 140.0,
+    "pings": 12,
+    "new_ncp_recoveries": 0,
+    "final_source_counts": {
+      "scheduled": 11,
+      "accepted": 6,
+      "skipped": 5,
+      "late_slots": 0
+    }
+  },
+  "final": {
+    "demo": "OFF",
+    "route": "NONE",
+    "BLE": "disconnected/advertising",
+    "cloud_images_sent_since_boot": 0,
+    "settings_generation": 2,
+    "SPI_faults": 0,
+    "NCP_recoveries_total": 1,
+    "radio": "ready",
+    "handles_closed": true,
+    "lease_released": true
+  },
+  "not_done": [
+    "Cloud image test after installation",
+    "production website/server deployment",
+    "push",
+    "fix for the observed intermittent BLE transition recovery"
+  ],
+  "local_evidence_directory": "C:\\Users\\netan\\Documents\\Codex\\2026-10-28\\task-2\\evidence\\demo-ms-20261029"
+}

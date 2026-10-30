@@ -4,6 +4,8 @@ Start the authorized Cloud receiver separately; --cloud-evidence contains its
 progress, command and matching server-completion files. Wi-Fi password is read
 only from N6_TEST_WIFI_PASSWORD. The HIL result retains failures and latency.
 """
+from cli_text_protocol import reply_finished, reply_succeeded, reply_results
+
 import argparse
 import asyncio
 import json
@@ -62,7 +64,7 @@ async def run_control_plane_soak(args):
                            'ms': round((time.monotonic() - nonce) * 1000),
                            'text': ''.join(item.get('text') or '' for item in matching)}
                     report['cloud'].append(row)
-                    assert '[CLI-RESULT] state=' in row['text'], 'Cloud final absent'
+                    assert reply_finished(row['text']), 'Cloud final absent'
                     return row
             await asyncio.sleep(.1)
         raise TimeoutError('Cloud matching completion missing: ' + line)
@@ -154,7 +156,7 @@ async def run_control_plane_soak(args):
             await client.write_gatt_char(RX, payload[offset:offset+20], response=True)
         while time.monotonic() < tick+30 and not stop.is_set():
             text = received[before:].decode(errors='replace')
-            if re.search(r'\[CLI-RESULT\] state=(complete|rejected|failed)\b', text):
+            if reply_finished(text):
                 report['ble'].append({'line': line, 'ms': round((time.monotonic()-tick)*1000, 1), 'text': text})
                 return text
             await asyncio.sleep(.01)
@@ -168,7 +170,7 @@ async def run_control_plane_soak(args):
             token = 'C' + str(number)
             row = await cloud_command('debug ping ' + token)
             assert 'PONG ' + token + ' ' in row['text'], 'Cloud PONG absent/wrong'
-            assert '[CLI-RESULT] state=complete' in row['text'], 'Cloud command failed'
+            assert reply_succeeded(row['text']), 'Cloud command failed'
             number += 1
 
     cloud_task = None

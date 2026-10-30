@@ -122,7 +122,7 @@ extern uint32_t _eNSCVeneer;
 /*
 //     <o>End Address <0x1F-0xFFFFFFFF>
 */
-#define SAU_INIT_END0       ((uint32_t) &_eNSCVeneer)      /* end address of SAU region 0 */
+#define SAU_INIT_END0       ((uint32_t) &_eNSCVeneer - 1U) /* linker end is exclusive */
 #else
 /* otherwise, manually set SAU region */
 /*

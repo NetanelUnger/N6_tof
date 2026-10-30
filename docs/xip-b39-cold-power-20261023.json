@@ -1,0 +1,63 @@
+{
+  "status": "B39_COLD_POWER_BOOT_PASS_USER_REPORTED_POWER_REMOVAL_WITH_CAPTURED_USB_RECONNECT_AND_BOOT",
+  "user_confirmation_utc": "2026-10-23T17:23:49Z",
+  "power_qualification": "User instructed to remove all power, verify LEDs off and reconnect; no independent voltage/rail measurement. No software reset, debugger or flash programming requested.",
+  "capture": {
+    "path": ".local-dependencies/xip/cold39-20261023-1723",
+    "bytes": 21151,
+    "reconnections": 1,
+    "serial_writes": 0,
+    "DTR": false,
+    "RTS": false,
+    "elapsed_seconds": 86.583,
+    "status": "STOP_REQUESTED",
+    "owned_port_close_returned": true,
+    "lease_released": true
+  },
+  "boot": {
+    "FSBL_entered_from_BootROM": true,
+    "metadata_sequence": 105,
+    "state": 1,
+    "confirmed_slot": 1,
+    "confirmed_version": 39,
+    "other_slot_version": 38,
+    "signature_verification_result": 0,
+    "image_hash_accepted": true,
+    "NS_code_copy": false,
+    "reset_vector": "0x702A391D",
+    "application_PC": "0x702D0494",
+    "application_VTOR": "0x70280400",
+    "application_boot_confirmation_tick_ms": 10401
+  },
+  "post_boot": {
+    "evidence": ".local-dependencies/xip/cold39-post-power-1724.json",
+    "USB_version": 39,
+    "PONG": true,
+    "ToF": "ready54x42/acquired416/processed159/queue_failures0",
+    "NPU": "ready/runs159/errors0",
+    "SPI_faults": 0,
+    "NCP_recovery_attempts": 0,
+    "radio_allocation_failures": 0,
+    "dataset_submitted": 0,
+    "sensor_cloud_sent": 0,
+    "image_destination": "NONE"
+  },
+  "cloud_qualification": "Cloud CLI polling resumed after cold boot and returned HTTP409. No sensor uploads. Existing cloud disable command submitted and disabled state verified; request_errors1 retained, not counted as a clean Cloud transport test.",
+  "final_state": {
+    "evidence": ".local-dependencies/xip/cold39-final-disabled-1725.json",
+    "version": 39,
+    "Cloud": "disabled/paired/sensor0",
+    "dataset": "off/submitted0",
+    "all_owned_handles_and_leases_released": true,
+    "capture_pending": false
+  },
+  "remaining": [
+    "Physical power loss during NOR programming not tested",
+    "Latest rollback-before-confirmation not repeated",
+    "BLE pre-GATT host blocker remains",
+    "Original intermittent SPI OVR cause and server lease/retry finding remain separate"
+  ],
+  "branch": "feature/n6-xip-ota-usb",
+  "firmware_source_commit": "6f6c89faf26bc4a36d09b69f1c9f7be5c4cb3416",
+  "main_server_flash_security_changes": false
+}

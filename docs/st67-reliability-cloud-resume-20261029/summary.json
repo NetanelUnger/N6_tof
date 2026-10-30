@@ -1,0 +1,54 @@
+{
+  "captured_utc": "2026-10-29T07:46:33.923700+00:00",
+  "board_observation_finished_utc": "2026-10-29T07:44:16.736948+00:00",
+  "running_version": 52,
+  "USB_result": "PASS",
+  "USB_max_ms": 63.254,
+  "Cloud": {
+    "workspace": "ws-13e32f198c2e42938860512d2f0ce47d",
+    "device": "N6-MAINT-B8FB",
+    "last_http": 204,
+    "received_commands": 2,
+    "acked_commands": 2,
+    "sent_output": 11,
+    "images": 0,
+    "request_errors": 104,
+    "status": "Previous workspace-inactive blocker resolved at device side; browser workspace not independently inspected"
+  },
+  "SPI": {
+    "CP5_count": 2,
+    "resume_before": 117,
+    "resume_after": 117,
+    "last_tick": 33707240,
+    "phase": 2,
+    "length": 348,
+    "HAL_error": "00000004",
+    "SR": "00c10040",
+    "TX_DMA_error": 0,
+    "RX_DMA_error": 0
+  },
+  "recovery": {
+    "attempts": 2,
+    "ready": 2,
+    "failed": 0,
+    "last_elapsed_ms": 24556,
+    "BLE_pump_lifetime_max_gap_ms": 24580
+  },
+  "shared_driver_errors": 4,
+  "last_driver_status": 3,
+  "saved_settings_generation": 2,
+  "browser_action": {
+    "target": "Google Chrome window25299644",
+    "action": "cua.getApp",
+    "status": "BLOCKED before usable browser state/action",
+    "reason": "Computer Use could not determine the current browser URL on Windows with enough confidence to enforce policy; tool stopped Computer Use for this turn and required final response",
+    "retry": false,
+    "bypass": false
+  },
+  "firmware_bytes_sent": 0,
+  "resets_sent": 0,
+  "settings_changes": 0,
+  "physical_action_required": false,
+  "handles_closed": true,
+  "lease_released": true
+}

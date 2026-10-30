@@ -1,5 +1,7 @@
 #ifndef WIFI_BLE_APP_H
 #define WIFI_BLE_APP_H
+#include "demo_map.h"
+
 
 #include "tof_image_codec.h"
 #include "rps_ai.h"
@@ -323,10 +325,18 @@ typedef struct {
 /* Read-only scalar snapshot; never waits for or alters AT ownership/fences. */
 void WIFI_BLE_App_GetServiceStatus(WifiBle_ServiceStatus_t *status);
 typedef struct {
+  uint32_t sequence, tick_ms, reason;
+  uint32_t notification_id, notification_source, notification_phase;
+  uint32_t notification_length, notification_written, notification_elapsed_ms;
+  uint32_t notification_budget_ms, notification_finished, recv_seen, response_seen;
+  int32_t notification_result, modem_error;
+} WifiBle_RecoveryTrace_t;
+typedef struct {
   uint32_t state, attempts, successes, failures, started_ms, elapsed_ms;
   uint32_t radio_quiesced, cloud_quiesced, stage;
   uint32_t wifi_reconnect_required;
   int32_t last_status;
+  WifiBle_RecoveryTrace_t trace; /* Last trigger, retained across NCP reinitialization. */
 } WifiBle_RecoveryStatus_t;
 /* Explicit coordinated module restart, same owner/barriers as automatic fence. */
 UINT WIFI_BLE_App_RequestRadioRecovery(void);
@@ -350,6 +360,10 @@ UINT WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
                                   const float *pixels, uint8_t width,
                                   uint8_t height, const RPS_AI_Status_t *rps, uint32_t timestamp_ms);
 
+
+/* Timer-driven diagnostic source. OFF selects sensor source without changing route. */
+UINT WIFI_BLE_App_SetDemoMap(uint32_t interval_ms, uint32_t destination);
+void WIFI_BLE_App_GetDemoMapStatus(DemoMap_Status *status);
 
 /* Wireless encoding setting; captured once when accepting a frame. */
 UINT WIFI_BLE_App_SetImageEncoding(uint8_t mode);

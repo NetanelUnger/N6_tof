@@ -22,6 +22,13 @@ extern "C" {
 #define FW_UPDATE_MANIFEST_VERSION        (1U)
 #define FW_UPDATE_TARGET_STM32N657        (0x4E363537UL)
 #define FW_UPDATE_IMAGE_NONSECURE         (1UL)
+/* Signed execution contract. Legacy boot chains reject nonzero flags.
+ * XIP binaries are linked for one physical slot; never relocate raw ARM code. */
+#define FW_EXECUTION_RAM                  (0UL)
+#define FW_EXECUTION_XIP_A                (1UL)
+#define FW_EXECUTION_XIP_B                (2UL)
+#define FW_NS_RAM_START                   (0x24100000UL)
+#define FW_NS_RAM_END                     (0x24200000UL)
 #define FW_UPDATE_MANIFEST_SIZE           (256U)
 
 #define FW_BOOT_RECORD_MAGIC              (0x5242364EUL) /* "N6BR" */
@@ -80,6 +87,10 @@ typedef char FW_UpdateManifest_size_must_be_256[
 typedef char FW_BootRecord_size_must_be_1024[
     (sizeof(FW_BootRecord_t) == FW_BOOT_RECORD_SIZE) ? 1 : -1];
 
+uint32_t FW_ExecutionMatchesSlot(uint32_t execution, uint32_t slot);
+uint32_t FW_ImageVectorsAreValid(uint32_t execution, uint32_t slot,
+                                  uint32_t image_size, uint32_t signed_size,
+                                  uint32_t msp, uint32_t reset_handler);
 uint32_t FW_CRC32(const void *data, size_t length);
 uint32_t FW_ManifestIsWellFormed(const FW_UpdateManifest_t *manifest);
 uint32_t FW_BootRecordIsValid(const FW_BootRecord_t *record);

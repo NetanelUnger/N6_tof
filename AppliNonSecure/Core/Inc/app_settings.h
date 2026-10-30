@@ -22,14 +22,14 @@
 #define APP_SETTINGS_SLOT_0 "n6settings0.cfg"
 #define APP_SETTINGS_SLOT_1 "n6settings1.cfg"
 
-/* Deliberately off in this candidate. Enabling and executing writes needs
- * separate action-time approval; there is no CLI bypass or automatic migration. */
+/* Product profile: verified alternating-slot persistence is enabled.
+ * Legacy-only or invalid storage still requires explicit recovery/preparation. */
 #ifndef APP_SETTINGS_WRITES_ENABLED
-#define APP_SETTINGS_WRITES_ENABLED 0U
+#define APP_SETTINGS_WRITES_ENABLED 1U
 #endif
 /* RAM-only, explicit user preparation; never automatic legacy migration. */
 #ifndef APP_SETTINGS_TRANSITION_ENABLED
-#define APP_SETTINGS_TRANSITION_ENABLED 0U
+#define APP_SETTINGS_TRANSITION_ENABLED 1U
 #endif
 
 typedef enum {

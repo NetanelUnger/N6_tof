@@ -1,0 +1,223 @@
+--- a/AppliNonSecure/Core/Inc/demo_map.h
++++ b/AppliNonSecure/Core/Inc/demo_map.h
+@@ -17,6 +17,7 @@
+ typedef struct {
+   uint32_t interval_ms, destination, epoch, next_ms, sequence, accepted, skipped;
+   uint32_t late_slots, max_late_ms, last_ms;
++  uint32_t publish_busy, publish_unavailable, publish_other;
+ } DemoMap_Status;
+ static inline void DemoMap_Start(DemoMap_Status *s, uint32_t interval_ms,
+                                  uint32_t destination, uint32_t now)
+--- a/AppliNonSecure/Core/Inc/wifi_ble_app.h
++++ b/AppliNonSecure/Core/Inc/wifi_ble_app.h
+@@ -325,10 +325,18 @@
+ /* Read-only scalar snapshot; never waits for or alters AT ownership/fences. */
+ void WIFI_BLE_App_GetServiceStatus(WifiBle_ServiceStatus_t *status);
+ typedef struct {
++  uint32_t sequence, tick_ms, reason;
++  uint32_t notification_id, notification_source, notification_phase;
++  uint32_t notification_length, notification_written, notification_elapsed_ms;
++  uint32_t notification_budget_ms, notification_finished, recv_seen, response_seen;
++  int32_t notification_result, modem_error;
++} WifiBle_RecoveryTrace_t;
++typedef struct {
+   uint32_t state, attempts, successes, failures, started_ms, elapsed_ms;
+   uint32_t radio_quiesced, cloud_quiesced, stage;
+   uint32_t wifi_reconnect_required;
+   int32_t last_status;
++  WifiBle_RecoveryTrace_t trace; /* Last trigger, retained across NCP reinitialization. */
+ } WifiBle_RecoveryStatus_t;
+ /* Explicit coordinated module restart, same owner/barriers as automatic fence. */
+ UINT WIFI_BLE_App_RequestRadioRecovery(void);
+--- a/AppliNonSecure/Core/Src/debug_cli.c
++++ b/AppliNonSecure/Core/Src/debug_cli.c
+@@ -1744,10 +1744,12 @@
+     WIFI_BLE_App_GetDemoMapStatus(&status);
+     cli_print("Demo map: %s, interval %lu ms, destination %s, encoding %u\r\n"
+       "Scheduled %lu, accepted %lu, skipped %lu, late slots %lu, max lateness %lu ms\r\n"
+-      "Frame ID is the scheduled sequence; hot pixel=(ID-1) modulo 2268. NPU off for demo frames.\r\n",
++      "Source ID is the scheduled sequence; accepted means queued, not delivered. NPU off for demo frames.\r\n",
+       status.interval_ms ? "ON" : "OFF",(unsigned long)status.interval_ms,TOF_App_StreamName((TOF_StreamDestination_t)status.destination),
+       WIFI_BLE_App_GetImageEncoding(),(unsigned long)status.sequence,(unsigned long)status.accepted,
+       (unsigned long)status.skipped,(unsigned long)status.late_slots,(unsigned long)status.max_late_ms);
++    cli_print("Publish rejected: busy=%lu unavailable=%lu other=%lu; skipped includes these plus late slots.\r\n",
++      (unsigned long)status.publish_busy,(unsigned long)status.publish_unavailable,(unsigned long)status.publish_other);
+     return;
+   }
+ usage:
+@@ -2473,6 +2475,19 @@
+               (unsigned long)recovery.failures, (unsigned long)recovery.elapsed_ms,
+               (unsigned long)recovery.radio_quiesced, (unsigned long)recovery.cloud_quiesced,
+               (long)recovery.last_status);
++    const WifiBle_RecoveryTrace_t *trace = &recovery.trace;
++    const char *trigger = trace->reason == 1U ? "SPI_FENCED" : trace->reason == 2U ? "AT_FENCED" :
++        trace->reason == 3U ? "TERMINAL_EXPIRED" : trace->reason == 4U ? "TEST_MISSING_RESPONSE" :
++        trace->reason == 5U ? "EXPLICIT_REQUEST" : "NONE";
++    cli_print("  Recovery trace: sequence=%lu tick_ms=%lu trigger=%s modem_error=%ld\r\n",
++        (unsigned long)trace->sequence, (unsigned long)trace->tick_ms, trigger, (long)trace->modem_error);
++    if (trace->sequence)
++      cli_print("  Last notification context: id=%lu source=%lu phase=%lu bytes=%lu/%lu elapsed=%lu budget=%lu ms finished=%lu result=%ld recv=%lu response=%lu\r\n",
++          (unsigned long)trace->notification_id, (unsigned long)trace->notification_source,
++          (unsigned long)trace->notification_phase, (unsigned long)trace->notification_written,
++          (unsigned long)trace->notification_length, (unsigned long)trace->notification_elapsed_ms,
++          (unsigned long)trace->notification_budget_ms, (unsigned long)trace->notification_finished,
++          (long)trace->notification_result, (unsigned long)trace->recv_seen, (unsigned long)trace->response_seen);
+     if (recovery.wifi_reconnect_required)
+       cli_print("  Wi-Fi restore pending/unavailable; check UART WIFI_RESTORE and credentials store result. Pairing retained.\r\n");
+ #if (APP_ST67W6X_ENABLED == 1U)
+--- a/AppliNonSecure/Core/Src/wifi_ble_app.c
++++ b/AppliNonSecure/Core/Src/wifi_ble_app.c
+@@ -379,6 +379,7 @@
+ /* Scalar recovery metadata in application SRAM, no new task/payload storage.
+  * 0 idle, 1 requested, 2 owner restarting, 3 failed/exhausted (fail closed). */
+ static volatile WifiBle_RecoveryStatus_t radio_recovery;
++static uint32_t notification_sequence, notification_last_source;
+ static volatile WifiBle_RecoveryNotice_t ble_recovery_notice;
+ /* A restored CCCD can precede the remote application's receive handler.
+  * Repeat the same event once after fresh CLI input proves that application
+@@ -994,6 +995,38 @@
+ #endif
+ }
+ 
++/* Scalar breadcrumb only: no command text, allocation, UART or extra AT call.
++ * Snapshot before NCP teardown. Notification fields are context, not proof of
++ * causality for a later unrelated SPI/text-AT fence. Source 1=CLI,2=debug,3=image,5=NPU. */
++static void radio_capture_recovery_trace(void)
++{
++#if (APP_ST67W6X_ENABLED == 1U) && ((APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U))
++  W61_Object_t *driver = W61_ObjGet();
++  struct modem *mdm = &driver->Modem;
++  WifiBle_RecoveryTrace_t trace = {0};
++  trace.sequence = radio_recovery.trace.sequence + 1U;
++  trace.tick_ms = HAL_GetTick();
++  trace.reason = spi_transaction_faulted() ? 1U :
++      mdm->handler_data.tx_desynchronized ? 2U :
++      mdm->handler_data.dns_drain_active ? 3U : recovery_fault_test ? 4U : 5U;
++  trace.notification_id = notification_sequence;
++  trace.notification_source = notification_last_source;
++  trace.notification_phase = mdm->notify_phase;
++  trace.notification_length = mdm->notify_length;
++  trace.notification_written = mdm->notify_written;
++  trace.notification_elapsed_ms = (xTaskGetTickCount() - mdm->notify_started) * portTICK_PERIOD_MS;
++  trace.notification_budget_ms = mdm->notify_budget * portTICK_PERIOD_MS;
++  trace.notification_finished = mdm->notify_finish_pending;
++  trace.notification_result = mdm->notify_result;
++  trace.recv_seen = mdm->notify_recv_seen;
++  trace.response_seen = mdm->raw_tx_response_received;
++  trace.modem_error = mdm->handler_data.last_error;
++  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
++  radio_recovery.trace = trace;
++  (void)tx_interrupt_control(posture);
++#endif
++}
++
+ static void radio_recovery_pump(void)
+ {
+ #if (APP_ST67W6X_ENABLED == 1U) && ((APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U))
+@@ -1010,6 +1043,7 @@
+   if ((radio_recovery.state != 1U) || radio_recovery.radio_quiesced) return;
+   if (radio_recovery.stage == 0U)
+   {
++    radio_capture_recovery_trace();
+     radio_recovery.started_ms = HAL_GetTick();
+     radio_recovery.stage = 1U;
+     radio_recovery.wifi_reconnect_required = radio_manager.shadow.wifi_connected;
+@@ -2152,7 +2186,15 @@
+   (void)tx_interrupt_control(posture);
+   UINT result=wifi_publish_image(sequence,1U,NULL,54U,42U,NULL,timestamp,epoch);
+   posture=tx_interrupt_control(TX_INT_DISABLE);
+-  if(epoch==demo_map.epoch){if(result==TX_SUCCESS)++demo_map.accepted;else ++demo_map.skipped;}
++  if(epoch==demo_map.epoch){
++    if(result==TX_SUCCESS)++demo_map.accepted;
++    else {
++      ++demo_map.skipped;
++      if(result==TX_QUEUE_FULL)++demo_map.publish_busy;
++      else if(result==TX_NOT_AVAILABLE)++demo_map.publish_unavailable;
++      else ++demo_map.publish_other;
++    }
++  }
+   (void)tx_interrupt_control(posture);
+ #endif
+ }
+@@ -3762,6 +3804,8 @@
+         (uint8_t)radio_manager.shadow.ble_connection_handle, service, characteristic,
+         length, BLE_NOTIFY_TIMEOUT_MS);
+     if (admitted != W6X_STATUS_OK) return admitted;
++    ++notification_sequence;
++    notification_last_source = source;
+     radio_manager.work.notify_source = source;
+     radio_manager.work.notify_generation = radio_manager.shadow.ble_session_generation;
+     radio_manager.work.notify_length = length;
+--- a/hil_tests/test_demo_map.py
++++ b/hil_tests/test_demo_map.py
+@@ -77,12 +77,12 @@
+ static void TOF_App_ReleaseStream(unsigned d){released=d;requested=0;}
+ static const char *TOF_App_StreamName(unsigned d){return d==TOF_STREAM_BLE ? "BLE" : "CLOUD";}
+ static unsigned WIFI_BLE_App_GetImageEncoding(void){return 3;}
+-static void cli_print(const char *fmt,...){va_list a;va_start(a,fmt);vsnprintf(output,sizeof output,fmt,a);va_end(a);}
++static void cli_print(const char *fmt,...){va_list a;va_start(a,fmt);vsnprintf(output+strlen(output),sizeof output-strlen(output),fmt,a);va_end(a);}
+ static int Menu_Reply(Menu_t *m,const char *s){(void)m;snprintf(output,sizeof output,"%s",s);return 0;}
+ static UINT wifi_publish_image(uint32_t seq,uint8_t ch,const float *data,uint8_t w,uint8_t h,const void *rps,uint32_t stamp,uint32_t epoch){
+  (void)ch;(void)data;(void)w;(void)h;(void)rps;
+  assert(epoch==demo_map.epoch && stamp==demo_map.last_ms);
+- if(publication_busy)return TX_QUEUE_FULL;
++ if(publication_busy)return publication_busy==1 ? TX_QUEUE_FULL : publication_busy==2 ? TX_NOT_AVAILABLE : TX_OPTION_ERROR;
+  publish_ids[publish_calls++]=seq;return TX_SUCCESS;
+ }
+ '''
+@@ -117,9 +117,14 @@
+  for(tick=1000;tick<=5000;tick+=1000){publication_busy=(tick%2000)==0;demo_map_process();}
+  assert(demo_map.sequence==5 && demo_map.accepted==3 && demo_map.skipped==2 && demo_map.late_slots==0);
+  assert(publish_calls==3 && publish_ids[0]==1 && publish_ids[1]==3 && publish_ids[2]==5);
++ assert(demo_map.publish_busy==2 && !demo_map.publish_unavailable && !demo_map.publish_other);
+  tick=10000;publication_busy=0;demo_map_process();
+  assert(publish_calls==4 && publish_ids[3]==10 && demo_map.skipped==6 && demo_map.late_slots==4);
+  demo_map_process();assert(publish_calls==4);
++ tick=11000;publication_busy=2;demo_map_process();
++ tick=12000;publication_busy=3;demo_map_process();
++ assert(demo_map.publish_busy==2 && demo_map.publish_unavailable==1 && demo_map.publish_other==1);
++ assert(demo_map.skipped==demo_map.late_slots+demo_map.publish_busy+demo_map.publish_unavailable+demo_map.publish_other);
+  requested=TOF_STREAM_BLE;demo_map_process();assert(!demo_map.interval_ms);
+  puts("PASS actual CLI+admission: units, bounds, overflow/bad/legacy input, routes, dataset exclusion, OFF; busy IDs1/3/5 and late no-burst");
+  return 0;
+--- a/hil_tests/test_radio_coordinated_recovery.py
++++ b/hil_tests/test_radio_coordinated_recovery.py
+@@ -33,6 +33,9 @@
+ static volatile WifiBle_RecoveryStatus_t radio_recovery;
+ static unsigned recovery_window_started,recovery_window_attempts,recovery_invalid_request_id;
+ static unsigned recovery_fault_test;
++static unsigned trace_calls;
++static void radio_capture_recovery_trace(void){++trace_calls;}
++static int spi_transaction_faulted(void){return 0;}
+ static unsigned wifi_connection_desired;
+ static void wifi_restore_connection(void){}
+ static struct {struct {unsigned state,wifi_has_ip,wifi_connected,wifi_state_confirmed;}shadow;struct {unsigned wifi_last_request_id;}work;}radio_manager;
+@@ -59,7 +62,7 @@
+ static void wifi_refresh_status(void){}
+ static void CloudRelay_SetNetworkState(unsigned r,unsigned ip){(void)r;(void)ip;}
+ static void CloudRelay_RadioResetComplete(void){assert(inits && init_result==0);}
+-static void reset(void){memset(&driver,0,sizeof driver);memset((void*)&radio_recovery,0,sizeof radio_recovery);memset(&radio_manager,0,sizeof radio_manager);radio_manager.shadow.state=2;radio_manager.work.wifi_last_request_id=5;recovery_window_started=recovery_window_attempts=0;now=1000;cloud_ack=mutex_available=powered=1;spi_result=init_result=destructions=inits=paused=logs=0;driver.Modem.modem_task_handle=(void*)1;}
++static void reset(void){trace_calls=0;memset(&driver,0,sizeof driver);memset((void*)&radio_recovery,0,sizeof radio_recovery);memset(&radio_manager,0,sizeof radio_manager);radio_manager.shadow.state=2;radio_manager.work.wifi_last_request_id=5;recovery_window_started=recovery_window_attempts=0;now=1000;cloud_ack=mutex_available=powered=1;spi_result=init_result=destructions=inits=paused=logs=0;driver.Modem.modem_task_handle=(void*)1;}
+ '''
+ TESTS = r'''
+ int main(void){
+@@ -92,7 +95,7 @@
+  reset();now=0;cloud_ack=0;WIFI_BLE_App_RequestRadioRecovery();radio_recovery_pump();
+  assert(radio_recovery.stage==1 && !radio_recovery.started_ms && paused==1);
+  now=20;radio_recovery.radio_quiesced=0;radio_recovery_pump();
+- assert(paused==1 && !radio_recovery.started_ms && logs==1);
++ assert(paused==1 && !radio_recovery.started_ms && logs==1 && trace_calls==1);
+  now=35000;radio_recovery_execute();
+  assert(radio_recovery.state==3 && radio_recovery.elapsed_ms==35000 && !destructions);
+  assert(WIFI_BLE_App_RequestRadioRecovery()==0 && !radio_recovery.stage);
+--- a/hil_tests/test_st67_continuity.py
++++ b/hil_tests/test_st67_continuity.py
+@@ -75,7 +75,7 @@
+ static struct{struct{unsigned notify_source,notify_length,notify_generation,wifi_connect_call_active;}work;
+ struct{unsigned ble_connection_handle,ble_session_generation;}shadow;
+ struct{WifiBle_StreamContext_t*ble_stream_context;}queues;}radio_manager;
+-static unsigned begins,polls;static int outcome,settings;
++static unsigned begins,polls,notification_sequence,notification_last_source;static int outcome,settings;
+ static int AppSettings_IsIoActive(void){return settings;}
+ static int W6X_Ble_ServerNotifyBegin(unsigned a,unsigned b,unsigned c,unsigned d,unsigned e){++begins;return 0;}
+ static int W6X_Ble_ServerNotifyPoll(const void*p,unsigned n,unsigned*s){++polls;*s=outcome==0?n:0;return outcome;}

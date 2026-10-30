@@ -1,4 +1,7 @@
+#define N6_RESOURCE_SOURCE N6R_CLOUD
+#include "resource_diag.h"
 #include "cloud_relay.h"
+#include "n6_watchdog.h"
 #include "app_cli_reply.h"
 #include "app_settings.h"
 
@@ -142,6 +145,7 @@ typedef struct
   uint8_t tof_height;
   uint8_t tof_channel_id;
   uint32_t tof_pending;
+  uint32_t image_yield_poll; /* At most one ordinary image between command polls. */
   uint8_t tof_header[TOF_IMAGE_HEADER_SIZE];
   TofImageInfo tof_info;
   int32_t socket;
@@ -289,6 +293,7 @@ void CloudRelay_Run(void)
 
   for (;;)
   {
+    N6H_Beat(N6H_CLOUD);
     if (cloud_recovery_pause != 0U)
     {
       /* This branch runs only after the preceding blocking call returned.
@@ -388,8 +393,10 @@ static void cloud_publish_status(void)
   cloud->status.control_rejected = cloud_control_rejected;
   if ((cloud->status.paired != 0U) && (cloud->status.enabled != 0U))
   {
+#if (APP_CLOUD_AUTO_MAP_ENABLED == 1U)
     if ((cloud_status_snapshot.paired == 0U) || (cloud_status_snapshot.enabled == 0U))
       TOF_App_RequestStream(TOF_STREAM_CLOUD);
+#endif
   }
   else TOF_App_ReleaseStream(TOF_STREAM_CLOUD);
   cloud_status_snapshot = cloud->status;
@@ -888,12 +895,9 @@ UINT CloudRelay_EndReply(uint32_t completed)
   if (!cloud->reply.active || cloud->reply_owner != tx_thread_identify()) {
     (void)tx_mutex_put(&cloud->gate); return TX_NOT_AVAILABLE;
   }
-  if (completed) {
-    const char *trailer = cloud->reply.overflow ?
-      "\r\n[CLI-RESULT] state=failed reason=OUTPUT_LIMIT\r\nn6> " :
-      completed == 3U ? "\r\n[CLI-RESULT] state=failed reason=WRITE_ERROR\r\n" :
-      completed == 2U ? "\r\n[CLI-RESULT] state=rejected reason=SERVICE_UNAVAILABLE\r\n" :
-      "\r\n[CLI-RESULT] state=complete\r\n";
+  if (completed && (cloud->reply.overflow || completed != 1U)) {
+    /* LF belongs to CompleteCommand, after asynchronous Wi-Fi results too. */
+    const char *trailer = "\rFAIL\r";
     (void)AppCliReply_Append(&cloud->reply, cloud->output[0].data,
         sizeof(cloud->output[0]), CLOUD_OUTPUT_SLOT_SIZE, CLOUD_OUTPUT_SLOT_COUNT,
         trailer, strlen(trailer), 1U);
@@ -914,7 +918,7 @@ UINT CloudRelay_EndReply(uint32_t completed)
                  byte < 0x20U ? 6U : 1U;
     }
     if (encoded >= 520U) {
-      const char *failure = "\r\n[CLI-RESULT] state=failed reason=ENCODING_LIMIT\r\nn6> ";
+      const char *failure = "\rFAIL\r";
       cloud->reply.bytes = cloud->reply.overflow = 0U;
       (void)AppCliReply_Append(&cloud->reply, cloud->output[0].data,
           sizeof(cloud->output[0]), CLOUD_OUTPUT_SLOT_SIZE, CLOUD_OUTPUT_SLOT_COUNT,
@@ -956,9 +960,9 @@ UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary)
     if (binary || cloud->reply_owner != tx_thread_identify()) {
       (void)tx_mutex_put(&cloud->gate); return TX_NOT_AVAILABLE;
     }
-    int result = AppCliReply_Append(&cloud->reply, cloud->output[0].data,
+    int result = AppCliReply_AppendText(&cloud->reply, cloud->output[0].data,
         sizeof(cloud->output[0]), CLOUD_OUTPUT_SLOT_SIZE, CLOUD_OUTPUT_SLOT_COUNT,
-        data, length, 0U);
+        data, length);
     (void)tx_mutex_put(&cloud->gate);
     return result ? TX_SIZE_ERROR : TX_SUCCESS;
   }
@@ -977,6 +981,7 @@ UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary)
   /* Fill unpublished slots first. Readers see the complete response only
    * after the single tail/count commit; a rejection changes neither. */
   tail = cloud->output_tail;
+  uint32_t previous_cr = 0U;
   while (length != 0U)
   {
     size_t chunk = (length > CLOUD_OUTPUT_SLOT_SIZE) ?
@@ -987,6 +992,8 @@ UINT CloudRelay_WriteOutput(const void *data, size_t length, uint32_t binary)
     slot->binary = (binary != 0U) ? 1U : 0U;
     slot->input_sequence = cloud->input.sequence;
     (void)memcpy(slot->data, bytes, chunk);
+    if (!binary) slot->length = (uint16_t)AppCliReply_NormalizeText(
+        slot->data, slot->data, chunk, &previous_cr);
     tail = (tail + 1U) % CLOUD_OUTPUT_SLOT_COUNT;
     bytes += chunk;
     length -= chunk;
@@ -1045,6 +1052,8 @@ UINT CloudRelay_CompleteCommand(void)
   slot = &cloud->output[cloud->output_tail];
   (void)memset(slot, 0, sizeof(*slot));
   slot->completed = 1U;
+  slot->data[0] = '\n';
+  slot->length = 1U;
   posture = tx_interrupt_control(TX_INT_DISABLE);
   cloud->output_tail = (cloud->output_tail + 1U) % CLOUD_OUTPUT_SLOT_COUNT;
   cloud->output_count++;
@@ -1253,6 +1262,9 @@ static int cloud_send_all(int32_t socket, const void *data, size_t length)
     if ((sent <= 0) || ((size_t)sent > slice)) return -1;
     cursor += (size_t)sent;
     length -= (size_t)sent;
+    /* Each completed AT send releases ownership. Give Radio a scheduling
+     * point before the next bounded slice, without replay or mid-send preemption. */
+    if (length != 0U) tx_thread_sleep(1U);
   }
   return 0;
 }
@@ -1780,10 +1792,25 @@ static void cloud_start_next_request(void)
     return;
   }
 
+  /* ACK/output above remain first. A continuous camera must not prevent
+   * fetching the next control command. Poll between images (the current server
+   * clamps even waitSeconds=0 to a minimum one-second wait);
+   * retain the existing single borrowed snapshot and bounded output queue. */
+  if (cloud->image_yield_poll && !cloud->hold_command && !cloud->input_ready)
+  {
+    if (cloud_begin_request(CLOUD_HTTP_POLL, "GET",
+                            "/api/device/commands?waitSeconds=0",
+                            "application/json", NULL, 0U, NULL, 0U, 1U) == 0)
+      cloud->image_yield_poll = 0U;
+    else cloud_backoff();
+    return;
+  }
+
   if (cloud_training_next()) return;
 
   if (cloud->tof_pending != 0U)
   {
+    cloud->image_yield_poll = 1U;
     /* The Cloud worker exclusively owns this borrowed snapshot until release. */
     if (TofImage_Encode(cloud->tof_payload,
                         (size_t)cloud->tof_width * cloud->tof_height * sizeof(float),

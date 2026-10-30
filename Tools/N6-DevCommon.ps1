@@ -1,5 +1,49 @@
 $ErrorActionPreference = 'Stop'
 
+function Assert-N6SecureGatewayAbi {
+    param([Parameter(Mandatory=$true)][string]$Elf,
+          [Parameter(Mandatory=$true)]$Tools)
+    $lines = & $Tools.Nm --defined-only $Elf
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot read Secure ELF symbols.' }
+    $symbols = @{}
+    foreach ($line in $lines) {
+        if ($line -match '^([0-9a-fA-F]+)\s+\w\s+(\S+)$') {
+            $symbols[$Matches[2]] = [Convert]::ToUInt64($Matches[1],16)
+        }
+    }
+    $names = @('SECURE_FirmwareUpdateConfirmBoot','SECURE_FirmwareUpdateWrite',
+        'SECURE_SystemCoreClockUpdate','SECURE_FirmwareUpdateBegin',
+        'SECURE_FirmwareUpdateFinalize','SECURE_FirmwareUpdateAbort','SECURE_RegisterCallback')
+    for ($index=0; $index -lt $names.Count; $index++) {
+        foreach ($entry in @(@{Name=$names[$index];Address=0x3400F600L+8*$index},
+                            @{Name='a12_compat_'+$names[$index];Address=0x3400FF40L+8*$index})) {
+            if (-not $symbols.ContainsKey($entry.Name) -or
+                (($symbols[$entry.Name] -band 0xFFFFFFFEL) -ne $entry.Address)) {
+                throw "Secure gateway ABI mismatch: $($entry.Name). Existing recovery/application must remain callable."
+            }
+        }
+    }
+    foreach ($entry in @(@{Name='_sNSCVeneer';Address=0x3400F600L},
+                         @{Name='_eNSCVeneer';Address=0x3400F640L},
+                         @{Name='_sNSCA12Compat';Address=0x3400FF40L},
+                         @{Name='_eNSCA12Compat';Address=0x3400FF80L})) {
+        if ($symbols[$entry.Name] -ne $entry.Address) { throw 'NSC island bounds changed.' }
+    }
+    if ($symbols['_sbss'] -lt 0x34010000L) { throw 'Secure mutable data overlaps ABI reservation.' }
+    $objdump = Join-Path (Split-Path -Parent $Tools.Nm) 'arm-none-eabi-objdump.exe'
+    $assembly = (& $objdump -d -j .gnu.sgstubs -j .nsc_a12_compat $Elf) -join "`n"
+    if ($LASTEXITCODE -ne 0 -or ([regex]::Matches($assembly,'\bsg\b')).Count -ne 14) {
+        throw 'Both callable ABI islands must contain exactly seven SG gates.'
+    }
+    foreach ($name in $names) {
+        if (([regex]::Matches($assembly,'<__acle_se_'+[regex]::Escape($name)+'>')).Count -ne 2) {
+            throw "Both SG paths must branch into the same CMSE implementation: $name"
+        }
+    }
+    return [pscustomobject]@{status='PASS';canonical_base='0x3400F600';a12_base='0x3400FF40';
+        gates_per_island=7;island_bytes=64;cmse_targets_identical=$true}
+}
+
 function Assert-N6InstalledBootChain {
     param([Parameter(Mandatory = $true)][string]$ProjectRoot)
 
@@ -137,6 +181,9 @@ function Repair-N6MakeDependencyFiles {
         $text = [IO.File]::ReadAllText($dependencyFile.FullName)
         $repaired = $text.Replace($projectPrefix, '../../')
         $repaired = $repaired.Replace($escapedProjectPrefix, '../../')
+        # GCC escapes spaces in prerequisites (common in OneDrive paths).
+        $repaired = $repaired.Replace($projectPrefix.Replace(' ', '\ '), '../../')
+        $repaired = $repaired.Replace($escapedProjectPrefix.Replace(' ', '\ '), '../../')
         $repaired = $repaired.Replace($extendedProjectPrefix, '../../')
         $repaired = [regex]::Replace(
             $repaired,

@@ -17,6 +17,9 @@ extern "C" {
 #define SECURE_FW_INIT_ERROR_RNG      (5)
 
 int32_t SecureFirmwareUpdate_Init(void);
+void SecureFirmwareUpdate_SetExecutionVector(uint32_t vector);
+uint32_t SecureFirmwareUpdate_EnterFlash(void);
+void SecureFirmwareUpdate_LeaveFlash(void);
 uint32_t SecureFirmwareUpdate_Begin(const FW_UpdateManifest_t *manifest_ns,
                                     uint32_t *session_ns);
 uint32_t SecureFirmwareUpdate_Write(uint32_t session,

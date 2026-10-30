@@ -19,7 +19,10 @@ param(
     [ValidateRange(1, 20)]
     [int]$MaxRetries = 10,
 
-    [switch]$NoUpdateCommand
+    [switch]$NoUpdateCommand,
+
+    # Explicit HIL fault control; normal transfers are unchanged.
+    [switch]$TimeoutFirstPacket
 )
 
 $ErrorActionPreference = 'Stop'
@@ -59,6 +62,31 @@ function Read-SerialByteUntil {
         }
     }
     return $null
+}
+
+function Test-XmodemPostAckDisconnect {
+    param([Exception]$Exception)
+    # Used only AFTER a received EOT ACK. Never turn a missing ACK into success.
+    for ($inner = $Exception; $null -ne $inner; $inner = $inner.InnerException) {
+        if (($inner -is [IO.IOException]) -or
+            ($inner -is [InvalidOperationException]) -or
+            ($inner -is [OperationCanceledException])) { return $true }
+    }
+    return $false
+}
+
+function Invoke-XmodemTimeoutControl {
+    param($Serial, [byte[]]$Packet)
+    if ($Packet.Length -lt 17) { throw 'Truncated-packet fixture is too short.' }
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    $Serial.Write($Packet, 0, 17)
+    $response = Wait-XmodemResponse -Serial $Serial -TimeoutSeconds 12
+    $timer.Stop()
+    if (($response -ne 0x15) -or ($timer.Elapsed.TotalSeconds -gt 12)) {
+        throw 'Truncated first packet did not receive NAK within unchanged12s acceptance bound; no complete image packet sent.'
+    }
+    Write-Host ('XMODEM TIMEOUT CONTROL PASS: NAK after {0:F3} ms; same serial session retained.' -f $timer.Elapsed.TotalMilliseconds)
+    return $timer.Elapsed.TotalMilliseconds
 }
 
 function Wait-XmodemStart {
@@ -196,6 +224,9 @@ try {
         $packet[$blockSize + 4] = [byte]($crc -band 0xFF)
 
         $accepted = $false
+        if ($TimeoutFirstPacket -and ($blockIndex -eq 0)) {
+            $timeoutControlElapsedMs = Invoke-XmodemTimeoutControl -Serial $serial -Packet $packet
+        }
         for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
             $serial.Write($packet, 0, $packet.Length)
             $response = Wait-XmodemResponse `
@@ -240,6 +271,7 @@ try {
     if (-not $finalized) {
         throw 'The device did not acknowledge XMODEM finalization.'
     }
+    Write-Host 'XMODEM EOT ACK RECEIVED; final status drain begins.'
 
     $finalText = [Text.StringBuilder]::new()
     $textDeadline = [DateTime]::UtcNow.AddSeconds(3)
@@ -253,13 +285,14 @@ try {
         catch [TimeoutException] {
             # Keep waiting for the final status line or the scheduled reset.
         }
-        catch [InvalidOperationException] {
-            break
-        }
-        catch [IO.IOException] {
-            # The scheduled reset can remove the USB CDC endpoint immediately
-            # after the EOT ACK. The authenticated commit already succeeded.
-            break
+        catch {
+            if (Test-XmodemPostAckDisconnect -Exception $_.Exception) {
+                # The scheduled reset may cancel the pending host read even
+                # through a PowerShell MethodInvocationException wrapper.
+                Write-Host 'XMODEM post-ACK USB read ended during automatic reboot.'
+                break
+            }
+            throw
         }
     }
     if ($finalText.Length -ne 0) {

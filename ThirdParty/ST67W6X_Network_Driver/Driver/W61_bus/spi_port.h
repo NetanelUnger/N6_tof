@@ -26,6 +26,13 @@
 #ifndef SPI_PORT_H
 #define SPI_PORT_H
 
+/* Production receive backpressure: pause SPI clocks before the RX FIFO
+ * overruns, then resume only after DMA drains it. Fault-injection hooks keep
+ * their separate N6_XIP_RX_BACKPRESSURE diagnostic opt-in. */
+#ifndef N6_SPI_RX_FLOW_CONTROL
+#define N6_SPI_RX_FLOW_CONTROL 1
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -156,6 +163,12 @@ int32_t spi_port_transfer_dma_status(void);
   * @retval 0 if successful, -1 otherwise
   */
 int32_t spi_port_abort(void);
+/* Optional task-side MASRX service; default build is a no-op. */
+void spi_port_service_rx_flow(void);
+/* Explicit diagnostic only; returns unsupported outside RX-backpressure build. */
+int32_t spi_port_arm_rx_flow_test(void);
+int32_t spi_port_cancel_rx_flow_test(void);
+uint32_t spi_port_transfer_started_tick(void);
 
 /**
   * @brief  Check if NCP requires to send a new data packet

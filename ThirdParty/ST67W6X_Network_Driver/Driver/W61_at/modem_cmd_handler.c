@@ -767,6 +767,14 @@ void modem_cmd_handler_dns_drain_complete(struct modem_cmd_handler_data *data)
     if ((int32_t)(now - data->dns_drain_until) >= 0)
       data->tx_desynchronized = true;
     data->dns_drain_active = false;
+    /* Consume queued duplicate terminals before admitting a new command.
+     * This never clears a genuine fence or extends the request deadline. */
+    if (!data->tx_desynchronized && (!data->tx_quiet_active ||
+        (int32_t)(now + pdMS_TO_TICKS(100U) - data->tx_quiet_until) > 0))
+    {
+      data->tx_quiet_until = now + pdMS_TO_TICKS(100U);
+      data->tx_quiet_active = true;
+    }
   }
   data->dns_wait_active = false;
   fenced = data->tx_desynchronized;
@@ -819,7 +827,7 @@ int32_t modem_cmd_handler_wait_tx_ready(struct modem_cmd_handler_data *data,
       if (nonblocking) return -EBUSY;
       if ((now - started_at) >= budget) return -ETIMEDOUT;
       /* RX stays runnable; no handler replacement or command bytes while the
-       * still-owned DNS reply is pending. Every waiter retains its own budget. */
+       * still-owned terminal is pending. Every waiter retains its own budget. */
       vTaskDelay(1U);
       continue;
     }
@@ -1011,11 +1019,13 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
     TickType_t elapsed = xTaskGetTickCount() - started_at;
     remaining = (elapsed >= timeout) ? 0U : (timeout - elapsed);
     ret = modem_cmd_handler_await(data, sem, remaining);
-    /* A scoped timeout has no terminal boundary; a late OK must not satisfy
-     * a new operation. Only module reinitialization clears this real fence. */
-    if ((ret == -ETIMEDOUT) && (data->budget_owner == xTaskGetCurrentTaskHandle()))
+    /* Any written command missing its terminal has an ambiguous boundary,
+     * including unscoped query/connect callers. Hold admission during a bounded
+     * terminal drain; raw-transfer ambiguity still fences immediately. */
+    if (ret == -ETIMEDOUT)
     {
-      if (((flags & MODEM_NO_UNSET_CMDS) == 0U) &&
+      if ((data->budget_owner == xTaskGetCurrentTaskHandle()) &&
+          ((flags & MODEM_NO_UNSET_CMDS) == 0U) &&
           (strncmp((const char *)buf, "AT+CIPDOMAIN=", 13U) == 0))
       {
         /* Only ordinary DNS can finish beyond the application request budget.
@@ -1041,7 +1051,30 @@ int32_t modem_cmd_send_ext(struct modem_iface *iface,
           Debug_UART_Log("RADIO-WAIT", "PENDING reason=DNS_REPLY elapsed_ms=%lu snapshot=request_timeout; terminal ownership was retained",
                          (unsigned long)pending_elapsed * portTICK_PERIOD_MS);
       }
-      else data->tx_desynchronized = true;
+      else if (((flags & (MODEM_NO_UNSET_CMDS | MODEM_TX_TRACK_RAW_WRITE)) == 0U) &&
+               ((strcmp((const char *)buf, "AT") == 0) ||
+                (strcmp((const char *)buf, "AT\r\n") == 0) ||
+                (strncmp((const char *)buf, "AT+CW", 5U) == 0) ||
+                (strncmp((const char *)buf, "AT+BLEINIT?", 11U) == 0) ||
+                (strncmp((const char *)buf, "AT+BLECONN?", 11U) == 0) ||
+                (strncmp((const char *)buf, "AT+CIPCLOSE=", 12U) == 0) ||
+                (strncmp((const char *)buf, "AT+CIPSTART=", 12U) == 0)))
+      {
+        /* Only these text-only operations have no binary response/raw payload.
+         * Unclassified FS/raw commands retain the fence. A plain command has
+         * no raw prompt/payload left to send. Return the
+         * original timeout now, detach caller handlers below, and let only
+         * persistent OK/ERROR drain its terminal. Reuse the existing gate:
+         * no new AT bytes or reset during this fixed one-second grace period.
+         * Expiry is a missing-boundary fault, never permission to replay. */
+        taskENTER_CRITICAL();
+        data->dns_drain_until = xTaskGetTickCount() + pdMS_TO_TICKS(1000U);
+        data->dns_drain_active = true;
+        taskEXIT_CRITICAL();
+        if (xSemaphoreTake(sem, 0U) == pdTRUE)
+          modem_cmd_handler_dns_drain_complete(data);
+      }
+      else data->tx_desynchronized = true; /* Ambiguous raw transfer. */
     }
   }
 

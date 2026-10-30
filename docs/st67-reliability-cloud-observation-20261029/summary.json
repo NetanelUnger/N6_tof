@@ -1,0 +1,70 @@
+{
+  "recorded_utc": "2026-10-29T08:18:43.419682+00:00",
+  "source": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5",
+  "firmware": 52,
+  "hardware": {
+    "USB_result": "PASS",
+    "seconds": 120.00036859998363,
+    "pings": 59,
+    "latency_ms": {
+      "p50": 59.182,
+      "p95": 65.419,
+      "p99": 65.476,
+      "max": 65.476
+    },
+    "SPI_counts": [
+      122,
+      123
+    ],
+    "NCP_recovery_attempts": [
+      2,
+      2
+    ],
+    "alloc_failures": [
+      0,
+      0
+    ],
+    "cloud_sent": [
+      150,
+      269
+    ],
+    "cloud_request_errors": [
+      109,
+      110
+    ],
+    "cloud_delivered_to_browser_count": "not instrumented",
+    "profile_result": "FAIL scoped Cloud-only transport observation: one new SPI fault; complete P0/V02 timing acceptance INCOMPLETE",
+    "route_before_after": "CLOUD",
+    "encoding_seen_in_UI": "UINT8 affine / DEPTH54x42 /2268 bytes",
+    "BLE": "disconnected/notificationsOFF",
+    "settings_generation": 2,
+    "origin": "MAP ON and MAP ENCODING UINT8 already present at first UI observation; not sent by this agent"
+  },
+  "browser": {
+    "target": "Chrome window25299644 existing N6 /cloud session",
+    "read": "PASS live image and UI",
+    "sequence": [
+      "element click: coordinate input geometry unavailable",
+      "fresh AX+screenshot supplies geometry",
+      "coordinate focus click returned success, AX still reported address focus",
+      "setValue(version): stopped for user-input detection; read state refreshed as tool requested",
+      "fresh screenshot then bounded click before paste: GetCursorPos AccessDenied0x80070005",
+      "read-only state check: input empty, version absent; no further input attempts"
+    ],
+    "denied_action": "focus Cloud CLI input before paste(version)",
+    "version_submitted": false,
+    "pending_input": false,
+    "remaining_blocker": "Windows native input access denied, despite accessible UI and user confirmation desktop open",
+    "process_session_observation": "query session printed console netan1 Active; inspected Chrome/ChatGPT/Codex/node/shell process metadata all session1. Both metadata command wrappers returned exit1; useful displayed observations, not a complete desktop/ACL diagnosis.",
+    "next_step": "User restart ChatGPT/Codex desktop app normally from the active Flow13 desktop, preserve existing Chrome workspace and N6 cabling; then one fresh input check. No admin/ACL/desktop-switch workaround. Restart is proposed, not executed or guaranteed."
+  },
+  "firmware_bytes_sent": 0,
+  "resets_sent": 0,
+  "settings_changes": 0,
+  "PAIR_changes": 0,
+  "handles_closed": true,
+  "lease_released": true,
+  "physical_cable_action_required": false,
+  "new_firmware": "none; B52 retained, A51 not overwritten; no53",
+  "dependencies": "P0-04/P0-05 INCOMPLETE; CP8 BLE1953ms failure retained; no firmware repair gates waived"
+}

@@ -1,0 +1,7 @@
+{
+  "thread": "n6-xip-st67-reliability-20261028",
+  "pid": 35932,
+  "started_utc": "2026-10-28T22:26:04.218875+00:00",
+  "process_created_utc": "2026-10-28T22:26:03.323911+00:00",
+  "scope": "bounded BLE CLI and USB read-only controls; no images, reset, update, settings or pairing writes"
+}

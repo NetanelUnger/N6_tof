@@ -1,3 +1,5 @@
+#define N6_RESOURCE_SOURCE N6R_USB
+#include "resource_diag.h"
 #include "usb_cdc_transport.h"
 #include "npu_shared_memory.h"
 

@@ -1,5 +1,355 @@
 # STM32N657 ToF, USB CDC, and ST67W611M1 Project
 
+2026-10-30: signed USB **A59 confirmed/B58 retained**. Firmware normalizes ST67 diagnostic blank lines; dual-COM handles split CRLF and enables Windows VT colors. Actual20s UART capture:2223 complete lines/0 blank/0 bare LF; real USB map emits5411 color codes. HIL100 exact/NPU100/delta0/CRC0 passes. Initial post-boot status timeout retained; fresh checks pass. [Details](docs/full-diagnostics57_HE.md#עדכון-עיצוב-לוגים-וצבעי-מסוף--30-באוקטובר).
+
+2026-10-30: B58 mixed Cloud/BLE load PASS: three image phases/180s,404 images and294 BLE pings alongside81 Cloud load commands; max BLE500ms/Cloud3619ms, CRC0 and no unexpected disconnect. Source busy skips and UART log saturation remain. [Detailed results](docs/ble-console-20261029.md#executed-mixed-load-on-b58).
+
+2026-10-30: signed USB **B58 confirmed/A57 retained**. USB CLI teardown now stops only USB-owned streams. Nine real USB open/close cycles preserve BLE demo1000/demo300/sensor images and commands; HIL100 exact/NPU100/CRC0 passes. Initial post-boot status timeout retained; fresh status verification passed without reflashing. [Fix and evidence](docs/ble-console-20261029.md#usb-stream-isolation-fix-b58-2026-10-30).
+
+2026-10-29: BLE console now supports text commands and real sensor images in RAW/UINT16/UINT8/JPEG. A57 passes a 15-minute images+CLI connection test (2,189 images/1,485 pings, max281ms, no unexpected disconnect), followed by four30-second codec checks. UART log saturation remains visible; prior disconnect cause is unproven. [Usage](training/README_HE.md), [evidence and limits](docs/ble-console-20261029.md).
+
+2026-10-29: `training/BLE_CONSOLE.bat` adds a small Windows BLE diagnostic console and unattended CLI runner. Three real connection cycles/60 pings pass on A57 (max187ms); reports retain command failures and latency. See [usage](training/README_HE.md) and [validation](docs/ble-console-20261029.md).
+
+2026-10-29: signed USB **A57 confirmed/B56 retained**. UART/ST67 and CLI diagnostics enabled, default DEBUG level and NCP trace ON. Actual COM6 `?`, `a`, and `n` toggles and HIL100 pass. Full verbosity causes bounded UART queue drops (1759 cumulative after verification); it is not lossless capture. [Verification and controls](docs/full-diagnostics57_HE.md).
+
+2026-10-29: signed USB **B56 confirmed/A55 retained**. Compact retained recovery trace (`radio status`), categorized demo publication rejections, and local UI source/validated-reception counters. Single BLE 1000→300ms transition and HIL100 pass; prior recovery root cause remains unproven. UI not published. [Results](docs/recovery56/report.md).
+
+2026-10-29: signed USB A55 confirmed, B54 retained. `DEMO MAP ON 1000` = 1s; `ON 300` = 300ms (100..60000ms). Legacy ON1/ON2 rejected. Source-ID skips explained by live counters. Host/HIL and separate timing checks passed; one BLE transition recovery remains open. [Evidence and limits](docs/demo-ms55_HE.md).
+
+2026-10-29: signed USB B54 installs the three scoped continuity fixes. Native/HIL results and explicit load-test limitations: [results](docs/st67-continuity-20261029/report.md). This supersedes the broad ST67 campaign below.
+
+2026-10-28 ST67 CP5: B52 also records two SPI overruns (remaining RX, HAL OVR).
+USB/ToF/NPU remain responsive; no cable action needed. Independent native tests
+expose possible retransmission after ambiguous SPI completion and quiet logger
+bookkeeping failure. Fourteen host suites pass after a stale Cloud fixture repair;
+firmware repairs and acceptance remain gated. See [fault audit and evidence](docs/st67-reliability-fault-audit-20261028/report.md).
+
+2026-10-28 ST67 baseline: signed **B52 confirmed**, A51 retained, USB-only.
+Source5432d4a and immutable build/package hashes are recorded; original51 host
+artifact was not found. HIL100 exact/NPU100/delta0/CRC0 and120s BLE CLI controls
+pass. A bounded BLE-image profile misses the unchanged image-rate reference
+floor99/100 after correcting a host measurement-window bug; no ST67 fix or
+endurance acceptance is claimed. Existing Cloud workspace activation and P0
+profiles remain open. See [baseline/install](docs/st67-reliability-known-baseline-20261028/report.md)
+and [measurements, test fix and remaining work](docs/st67-reliability-baseline-tests-20261028/report.md).
+
+2026-10-27 XIP B50: confirmed timed moving-pixel demo via `DEMO MAP ON 1|2`,
+using the existing BLE/Cloud compression path. Live Cloud measurements expose
+pre-transmission skips; no Cloud throughput fix is claimed. See [commands and evidence](docs/demo-map50_HE.md).
+
+2026-10-27 manual-test profile: settings persistence and explicit legacy preparation
+are enabled by default, including signed XIP builds. Normal writes remain enabled
+after a successful first pairing and reload. `status` reports explicit Wi-Fi/IP
+readiness and settings metadata; `cloud stats` aliases `cloud status`.
+A49 installed through CDC OTA and Secure-confirmed; HIL100 exact/NPU100/delta0
+and on-board status/cloud-stats checks pass. Settings empty/writes enabled;
+Wi-Fi persistence and automatic reconnect after a software reboot pass on hardware.
+Connected HIL100, two-minute soak/55 USB pings, scan and real BLE multiline CLI pass.
+Fresh Cloud pairing and cold-power validation remain manual.
+Cloud still uses the existing lab HTTP profile: TLS endpoint interoperability
+remains an open product-release blocker. See [manual acceptance](docs/product-settings49_HE.md).
+
+2026-10-27 fast UART boot: FSBL, Secure and NonSecure now append a compact
+Nati Lab logo and progress messages without clearing the terminal or waiting
+for a splash timer. Removes three explicit 5000 ms waits (15 seconds total);
+actual reset-to-ready improvement still requires HIL measurement. NonSecure
+pre-ThreadX milestones use the bounded polling UART writer even when runtime
+diagnostics are disabled. Authentication, rollback, watchdog, peripheral
+settling and trial-confirmation timing are unchanged. No Generate Code needed.
+Hardware follow-up: confirmed XIP B48; three append-only banners and 0.565s
+FSBL-log-to-ThreadX verified. HIL100 passes after opening radio SB31/SB34;
+one-minute software-reboot capture shows no repeated reset. ToF/NPU/SPI healthy.
+See [boot verification and limits](docs/fast-boot-20261027.md).
+
+2026-10-26 factory provisioning reliability: the full build now imports all
+three CubeIDE projects into a fresh workspace and requires newly generated
+BIN/ELF/MAP outputs from clean builds. Schema-2 factory manifests require exactly
+four image hashes and a matching build-input fingerprint before erase, including
+with SkipBuild. ConfirmErase no longer skips jumper/USB prompts; NonInteractive
+is explicit. Missing CDC offers one operator cold-power check without reprogramming.
+Skipped boot checks report PROGRAMMING PASS / BOOT NOT VERIFIED. Host-only fake
+builder/programmer/CDC tests cover these gates; no new physical-board validation.
+Real CubeIDE 2.2.0 BuildOnly also passes all three builds, signing and manifest
+validation after repairing Windows drive-colon dependencies between referenced
+project builds (including escaped spaces in paths). No hardware was accessed.
+See [factory operation](training/README_HE.md#13--שחזורהתקנת-מפעל-למעגל-ריק).
+
+2026-10-25 ST67 UART preparation and feedback: close radio-board SB31/SB34
+for UART flashing only after disconnecting power and isolating the ToF board
+from shared PD8/PD9. Reopen them before reconnecting ToF and running HIL.
+The updater detects empty QConn handshake replies, reports the Hebrew message
+"אין תגובה מהמודול", restores FSBL, and exits with a concise failure rather
+than a raw PowerShell stack trace. Host-only simulated tool tests verify success,
+no response, write failure, and FSBL restore failure; no new hardware validation.
+See [radio preparation and recovery](radio_firmware/README_HE.md).
+
+2026-10-25 repeated ST67 updates: `01_UPDATE_MODULE.bat` also performs verified
+line-ending repair before validation. QConn now runs from a hash-verified copy
+under `.local-dependencies/st67-updates`, preserving the bundled vendor files
+and retaining per-run working files/logs. This fixes repeated-run package hash
+failures; it does not establish a fix for a hardware handshake failure.
+
+2026-10-25 ST67 package check: run `radio_firmware\00_CHECK.bat` as usual.
+The bundled checker now repairs LF/CRLF differences in known vendor text files
+only when the repaired bytes exactly match the existing SHA-256 manifest, then
+runs the full package check. No separate repair download or hardware is needed;
+content changes and binary mismatches still fail. See
+[radio package instructions](radio_firmware/README_HE.md).
+
+2026-10-24 optional display: A47 installed over USB; B46 retained. The screen
+switch is commented out in `AppliNonSecure/Core/Inc/config.h`. Display task,
+driver, SPI4/LCD/DMA initialization and CLI entries are excluded at compile
+time. Both configurations build; watchdog checks and USB post-reboot
+version/ToF/NPU/radio checks pass. No Generate Code required.
+See [configuration and verification](docs/display-disabled47.md).
+
+2026-10-24 remote CLI framing: B46 installed over USB and verified on real BLE.
+Remote text uses CR for displayed lines and one final LF for the complete
+command; failures end with visible `FAIL\r\n`. No completion marker text is
+emitted. Multiline HELP (14 notifications) and asynchronous Wi-Fi scan pass,
+including replay through the website parser. Companion website changes are
+local and not deployed; USB console/XMODEM retain their existing wire formats.
+See [protocol and verification](docs/cli-cr-lf46.md). A45 is retained.
+
+2026-10-24 demo cleanup: A45 installed through CN8 USB and verified again after
+an explicit reboot; B44 retained. Application diagnostic output defaults OFF in
+[`config.h`](AppliNonSecure/Core/Inc/config.h). Version/USB PONG/ToF/NPU pass;
+UART queue/sent and ST67 log counters are zero. BLE/Cloud completion records
+remain protocol data; the companion website now filters them in its local
+terminal display (website changes have not been deployed). No Generate Code is
+required. See [configuration and verification](docs/demo-quiet45.md).
+
+LATEST2026-10-23 19:00UTC: B44 confirmed XIP, A43 retained. Full OTA with active
+WDT PASS517472bytes/506data+EOT/507ACK/0timeout/0retry/562.032s. Signature/hash,
+automatic reboot/confirmation22720ms, PC702D0AFC/VTOR70280400 verified. Nine
+source SPI suspensions resumed;509 flash-service calls/RXoverlap0/preOVR0/fault0.
+No watchdog reset or TASK STALE during transfer; no deadline change or WDT disable.
+B44 HIL100exact/NPU100/delta3/CRC0/27.516s.60s resources/15PSP samples, radio
+min15180/peak50356(30.15% free/used); heap851288/front357412/tail493876 versus
+RAMcontrol369168. Finite observations, not full worst-case or fragmentation proof.
+Final USB/PONG/ToF/NPU healthy, sensorCloud0/Cloud disabled/datasetOFF; leases
+closed. A43/B44 exact recovery artifacts verified. No main/server/OTP changes.
+[Current Hebrew use/recovery](docs/n6-xip-ota44-usage_HE.md),
+[OTA acceptance](docs/xip-ota-watchdog-final-20261023.json),
+[memory](docs/xip-ota-watchdog-memory-20261023.json).
+Physical NOR powercut remains untested/unarmed; last cold-power test was B39.
+Original OVR cause/server lease/BLE host limitations remain separate findings.
+
+Historical A43 checkpoint (superseded by B44/A43 above): Normal Build-Xip defaults
+watchdog/resource ON; UART w/W and local USB CLI W arm/W/W cancel remain.
+5s independent arms/updater-busy guard; remote BLE/Cloud cannot mutate arms.
+Four actual IWDG resets PASS:41UART+supervisor,43UART+USBCLI, resetflag1 and
+healthy reboot, no software reset/power removal. FullUSB41->42 while WDT active
+PASS516512bytes/partialNAK10107.505ms/same session/EOTACK;42->43 PASS517472bytes.
+FSBLseq117/confirmed43/fallback42, PC701D0AFC/VTOR70180400. A43 HIL100exact/
+NPU100/delta5/CRC0/27.375s,60s resources/15PSP samples; heap851288/front357412/
+tail493876/RAMcontrol369168, radio min15652/peak49884(31.38%), supervisor
+sampled776/2624. NOT full WC/watermark/fragmentation proof. Cloud disabled+
+paired/sensor0/datasetOFF/localUSB100; NPU/SPI/NCP/UART faults0, leases closed.
+Last actual OTA39 result504ACK0timeouts0retries; post-WDT OTA, latest coldpower,
+early pre-supervisor boot, IRQ-masked/high-priority starvation, LSI calibration
+and NOR powercut remain untested. Powercut plan is unarmed. Closing main/server
+Git reads blocked by ownership; no added trust/merge/push/deploy/server edits.
+[Final evidence](docs/xip-watchdog-final-20261023.json),
+[memory](docs/xip-watchdog-memory-20261023.json),
+[watchdog design/use](docs/watchdog-design_HE.md).
+All board states below are historical and superseded by B44/A43 above.
+
+Rollback follow-up: signed A40 trial installed from B39 over USB, one pre-confirm
+software reset, explicit FSBL rollback to B39 and healthy USB/ToF/NPU PASS.
+A38 is now a verified HOST backup, not the current on-board fallback; A40 is an
+unconfirmed discarded trial, pending metadata cleared. No physical powercut.
+Cloud disable persistence/409 classification and an unarmed physical-test plan:
+[engineering record](docs/xip-rollback40-cloud-power-plan_HE.md).
+
+Cold-power follow-up2026-10-23 17:23UTC: user-confirmed all-power disconnect,
+captured ST-LINK reconnect and complete FSBL boot, seq105/B39/signature+hash PASS,
+NS XIP PC702D0494/VTOR70280400/confirmation10401ms, USB39/PONG/ToF/NPU healthy.
+Cloud polling resumed with409; sensor0/dataset0, then disabled and verified.
+Capture and all leases closed. No reset/programming/debugger activity.
+This supersedes the cold-power pending item below; programming-time power-loss
+and latest rollback remain untested. [Evidence](docs/xip-b39-cold-power-20261023.json).
+
+FINAL2026-10-23: B39 XIP confirmed, A38 retained. HAL timebase starvation in
+PendSV idle fixed by TIM6 effectiveIRQ14 abovePendSV15; sleep-clock-only B35
+control FAILED and is retained. Actual partial-packet NAK10.008..10.051s,
+unchanged12s gate; same-open-USB timeout+full514528byte signed update toA38,
+explicitEOTACK/senderexit0/bootconfirmation PASS. OTA A38->B39 PASS504ACK,
+0timeouts/0retries/566.070s; software reboot PASSseq105/B39/PC702D0494/VTOR70280400.
+Post-reboot HIL100exact/NPU100/delta0/27.390s; SUSP3/3 DMAcompletion/SPI-NCP0.
+Radio observed min14708/peak50828(28.94%), C heap851384/frontier357412/tail493972;
+15PSP samples are NOT full WC/fragmentation/vendor-internal allocation proof.
+Final ToFready/NPUerrors0/UARTdrops0/Cloud disabled+paired+sensor0/datasetOFF;
+all owned handles/leases closed. BLE latest WinRT DeviceNotFound before GATT,
+0pings/noPair/noCache changes: NOT_ACCEPTED. Latest physical cold-power/loss
+during program/rollback-before-confirmation remain untested. Original SPI OVR
+physical cause and server lease/retry finding remain separate. Main/server
+unchanged; no merge/push/deploy/OTP/credential changes in this follow-up.
+Current [Hebrew usage/recovery guide](docs/n6-xip-usage-recovery_HE.md),
+[final measured evidence](docs/xip-timeout-final-20261023.json) and
+[timebase controlled comparison](docs/xip-hal-timebase-root-cause_HE.md).
+All older checkpoints below are historical, including A23/A32 and timeout-blocked states.
+
+LATEST reliability follow-up2026-10-23: B33/A32 unchanged, NO NOR writes.
+Ten real induced SUSP resume/completion tests PASS, SPI/NCP0. USB badCRC,
+partial-manifest cancellation and bad-signature reject PASS. NEW OPEN DEFECT:
+truncated17byte packet produces noNAK within12s; separate25s observation also
+fails. USB session close recovers CLI/ToF/NPU without reset. HAL tick advances
+less than wall time after ToF pause (1029ms/3004ms); root cause not established.
+Post-test HIL100exact/NPU100/delta0/27.578s PASS; radio min14708/peak50828
+(28.94%). UART log queue drops17 retained, transport/internal/timeout/HAL0.
+All handles/lease released, Cloud disabled/sensor0/datasetOFF/imageNONE.
+Do not call full updater interruption/power-loss acceptance complete. See
+[current failure-inclusive evidence](docs/xip-b33-reliability-20261023.json)
+and [next physical/timebase/server plan](docs/xip-next-physical-and-server-plan_HE.md).
+
+CURRENT2026-10-23 14:58UTC: B33 XIP RUNNING/CONFIRMED after actual OTA fromA32;
+A32 retained. Signed512480bytes/501data blocks+EOT/502ACK,0timeouts/0retries,
+506.998s. FSBL signature+hash/automatic flash boot PASS; PC702CFCFC/VTOR70280400,
+confirmation10206ms; Cloud+independent USB version33. HIL100exact/NPU100/delta0.
+Radio observed free15180/peak50356(30.15%); PSP15samples are NOT full WC or
+active-install stack proof. Cloud disabled/paired/sensor0, datasetOFF/imageNONE,
+SPI faults0/NCP recovery0/UART drops0. All owned handles+lease released.
+Official scoped network permission and explicitly approved per-command exact
+Git trust succeeded; no global trust/security/server/main changes. Earlier
+network/ownership blockers below are historical, not current. Original OVR
+root cause/server lease finding/latest BLE before-GATT blocker remain qualified.
+See [OTA acceptance evidence](docs/xip-ota-b33-acceptance-20261023.json).
+
+OTA permission follow-up2026-10-23: official per-call elevated HTTPS /health
+PASS200. Separately requested A32->B33 regression stopped at Git ownership
+validation BEFORE USB/network sender: elevated netan differs from worktree
+owner CodexSandboxOffline. No trust exception/retry, no firmware sent.
+B33 signed512480bytes is NOT installed. Lease released, prior A32/B31 evidence
+unchanged. See [permission checkpoint](docs/xip-ota-permission-checkpoint-20261023.json).
+
+Current2026-10-23 14:06UTC: A32 XIP RUNNING/CONFIRMED, B31 retained.
+CPU PC701CFCFC/VTOR70180400; five full USB updates from XIP PASS.
+A32 HIL100 exact/NPU100/maxdelta0/27.453s. Real induced SUSP resume PASS:
+DMA64bytes/SR001C8801/RXremaining36/completed1/resume+1/SPI faults0.
+Radio pool observed free14708/peak50828=28.94%; PSP samples are NOT WC proof.
+UART overflow34queued+66dropped, retained66 reported after backpressure PASS.
+Clouddisabled/paired/sensor0/datasetOFF; all handles/lease released.
+Current OTA NOT_STARTED: local connectEACCES20.217.52.1:443 and
+CODEX_SANDBOX_NETWORK_DISABLED=1. No workspace/command/block sent; no bypass.
+BLE latest RF test WindowsDeviceNotFound before GATT; not accepted.
+See [current Hebrew use/recovery guide](docs/xip-usage-recovery-20261023_HE.md)
+and [qualified evidence](docs/xip-final-checkpoint-20261023.json).
+All older checkpoints below are historical, including the A23 recovery blocker.
+
+Current13:05UTC: B27 runs after user FLASH cold power-on; USB version27 and
+Secure header-only VERSION-reject prove CONFIRMED27. ToFready/NPU449errors0,
+imageNONE/datasetoff/Cloudsent0. Actual boot moment/PC not captured. Resource
+tables emit invalid uninitialized NOLOAD data; do NOT treat these as failure
+counts/high-water. Explicit startup init and dirty-SRAM host regression added;
+A28 build/installation/HIL pending. B27 remains protected. See
+[B27 proof and diagnostic defect](docs/xip-b27-boot-20261023.json).
+Earlier checkpoints below remain historical.
+
+Recovery2026-10-23 12:05UTC: DEV ROM verified; double4MiB backup and seq66/A23
+CRC/signature/image/bootchain preservation verified. Guarded RAM27 restored,
+Cloud disabled/sent0. B27 signed USB510240bytes finalized once; RAM still responds.
+B27 first XIP boot/confirmation pending. Raw postflight failed because expected
+reset-refusal log was absent; transfer/finalization and PONG passed. Do NOT resend.
+No healthy confirmed fallback claimed: A23 intact but known faulty. See
+[recovery evidence](docs/xip-recovery-20261023-1157.json). Older state below is historical.
+
+Host-only resource safety profile: checked allocation/queue arithmetic, retained
+failure counters and deferred bounded UART reporting; provisional >=10% stack
+margin policy. Not installed or hardware accepted. See
+[memory policy and pending HIL](docs/resource-memory-policy_HE.md).
+Candidate B27 is signed/offline-verified only:510240bytes,
+SHA256 e1302494519bdce727cb03de79da22b683209d362323bfafd0e824ac225e6bc6.
+RAM default heap369104/XIP diagnostic heap851480 are linker capacities,
+not measured free memory or10% high-water proof. See
+[host results](docs/resource-policy-20261023-results.json).
+
+Current2026-10-23 recovery blocker: diagnostic A23 confirmed, but OTA toB24
+faulted at28% with NS STKOF. Board is NOT verified running. B24 is partial;
+formerB22 was overwritten, so no valid alternate B fallback is claimed.
+B25 deferred-logging fix built/signature-verified ONLY, not installed.
+Actual old SPI formatter call chain >=776bytes exceeds768byte stack; fixed
+local resume chain128bytes, runtime high-water and resume proof still pending.
+All clients/UART/lease closed. Await fresh user readiness before any hardware.
+Main/server unchanged. See [current recovery steps](docs/xip-recovery-after-a23_HE.md)
+and [measured failures](docs/xip-spi-ovr-experiments-20261023.json).
+The checkpoints below are historical and do not describe the current board.
+
+Latest measured2026-10-23: B18 XIP running/confirmed, A17 retained for recovery.
+A14 cold FLASH boot+HIL100+software reset PASS. OTA A14->B15 complete498720bytes,
+automatic boot/confirmation PASS;2timeouts/retries on block78 accompanied SPI RX
+OVR, root cause OPEN. USB A16 interrupted-transfer+trial rollback->B15 PASS.
+USB A17 finalized; first postflight hit source-port FileNotFound race (retained),
+independent confirmed17 and persistent reboot PASS; race fixed/3host tests PASS.
+A17 HIL100 exact tensors/classes,maxdelta6/CRC0/28s and BLE5/5max226.01ms PASS.
+Timestamped OTA A17->B18 PASS,489ACKs/0timeouts/0SPI faults;20CRC sessions/160
+packets rejected without NOR writes,0timeouts/SPI faults. This did NOT establish
+a causal fix for the intermittent OVR. Final ToFready/NPU1542errors0/Cloudsent0/
+datasetoff/SPI0/NCP0/BLEdriver0/UARTdrops0. Owned handles and lease released.
+No active recorder, no further physical action requested. Main and server unchanged.
+See [acceptance evidence](docs/xip-acceptance-20261023.json) and
+[timeout investigation](docs/xip-ota-timeout-investigation-20261023.json).
+Older checkpoints below are historical; the intermittent timeout remains open.
+
+Chronology correction: the quoted user reconnect was19:59:07UTC, before OTA,
+not a new reconnect at23:22. The23:24UTC USB read reports B13/PONG9800228ms;
+it proves no outcome of a new post-OTA physical action. A14 boot/confirmation NOT observed; no prior
+boot recorder existed. ToF ready/NPU35817/errors0/imageNONE/Cloudsent0/datasetoff.
+SPI fault count17/NCP recovery2ready0failed/BLEdriver8 observed; cause not isolated.
+Only USB status reads this turn; no reset/debugger/OTA retransmit. Need coordinated
+actual all-sources cold power-on in FLASH after user readiness and recorder ready.
+No recorder active at end. Earlier checkpoints below remain historical evidence.
+
+Latest measured2026-10-22: cold A12 XIP runtime HIL100 PASS; full signed USB
+update from XIP A12 to B13 completed498720bytes with automatic boot. Independent
+header-only replay proves confirmed version13 after the first harness closed UART
+too early. CPU PC702CF144/VTOR70280400 measured. B11 is now HOST BACKUP ONLY,
+B13 is protected during the subsequent A14 OTA (A12 now host backup). B13 software reboot refused safely before reset (XSPI1
+CLKP1); signed A14 fixes the guard/switch, host16+5checks PASS/hardware pending.
+Existing Cloud CLI5commands PASS; actual OTA498720bytes/488blocks/EOT ACK and
+candidate commit PASS, but B13 reset refused BEFORE SYSRESETREQ. A14 activation
+requires coordinated cold boot; do not resend package. Sensor uploads0.
+SPI fault1, BLE driver errors5/ADV retry exhausted, UART drops21/timeouts2 observed;
+causes not isolated. ToF resumed once; acquired13685->14227/NPU5105->5306/errors0.
+Older board-state paragraphs below are historical. Main unchanged. See
+[current Hebrew usage/recovery guide](docs/xip-current-usage_HE.md).
+
+Recorder lifecycle update: cold capture ended unexpectedly, last heartbeat19:04:36UTC,
+0bytes/no final result; cause UNKNOWN. Own stale lease was verified dead/unlocked
+and archived through explicit project recovery, logs retained. No capture/hardware
+access restarted, port availability NOT probed.12 mocked capture +10 ownership
+cases and2 denied-effects imports PASS. Future captures <=300s with stdout/atomic
+heartbeats, structured errors and bounded verified-device reconnect; must monitor
+liveness, cannot promise cleanup after external process termination. Await user
+notification before a fresh cold FLASH test. Main and NOR unchanged this turn.
+
+Latest external-boot attempt18:42UTC: physical FLASH jumpers/NRST confirmed,
+but passive UART received0bytes and appUSB did not enumerate. Runtime/BOOTSR
+remain UNKNOWN; AP0 read failed, no further reset/write/AP1 attach. Persistent
+boot NOT accepted. CubeProgrammer labels conflict RevZ/RevB; silicon revision is unresolved.
+ST ES0620 Rev5 2.2.18 appliesZ/B, notX;2.2.22 appliesall and matches
+measured USBPHY mux and static USART1 HSI selection. Cause not isolated. Need
+first cold FLASH power-on capture before any new firmware rewrite; reset-clock
+restoration must be addressed for reliable OTA reboot. Prior proofs below stand.
+
+XIP verified checkpoint (2026-10-22, feature/n6-xip-ota-usb):100 same-frame
+NPU frames PASS,100 exact tensors/classes, CRC0/maxdelta1,28.703s. BLE CLI5/5
+PASS <=1500ms/noPair. RAM heap capacity369136 -> XIP862256 (+493120), not
+measured dynamic high-water or automatically NPU-accessible memory. Compatible
+Secure supports original B11 F600 and installed A12 FF40 gateways: hardware B11
+reached main then parked before initialization; A12 full XIP runtime/confirmation
+PASS. CPU VTOR70180400/I-cacheON/MPU read-only executable measured.
+Signed FSBL/Secure installed via bounded RAM driver; independent double4MiB
+SHA6cc2cfb51d893b06e75d32c1614818406bcc2a6219f68cb2b98a9c9cae43faaf.
+A12/B11/metadata byte-exact preserved, seq33 confirmedA12/fallbackB11. Vendor
+UnderReset connection and loader erase failed; independent reads proved each
+changed zero bytes. No OTP/credentials/security-lock changes. Main untouched.
+Board now DEV/Secure RAM FSBL parked; next physical BOOT1=1-2 (BOOT0=1-2)
+and RESET are required for real persistent boot. Full signed USB update from XIP,
+actual OTA and persistent new-chain recovery remain incomplete. See the
+[Hebrew guide](docs/xip-ota-usb-20261022_HE.md) and
+[current results](docs/xip-ota-usb-20261022-results.json).
+
 Platform upgrade M1-M7 completed (2026-10-21): projects/classes, shared lossless
 USB/BLE/Cloud capture, two measured classifiers on the real NPU, guarded RAM
 loading, exact HIL-bound package-only release and BAT/UI checks.40 host/native

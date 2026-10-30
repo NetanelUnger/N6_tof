@@ -25,7 +25,8 @@ static int32_t boot_verify_slot_mapped(uint32_t slot,
                                       uint32_t version,
                                       const FW_UpdateManifest_t *manifest);
 static uint32_t boot_validate_stm32_image(uint32_t mapped_address,
-                                         uint32_t expected_size);
+                                         uint32_t expected_size,
+                                         uint32_t execution, uint32_t slot);
 static int32_t boot_map_and_verify(uint32_t slot, uint32_t version,
                                    const FW_UpdateManifest_t *manifest);
 
@@ -88,7 +89,8 @@ static int32_t boot_metadata_commit(FW_BootRecord_t *record,
 }
 
 static uint32_t boot_validate_stm32_image(uint32_t mapped_address,
-                                         uint32_t expected_size)
+                                         uint32_t expected_size,
+                                         uint32_t execution, uint32_t slot)
 {
   uint32_t magic = *(const uint32_t *)mapped_address;
   uint32_t signed_size = *(const uint32_t *)(mapped_address +
@@ -99,14 +101,8 @@ static uint32_t boot_validate_stm32_image(uint32_t mapped_address,
                                               FW_STM32_IMAGE_VECTOR_OFFSET + 4U);
 
   if ((magic != FW_STM32_IMAGE_MAGIC) ||
-      (expected_size < FW_STM32_IMAGE_PREFIX_SIZE) ||
-      (expected_size > FW_SLOT_SIZE) ||
-      (signed_size > (FW_SLOT_SIZE - FW_STM32_IMAGE_PREFIX_SIZE)) ||
-      (signed_size != (expected_size - FW_STM32_IMAGE_PREFIX_SIZE)) ||
-      (msp <= NONSECURE_RAM_START) || (msp > NONSECURE_RAM_END) ||
-      ((msp & 0x7U) != 0U) || ((reset_handler & 1U) == 0U) ||
-      ((reset_handler & ~1UL) < NONSECURE_RAM_START) ||
-      ((reset_handler & ~1UL) >= NONSECURE_RAM_END))
+      (FW_ImageVectorsAreValid(execution, slot, expected_size, signed_size,
+                                msp, reset_handler) == 0U))
   {
     return 0U;
   }
@@ -149,7 +145,8 @@ static int32_t boot_verify_slot_mapped(uint32_t slot,
     }
     if (boot_validate_stm32_image(
             mapped_address,
-            factory_size + FW_STM32_IMAGE_PREFIX_SIZE) == 0U)
+            factory_size + FW_STM32_IMAGE_PREFIX_SIZE,
+            FW_EXECUTION_RAM, slot) == 0U)
     {
       return -3;
     }
@@ -170,7 +167,7 @@ static int32_t boot_verify_slot_mapped(uint32_t slot,
                (long)crypto_result);
   if ((crypto_result != 0) ||
       (boot_validate_stm32_image(mapped_address,
-                                 manifest->image_size) == 0U))
+                                 manifest->image_size, manifest->flags, slot) == 0U))
   {
     return -4;
   }

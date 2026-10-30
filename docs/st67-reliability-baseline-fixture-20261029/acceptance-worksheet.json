@@ -1,0 +1,59 @@
+{
+  "frozen_utc": "2026-10-29T09:17:14.097290+00:00",
+  "status": "FROZEN_BEFORE_BASELINE_VARIANT_BUILD_AND_RELIABILITY_IMPLEMENTATION",
+  "authority": "Existing project gates retained; additional campaign targets explicitly selected below, not measured promises.",
+  "ordinary": {
+    "ble_cli_max_ms_exclusive": 1500,
+    "usb_cli_max_ms_exclusive": 1000,
+    "cloud_cli_max_ms_exclusive": 10000,
+    "lost_duplicate_stale_or_crc_errors": 0,
+    "unexpected_ncp_or_mcu_resets": 0,
+    "normal_rx_allocation_failures": 0,
+    "normal_unexplained_spi_faults": 0,
+    "tof_progress_max_gap_s": 3,
+    "npu_receive_max_gap_s_exclusive": 3,
+    "image_receive_max_gap_s_exclusive": 5,
+    "image_minimum_per_hour": 3000,
+    "ble_npu_minimum_per_hour": 6000,
+    "linked_heap_min_bytes": 369072,
+    "runtime_stack_and_pool_minimum_free_bytes_exclusive": 0,
+    "host_loop_lag_validity_max_ms": 100
+  },
+  "fault_profiles": {
+    "wifi_got_ip_after_ap_available_max_s": 45,
+    "cloud_three_valid_frames_after_ip_max_s": 30,
+    "ncp_recovery_ready_or_explicit_failed_max_s": 90,
+    "ncp_ready_success_max_s": 90,
+    "ncp_attempts_per_60s_max": 3,
+    "existing_owner_barrier_max_ms": 35000,
+    "existing_spi_quiesce_max_ms": 2000,
+    "note": "90s is a new end-to-end campaign target, not the existing35s owner-wait bound or a claim of measured success. Planned outage clocks recorded separately."
+  },
+  "workload": {
+    "bounded_window_s": 120,
+    "first_endurance_s": 3600,
+    "long_endurance_s": 14400,
+    "ble_mtu": 247,
+    "ble_probe_schedule": "One accepted unique debug ping; next offered0.5s after its final response; record actual offered/admitted/final counts.",
+    "usb_probe_interval_s": 1,
+    "cloud_probe_interval_s": 10,
+    "cloud_expected_probes_per_120s": 12,
+    "tof": "existing actual sensor10Hz, NPU enabled; no synthetic demo substitution",
+    "ble_images": "DEPTH54x42 RAW float32,9072-byte payload, existing56-byte v3 header and CRC; unthrottled existing publisher",
+    "cloud_images": "DEPTH54x42 UINT8 affine,2268-byte payload; existing publisher, no fanout",
+    "routes": {
+      "V01": "BLE images/NPU/CLI; no Wi-Fi IP or Cloud HTTP activity",
+      "V02": "Cloud images/CLI; BLE disconnected",
+      "V03": "Cloud images/CLI plus BLE CLI/NPU and USB",
+      "V04": "BLE RAW images/NPU/CLI plus Cloud CLI and USB"
+    },
+    "measurement": "Freeze start/end counts and monotonic endpoints; direct receiverCRC/gaps, p50/p95/p99/max, exact unique finals, host lag; cleanup arrivals excluded."
+  },
+  "origins": {
+    "ble_and_gaps_and_floors": "Plan7, run_ble_npu_soak.py; CP4 image99/100 and CP8 latency1953ms remain FAIL.",
+    "heap": "Existing stronger369072-byte build guard retained.",
+    "wifi_cloud_restore": "Existing run_radio_recovery_soak.py45s IP and30s/3 valid frames.",
+    "new_targets": "USB1s, ToF3s progress, Cloud10s ordinary response, host lag100ms validity, NCP90s end-to-end, four-hour endurance selected as campaign requirements."
+  },
+  "results": "NOT_RUN for newly frozen full profiles; previous results retain their original gates and scope."
+}

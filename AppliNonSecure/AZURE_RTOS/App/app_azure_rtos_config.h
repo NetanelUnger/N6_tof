@@ -77,6 +77,17 @@ extern "C" {
 #undef USBPD_DEVICE_APP_MEM_POOL_SIZE
 #define USBPD_DEVICE_APP_MEM_POOL_SIZE            (16U * 1024U)
 
+#include "resource_memory_policy.h"
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+/* Padded stacks plus conservative startup/dynamic reserve. Actual peak and
+ * fragmentation admission still require HIL; radio bank/permissions unchanged. */
+#undef TX_APP_MEM_POOL_SIZE
+#define TX_APP_MEM_POOL_SIZE (176U*1024U)
+#undef UX_APP_MEM_POOL_SIZE
+#define UX_APP_MEM_POOL_SIZE (64U*1024U)
+#undef USBPD_DEVICE_APP_MEM_POOL_SIZE
+#define USBPD_DEVICE_APP_MEM_POOL_SIZE N6_CAPACITY_BYTES(16U*1024U)
+#endif
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/

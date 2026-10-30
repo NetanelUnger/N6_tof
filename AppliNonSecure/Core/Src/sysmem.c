@@ -21,6 +21,8 @@
  */
 
 /* Includes */
+#define N6_RESOURCE_SOURCE N6R_CORE
+#include "resource_diag.h"
 #include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -67,14 +69,25 @@ void *_sbrk(ptrdiff_t incr)
   }
 
   /* Protect heap from growing into the reserved MSP stack */
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  uintptr_t next;
+  if(!N6_CheckedHeapMove((uintptr_t)__sbrk_heap_end,(uintptr_t)&_end,(uintptr_t)max_heap,incr,&next))
+  {N6R_Record(N6R_CORE,N6R_ALLOC,ENOMEM,__LINE__,(size_t)incr,__sbrk_heap_end);errno=ENOMEM;return(void*)-1;}
+#else
   if (__sbrk_heap_end + incr > max_heap)
   {
     errno = ENOMEM;
     return (void *)-1;
   }
+#endif
 
   prev_heap_end = __sbrk_heap_end;
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  __sbrk_heap_end=(uint8_t*)next;
+  N6R_ObserveHeap(&_end,(uint32_t)((uintptr_t)max_heap-(uintptr_t)&_end),(uint32_t)(next-(uintptr_t)&_end));
+#else
   __sbrk_heap_end += incr;
+#endif
 
   return (void *)prev_heap_end;
 }

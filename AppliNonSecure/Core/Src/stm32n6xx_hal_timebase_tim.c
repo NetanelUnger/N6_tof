@@ -38,25 +38,31 @@ TIM_HandleTypeDef        htim6;
   * @param  TickPriority: Tick interrupt priority.
   * @retval HAL status
   */
-HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)
+/* Cold timebase configuration; retain RAM recovery capacity without changing
+ * timer ISR, scheduler, sensor or NPU optimization. */
+HAL_StatusTypeDef __attribute__((optimize("Os"))) HAL_InitTick(uint32_t TickPriority)
 {
-  RCC_ClkInitTypeDef    clkconfig;
   uint32_t              uwTimclock;
   uint32_t              uwPrescalerValue;
 
-  /*Configure the TIM6 IRQ priority */
-  HAL_NVIC_SetPriority(TIM6_IRQn, TickPriority ,0);
+  /* ThreadX Cortex-M55 idles inside lowest-priority PendSV. A TIM6 IRQ at
+   * the same priority15 cannot preempt that handler; its update events then
+   * coalesce and HAL milliseconds measure mostly active CPU time. Keep the
+   * HAL tick below SysTick/SPI priorities but above PendSV, preserving any
+   * explicitly higher caller priority. Recheck after CubeMX regeneration. */
+  uint32_t tick_preempt_priority = (TickPriority < 14U) ? TickPriority : 14U;
+  HAL_NVIC_SetPriority(TIM6_IRQn, tick_preempt_priority, 0);
   /* Enable the TIM6 global Interrupt */
   HAL_NVIC_EnableIRQ(TIM6_IRQn);
 
   /* Enable TIM6 clock */
   __HAL_RCC_TIM6_CLK_ENABLE();
+  /* HAL time must include ThreadX WFI/ToF pause, not only active CPU time.
+   * Reapply on every timebase init without changing clocks or IRQ priority. */
+  __HAL_RCC_TIM6_CLK_SLEEP_ENABLE();
 
   /* Compute TIM6 clock */
   uwTimclock = HAL_RCCEx_GetTIMGFreq();
-
-  /* Get clock configuration */
-  HAL_RCC_GetClockConfig(&clkconfig);
 
   /* Compute the prescaler value to have TIM6 counter clock equal to 1MHz */
   uwPrescalerValue = (uint32_t) ((uwTimclock / 1000000U) - 1U);

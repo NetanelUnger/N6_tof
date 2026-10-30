@@ -15,6 +15,7 @@ from protocol import decode_record, HEADER_SIZE_V4
 
 HIL_ROOT = Path(__file__).resolve().parents[2] / 'hil_tests'
 if str(HIL_ROOT) not in sys.path: sys.path.insert(0, str(HIL_ROOT))
+from cli_text_protocol import reply_finished, reply_succeeded
 from ble_inspector import TofFrameAssembler
 
 RX='7a1e0002-b5a3-f393-e0a9-e50e24dcca9e'
@@ -70,7 +71,9 @@ class BleSampleSource:
         deadline=time.monotonic()+timeout
         while time.monotonic()<deadline:
             response=bytes(self.cli)
-            if ((b'[CLI-RESULT] state=complete' in response or b'\r\nn6> ' in response) and
+            if reply_finished(response) and not reply_succeeded(response):
+                raise SourceError('BLE command failed: '+command.split()[0])
+            if ((reply_succeeded(response) or b'\r\nn6> ' in response) and
                     (expected is None or expected in response)):
                 return response.decode('utf-8','replace')
             if len(response)>131072: raise SourceError('BLE command response exceeded bounded window.')

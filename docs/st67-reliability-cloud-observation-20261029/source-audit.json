@@ -1,0 +1,14 @@
+[
+  {
+    "path": "AppliNonSecure/Core/Src/debug_cli.c",
+    "sha256": "2f3bef20ee1a4e045d08ca2e4cdfd0e34a33c674ddb72aefc6bda4350ce8388f"
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/wifi_ble_app.c",
+    "sha256": "30c4460f5673c7635197f55fc198e33b337c983512c18b4f7d6223731e3cc1a0"
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/app_settings_ncp.c",
+    "sha256": "fd2bb82db8f5d1180d614e0fdbc0dbf7eb140dcb63670b159a28530aabd1cbbe"
+  }
+]

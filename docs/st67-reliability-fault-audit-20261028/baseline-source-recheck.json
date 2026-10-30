@@ -1,0 +1,82 @@
+[
+  {
+    "path": "AGENTS.md",
+    "matches_CP0": true
+  },
+  {
+    "path": "README.md",
+    "matches_CP0": false
+  },
+  {
+    "path": "N6.ioc",
+    "matches_CP0": true
+  },
+  {
+    "path": "radio_firmware/contract.json",
+    "matches_CP0": true
+  },
+  {
+    "path": "Tools/Build-Xip.ps1",
+    "matches_CP0": true
+  },
+  {
+    "path": "Tools/Install-NonSecureUpdate.ps1",
+    "matches_CP0": true
+  },
+  {
+    "path": "Tools/Test-XipPackage.ps1",
+    "matches_CP0": true
+  },
+  {
+    "path": "Common/Update/firmware_build_version.h",
+    "matches_CP0": true
+  },
+  {
+    "path": "AppliNonSecure/.cproject",
+    "matches_CP0": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Inc/config.h",
+    "matches_CP0": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Inc/app_features.h",
+    "matches_CP0": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Inc/app_settings.h",
+    "matches_CP0": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Inc/w61_driver_config.h",
+    "matches_CP0": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/wifi_ble_app.c",
+    "matches_CP0": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/cloud_relay.c",
+    "matches_CP0": true
+  },
+  {
+    "path": "AppliNonSecure/Core/Src/spi_port.c",
+    "matches_CP0": true
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.c",
+    "matches_CP0": true
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.h",
+    "matches_CP0": true
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.c",
+    "matches_CP0": true
+  },
+  {
+    "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c",
+    "matches_CP0": true
+  }
+]

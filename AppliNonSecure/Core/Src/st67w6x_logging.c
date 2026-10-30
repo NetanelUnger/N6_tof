@@ -1,3 +1,5 @@
+#define N6_RESOURCE_SOURCE N6R_LOG
+#include "resource_diag.h"
 #include "logging.h"
 #include "app_logging.h"
 
@@ -86,6 +88,50 @@ void App_Logging_GetStatus(AppLogging_Status_t *status)
       __atomic_load_n(&logging_format_errors, __ATOMIC_RELAXED);
 }
 
+/* Normalize only diagnostic records, never CLI replies or transport payloads.
+ * Work in the producer's owned buffer; no shared line state or extra stack. */
+static uint32_t logging_normalize(char *buffer, uint32_t capacity)
+{
+  uint32_t read = 0U, used = 0U;
+  uint32_t count = 0U, expanded = 0U;
+  if (capacity < 3U) return 0U;
+  while (buffer[read] != '\0')
+  {
+    uint32_t start = read, end;
+    while (buffer[read] && buffer[read] != '\r' && buffer[read] != '\n') ++read;
+    end = read;
+    while (end > start && (buffer[end-1U] == ' ' || buffer[end-1U] == '\t')) --end;
+    /* Advance before copying: the separator may overlap the input terminator. */
+    while (buffer[read] == '\r' || buffer[read] == '\n') ++read;
+    if (end > start)
+    {
+      if (used) buffer[used++] = '\n';
+      memmove(buffer + used, buffer + start, end - start);
+      used += end - start;
+    }
+  }
+  /* Reserve one final CRLF and NUL; expand backwards to avoid overwriting
+   * unread characters when a vendor record uses bare LF. */
+  while (count < used)
+  {
+    uint32_t cost = buffer[count] == '\n' ? 2U : 1U;
+    if (expanded + cost > capacity - 3U) break;
+    expanded += cost; ++count;
+  }
+  if (count && buffer[count-1U] == '\n') { --count; expanded -= 2U; }
+  if (!count) { buffer[0] = '\0'; return 0U; }
+  buffer[count++] = '\n'; expanded += 2U;
+  buffer[expanded] = '\0';
+  used = expanded;
+  while (count)
+  {
+    char value = buffer[--count];
+    buffer[--expanded] = value;
+    if (value == '\n') buffer[--expanded] = '\r';
+  }
+  return used;
+}
+
 void vLoggingPrintf(uint32_t log_level, const uint8_t metadata_print,
                     const uint32_t line_number, const char *const file_name,
                     const char *const format, ...)
@@ -168,8 +214,11 @@ void vLoggingPrintf(uint32_t log_level, const uint8_t metadata_print,
   /* The output callback copies into a fixed UART slot.  Physical USART1
    * transmission happens later in the owner task.  This buffer belongs to
    * this message until that copy returns, so producers never share storage. */
-  logging_output(logging_buffer);
-  (void)__atomic_fetch_add(&logging_submitted_messages, 1U, __ATOMIC_RELAXED);
+  if (logging_normalize(logging_buffer, MAX_LOG_MESSAGE_LENGTH) != 0U)
+  {
+    logging_output(logging_buffer);
+    (void)__atomic_fetch_add(&logging_submitted_messages, 1U, __ATOMIC_RELAXED);
+  }
   (void)tx_queue_send(&logging_free_buffers, &logging_buffer, TX_NO_WAIT);
 }
 

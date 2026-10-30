@@ -1,0 +1,73 @@
+{
+  "recorded_utc": "2026-10-29T08:02:38.995788+00:00",
+  "source_revision": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5",
+  "firmware": 52,
+  "browser": {
+    "target": "Chrome window25299644 / existing N6 Cloud tab",
+    "read_result": "PASS: N6 URL, RELAY CONNECTED, existing ws-13e32f198c2e429..., N6-MAINT-B8FB ONLINE",
+    "action": "click Cloud CLI input4508 before planned version command",
+    "input_result": "DENIED: GetCursorPos failed: Access is denied. (0x80070005)",
+    "outcome_check": "Read-only AX state unchanged, input blank, original address-bar selection/focus; USB command counters still received2/acked2/output11",
+    "new_cloud_command_sent": false,
+    "retried_input": false,
+    "bypass": false,
+    "remaining_action": "User must make existing Windows desktop/N6 input accessible (for example unlock/reconnect active desktop), then allow a fresh access check; no pairing required"
+  },
+  "preflight": {
+    "result": "PASS",
+    "seconds": 30.000394999980927,
+    "max_USB_ms": 64.328
+  },
+  "image_profile": {
+    "result": "FAIL",
+    "requested_s": 120,
+    "completed": false,
+    "last_successful_iteration_elapsed_s": 9.469,
+    "measured_cli_finals": 16,
+    "latency_ms": {
+      "max": 1953.0,
+      "p50": 109.0,
+      "p95": 1953.0,
+      "p99": 1953.0
+    },
+    "receive_gaps_s": {
+      "NPU": 1.1719999999913853,
+      "image": 2.0929999999934807
+    },
+    "max_host_loop_lag_s": 0.012999999994644892,
+    "CRC_errors": 0,
+    "collector_totals_including_setup_cleanup": {
+      "images": 9,
+      "NPU_results": 38
+    },
+    "MTU": 247,
+    "offered_load": "BLE ping then0.5s sleep; actual DEPTH54x42 RAW image and NPU notifications; existing Cloud204 polling; no actual Cloud controls/images",
+    "SPI_before": 121,
+    "SPI_after": 121,
+    "NCP_recovery_before": 2,
+    "NCP_recovery_after": 2,
+    "alloc_failures": 0,
+    "cloud_request_errors_before": 108,
+    "cloud_request_errors_after": 108,
+    "classification": "Observed BLE response latency violation; no new captured SPI/NCP recovery or host-loop stall sufficient to explain it. AT/NCP/RF/host BLE contribution unresolved."
+  },
+  "settled": {
+    "result": "PASS",
+    "seconds": 30.000285299989628,
+    "max_USB_ms": 65.074,
+    "BLE": "disconnected/advertisingON/notificationsOFF",
+    "route": "NONE",
+    "ToF": "ready",
+    "NPU_errors": 0,
+    "settings_generation": 2
+  },
+  "handles_closed": true,
+  "lease_released": true,
+  "firmware_bytes_sent": 0,
+  "resets_sent": 0,
+  "physical_cable_action_required": false,
+  "P0_04": "INCOMPLETE",
+  "P0_05": "INCOMPLETE",
+  "new_firmware_changes": "NONE",
+  "version53": "not built/signed/sent/consumed"
+}

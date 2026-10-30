@@ -1,0 +1,551 @@
+{
+  "started_utc": "2026-10-28T22:52:05.881138+00:00",
+  "owner": {
+    "thread": "n6-xip-st67-reliability-20261028",
+    "pid": 36472,
+    "started_utc": "2026-10-28T22:52:05.881121+00:00",
+    "process_created_utc": "2026-10-28T22:52:05.359705+00:00",
+    "scope": "read-only CN8 version/status and bounded USB stability; no reset, update, settings, or pairing writes"
+  },
+  "source_revision": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5",
+  "requested_seconds": 30,
+  "result": "PASS",
+  "commands": [
+    {
+      "utc": "2026-10-28T22:52:07.448136+00:00",
+      "command": "version",
+      "latency_ms": 63.814,
+      "response": "version\r\nFirmware version: 52\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:07.511554+00:00",
+      "command": "status",
+      "latency_ms": 62.247,
+      "response": "status\r\nUptime: 1985914 ms\r\nUSB CDC: active, session 2, TX queue 6, RX queue 0\r\nToF: ready, map off, channels 0x01, active 1, dataset off, frame 19378, 3.9 fps\r\nST67: ready, Wi-Fi IP ready, BLE disconnected, advertising on\r\nLog level: off\r\nWi-Fi CONNECTED: YES; IPv4 ready: YES\r\nWi-Fi station: STA GOT IP\r\nWi-Fi shadow: event/query confirmed, query 2/0 failed, last tick 19650/status 0\r\nSSID: nati_sash, channel: 3, RSSI: 0 dBm\r\nAP: B4:B0:24:D8:B3:72\r\nIPv4: 192.168.68.53\r\nGateway: 192.168.68.1, netmask: 255.255.252.0\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:07.575119+00:00",
+      "command": "radio info",
+      "latency_ms": 63.529,
+      "response": "radio info\r\nModule: C6AFDBD111400004 (-B)\r\nNCP MAC: 40:82:7B:03:B8:FA\r\nBuild: Mar 20 2026 09:32:19\r\nSDK: 2.0.106.0, AT: 1.0.0.0\r\nWi-Fi MAC FW: 1.6.44.0\r\nBLE controller: 1.6.128.0, stack: 1.10.83.0\r\nAnti-rollback (read-only): bootloader=0, app=0\r\nManufacturing: BOM=2, year=25, week=16\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:07.639190+00:00",
+      "command": "debug uart",
+      "latency_ms": 64.065,
+      "response": "debug uart\r\nDebug UART: initialized=1 queued=0 sent=0 dropped=0 queue_full=0 pool_full=0 contention=0 oversize=0 context=0 transport=0 internal=0 timeouts=0 hal_errors=0 in_use=0 capacity=32 high_water=0 stack_bytes=3776 stack_min_free=3500\r\nST-LINK input: rx_overruns=0 rx_errors=0 watch=0 (0=off)\r\nDebug UART test: state=idle kind=none run=0 completed=0 attempted=0 queued_delta=0 sent_delta=0 dropped_delta=0 queue_full_delta=0 pool_full_delta=0 contention_delta=0 oversize_delta=0 timeout_delta=0 hal_error_delta=0 flush=0\r\nST67 logging: submitted=0 buffer_exhaustions=0 interrupt_rejections=0 format_errors=0\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:07.702802+00:00",
+      "command": "radio status",
+      "latency_ms": 63.589,
+      "response": "radio status\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: ready, advertising: on, link: disconnected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=110272 last_ms=1986090 max_gap_ms=100\r\n  BLE TX pump: last_ms=1986090 max_gap_ms=100\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=1 op=4 submitted=119 completed=118 deferred=78 stale=0 queue_max=259 ms call_max=532 ms last=0\r\n  NCP recovery: state=0 stage=0 attempts=0 ready=0 failed=0 elapsed=0 ms owners radio/cloud=0/0 last=0\r\n  SPI fault: count=2 tick=1896870 source=1 phase=2 len=332 HAL_error=00000004 SR=00b60040 TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=0 pending=0 old_generation=0 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:07.766192+00:00",
+      "command": "ble status",
+      "latency_ms": 63.374,
+      "response": "ble status\r\nBLE GATT: ready, link: disconnected, advertising: on, MTU: 23\r\nBLE advertising desired: on; manager init 1/0 fail, advertising 3/0 fail, disconnect fail 0, driver errors 2 (last 2)\r\nBLE ADV evidence: command ACK (not RF proof), retry 0/3; mode/link confirmed 1/1, recovery pending 0\r\nBLE probes: mode 58, link 57, failed 0, corrected 0, last tick 1986070/status 0; BLE repair 0/0 fail; ADV exhausted 0\r\nBLE init stage: 14, last W6X status: 0\r\nName: N6-MAINT-B8FB\r\nAddress: 40:82:7B:03:B8:FB\r\nCLI TX notifications: off; DEBUG TX notifications: off; ToF image notifications: off\r\nStream transport: ready, generation 4, ATT payload 20 bytes\r\nRadio SRAM4 pool: 17296 bytes available, 33 fragments\r\nCLI RX: queued 0/1 high-water, accepted 321 events/6739 bytes, dropped 0/0\r\nCLI TX: queued 0/2 high-water, accepted 325 messages/7325 bytes, sent 7325, dropped 0/0, retries 0, errors 0\r\nCLI TX contention: busy 716, timeout 0, streak 0/7, duration_ticks 0/10, recoveries 325\r\nDEBUG RX: disabled by policy, dropped 0 events/0 bytes\r\nDEBUG TX: queued 0/0 high-water, accepted 0 messages/0 bytes, sent 0, dropped 0/0, retries 0, errors 0\r\nDEBUG TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nStale generation drops: CLI 0, DEBUG 0; total GATT writes 321, discarded bytes 0\r\nToF image: submitted 102, complete 101, busy drops 308, aborted 1; fragments 4974, payload bytes 920972, retries 0, errors 0; last 8069/8057\r\nToF TX contention: busy 10936, timeout 0, streak 0/12, duration_ticks 0/17, recoveries 4974\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:07.830232+00:00",
+      "command": "tof status",
+      "latency_ms": 64.02,
+      "response": "tof status\r\nImage destination: requested NONE, active NONE, switches 4, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 19381, rate: 3.8 fps\r\nPipeline: acquired 19889, processed 7581, dropped 12305, queue failures 0\r\nLast valid range: 122..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 46\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:07.893732+00:00",
+      "command": "rps status",
+      "latency_ms": 63.478,
+      "response": "rps status\r\nRPS status: enabled=1 ready=1 frame=19383 class=scissors class_id=3 confidence_permille=543 scores=-109,-42,-115,11 runs=7582 errors=0 last_error=0 inference_ms=4 classes=4\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:07.955261+00:00",
+      "command": "cloud status",
+      "latency_ms": 61.507,
+      "response": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: connecting, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 1, last 409, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 0, dropped 0; request errors 2\r\nWorker: loops 69738, last tick 1986322, max step 1204 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:08.019216+00:00",
+      "command": "dataset stream status",
+      "latency_ms": 63.951,
+      "response": "dataset stream status\r\nDataset stream: off, submitted 100, dropped 0, last frame 2315, last CRC32 0x9C9F1867\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:08.082852+00:00",
+      "command": "debug ping ST67P0-0000",
+      "latency_ms": 53.972,
+      "response": "debug ping ST67P0-0000\r\nPONG ST67P0-0000 1986495\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:10.155639+00:00",
+      "command": "debug ping ST67P0-0001",
+      "latency_ms": 60.279,
+      "response": "debug ping ST67P0-0001\r\nPONG ST67P0-0001 1988558\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:12.227404+00:00",
+      "command": "debug ping ST67P0-0002",
+      "latency_ms": 61.801,
+      "response": "debug ping ST67P0-0002\r\nPONG ST67P0-0002 1990624\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:14.287875+00:00",
+      "command": "debug ping ST67P0-0003",
+      "latency_ms": 50.486,
+      "response": "debug ping ST67P0-0003\r\nPONG ST67P0-0003 1992692\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:16.354868+00:00",
+      "command": "debug ping ST67P0-0004",
+      "latency_ms": 56.086,
+      "response": "debug ping ST67P0-0004\r\nPONG ST67P0-0004 1994749\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:18.417795+00:00",
+      "command": "debug ping ST67P0-0005",
+      "latency_ms": 52.73,
+      "response": "debug ping ST67P0-0005\r\nPONG ST67P0-0005 1996812\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:20.493062+00:00",
+      "command": "debug ping ST67P0-0006",
+      "latency_ms": 52.912,
+      "response": "debug ping ST67P0-0006\r\nPONG ST67P0-0006 1998883\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:22.558603+00:00",
+      "command": "debug ping ST67P0-0007",
+      "latency_ms": 55.706,
+      "response": "debug ping ST67P0-0007\r\nPONG ST67P0-0007 2000943\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:24.632007+00:00",
+      "command": "debug ping ST67P0-0008",
+      "latency_ms": 63.594,
+      "response": "debug ping ST67P0-0008\r\nPONG ST67P0-0008 2003004\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:26.705806+00:00",
+      "command": "debug ping ST67P0-0009",
+      "latency_ms": 59.773,
+      "response": "debug ping ST67P0-0009\r\nPONG ST67P0-0009 2005077\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:28.781430+00:00",
+      "command": "debug ping ST67P0-0010",
+      "latency_ms": 65.4,
+      "response": "debug ping ST67P0-0010\r\nPONG ST67P0-0010 2007144\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:30.851047+00:00",
+      "command": "debug ping ST67P0-0011",
+      "latency_ms": 58.123,
+      "response": "debug ping ST67P0-0011\r\nPONG ST67P0-0011 2009217\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:32.921157+00:00",
+      "command": "debug ping ST67P0-0012",
+      "latency_ms": 58.426,
+      "response": "debug ping ST67P0-0012\r\nPONG ST67P0-0012 2011284\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:34.987711+00:00",
+      "command": "debug ping ST67P0-0013",
+      "latency_ms": 55.318,
+      "response": "debug ping ST67P0-0013\r\nPONG ST67P0-0013 2013350\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:37.062825+00:00",
+      "command": "debug ping ST67P0-0014",
+      "latency_ms": 63.808,
+      "response": "debug ping ST67P0-0014\r\nPONG ST67P0-0014 2015414\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:38.070334+00:00",
+      "command": "version",
+      "latency_ms": 50.277,
+      "response": "version\r\nFirmware version: 52\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:38.131446+00:00",
+      "command": "debug uart",
+      "latency_ms": 61.076,
+      "response": "debug uart\r\nDebug UART: initialized=1 queued=0 sent=0 dropped=0 queue_full=0 pool_full=0 contention=0 oversize=0 context=0 transport=0 internal=0 timeouts=0 hal_errors=0 in_use=0 capacity=32 high_water=0 stack_bytes=3776 stack_min_free=3500\r\nST-LINK input: rx_overruns=0 rx_errors=0 watch=0 (0=off)\r\nDebug UART test: state=idle kind=none run=0 completed=0 attempted=0 queued_delta=0 sent_delta=0 dropped_delta=0 queue_full_delta=0 pool_full_delta=0 contention_delta=0 oversize_delta=0 timeout_delta=0 hal_error_delta=0 flush=0\r\nST67 logging: submitted=0 buffer_exhaustions=0 interrupt_rejections=0 format_errors=0\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:38.193183+00:00",
+      "command": "radio status",
+      "latency_ms": 61.681,
+      "response": "radio status\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: ready, advertising: on, link: disconnected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=111794 last_ms=2016530 max_gap_ms=100\r\n  BLE TX pump: last_ms=2016530 max_gap_ms=100\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=0 op=4 submitted=121 completed=121 deferred=78 stale=0 queue_max=259 ms call_max=532 ms last=0\r\n  NCP recovery: state=0 stage=0 attempts=0 ready=0 failed=0 elapsed=0 ms owners radio/cloud=0/0 last=0\r\n  SPI fault: count=2 tick=1896870 source=1 phase=2 len=332 HAL_error=00000004 SR=00b60040 TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=0 pending=0 old_generation=0 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:38.255534+00:00",
+      "command": "tof status",
+      "latency_ms": 62.358,
+      "response": "tof status\r\nImage destination: requested NONE, active NONE, switches 4, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 19687, rate: 3.8 fps\r\nPipeline: acquired 20193, processed 7698, dropped 12492, queue failures 0\r\nLast valid range: 122..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 46\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:38.318293+00:00",
+      "command": "rps status",
+      "latency_ms": 62.746,
+      "response": "rps status\r\nRPS status: enabled=1 ready=1 frame=19687 class=scissors class_id=3 confidence_permille=543 scores=-109,-42,-115,11 runs=7698 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> "
+    },
+    {
+      "utc": "2026-10-28T22:52:38.381915+00:00",
+      "command": "cloud status",
+      "latency_ms": 63.576,
+      "response": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: polling, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 0, last 409, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 0, dropped 0; request errors 2\r\nWorker: loops 70794, last tick 2016710, max step 1204 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+    }
+  ],
+  "pings": [
+    {
+      "uptime_ms": 1986495,
+      "latency_ms": 53.972
+    },
+    {
+      "uptime_ms": 1988558,
+      "latency_ms": 60.279
+    },
+    {
+      "uptime_ms": 1990624,
+      "latency_ms": 61.801
+    },
+    {
+      "uptime_ms": 1992692,
+      "latency_ms": 50.486
+    },
+    {
+      "uptime_ms": 1994749,
+      "latency_ms": 56.086
+    },
+    {
+      "uptime_ms": 1996812,
+      "latency_ms": 52.73
+    },
+    {
+      "uptime_ms": 1998883,
+      "latency_ms": 52.912
+    },
+    {
+      "uptime_ms": 2000943,
+      "latency_ms": 55.706
+    },
+    {
+      "uptime_ms": 2003004,
+      "latency_ms": 63.594
+    },
+    {
+      "uptime_ms": 2005077,
+      "latency_ms": 59.773
+    },
+    {
+      "uptime_ms": 2007144,
+      "latency_ms": 65.4
+    },
+    {
+      "uptime_ms": 2009217,
+      "latency_ms": 58.123
+    },
+    {
+      "uptime_ms": 2011284,
+      "latency_ms": 58.426
+    },
+    {
+      "uptime_ms": 2013350,
+      "latency_ms": 55.318
+    },
+    {
+      "uptime_ms": 2015414,
+      "latency_ms": 63.808
+    }
+  ],
+  "enumerations": [
+    {
+      "utc": "2026-10-28T22:52:05.971782+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:08.028875+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:10.095350+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:12.165620+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:14.237387+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:16.298786+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:18.365065+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:20.440111+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:22.502905+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:24.568436+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:26.646034+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:28.716042+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:30.792922+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:32.862744+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:34.932404+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-28T22:52:36.999021+00:00",
+      "ports": [
+        {
+          "device": "COM8",
+          "vid": 1155,
+          "pid": 22336,
+          "serial": "N6TOF001"
+        },
+        {
+          "device": "COM6",
+          "vid": 1155,
+          "pid": 14164,
+          "serial": "000C00344142501620353451"
+        }
+      ]
+    }
+  ],
+  "hardware_handles_closed": true,
+  "lease_released": true,
+  "firmware_bytes_sent": 0,
+  "resets_sent": 0,
+  "open_output": "\u001b[?25h\u001b[2J\u001b[H+------------------------------------------------+\r\n|            NATI LAB N6 CONTROL MENU            |\r\n+------------------------------------------------+\r\n  Application firmware version: 52\r\n  USB CDC carries menu/map/update traffic only.\r\n  All debug diagnostics are on the ST-LINK VCP.\r\n\r\nCLI HELP (USB CDC)\r\nThe same commands are available on USB CDC, BLE and Cloud CLI.\r\nKeys: Tab=complete, Up/Down=history, Ctrl-C=cancel.\r\n\r\nGeneral:\r\n  help | menu | ?\r\n  version\r\n  status\r\n  usb status\r\n  clear\r\n\r\nSensor and AI:\r\n  MAP ON | MAP OFF               ToF stream; dedicated image channel on BLE/Cloud\r\n  MAP CHANNELS [1..5]            list/toggle channels\r\n  MAP ENCODING                   show wireless image compression\r\n  MAP ENCODING RAW|UINT16|UINT8|JPEG\r\n                                 BLE/Cloud only; JPEG lossy; USB unchanged\r\n  tof status|pause|resume\r\n  DATASET STREAM ON|OFF|STATUS\r\n  RPS ON|OFF|STATUS\r\n\r\nMap processing (USB+BLE+Cloud):\r\n  MAP PROCESSING                       list filters/values/ranges\r\n  MAP PROCESSING OFF|BOX|MEDIAN|GAUSSIAN|SHARPEN|MIN|MAX\r\n  MAP PROCESSING OBJECT 1..7 | NPU    stages or exact NPU input\r\n  MAP PROCESSING <filter> <value>      single-parameter form\r\n  MAP PROCESSING <filter> <parameter> <value>\r\n  Parameters: BOX radius/passes; MEDIAN radius/threshold_mm;\r\n              GAUSSIAN radius/passes; SHARPEN radius/amount_percent;\r\n              MIN/MAX radius; OBJECT 7 threshold.\r\n\r\nRadio and Wi-Fi:\r\n  debug off|error|warn|info|debug\r\n  DEMO MAP ON 1|2 [CLOUD|BLE]   timed moving-pixel source; DEMO MAP OFF/STATUS\r\n  debug ping <token>           transport-only latency probe\r\n  debug route                  session generations + M2 isolation diagnostic\r\n  debug uart                   asynchronous UART counters\r\n  debug uart burst             emit 100 ordered UART test lines\r\n  debug uart overflow          force bounded-queue drops; never stall\r\n  radio hardware|status|info\r\n  wifi status | wifi ip         link/DHCP addresses\r\n  wifi scan                     scan <=15 networks\r\n  wifi connect \"SSID\"          hidden password + DHCP\r\n  wifi disconnect [forget]      optionally erase credentials\r\n\r\nCloud CLI via http Relay:\r\n  cloud status | cloud endpoint\r\n  cloud pair <6-digit-code>     available from USB or BLE\r\n  cloud prepare yes            USB: approved RAM transition candidate\r\n  cloud enable | cloud disable\r\n  cloud reconnect | cloud test\r\n  cloud unpair yes              delete the saved device token\r\n  CLI text/XMODEM and ToF use independent Cloud channels.\r\n\r\nBLE, update and reset:\r\n  ble status                   GATT/link/MTU/queues\r\n  ble adv on | ble adv off\r\n  ble disconnect\r\n  BLE modes: CLI RX=Write, CLI TX=Notify; ToF image=dedicated Notify.\r\n             DEBUG TX=Notify; DEBUG RX is disabled by policy.\r\n  BLE ToF pixels stay on the dedicated ToF-image CCCD.\r\n  update                       signed XMODEM firmware update\r\n  reboot yes\r\n  W arm | W | W cancel         local USB CLI task hang/reset diagnostic\r\n  UART: w then W within5s; s then W tests supervisor\r\n\r\nn6> ",
+  "running_version": 52,
+  "elapsed_s": 30.000442000018666,
+  "latency_ms": {
+    "p50": 58.123,
+    "p95": 65.4,
+    "p99": 65.4,
+    "max": 65.4
+  },
+  "finished_utc": "2026-10-28T22:52:38.399950+00:00"
+}

@@ -99,7 +99,8 @@ def main():
     header=(ROOT/'AppliNonSecure/Core/Inc/app_settings.h').read_text()
     names=('cloud_clear_pairing','cloud_save_pairing','cloud_apply_control',
            'CloudRelay_RequestPair','CloudRelay_Unpair','cloud_parse_pair_response','cloud_complete_pairing')
-    run_native(header+MOCK+'\n'.join(function(source,n) for n in names)+TESTS)
+    # Transition ownership is covered separately by test_settings_transition_owners.
+    run_native('#define APP_SETTINGS_TRANSITION_ENABLED 0\n'+header+MOCK+'\n'.join(function(source,n) for n in names)+TESTS)
     assert 'W6X_FS_WriteFileByContent(' not in source and 'W6X_FS_DeleteFile(' not in source
     print('PASS application has no implicit legacy Cloud write/delete path')
 if __name__=='__main__':main()

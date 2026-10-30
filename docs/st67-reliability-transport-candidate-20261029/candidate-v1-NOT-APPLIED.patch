@@ -1,0 +1,188 @@
+--- a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c
++++ b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c
+@@ -84,6 +84,9 @@
+ 
+ /** A local SPI polling/DMA transfer failed or did not complete. */
+ #define SPI_XFER_TRANSPORT_ERROR        (-3)
++
++/** Peer framing cannot establish a safe transaction boundary. */
++#define SPI_XFER_PROTOCOL_ERROR         (-4)
+ 
+ /** Maximum digits for 64-bit integer string representation */
+ #define STR64BIT_DIGIT                  (20 + 1)
+@@ -146,6 +149,8 @@
+   volatile int32_t stop; /* 0 running, 1 requested, 2 worker acknowledged */
+   /** Initialization flag */
+   int32_t initialized;
++  /** Sticky ambiguity; cleared only by proven transport teardown. */
++  volatile int32_t transport_fault;
+   /** Event flags for synchronization */
+   EventGroupHandle_t event;
+   /** Current transfer state */
+@@ -752,6 +757,7 @@
+             ", type %" PRIx16 "flags 0x%" PRIx16 ", rsvd 0x%" PRIx16 "\n",
+             psh->magic, psh->len, psh->len, psh->version, psh->type, psh->flags, psh->rsvd);
+     SPI_STAT_INC(&engine->stat, hdr_err, 1U);
++    err = SPI_XFER_PROTOCOL_ERROR;
+     goto out;
+   }
+ 
+@@ -901,6 +907,11 @@
+   return 0;
+ 
+ out:
++  /* Bytes may already have reached the NCP. Local DMA cleanup cannot prove
++   * rejection or restore the peer parser boundary. Stop before any replay;
++   * retain TX ownership for the existing coordinated teardown. */
++  engine->transport_fault = err;
++  engine->stop = 1;
+   /* A timed-out DMA can still reference this destination. Never release it
+    * before both local DMA channels have stopped. Failure closes this worker. */
+   if ((err == SPI_XFER_TRANSPORT_ERROR) && (spi_port_abort() != 0))
+@@ -969,23 +980,13 @@
+ 
+       if (xfer_status != 0)
+       {
++        /* spi_xfer_one has already completed or retained DMA cleanup. A
++         * sticky transport/protocol fault cannot retry now or on a later RDY
++         * event, including an RX-only failure or a malformed peer header. */
++        if (engine->transport_fault != 0) break;
+         int32_t ready_after_failure = spi_port_is_ready();
+ 
+         retry_count++;
+-        if (xfer_status == SPI_XFER_TRANSPORT_ERROR)
+-        {
+-          /* A timed-out DMA leaves HAL_SPI busy, so another transfer would
+-           * fail immediately. Abort only the local peripheral/DMA state after
+-           * CS is low; the NCP is not reset and the owned TX buffer is kept. */
+-          if (spi_port_abort() == 0)
+-          {
+-            SPI_STAT_INC(&engine->stat, transport_recoveries, 1U);
+-          }
+-          else
+-          {
+-            spi_err("failed to abort incomplete local spi transaction\n");
+-          }
+-        }
+         if (xfer_status == SPI_XFER_TXN_RDY_TIMEOUT)
+         {
+           /* The level may have changed while CS was being deasserted.  Count
+@@ -997,10 +998,10 @@
+           }
+         }
+ 
+-        /* A polling/DMA failure can leave SPI_RDY high with no future edge.
+-         * Retry the same owned buffer while the NCP still requests service.
+-         * If a TX buffer is retained, a low level is also safe: the next
+-         * spi_xfer_one() performs its normal bounded ready wait. */
++        /* Only pre-transfer failure reaches this path: no RX allocation or
++         * no ready handshake. No command bytes were sent, so retaining and
++         * retrying this TX is safe. Explicit peer rx_stall uses the separate
++         * successful-transaction path above and remains unchanged. */
+         if ((retry_count < SPI_XFER_MAX_RETRIES) &&
+             ((ready_after_failure != 0) || (engine->txbuf != NULL)))
+         {
+@@ -1072,9 +1073,16 @@
+   for (;;) vTaskDelay(pdMS_TO_TICKS(100U)); /* foreign owner deletes this task */
+ }
+ 
++int32_t spi_transaction_faulted(void)
++{
++  return xfer_engine.transport_fault;
++}
++
+ int32_t spi_transaction_init(void)
+ {
+   int32_t ret;
++  /* Fault recovery must quiesce/deinit first, never clear the fence in place. */
++  if (xfer_engine.transport_fault != 0) return -1;
+ 
+   /* Initialize rxq array to NULL and rxq_bound to 0 */
+   (void)memset(xfer_engine.rxq, 0, sizeof(xfer_engine.rxq));
+@@ -1211,6 +1219,7 @@
+ 
+ int32_t spi_read(struct spi_msg *msg, int32_t timeout_ms)
+ {
++  if ((xfer_engine.transport_fault != 0) || (xfer_engine.stop != 0)) return -6;
+   BaseType_t ret;
+   TickType_t ticks;
+   struct spi_buffer *buf = NULL;
+@@ -1340,6 +1349,8 @@
+ 
+ int32_t spi_write(struct spi_msg *msg, int32_t timeout_ms)
+ {
++  /* -6 is a hard lifecycle/fence error, never the zero-byte BUSY codes. */
++  if ((xfer_engine.transport_fault != 0) || (xfer_engine.stop != 0)) return -6;
+   BaseType_t ret;
+   struct spi_buffer *buf;
+   TickType_t ticks;
+--- a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.h
++++ b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.h
+@@ -172,6 +172,9 @@
+   * @brief  Initialize SPI transaction context
+   * @return 0 on success, negative error code on failure
+   */
++/** Sticky transport/protocol fault; only successful deinit clears it. */
++int32_t spi_transaction_faulted(void);
++
+ int32_t spi_transaction_init(void);
+ 
+ /**
+--- a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.c
++++ b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.c
+@@ -1238,6 +1238,11 @@
+   }
+   AT_LOG_HOST_OUT((uint8_t *)buf, size);
+   struct modem *mdm = CONTAINER_OF(iface, struct modem, iface);
++  if (spi_transaction_faulted() != 0)
++  {
++    mdm->handler_data.tx_desynchronized = true;
++    return -EIO;
++  }
+   bool notification = (mdm->notify_phase != 0U) &&
+                       (mdm->notify_owner == xTaskGetCurrentTaskHandle());
+   result = BusIo_SPI_SendData(SPI_MSG_CTRL_TRAFFIC_AT_CMD, (uint8_t *)buf, size,
+@@ -1264,6 +1269,14 @@
+ 
+   mdm = CONTAINER_OF(iface, struct modem, iface);
+   *bytes_read = 0U;
++  if (spi_transaction_faulted() != 0)
++  {
++    mdm->handler_data.tx_desynchronized = true;
++    /* Retained packet tail belongs to teardown; do not feed a later parser.
++     * The parser must yield while the existing recovery owner quiesces it. */
++    vTaskDelay(1U);
++    return -EIO;
++  }
+   if (mdm->spi_rx_pending == NULL)
+   {
+     /* Take ownership of the complete framed SPI packet. Never ask spi_read()
+--- a/AppliNonSecure/Core/Src/wifi_ble_app.c
++++ b/AppliNonSecure/Core/Src/wifi_ble_app.c
+@@ -1001,6 +1001,7 @@
+   {
+     W61_Object_t *driver = W61_ObjGet();
+     struct modem_cmd_handler_data *handler = &driver->Modem.handler_data;
++    if (spi_transaction_faulted() != 0) handler->tx_desynchronized = true;
+     if (handler->tx_desynchronized || (handler->dns_drain_active &&
+         (int32_t)(xTaskGetTickCount() - handler->dns_drain_until) >= 0))
+       (void)WIFI_BLE_App_RequestRadioRecovery();
+@@ -1047,7 +1048,8 @@
+         (unsigned long)ble_recovery_notice.reply_active);
+ #endif
+     W61_Object_t *driver = W61_ObjGet();
+-    const char *reason = driver->Modem.handler_data.tx_desynchronized ? "AT_FENCED" :
++    const char *reason = spi_transaction_faulted() != 0 ? "SPI_FENCED" :
++        driver->Modem.handler_data.tx_desynchronized ? "AT_FENCED" :
+         driver->Modem.handler_data.dns_drain_active ? "DNS_EXPIRED" :
+         recovery_fault_test ? "TEST_MISSING_RESPONSE" : "EXPLICIT_REQUEST";
+     Debug_UART_Log("RADIO-RECOVERY", "START reason=%s started_ms=%lu", reason,
+@@ -1226,6 +1228,8 @@
+     status->state = radio_manager.shadow.state == WIFI_BLE_STATE_ERROR ?
+         WIFI_BLE_SERVICE_FAULT : WIFI_BLE_SERVICE_WAITING;
+     status->reason = radio_manager.shadow.state == WIFI_BLE_STATE_ERROR ? "INIT_FAILED" : "STARTING";
++  } else if (spi_transaction_faulted() != 0) {
++    status->state = WIFI_BLE_SERVICE_FAULT; status->reason = "SPI_FENCED";
+   } else if (driver->Modem.handler_data.tx_desynchronized) {
+     status->state = WIFI_BLE_SERVICE_FAULT; status->reason = "AT_FENCED";
+   } else if (driver->Modem.handler_data.dns_drain_active) {

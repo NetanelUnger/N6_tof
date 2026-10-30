@@ -26,6 +26,351 @@ Work must be technically correct and educational. Explain in Hebrew what changed
 
 ## 2. Current state that must be preserved
 
+- Latest2026-10-23 19:00UTC: B44 XIP confirmed/A43 retained, sourcef71957f.
+  Actual OTA with WDT active PASS517472bytes/506data+EOT/507ACK/0timeout/
+  0retry/562.032s. Signature0/hash accepted; automatic MCU reboot, IWDG0,
+  NS confirmation22720ms/HEALTHY1FF, PC702D0AFC/VTOR70280400. Trial metadata
+  seq118 confirmed0/v43 pending1/v44; no fresh post-confirm raw metadata read.
+  Source SPI automatic resumes9, flash calls509/RXoverlap0/preOVR0/fault0;
+  no TASK STALE/unexpected reset, no WDT disable/deadline change. HIL100exact/
+  NPU100/delta3/CRC0/27.516s unchanged gates.60s resources/15PSP samples,
+  radio peak50356/min15180(30.15%), heap851288/front357412/tail493876 versus
+  RAMcontrol369168. NOT full WC/largest block/NPU-bank equivalence proof.
+  Final USB/PONG/ToF/NPU healthy; Cloud disabled+paired/sensor0/datasetOFF,
+  NPU/SPI/NCP/UART faults0, handles/lease closed. A43/B44 exact host artifacts
+  verified, not fresh wholeNOR dump. Only version header differs from A43.
+  No main/server/OTP/security/credentials/push/deploy changes. No new Git trust.
+  Physical NOR powercut untested/unarmed; latest cold-power B39, not B44.
+  Early watchdog boot gap/LSI/starvation coverage, original OVR cause/server
+  lease/BLE host findings remain. See docs/xip-ota-watchdog-final-20261023.json
+  and docs/n6-xip-ota44-usage_HE.md. Earlier states below are historical.
+
+- Historical2026-10-23: A43 XIP confirmed/B42 retained, firmware sourceeb809d1,
+  FSBLseq117 confirmed0/v43 pending1/v42, PC701D0AFC/VTOR70180400.
+  Build-Xip watchdog/resource defaultsON; guarded RAM recovery staysOFF.
+  UART w/W, s/W; local USB CLI W arm/W/W cancel.5s independent arms and
+  busy/finalization guard; actual handler refuses BLE/Cloud before mutation.
+  13 actual-C WDT groups/12 lease tests/21 earlier actual-C FSBL cases PASS.
+  Four actual IWDG resets PASS:41UART+supervisor,43UART+USBCLI; causeflag1,
+  no software reset/power removal. First stale mask is symptom, not root proof.
+  USB41->42 while WDT active PASS516512bytes/partialNAK10107.505ms/same
+  session/EOTACK;42->43 PASS517472bytes.43HIL100exact/NPU100/delta5/CRC0/
+  27.375s/unchanged gates.60s resources/15PSP samples, heap851288/front357412/
+  tail493876/RAMcontrol369168>=369072. Radio min15652/peak49884(31.38%),
+  supervisor sampled776/2624; NOT full WC/watermark/fragmentation proof.
+  Final Cloud disabled+paired/sensor0/datasetOFF/localUSB100; NPU/SPI/NCP/
+  UART faults0, all handles/leases closed, no pending arm/capture/write.
+  Own dead59832 lease archived after exact start/death/OS-lock and child
+  completion proof; no hardware access in recovery. First CLI admission
+  stopped before ports; one new owned execution passed.43/42 exact artifacts
+  backed up, not current wholeNOR dump. No OTP/options/RIF/debug policy/
+  credentials/main/server changes, merge/push/deploy. Closing primary/server
+  Git reads rejected by owner mismatch, stopped without added trust;80f2b511/
+  5905a7df are last verified baselines, not fresh closing reads. Post-WDT OTA,
+  latest coldpower, early pre-supervisor boot, IRQ-mask/high-priority starvation,
+  LSI calibration and NOR powercut remain untested. BLE host/original OVR/
+  server lease findings retained. See docs/xip-watchdog-final-20261023.json.
+
+- Cold-power2026-10-23 17:23UTC: user confirmed all-power removal/LEDs-off
+  instruction; passive recorder captured ST-LINK disconnect/reconnect1 and full
+  FSBL/BootROM startup. Seq105 confirmedB39, signature0/hash accepted, no NS code
+  copy, PC702D0494/VTOR70280400, app confirms10401ms. USB39/PONG/ToF/NPU pass,
+  SPI/NCP/alloc0, dataset0/sensorCloud0. Cloud CLI polling resumed/HTTP409;
+  existing cloud disable applied and disabled verified, request_errors1 retained.
+  All handles/leases closed. No reset/debugger/programming. Cold power pending
+  items below are superseded; no rail measurement or programming-time powercut
+  claim. Evidence docs/xip-b39-cold-power-20261023.json.
+
+- FINAL2026-10-23 supersedes all earlier board states: B39 XIP confirmed,
+  A38 retained. TIM6 IRQ15 could not preempt ThreadX PendSV15 idle; IRQ14
+  restores HAL wall time. Sleep-clock-only B35 did NOT fix the timeout.
+  PartialNAK10.008..10.051s/unchanged12s gate, same-openUSB partial+fullA38
+  signed514528bytes/EOTACK/sender0/boot-confirm PASS. OTA38->39 PASS504ACK,
+  0timeout/0retry/566.070s; software reboot PASSseq105/CONFIRMED39/PC702D0494/
+  VTOR70280400, not cold-power. HIL100exact/NPU100/delta0/27.390s, SUSP3/3,
+  SPI/NCP0. Radio observed min14708/peak50828(28.94%), heap851384/frontier357412/
+  tail493972; PSP15samples not full WC/IRQ nesting/fragmentation proof.
+  Final imageNONE/datasetOFF/Cloud disabled+paired+sensor0/ToFready/NPUerrors0/
+  UARTdrops0, all owned handles+leases released, no pending probe/capture.
+  BLE latest WinRT requester DeviceNotFound BEFORE GATT,0pings,PairFalse;
+  no retry/cache/security workaround. Physical cold-power/latest rollback/
+  power-cut during NOR write remain pending, not implicitly accepted.
+  A32/B33 external exact package/ELF/map backups verified; on-board slots
+  intentionally advanced with safe installer protection. Current A38/B39
+  image artifacts also backed up; NOT a current whole-NOR snapshot.
+  Main80f2b511/server5905a7d unchanged, no merge/push/deploy. Root fix source
+  6f6c89faf26bc4a36d09b69f1c9f7be5c4cb3416. Git index failure was not explicit
+  approval denial; read-only ACL/no-lock/new-mtime evidence then ONE ordinary
+  retry succeeded. No trust/ACL/ownership changes. Separate Get-Volume C read
+  AccessDenied was stopped, never bypassed. See docs/xip-timeout-final-20261023.json
+  and docs/n6-xip-usage-recovery_HE.md. Original OVR cause/server lease finding
+  are separate from controlled SUSP and timebase proof.
+
+- LATEST reliability follow-up: B33 confirmed/A32 retained, no NOR write.
+ 10/10 actual induced SUSP64byte suspend/resume/completion PASS, SPI/NCP0.
+ USB badCRC/partial-manifest CAN/bad-signature reject PASS. Truncated17byte
+ packet NO_NAK within12s and separate25s diagnostic: FAIL, not waived.
+ USB close recovers CLI/ToF/NPU, no reset. HAL tick comparison after ToF pause
+ 1029ms vs host3004ms; unresolved timebase/polling cause. Do not claim solved
+ by speculative TIM6 sleep-clock change. No debugger attach/new firmware.
+ Post-controls HIL100exact/delta0/27.578s, radio min14708/peak50828, UARTdrops17
+ queue_full/pool_full from diagnostic campaign, UARTtransport/internal/HAL0.
+ Cloud disabled/sensor0/datasetOFF/imageNONE; handles+lease released, probes
+ completed. Next instrumentation install would replace A32: coordinate its
+ recovery preservation first. No physical capture/request started. See
+ docs/xip-b33-reliability-20261023.json and next-physical-and-server plan.
+
+- CURRENT2026-10-23 14:58UTC supersedes older checkpoints: B33 XIP confirmed,
+  A32 retained after actual OTA512480bytes/502ACK/0timeouts/0retries/506.998s.
+  FSBL signature/hash, automatic flash boot, PC702CFCFC/VTOR70280400,
+  confirmation10206ms, Cloud+USB version33 PASS. HIL100exact/NPU100/delta0.
+  Radio pool observed free15180/peak50356(30.15%), PSP15samples not full WC.
+  No active-install stack peak claim. Cloud disabled+paired/sensor0, datasetOFF,
+  imageNONE, SPI/NCP faults0/UART drops0. All owned handles and lease released.
+  Formal network escalation and human-approved exact per-command Git trust
+  succeeded; no global/environment trust, ownership or permissions changed.
+  Main/server unchanged. Earlier EACCES/ownership blockers below are historical.
+  Source auto-resume counter6->8 during OTA; starting count not captured, not
+  eight scoped events. Controlled SUSP proof remains separate; original OVR
+  physical root cause/server lease-retry behavior/latest BLE DeviceNotFound
+  before GATT are not declared solved. See docs/xip-ota-b33-acceptance-20261023.json.
+
+- CURRENT2026-10-23: A32 XIP confirmed, B31 retained. Five full XIP USB
+  updates PASS; actual CPU PC701CFCFC/VTOR70180400, HIL100exact/NPU100/delta0.
+  SUSP discriminating HIL PASS64bytes/SR001C8801/RXleft36/resume+1/completed1,
+  SPI/NCP faults0. Radio pool observed min14708/peak50828(28.94%), not full WC.
+  UART bounded overflow66drops independently retained/reported; no transport
+  error. DatasetOFF/imageNONE/Clouddisabled+paired/sent0. All owned handles and
+  lease released. No pending probe or recorder. Main80f2b511/server5905a7d unchanged.
+  OTA latest did NOT reach firmware: EACCES20.217.52.1:443, runtime
+  CODEX_SANDBOX_NETWORK_DISABLED=1; no workspace/commands/blocks/EOT. Stop
+  network retries/bypass; per-call supported escalation request must be reported
+  before execution. No browser/alternate route, firewall/VPN/security mutation.
+  BLE latest DeviceNotFound before GATT, no Pair/cache operations. Current guide
+  docs/xip-usage-recovery-20261023_HE.md and evidence xip-final-checkpoint-20261023.json
+  supersede all older board-state entries below. No additional sensor cloud export.
+
+- Resource safety profile2026-10-23 is HOST-ONLY, optional
+  N6_RESOURCE_DIAGNOSTICS/Build-Xip -ResourceDiagnostics. Checked allocation/queue
+  arithmetic, independent retained counters and bounded deferred UART reports;
+  provisional >=10% stack envelopes are NOT measured worst-case. Sampled PSP is
+  NOT full high-water. Keep vendor libraries scoped; see
+  docs/resource-memory-policy_HE.md and resource-inventory-20261023.json.
+  No hardware/capture until fresh coordinated user readiness after A23 fault.
+
+- Current XIP2026-10-23: HARDWARE RECOVERY PENDING. A23 diagnostic image was
+  signed USB-installed/confirmed/HIL100 PASS, then OTA B24 faulted28%, NSSTKOF
+  0x00100000. B24 partial, previous B22 overwritten; do NOT claim live board or
+  valid alternate B fallback. Exact original NOR/RAM backups retained. B25
+  deferred logger built/offline signature PASS only; no hardware validation.
+  Old actual SPI log call chain >=776bytes vs768stack; fixed local service128
+  bytes, not whole runtime high-water. Server30s command lease vs15s sender
+  timeout reproduced host-only; server untouched. SDK first-run printed dev
+  certificate install; CurrentUser/My read found0, outcome UNCERTAIN; no trust/
+  export/cleanup/furtherSDK calls. Report this, don't assert no credentials
+  side effect proven. All hardware handles/lease released, recorder OFF.
+  Parent requested fresh user readiness before ANY hardware/capture. No reset/
+  debugger/write since fault. Read docs/xip-recovery-after-a23_HE.md first;
+  initial DEV read controller, preserve main and user untracked training plan.
+  No blind retry/old fallback boot/NOR mass restore/OTP/server change.
+
+- Final measured2026-10-23: B18 XIP confirmed, A17 recovery retained. A14cold+
+ HIL100+SWreset PASS. OTA B15auto boot PASS with2timeouts/block78+SPI OVR;
+ ROOT CAUSE STILL OPEN. USB valid768byte cancellation and A16trial reset rollback
+ toB15 PASS; A17USB finalized, rawpostflight FileNotFound race retained, independent
+ confirmed17/SWboot metadata seq48PASS. Harness now gates source disconnect,3host
+ cases PASS. A17HIL100tensors/classes,maxdelta6/CRC0/28s, BLE5/5max226.01ms/
+ pairFalse/OSpairedFalse PASS. TimestampedB18OTA489ACKs/0timeout/SPI0 PASS;
+ CRCcontrol20sessions×8=160NAKs/no validmanifest/EOT/NOR,0timeout/SPI0 PASS.
+ Do not call intermittentSPI fixed: old2×15swaits had no hosttimestamps; TIM6
+ stops under NSIRQ mask. Idleclockratio0.99906 measured. FinalB18ToFready/NPU1542/
+ errors0/Cloudsent0/datasetoff/imageNONE/SPI0/NCP0/BLEdriver0/UARTdrops0. All owned
+ clients/UART closed and lease released; no recorder active. Host backups retained,
+ no fresh finalNOR SWD dump. No physical powercut-during-write/fullheapstackhighwater/
+ larger-model-accuracy claim. Main80f2b511/server5905a7d unchanged. Latest ledgers
+ docs/xip-acceptance-20261023.json and xip-ota-timeout-investigation-20261023.json.
+
+- Chronology corrected: quoted reconnect message was19:59:07UTC, before OTA,
+ not a fresh23:22 action. USB read23:24UTC reports B13/PONG9800228ms; no inference
+ about a new physical reconnect/reset outcome. A14 boot/confirmation NOT observed. AppCOM8 and
+ STLINKCOM6 enumerate; only USB read status, no UART/debug/reset/write/update.
+ ToFready/NPU35817/errors0/Cloudsent0/datasetoff/imageNONE. SPI17/NCP2ready0fail/
+ BLEdriver8 observed; no cause proven, no RF success claimed. A14 last known pending
+ after prior full OTA commit, no fresh metadata bank read. Need user readiness,
+ then verified passive recorder and actual all-sources cold boot, FLASH both1-2.
+ No recorder active; do not resend OTA or attach SWD to running NS.
+
+- Latest XIP2026-10-22: FLASH jumpers both1-2, confirmed B13 runs after signed
+ 498720byte USB update from XIP A12. Header-only replay reports confirmed13;
+ CPU PC702CF144/VTOR70280400. First update harness false result retained:
+ UART closed too early; separate confirmation supersedes that gap. Interrupted
+ valid-manifest/768image-byte transfer preserved A12. B11 now HOST BACKUP ONLY;
+ A12 was fallback before OTA; A14 OTA now overwrites A, confirmed B13 protected.
+ B13 reboot refused BEFORE reset on XSPI1SEL1=CLKP.
+ A14 fixes guarded RAM routine, signed/offline verified;16+5host cases PASS,
+ not hardware proven. Cloud CLI5commands PASS/no sensor images; OTA498720bytes/
+ 488blocks/EOT ACK and candidate commit PASS; reset refused BEFORE SYSRESETREQ.
+ A14 activation pending physical cold boot; DO NOT resend. tof resume once,
+ acquired13685->14227/NPU5105->5306/errors0. UART drops21/timeouts2, UART stack
+ minfree2860/3072 only. SPI fault1/BLE driver errors5+ADV retry exhausted;
+ BLE health NOT accepted. No SWD attach during running NS.
+ Older recorder/DEV/noUSB states below historical. Main80f2b511 untouched.
+
+- Host-only recorder recovery2026-10-22: PID35376 disappeared before deadline,
+  lastheartbeat19:04:36/569.114s/UART0bytes/no finalresult. CauseUNKNOWN, no
+  matching crash event returned; no cold user confirmation. Own stale status/lock
+  archived using explicit tested n6_hardware_lease.py recovery: ready tuple exact,
+  WinAPI PIDabsent87, marker lock acquired, bytes preserved. Status/lock/recovery
+  guard now absent; PORT FREE NOT VERIFIED. No capture/hardware restart/reset/
+  flash/debugger in this turn. Future recorder max300s, atomic+stdout5s heartbeat,
+  structured abort, verified-device bounded reconnect only/no denial retry,
+  process creation identity and explicit stale recovery; DTR accepts0only.
+  12mock capture+10ownership+2denied-effects imports PASS, hardwareNOT_RUN.
+  Await user notification before fresh cold FLASH test; no active recorder.
+
+- External FLASH/NRST attempt18:42UTC2026-10-22 supersedes parkedDEV state:
+  user confirms BOOT0/1 positions1-2 +RESET; passive UART0bytes/appUSB absent.
+  Runtime and latchedBOOTSR UNKNOWN. AP0 read only failed; no new reset/write/
+  AP1 attach. Original and post-bootchain backups remain; main untouched.
+  Silicon revision UNRESOLVED: earlierCP labelsRevZ/laterRevB, no raw revision
+  word retained. PCB revision is separate/unverified. ES0620Rev5Table2+2.2.5
+  document sharedDBGMCU_REV_ID1000;2.2.18 appliesZ/B notX;2.2.22 appliesall
+  and matches measuredCCIPR6=00010000 and
+  USART1 HSI source, but actual failed-boot cause is unproven. Need cold FLASH
+  power-on capture before blind firmware rewrites; no DEV-specific assumptions.
+  Reliable OTA/reset requires clock-mux restoration and evaluated NRST workaround;
+  neither implemented/validated yet. See current results/HE guide. No extra Cloud
+  sample collection or OTP/security/debug changes. Preserve both signed slots.
+
+
+- XIP feature checkpoint2026-10-22 supersedes earlier pending cold-reset status:
+  feature/n6-xip-ota-usb ONLY/main80f2b511 unchanged.141 imports/7 negative
+  import-safety/40 training checks PASS.100 XIP NPU frames exact100/class100/
+  CRC0/maxdelta1 PASS28.703s; static-scene one unique tensor, not field accuracy.
+  BLECLI5/5<=1500ms/noPair PASS. Heap369136->862256 (+493120), dynamic/NPU
+  accessibility qualifiers remain. New dual ABI Secure F600/B11+FF40/A12:
+  actual B11 clock/main-entry PASS then parked BEFORE old main; actual A12
+  fullruntime/confirmation PASS, CloudToFsent0/datasetoff. Normal NS debugger
+  attaches forbidden by engineering workflow after prior failures; use AP0
+  NRST then verified DEV ROM and audited controller. Signed bootchain NOW
+  installed via bounded RAM FSBL driver after vendor failures were independently
+  proven no-write. Four owned64KiB sectors only, tails retained; independent
+  double4MiB SHA6cc2cfb51d893b06e75d32c1614818406bcc2a6219f68cb2b98a9c9cae43faaf.
+  Every byte from A0x70180000 through metadata0x703fffff unchanged: A12/B11,
+  seq33/confirmedA12/fallbackB11. Original backups retained; no OTP/credential/
+  lifecycle/debug-lock mutation. Board DEV/Secure FSBL parked; physical BOOT1
+  1-2 (BOOT0 stays1-2) +RESET required next. Do NOT overwrite B11 before valid
+  persistent A12 recovery. OTA/full image USB-from-XIP/persistent new-chain
+  rollback/corrupt/interruption hardware tests remain incomplete. Cloudworkspace
+  inactive409; no Cloud sample collection. See docs/xip-ota-usb-20261022-results.json.
+
+- Host-only import audit before resuming latest17:09 reconnect:141/141 Python
+  imports PASS with subprocess/Serial/BLE/network/thread/GUI/file-write denied;
+  no stdlib/installed-package shadow names in Py311 or Py314 name inventories.
+  Actual NPU preflight under same denial PASS/effects0.7 negative fixtures prove
+  blocking;40training +10reader tests PASS.27CLI-only scripts (6tracked,21local)
+  now have explicit entrypoints; original AST operations/multiline strings exact,
+  original txt snapshots retained. common no longer creates directories at import;
+  explicit00_setup.main does. Historical probe direct execution remains disabled.
+  See docs/xip-import-audit-20261022-results.json. This is a Python denial/mocking
+  test, not an OS sandbox. Configuration reads/sibling import paths are intentional.
+  No board probe was performed while this host gate was pending; fresh reconnect
+  confirmation now permits guarded DEV/recovery read after gate PASS.
+
+
+- XIP16:41 resume: AP1/DEV cold attach PASS; independent double4MiB SHA8a7bca4e...
+  seq30/CONFIRMED/B11/no pending/valid CRCs, entire1MiB B and NOR chain unchanged.
+  Host cleanup0 was ENABLE; actual corrected DISABLE1 returns0/Secure parking
+  verified, no legacy entry. Reader corrected/running-aware/MI inputs logged,
+  10host tests PASS; actual nonROM guard refuses before load. Exact A12 re-stage
+  via authenticated USB498336bytes PASS after state proof. RAM matching chain
+  flash main PC70191588; XIP USB/ToF/NPU56/errors0 PASS; boot-confirm UART10208
+  PASS. Expected seq33 confirmedA12/fallbackB11 NOT independently read. ImageNONE/
+  datasetoff/ToFsent0 verified; later WiFi IP/Cloud409 inactive. 100-frame accepted0:
+  local inspect.py shadowed stdlib on dataclasses import and ran unwanted NS
+  debugger probe; Secure reads fail/detachE31/USB blocked/AP1 coreID unavailable.
+  Renamed probe_dev_rom_attach.py/main-guarded; HIL excludes helper dir/asserts
+  stdlib inspect; TensorFlow/oracle/model host preflight PASS. NO NS debugger
+  probes next runtime. Failed NS resume mechanism still unknown. New cold
+  reconnect pending, all handles/shared lease released, runtime UNKNOWN.
+  Do not re-stage A12 blindly: first corrected reader should prove confirmation,
+  then boot stored A12 with matching RAM chain. NOR chain remains original/main
+  unchanged. OTA/USB-package-from-XIP/persistent boot/regressions still open.
+
+
+- XIP16:22 checkpoint: human physical RESET-in-DEV confirmed, no-reset AP1
+  attach still error32 before RAM load. AP0 identifies486/revZ/3.28V but NS
+  DBGMCU read fails; PC/BOOTSR/runtime unknown. No new RAM load, probe reset or
+  NOR write; all owned handles/shared lease released. Do not keep retrying reset.
+  Await explicit all-power removal/reconnect in DEV; then guarded reader FIRST,
+  no legacy app entry. Tools/read_xip_recovery.py interactive MI controller9host
+  tests PASS (actual GDB error recovery included), FSBL hash/four symbols preflight
+  PASS; hardware NOT_RUN. Parks in Secure Error_Handler before mapped calls,
+  verifies park before detach, disconnects before GDB exit on error; dead-link
+  board outcome remains unknown. Exact original double4MiB backup hashes remain.
+  Main unchanged. Prior authenticated rollback B11 still lacks independent
+  metadata dump; prior legacy NCP/Cloud interval unverified. ST .stldr DeInit bug
+  is a lead only, no loader used in this failed attach; cause NOT_ESTABLISHED.
+
+
+- XIP12:45 resume supersedes the blocked checkpoint below: human full-power
+  reconnect confirmed; ROM PC18003514/BOOTSR2 PASS. Matching FSBL actually read
+  TRIAL seq29/A12, committed rollback and authenticated/copied B11 signature/hash
+  PASS. Host missing MapMemory symbol (wrong application ELF) prevented dump;
+  follow-up detach resumed legacy B11; UART ToF/radio startup observed. Do not
+  claim unchanged NCP settings/no Cloud uploads for that unmeasured interval.
+  AP1 later failed without a fresh AIRCR write. AP0 identifies486/revZ/3.28V;
+  reported hardRst did not restore AP1. Root cause unknown, no more probes until
+  physical RESET-in-DEV confirmation. Corrected read-only recovery helper only
+  prepared/preflighted; parks at Secure Error_Handler before mapped reads and
+  never enters legacy B11. No new slot/boot-chain write; main unchanged. Actual
+  full XIP/confirmation/OTA/persistent boot still open. See current XIP results.
+
+
+- XIP resumed hardware checkpoint (2026-10-22; supersedes the initial blocked
+  feature-branch notes below): main80f2b511 unchanged; user cable reconnect let
+  AP1 read ROM PC/BOOTSR2. Exact guarded6a6a5d1f... RAM recovery and matching new
+  installer RAM health PASS, heap369136, preserve1/settings writes0, Wi-Fi IP,
+  pairing retained, imageNONE/sent0. Two4MiB NOR reads identical SHA256
+  cb3d9e4ffee29d832c7ca0cb516f06232dba2c4c5598e77fd6c81ce7feb9f05a;
+  both metadata CRCs and existing confirmed B/v11 + fallback A/v10 image
+  hashes/signatures verify. Existing USB XMODEM writes/authenticates inactive
+  A/v12 (498336bytes/SHA6861ba66...); new FSBL/Secure loaded only in RAM,
+  actual NS main PC70191588/LR701a1817/SP24200000, UART vector70180400 and
+  explicit no-NS-code-copy prove XIP entry. Generic inherited copied-size log
+  describes handoff and is not an additional full-copy claim. Direct SCS debug
+  alias reads returned zero and are NOT MPU/cache readback acceptance.
+  Intentional GDB AIRCR reset before confirmation; subsequent normal and
+  supported under-reset attaches fail error32 before rollback code executes.
+  Current runtime UNKNOWN; last authenticated trial A12, retained confirmed B11.
+  All owned handles/processes/shared lease released. WAIT for explicit all-power
+  removal/DEV reconnection before further hardware acquisition. Rollback, full
+  XIP app/NPU/USB/BLE, confirmation, reboot and OTA remain NOT ACCEPTED.
+  Only inactive A and alternating metadata were written; NOR FSBL/Secure and B11
+  were not programmed. No OTP/fuse/locks, Pair/cache/credentials, new sensor
+  uploads, server edits/deploy, merge or push. XIP builds now disable automatic
+  Cloud image routing; default legacy opt-in behavior remains unchanged. Cache
+  enablement moved into Secure handoff to preserve the guarded RAM heap floor.
+  New worktree-aware lease shares primary marker and has explicit XIP scope.
+  See docs/xip-ota-usb-20261022_HE.md and current/initial JSON evidence.
+
+
+- XIP feature branch checkpoint (2026-10-22): isolated feature/n6-xip-ota-usb
+  from verified80f2b511; main/user plan preserved. Physical-slot XIP linker,
+  signed RAM/A/B execution flags, shared vector checks, FSBL vector-only
+  handoff and Secure SRAM indirect-flash gate build/sign offline. Map heap862256
+  vs matching RAM369008; original guarded recovery heap369136 preserved.
+  No XIP PC/USB/OTA/power-loss HIL acceptance. Preflight demo11 healthy, then
+  debug/CDC connection failures; NOR backup attempt performed reset but read
+  failed, no valid NOR backup. Exact guarded6a6a5d1f... recovery artifacts saved;
+  supported RAM restore failed before download. Current board runtime UNKNOWN.
+  All owned processes/handles/lease released; wait for explicit physical
+  reconnect confirmation in DEV before any further hardware acquisition.
+  No NOR erase/program, OTP, Pair/cache, credential mutation, server change,
+  deployment, merge or push. See docs/xip-ota-usb-20261022_HE.md. This checkpoint
+  is experimental and does not replace the previous validated RAM deliverable.
+
+
 - Platform upgrade M1-M7 package-only acceptance completed2026-10-21. USB20,
   BLE20+5/reconnect1, approved Cloud20/no-browser/reopen/cursor20 PASS. No
   additional Cloud collection. RPS4 and spatial2 each pass100 real NPU frames,
@@ -1167,9 +1512,12 @@ These require explicit review after every Generate Code:
 
 | File | Manual change |
 |---|---|
+| AppliNonSecure/Core/Src/main.c, stm32n6xx_hal_msp.c, stm32n6xx_it.c | APP_GC9A01_DISPLAY_ENABLED guards SPI4 handles/init/MSP, LCD GPIO, DMA channel5 and IRQ handlers. Switch lives in config.h and defaults undefined. Preserve guards after Generate Code; SPI5/radio and shared GPIOE/GPDMA clocks stay active. |
+| AppliNonSecure/Core/Src/stm32n6xx_hal_timebase_tim.c | TIM6 sleep clock, effective IRQ priority at most14 above ThreadX PendSV15, unused RCC getter removed, cold HAL_InitTick Os. IOC remains unchanged; explicitly audit these project timebase deviations after Generate Code. A34/B35 controls and A36+ hardware wall-time/timeout evidence are in docs/xip-hal-timebase-root-cause_HE.md |
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | OS_CAD_STACK_SIZE maps to N6_USBPD_CAD_STACK_SIZE |
 | AppliNonSecure/USBPD/App/usbpd_dpm_core.c | UCPD register diagnostics, wake counter, and 250 ms polling fallback |
 | AppliNonSecure/Core/Startup/startup_stm32n657x0hxq.s | Early Debug_UART_StartupTrace calls |
+| AppliNonSecure/STM32N657X0HXQ_XIP.ld | Alternative physical-slot linker selected only by Build-Xip. Secure cached handoff configures XIP SAU/RISAF12/MPU/NS instruction cache; ordinary RAM startup remains unchanged |
 | FSBL/Core/Src/extmem.c | Exact image-size and dynamic Non-Secure source hooks |
 | FSBL/Middlewares/ST/STM32_ExtMem_Manager/boot/stm32_boot_lrun.c/.h | Dynamic A/B source and pre-jump XSPI handover hook; functional vendor edits outside USER blocks |
 | AppliSecure/Core/Src/main.c | Diagnostic trace plus Neural-ART clocks, RIF/RISAF, CACHEAXI, and NPU interrupt ownership |

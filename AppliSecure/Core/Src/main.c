@@ -24,6 +24,8 @@
 
 #include "secure_firmware_update.h"
 #include "boot_splash.h"
+#include "stm32_extmem.h"
+#include "stm32_extmem_conf.h"
 #include <arm_cmse.h>
 
 /* USER CODE END Includes */
@@ -51,8 +53,11 @@
 
 /* USER CODE BEGIN PV */
 
+static uint32_t cached_non_secure_vector = VTOR_TABLE_NS_START_ADDR;
 static uint32_t cached_non_secure_msp;
 static uint32_t cached_non_secure_reset_handler;
+extern uint8_t _sNSCA12Compat;
+extern uint8_t _eNSCA12Compat;
 
 /* USER CODE END PV */
 
@@ -66,7 +71,6 @@ static void SecureFirmwareUpdateIsolation_Config(void);
 static void SecureNPU_Config(void);
 static void NonSecure_StartCached(void);
 static void Secure_SplashWrite(const char *text);
-static void Secure_SplashDelay(uint32_t milliseconds);
 
 /* USER CODE END PFP */
 
@@ -131,11 +135,6 @@ static void Secure_RedLedOn(void)
 static void Secure_SplashWrite(const char *text)
 {
   Secure_Trace(text);
-}
-
-static void Secure_SplashDelay(uint32_t milliseconds)
-{
-  HAL_Delay(milliseconds);
 }
 
 static void SecureFirmwareUpdateIsolation_Config(void)
@@ -215,7 +214,7 @@ int main(void)
     .detail_3 = "Protected XSPI2 firmware-update writer",
     .detail_4 = "Preparing the NonSecure application"
   };
-  N6_BootSplashShow(Secure_SplashWrite, Secure_SplashDelay, &secure_splash);
+  N6_BootSplashShow(Secure_SplashWrite, &secure_splash);
 
   Secure_Trace("[SECURE] application entered\r\n");
   Secure_TraceHex("[SECURE] pre-RISAF Secure-alias NS MSP = ",
@@ -245,6 +244,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPDMA1_Init();
+  Secure_Trace("[SECURE] initializing protected firmware update service\r\n");
   SecureFirmwareUpdateIsolation_Config();
   int32_t firmware_update_init_status = SecureFirmwareUpdate_Init();
   if (firmware_update_init_status != SECURE_FW_INIT_OK)
@@ -561,18 +561,99 @@ static void NonSecure_StartCached(void)
 {
   funcptr_NS non_secure_reset_handler;
 
+  /* Region0 covers only the fixed B11/canonical veneers. Region4 is a second
+   * exact64-byte NSC island for already signed A12. The intervening SRAM and
+   * all relocated Secure code/data remain Secure. No BSEC/OTP/debug changes. */
+  SAU->RNR = 4U;
+  SAU->RBAR = (uint32_t)&_sNSCA12Compat & SAU_RBAR_BADDR_Msk;
+  SAU->RLAR = (((uint32_t)&_eNSCA12Compat - 1U) & SAU_RLAR_LADDR_Msk) |
+              SAU_RLAR_NSC_Msk | SAU_RLAR_ENABLE_Msk;
+  __DSB();
+  __ISB();
+
   Secure_TraceHex("[SECURE] cached NonSecure MSP = ",
                   cached_non_secure_msp);
   Secure_TraceHex("[SECURE] cached NonSecure Reset_Handler = ",
                   cached_non_secure_reset_handler);
 
-  SCB_NS->VTOR = VTOR_TABLE_NS_START_ADDR;
+  if ((cached_non_secure_reset_handler >= FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET) &&
+      (cached_non_secure_reset_handler < FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET + FW_SLOT_SIZE))
+    cached_non_secure_vector = FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET + FW_STM32_IMAGE_VECTOR_OFFSET;
+  else if ((cached_non_secure_reset_handler >= FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET) &&
+           (cached_non_secure_reset_handler < FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET + FW_SLOT_SIZE))
+    cached_non_secure_vector = FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET + FW_STM32_IMAGE_VECTOR_OFFSET;
+
+  if (cached_non_secure_vector != VTOR_TABLE_NS_START_ADDR)
+  {
+    /* Only the authenticated active image becomes Non-Secure. The controller,
+     * inactive slot, boot chain and metadata remain Secure. No OTP/locks. */
+    uint32_t base = cached_non_secure_vector - FW_STM32_IMAGE_VECTOR_OFFSET;
+    /* ST Template_Isolation_XIP assigns the XSPI2 AXI aperture to RISAF12.
+     * Use three disjoint volatile regions: Secure prefix, read-only NS active
+     * slot, Secure suffix. Controller registers remain Secure in RISC. */
+    uint32_t slot_offset = base - FW_FLASH_BASE_ADDRESS;
+    RISAF_BaseRegionConfig_t flash_region = {0};
+    flash_region.Filtering = RISAF_FILTER_ENABLE;
+    flash_region.ReadWhitelist = RIF_CID_MASK;
+    flash_region.WriteWhitelist = RIF_CID_MASK;
+    flash_region.PrivWhitelist = RIF_CID_MASK;
+    flash_region.Secure = RIF_ATTRIBUTE_SEC;
+    flash_region.StartAddress = 0U;
+    flash_region.EndAddress = slot_offset - 1U;
+    HAL_RIF_RISAF_ConfigBaseRegion(RISAF12, RISAF_REGION_1, &flash_region);
+    flash_region.StartAddress = slot_offset + FW_SLOT_SIZE;
+    flash_region.EndAddress = RISAF12_LIMIT_ADDRESS_SPACE_SIZE;
+    HAL_RIF_RISAF_ConfigBaseRegion(RISAF12, RISAF_REGION_3, &flash_region);
+    flash_region.StartAddress = slot_offset;
+    flash_region.EndAddress = slot_offset + FW_SLOT_SIZE - 1U;
+    flash_region.Secure = RIF_ATTRIBUTE_NSEC;
+    flash_region.WriteWhitelist = RIF_CID_NONE;
+    HAL_RIF_RISAF_ConfigBaseRegion(RISAF12, RISAF_REGION_2, &flash_region);
+    SAU->RNR = 3U;
+    SAU->RBAR = base & SAU_RBAR_BADDR_Msk;
+    SAU->RLAR = ((base + FW_SLOT_SIZE - 1U) & SAU_RLAR_LADDR_Msk) | SAU_RLAR_ENABLE_Msk;
+    /* Normal write-back cacheable, read-only executable active-slot window.
+     * All other privileged accesses retain the architectural default map. */
+    if (MPU_NS->CTRL != 0U) Error_Handler();
+    MPU_NS->MAIR0 = 0xFFU;
+    MPU_NS->RNR = 0U;
+    MPU_NS->RBAR = (base & MPU_RBAR_BASE_Msk) | (3U << MPU_RBAR_AP_Pos);
+    MPU_NS->RLAR = ((base + FW_SLOT_SIZE - 1U) & MPU_RLAR_LIMIT_Msk) | MPU_RLAR_EN_Msk;
+    MPU_NS->CTRL = MPU_CTRL_PRIVDEFENA_Msk | MPU_CTRL_ENABLE_Msk;
+    __DSB(); __ISB();
+    /* Set the NS cache bank from the Secure handoff. RAM binaries retain their
+     * previous startup footprint and never enable XIP-only cache policy. */
+    SCB_NS->ICIALLU = 0U;
+    __DSB(); __ISB();
+    SCB_NS->CCR |= SCB_CCR_IC_Msk;
+    __DSB(); __ISB();
+    if (EXTMEM_MemoryMappedMode(EXTMEMORY_1, EXTMEM_ENABLE) != EXTMEM_OK)
+      Error_Handler();
+    Secure_TraceHex("[SECURE] XIP NonSecure vector = ", cached_non_secure_vector);
+  }
+  SecureFirmwareUpdate_SetExecutionVector(cached_non_secure_vector);
+  SCB_NS->VTOR = cached_non_secure_vector;
   __TZ_set_MSP_NS(cached_non_secure_msp);
   non_secure_reset_handler =
       (funcptr_NS)cached_non_secure_reset_handler;
 
   /* The secure SysTick must not interrupt while NonSecure owns the CPU. */
   HAL_SuspendTick();
+  /* CPU reads, captured before NS entry: debug-AP SCS alias reads while NS is
+   * running are not reliable evidence. These expose no credentials or data. */
+  uint32_t saved_sau_region = SAU->RNR;
+  SAU->RNR = 0U;
+  Secure_TraceHex("[SECURE] NSC0 RBAR = ", SAU->RBAR);
+  Secure_TraceHex("[SECURE] NSC0 RLAR = ", SAU->RLAR);
+  SAU->RNR = 4U;
+  Secure_TraceHex("[SECURE] NSC4 RBAR = ", SAU->RBAR);
+  Secure_TraceHex("[SECURE] NSC4 RLAR = ", SAU->RLAR);
+  SAU->RNR = saved_sau_region;
+  Secure_TraceHex("[SECURE] NS VTOR = ", SCB_NS->VTOR);
+  Secure_TraceHex("[SECURE] NS CCR = ", SCB_NS->CCR);
+  Secure_TraceHex("[SECURE] NS MPU CTRL = ", MPU_NS->CTRL);
+  Secure_TraceHex("[SECURE] NS MPU RBAR = ", MPU_NS->RBAR);
+  Secure_TraceHex("[SECURE] NS MPU RLAR = ", MPU_NS->RLAR);
   Secure_Trace("[SECURE] jumping with cached NonSecure vectors\r\n");
   non_secure_reset_handler();
 

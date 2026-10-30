@@ -1,0 +1,32 @@
+{
+  "captured_utc": "2026-10-28T21:25:34.766251+00:00",
+  "source_revision": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5",
+  "files": {
+    "AppliNonSecure/Core/Inc/config.h": "112a51d600bf9dd36178b2ebe5977dc15bfce1387d93e4461b56cd7e798e86ad",
+    "AppliNonSecure/Core/Inc/debug_uart.h": "c6050d088f6073d317e36ea3a7a10e8978431cc7a88e425bc1abadac62aa9723",
+    "AppliNonSecure/Core/Inc/wifi_ble_app.h": "78086fbb5c879c4ce8a09532e5d0db8308809940ab903d3fd6b8b74e42f9d4f2",
+    "AppliNonSecure/Core/Inc/cloud_relay.h": "3a31d993026e9679df20cb5065bacfa895ba7b13e30479de0ed02799af48105c",
+    "AppliNonSecure/Core/Inc/resource_diag.h": "fbfcc2b6f4de52c1a5c50ab5f9f2e5c33c4a4d50800a46feadf9646048c54e68",
+    "AppliNonSecure/Core/Inc/n6_watchdog_policy.h": "1b74c8d00e19c7362a643f001c52bae9976576c2dc0b729b328439df4cdd922e",
+    "AppliNonSecure/Core/Src/debug_uart.c": "026a57975a2981134d514e59d7c9696e157796df12492b88ccf5d0113a8c50be",
+    "AppliNonSecure/Core/Src/wifi_ble_app.c": "30c4460f5673c7635197f55fc198e33b337c983512c18b4f7d6223731e3cc1a0",
+    "AppliNonSecure/Core/Src/cloud_relay.c": "0aa11eed898ce7b62dde04acce893ba8447c4c91d939641b130b50b4d9fffb59",
+    "AppliNonSecure/Core/Src/debug_cli.c": "2f3bef20ee1a4e045d08ca2e4cdfd0e34a33c674ddb72aefc6bda4350ce8388f",
+    "AppliNonSecure/Core/Src/spi_port.c": "199cb71e235cf95826882a2c0b6cc3165ce746d2a0df84a1a3c8fb7cb2e29d3c",
+    "AppliNonSecure/Core/Src/resource_diag_impl.inc": "5e2e8a90df9f4b6e7f787a69c1de568d5c812a4d3f23740ba33a6f0fddef18bb",
+    "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.c": "928c535604b0e96edc17b86ed9cdb46fe77a7c6bc47dab88139a81b000d0686e",
+    "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.h": "594510822dc381f13144aef81076c6fd82f5958d738556bc71595278d2751088",
+    "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.c": "b20f10d296b84eb269681efb798a6b471b879ccde9586ca6d3611507bc39fb33",
+    "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_api.h": "b4598c3e0cfed56a43d635182fe83cb2c8879fab1c9ba8b2dee3961d14c5b564",
+    "ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_iface.c": "cca72d585021c348e5d985743340b91c0a2bad6db014fa628526db9354b04dc2",
+    "ThirdParty/ST67W6X_Network_Driver/Driver/W61_bus/spi_port.h": "ce618e2d60c7141dd3f495d6d7c570379833cf579c8f7c35ba8dde2758a9e4b0",
+    "hil_tests/test_cloud_radio_barrier.py": "88e2c0dae761d91b177e00723de02765fa21ac73fe5b4764ec90dcbe419beab3",
+    "hil_tests/test_resource_diagnostics.py": "c83af02d263e6f685fb8a22a8617cab14e6114f6bb78a33c8372470ece826f27"
+  },
+  "hardware_access_this_checkpoint": false,
+  "firmware_source_changed": false,
+  "test_fixture_changed": "hil_tests/test_cloud_radio_barrier.py",
+  "fixed_test_pass_records": 8,
+  "resource_test_pass_records": 3,
+  "initial_failure_preserved": "test_cloud_radio_barrier.py.log"
+}

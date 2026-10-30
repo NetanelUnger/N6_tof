@@ -23,6 +23,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#define N6_RESOURCE_SOURCE N6R_INIT
+#include "resource_diag.h"
+
 #include "app_console.h"
 #include "app_features.h"
 #include "cloud_relay.h"
@@ -34,6 +37,7 @@
 #include "main.h"
 #include "tof_app.h"
 #include "wifi_ble_app.h"
+#include "n6_watchdog.h"
 
 /* USER CODE END Includes */
 
@@ -67,6 +71,22 @@
  * Cloud yields on its own event wait and all blocking modem operations. */
 #define TX_CLOUD_RELAY_PRIORITY         (9U)
 
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+#undef TX_TOF_ACQUISITION_STACK_SIZE
+#define TX_TOF_ACQUISITION_STACK_SIZE N6_STACK_BYTES(16U*1024U)
+#undef TX_UPDATE_CONFIRM_STACK_SIZE
+#define TX_UPDATE_CONFIRM_STACK_SIZE N6_STACK_BYTES(2U*1024U)
+#undef TX_DISPLAY_STACK_SIZE
+#define TX_DISPLAY_STACK_SIZE N6_STACK_BYTES(4U*1024U)
+#undef TX_DEBUG_UART_STACK_SIZE
+#define TX_DEBUG_UART_STACK_SIZE N6_STACK_BYTES(3U*1024U)
+#undef TX_DEBUG_UART_TEST_STACK_SIZE
+#define TX_DEBUG_UART_TEST_STACK_SIZE N6_STACK_BYTES(3U*1024U)
+#undef TX_WIFI_CONTROL_STACK_SIZE
+#define TX_WIFI_CONTROL_STACK_SIZE N6_STACK_BYTES(6144U)
+#undef TX_CLOUD_RELAY_STACK_SIZE
+#define TX_CLOUD_RELAY_STACK_SIZE N6_STACK_BYTES(8U*1024U)
+#endif
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -77,11 +97,20 @@
 /* Private variables ---------------------------------------------------------*/
 TX_THREAD tx_app_thread;
 /* USER CODE BEGIN PV */
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+static UCHAR resource_wifi_control_stack[TX_WIFI_CONTROL_STACK_SIZE]
+ __attribute__((section(".app_shared_bss"),aligned(64)));
+/* Measured B29 radio-pool minimum5764 vs peak59772 is below10%. Put the
+ * project-owned manager stack in existing APP_RAM4 slack, preserving the
+ * radio bank size/permissions and vendor allocator behavior. */
+static UCHAR resource_radio_manager_stack[TX_WIFI_BLE_STACK_SIZE]
+ __attribute__((section(".app_shared_bss"),aligned(64)));
+#endif
 static TX_THREAD tx_tof_acquisition_thread;
 static TX_THREAD tx_update_confirm_thread;
 static TX_THREAD tx_debug_uart_thread;
 static TX_THREAD tx_debug_uart_test_thread;
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static TX_THREAD tx_display_thread;
 #endif
 #if (APP_ST67W6X_ENABLED == 1U)
@@ -111,7 +140,7 @@ static void ToFAcquisitionThread_Entry(ULONG thread_input);
 static void UpdateConfirmThread_Entry(ULONG thread_input);
 static void DebugUartThread_Entry(ULONG thread_input);
 static void DebugUartTestThread_Entry(ULONG thread_input);
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static void DisplayThread_Entry(ULONG thread_input);
 #endif
 #if (APP_ST67W6X_ENABLED == 1U)
@@ -214,7 +243,7 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   Debug_UART_Log("RADIO", "EXTI9 routed to PE9 SPI_RDY; ToF uses bounded GPIO polling");
 #endif
 
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   if (Display_App_Init() != TX_SUCCESS)
   {
     return TX_GROUP_ERROR;
@@ -279,11 +308,15 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
     return TX_POOL_ERROR;
   }
 
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  pointer=(CHAR *)resource_radio_manager_stack;
+#else
   if (tx_byte_allocate(radio_pool, (VOID **)&pointer,
                        TX_WIFI_BLE_STACK_SIZE, TX_NO_WAIT) != TX_SUCCESS)
   {
     return TX_POOL_ERROR;
   }
+#endif
 
   if (tx_thread_create(&tx_wifi_ble_thread, "ST67 Radio Manager", WiFiBleThread_Entry,
                        0U, pointer, TX_WIFI_BLE_STACK_SIZE,
@@ -294,12 +327,16 @@ UINT App_ThreadX_Init(VOID *memory_ptr)
   }
 
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  pointer=(CHAR *)resource_wifi_control_stack;
+#else
   if (tx_byte_allocate(radio_pool, (VOID **)&pointer,
                        TX_WIFI_CONTROL_STACK_SIZE,
                        TX_NO_WAIT) != TX_SUCCESS)
   {
     return TX_POOL_ERROR;
   }
+#endif
 
   /* Preserve the existing task/diagnostic name and stack. This worker now
    * owns slow BLE control commands as well as Wi-Fi requests. */
@@ -412,10 +449,14 @@ static void UpdateConfirmThread_Entry(ULONG thread_input)
   /* A trial image must remain alive under ThreadX long enough to prove that
    * startup and scheduling work before it closes the rollback window. */
   tx_thread_sleep(5U * TX_TIMER_TICKS_PER_SECOND);
+#if (N6_WATCHDOG_ENABLED == 1U)
+  N6H_Run(); /* Existing 2KiB confirmation stack becomes the supervisor. */
+#else
   Firmware_Update_ConfirmBoot();
+#endif
 }
 
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static void DisplayThread_Entry(ULONG thread_input)
 {
   (void)thread_input;
@@ -455,4 +496,5 @@ static void UsbCliThread_Entry(ULONG thread_input)
 }
 #endif
 
+#include "n6_watchdog_impl.inc"
 /* USER CODE END 1 */

@@ -1,5 +1,144 @@
 # Project change history
 
+## 2026-10-30 - Compact diagnostic records and Windows ANSI support, A59
+
+- Normalize ST67 diagnostic records in their existing owned buffers: remove blank/whitespace-only lines and emit consistent CRLF without shared state or extra stack buffers. CLI framing and raw transport payloads are untouched.
+- Preserve CRLF boundaries across dual-COM serial reads and enable Windows virtual-terminal output while preserving existing console-mode bits. Device ANSI remains unchanged in capture logs.
+- Actual-C fixtures and510 capacity guards pass;11 Python host tests pass. Real Windows PTY reports TTY=True/VT=True and emits foreground/background ANSI. A59 installed/confirmed17823ms; B58 retained. Actual20s UART capture2223 lines/0 blank/0 bare LF; USB map5411 color codes; HIL100 exact/NPU100/delta0/CRC0. No Generate Code required.
+- Preserve the failed preflight and post-boot rps-status timeout evidence. Explicit historical-Cloud-counter admission requires idle routes and a stable second sample (4 tests); source counter674 was not reset. Fresh postflight succeeds without another transfer.
+
+## 2026-10-30 - USB stream ownership isolation, B58
+
+- Replace global map/dataset shutdown in USB CLI session reset with the existing atomic USB-owner cleanup helper. BLE/Cloud desired state is preserved; USB-owned map/dataset still stops.
+- Actual-C regression fails before the fix and passes after it, covering16 destination/map/dataset combinations, repeated cleanup and interrupt restoration. Existing demo scheduler/CLI tests pass.
+- Signed USB B58 confirmed17723ms; A57 retained. Nine hardware USB cycles preserve BLE demo1000/demo300/sensor images and CLI. HIL100 exact/NPU100/max score delta1/CRC0 passes. Initial post-boot rps-status timeout retained; subsequent fresh USB health check passes, no second transfer. No Generate Code required. Details: docs/ble-console-20261029.md.
+
+## 2026-10-29 - BLE sensor viewer and sustained connection checks
+
+- Add protocol-v3 image assembly/CRC validation, RAW/Q16/Q8/JPEG decoding, invalid-pixel masks, latest-frame Tk display, same-frame NPU metadata and stale indicators. Accept ordinary text commands; interactive credential and binary-upload flows remain unsupported.
+- Add bounded image+ping soak with timestamped UART capture, independent USB snapshots, command timing, failure evidence before host cleanup, and final decoded sensor PNG. Separate per-measurement assembly drops from earlier stream teardown.
+- A57: 900s/2,189 images/1,485 pings PASS, max281ms and CRC0; four30s codec checks PASS and advertising rediscovered after disconnect. Firmware UART log drops rise under full DEBUG; no NCP recovery or SPI fault during the long run. Earlier disconnect cause remains unknown. No new firmware change. See docs/ble-console-20261029.md.
+
+## 2026-10-29 - Python BLE diagnostic console
+
+- Add a Tk window and CLI entrypoint sharing a bounded serialized Bleak session, read-only diagnostic checks,1500ms ping gate, cancellation, unique JSON reports, and the existing cross-worktree hardware lease.
+- Order normal teardown as device `ble disconnect` while CLI notifications remain active, then host cleanup. Retain earlier failed reconnect evidence; do not replay timed-out commands or reset firmware.
+- Three actual A57 cycles/60 pings pass, max187ms, final advertisement rediscovered. Tk widget workflow tested with simulated GATT; independent Windows visual automation unavailable. No firmware change. See docs/ble-console-20261029.md.
+
+## 2026-10-29 - Restore full development diagnostics, A57
+
+- Enable UART/ST67 and CLI diagnostic switches, default ST67 verbosity to DEBUG, and enable the existing NCP trace at startup. Runtime `n` remains a toggle; no buffer, transport or watchdog changes.
+- Signed USB A57 confirmed at 17723ms; B56 retained. UART keys and HIL100 exact tensors/NPU100/max score delta1/CRC0 pass. UART queue drops increased1058->1759 during verification; transport/HAL/timeouts/RX errors remain0. All handles and shared lease released. See docs/full-diagnostics57_HE.md. No Generate Code required.
+
+## 2026-10-29 - Recovery breadcrumb and truthful image counters, B56
+
+- Retain scalar trigger/notification context through NCP recovery; no verbose logging or reset-policy change. Distinguish demo busy/unavailable/other rejections from late slots.
+- Local UI separates source ID from CRC-validated receptions; not published. Signed USB B56/A55, targeted native/browser/HIL and one BLE transition pass; prior 23.7s recovery cause remains unknown. See docs/recovery56/report.md.
+
+## 2026-10-29 - Explicit demo millisecond intervals, A55
+
+- Use 100..60000ms, with 1000/300 examples; reject legacy 1/2 operands and update CLI/status/client/test examples. Preserve scheduled IDs and bounded image admission.
+- USB A55 Secure-confirmed, B54 retained. Native/HIL/timing evidence and one unresolved BLE transition recovery: docs/demo-ms55_HE.md. No server deployment, push or new Cloud image test.
+
+## 2026-10-29 - Three scoped ST67 continuity fixes, B54
+
+- Bound late text-terminal recovery without replay; prioritize control over images; fence ambiguous SPI transfers and enable tested MASRX receive flow control.
+- Signed USB B54 confirmed. Native/HIL and bounded-load results, A53 failure and limitations: docs/st67-continuity-20261029/report.md. No Generate Code, Secure/FSBL/NCP firmware update, push or server change.
+
+## 2026-10-28 - ST67 independent fault audit and Cloud host fixture
+
+- Record two real SPI overruns on confirmed B52; USB/ToF/NPU continue. Preserve the failed image-rate reference and unresolved root cause.
+- Repair Cloud request-budget host fixture for current training context and verify one-time frame retirement across a network epoch. Fourteen focused native suites pass; original fixture failure retained.
+- Reproduce shared error-counter ambiguity, quiet logger bookkeeping mismatch and possible SPI retransmission after unknown completion in actual-C host models. Prepare an isolated logger patch only; no firmware change or installation. Evidence: docs/st67-reliability-fault-audit-20261028/report.md. Generate Code not required.
+
+## 2026-10-28 - Known ST67 baseline B52 and test acceptance repair
+
+- Establish a reproducible signed B52 via CN8 USB, keeping confirmed A51 as the previous image; no FSBL/Secure/NCP programming. Exact51 host provenance remains unknown, but known52 artifacts and HIL100 now provide the next baseline.
+- HIL100 exact/NPU100/delta0/CRC0 and bounded BLE control pass. BLE RAW image profile delivers99 measured images against100 reference minimum; original raw PASS counted a post-window image and is explicitly superseded by FAIL.
+- Fix the host soak to use frozen measurement-window counts; four boundary regressions pass. Add native manifest-only no-write/abort regression and repair Cloud barrier watchdog fixture. No reliability firmware fix or full/endurance acceptance; Cloud workspace activation and remaining P0 profiles are pending.
+- Evidence: docs/st67-reliability-known-baseline-20261028/report.md and docs/st67-reliability-baseline-tests-20261028/report.md. No Generate Code required.
+
+## 2026-10-27 - Timed diagnostic maps, XIP B50
+
+- Add 1/2 FPS moving-pixel demo through the existing single snapshot, codec and BLE/Cloud routes. Count scheduled/admitted/skipped frames; preserve timed sequence gaps and avoid catch-up bursts. Ordinary MAP returns to the sensor.
+- Signed B50 installed and Secure-confirmed, A49 retained. Actual-C scheduler and 90 codec cases pass; 31 real BLE frames pass all four codecs and browser decoding; HIL100 exact/NPU100/delta0/CRC0.
+- Live Cloud: 61/122 scheduled, 50 admitted each, 49/50 browser frames, 99 HTTP acknowledgements and no new request errors. Source lateness18/1ms; serialized one-second command polling remains a throughput issue, not fixed in this release. See docs/demo-map50_HE.md.
+- Confirmation harness checks idle image route instead of lifetime sent=0. Future XIP source manifests include non-ignored untracked source files.
+
+## 2026-10-27 - Persistent settings for manual product testing
+
+- Enable verified Wi-Fi/Cloud persistence and explicit USB legacy preparation in the normal and XIP profiles; remove the historical one-write-only lock after successful pairing. Preserve inventory, cancellation, readback and unknown-outcome guards.
+- Restore explicit Wi-Fi connection/IP visibility in status, expose settings readiness without credentials, support cloud stats and distinguish malformed pairing codes from unavailable admission.
+- Actual-C regression covers repeated saves after first pairing/reload and interruption boundaries. All three firmware contexts build; signed XIP A49 package validated, RAM heap397776 and XIP heap852528 bytes. A49 subsequently installed over CDC and Secure-confirmed; HIL100 exact/NPU100/delta0/CRC0 and real status/alias checks pass. Settings empty/writes enabled; real credential/pairing persistence remains pending. TLS/HTTP release limitation remains explicit.
+
+## 2026-10-27 - Fast append-only UART boot
+
+- Replace three 50-row splash screens with compact Nati Lab banners; remove the three 5-second waits, cursor hiding and terminal erase sequences.
+- Retain FSBL/Secure logs and add NOR/authentication/update-service progress. Print NonSecure pre-scheduler milestones through the existing bounded polling writer even with runtime diagnostics disabled.
+- Preserve authentication, A/B rollback, watchdog and hardware timeout/settling requirements. No IOC change; the added Secure progress line is adjacent to existing manually maintained initialization outside USER blocks. Generate Code is not required.
+- Installed FSBL/Secure and confirmed XIP B48. Three banners/no erase/0.565s FSBL-log-to-ThreadX and a one-minute software-reboot capture pass. HIL100 passes after opening radio SB31/SB34: 100 exact tensors/NPU/classes, maxdelta6, CRC0. Earlier failures retained in docs/fast-boot-20261027.md.
+
+## 2026-10-26 - Factory build provenance, manifest gates and CDC recovery
+
+- Automatically import FSBL/Secure/Non-Secure into a new workspace and clean-build all three. Preserve previous final outputs, require newly generated nonempty BIN/ELF/MAP, and reject no-target builds even on exit zero.
+- Require schema-2 factory manifests with exactly four images, matching hashes/version and source/build-input fingerprint; refuse stale or incomplete manifests before erase, including SkipBuild.
+- Separate write success from verified application boot; SkipBootVerification never prints full provision PASS. ConfirmErase confirms erase only; skipping physical prompts requires explicit NonInteractive.
+- Offer one operator cold-power recovery for missing CN8 CDC, disconnecting every supply with LEDs off; retry verification only, never erase/program automatically. RESET insufficiency root cause remains unproven.
+- Add fake-builder and BAT lifecycle tests for silent/no-target builds, manifest gaps/stale inputs, prompt semantics, missing/present CDC, cold-power retry, skipped boot and cancellation.
+- Real STM32CubeIDE 2.2.0 BuildOnly on a fresh workspace exposed GCC Windows drive-colon dependency errors in referenced projects. Repair generated dependencies between all target builds, including escaped spaces in OneDrive-style paths. A second full build/sign/manifest validation passed for source version 11 (heap 402512 bytes); no hardware was accessed. Physical CDC/boot validation remains pending.
+
+## 2026-10-25 - UART no-response feedback and radio bridge preparation
+
+- Document radio SB31/SB34 closure for UART programming, power-off isolation of ToF PD8/PD9, and restoration of open bridges before project/HIL use.
+- Inspect QConn's real UART handshake; report "אין תגובה מהמודול" and proceed to FSBL restore without a redundant attempt when all observed replies are empty.
+- Stream and retain per-attempt QConn logs; distinguish responding write failures and FSBL restore failures. BAT keeps a nonzero exit with concise console feedback, including UTF-8 Hebrew.
+- Host-only fake-tool integration covers the update/restore lifecycle and unchanged source manifest. No hardware or firmware image changes.
+
+## 2026-10-25 - Isolate QConn writes and repair updater line endings
+
+- Run verified LF/CRLF repair before updater validation, matching the reported SHA-256 of eflash_loader_cfg.ini with LF exactly.
+- Copy and verify the vendor package into a unique per-run workspace before hardware operations; launch QConn and resolve its config/efuse/image paths entirely within that copy.
+- Retain working files/logs for diagnosis. Keep strict vendor hashes and confirmation/jumper/FSBL restore behavior. Hardware handshake failure remains unresolved.
+
+## 2026-10-25 - Automatic verified ST67 package line-ending repair
+
+- Bundle the line-ending repair helper and invoke it automatically from the package checker used by 00_CHECK.bat.
+- Accept a text repair only when its SHA-256 matches the unchanged vendor manifest; leave firmware, executables, and unexpected content mismatches rejected.
+- Verify the actual BAT flow against fresh LF/CRLF package copies, repeated execution, and tampered text/binary rejection. No hardware or firmware build changes.
+
+## 2026-10-24 - Optional screen compiled out, USB XIP A47
+
+- Move APP_GC9A01_DISPLAY_ENABLED to config.h as a commented define. Preserve all screen code behind presence-based ifdef guards.
+- Exclude display task/stack/driver buffers, SPI4/LCD GPIO/DMA5/IRQ initialization, ToF handoff, CLI commands/help/status/usage and watchdog display requirement.
+- Both configurations build; disabled ELF excludes display/task/SPI4/DMA5 symbols. Native watchdog tests pass 13 groups with display enabled and 13 without any display heartbeat.
+- Signed 479072-byte A47 package installed through CN8 USB with EOT ACK; explicit reboot retains version47. CLI excludes screen options, ToF/NPU/radio report ready and no NPU/SPI faults. B46 retained.
+- No IOC/Generate Code required. Record generated-source guards in AGENTS.md for future regeneration review.
+
+## 2026-10-24 - Remote CLI CR lines and final LF, USB XIP B46
+
+- Replace BLE/Cloud completion text with a final LF; normalize ordinary remote text line endings to CR and preserve visible FAIL/CRLF for errors.
+- Delay BLE final LF for asynchronous Wi-Fi results; Cloud sends LF only in its final command record after asynchronous work. Preserve binary XMODEM and traditional USB console formatting.
+- Update website progress/display and host BLE capture/HIL clients, with legacy completion compatibility. Website production build and thirteen progress/display checks pass; local changes not deployed.
+- Native reply ownership, Cloud publication, CR/LF normalization/overflow, sticky failure and XMODEM timeout regressions pass. Actual BLE version/help/unknown-command/async Wi-Fi scan each carry exactly one final LF; HELP spans14 notifications. Replay actual notifications through website parser passes.
+- B46 package487488bytes authenticated/installed over CN8 USB; A45 retained. USB PONG/ToF/NPU healthy. No Generate Code, settings/pairing changes, server edits or website deployment.
+
+## 2026-10-24 - Quiet customer demo, USB XIP A45
+
+- Centralize application debug-output and ST67 logging switches in Core/Inc/config.h; default OFF.
+- Gate UART/startup/ToF trace output and CLI accepted/radio diagnostics; preserve fault reporting, requested status, watchdog/resource counters and BLE/Cloud completion protocol.
+- Build/sign XIP A45 (487680-byte package), install through CN8 XMODEM, receive EOT ACK, verify version45 again after explicit reboot, USB PONG, ToF ready and NPU ready/errors0; retain B44.
+- Verify zero application UART queued/sent and ST67 submitted counters plus six seconds of UART silence. Companion website local filtering passes eight progress/display tests and production build; not deployed.
+- No CubeMX regeneration, IOC/vendor changes, settings/credential writes, OS pairing or boot-chain programming. Existing vendor/linker warnings remain.
+
+## 2026-10-22 - Experimental XIP A/B feature branch
+
+- Add physical-slot XIP linker, signed execution/slot validation and FSBL vector-only handoff.
+- Keep indirect writer in Secure SRAM; gate NS interrupts/DMA and restore executable mapping before return.
+- Build/sign both slots; record static heap862256 and host rollback/package/transport simulations.
+- Hardware BLOCKED: reset/read NOR backup failed and RAM restore could not connect; current runtime unverified.
+- Preserve exact recovery artifacts, main, credentials and production server; no NOR erase/program or OTP.
+- Document full-field spatial profile and the separate CPU/NPU memory budgets; no model/dataset replacement.
+
 ## 2026-10-21 - Platform M6/M7 package-only acceptance
 
 - Two measured4/2-class classifiers pass100-frame real NPU HIL each, exact

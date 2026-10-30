@@ -1,0 +1,177 @@
+[
+  {
+    "path": "baseline-source-recheck.json",
+    "bytes": 1774,
+    "sha256": "f780ed6307c9ec822f07ba14a804a2e2f3f619cc5c1831277d00e8cf5260de9a"
+  },
+  {
+    "path": "closing-summary.json",
+    "bytes": 931,
+    "sha256": "1e47be66317783c3787eeafcd7706ac9fafc0df42f0d6c3c45b01fbc6380f6fe"
+  },
+  {
+    "path": "cloud-budget-fixture.patch",
+    "bytes": 2667,
+    "sha256": "b64b6da1346449d9cb4deef6d8cf2c76fbb906128f8b085bcee17442b7e45e0a"
+  },
+  {
+    "path": "diagnostic-contracts-v2.log",
+    "bytes": 1401,
+    "sha256": "df1fda5928a716effdeeaf9b84100d48a3822b51ca4713ef259f21d4821a1b28"
+  },
+  {
+    "path": "diagnostic-contracts.log",
+    "bytes": 1422,
+    "sha256": "6faec0c20253f1ca85df814a3275566594408a98e978ea06a4412f613c7f261e"
+  },
+  {
+    "path": "fix_st67_cloud_budget_fixture.py",
+    "bytes": 3009,
+    "sha256": "69d5f08b05f4b9a3ded32c8854009e60e16c566fef1952db57da045f7a64b6c0"
+  },
+  {
+    "path": "fixed-fixture-result.json",
+    "bytes": 2148,
+    "sha256": "19f210271709f01bd20a479bef849ef7a4f0430a10402ba9fa424780c7362c20"
+  },
+  {
+    "path": "native-tests.json",
+    "bytes": 17743,
+    "sha256": "74dec098c2941c41f3446ca28b559ced560f4241c38ca33fde6d3171827a4c4d"
+  },
+  {
+    "path": "plan-after.sha256",
+    "bytes": 66,
+    "sha256": "58b7bd8c1eb484578cd97a3515a5b82d39ed7e70d64bc39b338da763513a4288"
+  },
+  {
+    "path": "PROPOSED-NOT-APPLIED-quiet-logger.patch",
+    "bytes": 342,
+    "sha256": "e9a459b026815ba038bca90b85591ada76e55478f23f3fd49e4b78c15039e98b"
+  },
+  {
+    "path": "report.md",
+    "bytes": 9752,
+    "sha256": "327e9631864e08d927898e4ca3abc4cbf8ad7b58e048a33d00dc517a6ec40f8b"
+  },
+  {
+    "path": "run_st67_cp5_native.py",
+    "bytes": 2208,
+    "sha256": "84961938d8dd695e4864ea7ccbb9221bb45f09c2d951f15f777758bf3c8d6a12"
+  },
+  {
+    "path": "source-hashes.json",
+    "bytes": 2182,
+    "sha256": "0f029477ba3764230144b02aa033782042602f3368f0084b339767b2fd604f3f"
+  },
+  {
+    "path": "spi-pressure-model.log",
+    "bytes": 673,
+    "sha256": "fc6ddfe40a08cdd49e2b709ce4bbc472de7d0ef1769c224049e629576ec060d1"
+  },
+  {
+    "path": "st67_usb_postflight.py",
+    "bytes": 7291,
+    "sha256": "b6265be00ad61760bd901612754f2edb7fe788f6729ee08684b9a2b04d0f016b"
+  },
+  {
+    "path": "test_ble_control_worker.py.log",
+    "bytes": 968,
+    "sha256": "f7f6f8bfc4e9dc5c216af46fe8ce2b563c62f8c7f8fbef876f9ad32d5409d5eb"
+  },
+  {
+    "path": "test_cloud_request_budget.before.py.txt",
+    "bytes": 9646,
+    "sha256": "4ce4757542e3c53ab785e41262f474eb61baf3fbcf5e84526718f4a970853b9a"
+  },
+  {
+    "path": "test_cloud_request_budget.fixed.log",
+    "bytes": 2165,
+    "sha256": "e9c5f954d0b873df4d6544687b497557d6282c7987fd63802a2a10cfb522aab9"
+  },
+  {
+    "path": "test_cloud_request_budget.py.log",
+    "bytes": 3260,
+    "sha256": "bf7b573ca0cd14f50af57f1b8c7bd56ef1480850b1da2eef759ea79cb7626f84"
+  },
+  {
+    "path": "test_cloud_send_slices.py.log",
+    "bytes": 367,
+    "sha256": "48a9e3e5d2876198fd4564f978e5a7698162794f50c327e03b8437c436423124"
+  },
+  {
+    "path": "test_notify_transaction.py.log",
+    "bytes": 1004,
+    "sha256": "15ab1bb85c73c39fd5f50ef2008e34ecbf790cd3465c7086f7c1e5b93ee18423"
+  },
+  {
+    "path": "test_radio_coordinated_recovery.py.log",
+    "bytes": 785,
+    "sha256": "4b67a87945d0cc9923448afa150e87c1949fc333ee761e30e02d5982191b4456"
+  },
+  {
+    "path": "test_radio_modem_shutdown.py.log",
+    "bytes": 217,
+    "sha256": "1aa159714861e629d6e584bd3e41147d09343a47bfc3f15380bed7d5efcb2fca"
+  },
+  {
+    "path": "test_radio_service_status.py.log",
+    "bytes": 808,
+    "sha256": "c6111a173ca7899017321f6b539c71b3c3fac6f2be0df0224df45d2cad7fc79c"
+  },
+  {
+    "path": "test_radio_spi_shutdown.py.log",
+    "bytes": 430,
+    "sha256": "b1229a3b35eaa77972fcb3e35593d967ada3d0281195460e1ff32f9628143dc1"
+  },
+  {
+    "path": "test_raw_send_response.py.log",
+    "bytes": 1534,
+    "sha256": "bf4b160929dafdd9dc27dc3a12436af1404146f830fbe2deaf00fbbf6eea641a"
+  },
+  {
+    "path": "test_spi_fault_snapshot.py.log",
+    "bytes": 456,
+    "sha256": "9cfbf3635120d2306404dff66aa61e9a7c6a6b38d9a14f693899b42a961fb626"
+  },
+  {
+    "path": "test_spi_flow_probe.py.log",
+    "bytes": 219,
+    "sha256": "a7ec0645c9fb9e4ca38845fa0def3cb97f48287ef28d28cf60c15c25b9bb4bc6"
+  },
+  {
+    "path": "test_spi_fs_framing.py.log",
+    "bytes": 447,
+    "sha256": "50d1d92bd3274ae6907be3e0d3f5512b0e64b3ee8318aa5df112a3253e18b931"
+  },
+  {
+    "path": "test_st67_diagnostic_contracts.py",
+    "bytes": 6912,
+    "sha256": "4c30db19604c1f39a087b493b4aadc19e13bc638a0447cb15a5d6a86ac3eb906"
+  },
+  {
+    "path": "test_st67_spi_pressure.py",
+    "bytes": 5796,
+    "sha256": "eec19eb3d92f53143d62bbb97661661c5559255c063ad62b8eed099deaf7ff86"
+  },
+  {
+    "path": "test_wifi_scan_admission.py.log",
+    "bytes": 677,
+    "sha256": "23f489b624aa5d6c2cc769ddd731d7f54cb4f67d3ef7788fb538e57d6e919481"
+  },
+  {
+    "path": "test_xip_rx_backpressure.py.log",
+    "bytes": 327,
+    "sha256": "975f15de685558412e9a91dfd1e5bf439938fe99cb27c94e313856235fea9ddd"
+  },
+  {
+    "path": "usb-after-host-audit/owner-start.json",
+    "bytes": 304,
+    "sha256": "5de67254615bcf28ecedd5391d6e7cd4f8cd4221106eece8e24bdd91e17cc050"
+  },
+  {
+    "path": "usb-after-host-audit/result.json",
+    "bytes": 25718,
+    "sha256": "a3bcf68cf8f905d8ea500faef2dbbf1241bc72cfc30e3e865ccb052d709fca16"
+  }
+]

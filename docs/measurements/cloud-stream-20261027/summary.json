@@ -1,0 +1,33 @@
+{
+  "sample_count": 121,
+  "duration_s": 599.685661800002,
+  "first_utc": "2026-10-27T19:39:12.740895+00:00",
+  "last_utc": "2026-10-27T19:49:12.435686+00:00",
+  "frames_accepted": 576,
+  "average_cloud_fps": 0.9605032047474544,
+  "cloud_fps_5s_min": 0.0,
+  "cloud_fps_5s_max": 2.0039927953241414,
+  "zero_progress_windows": 1,
+  "sampled_zero_progress_s": 4.998805600000196,
+  "longest_sampled_no_progress_s": 4.998805600000196,
+  "new_request_errors": 2,
+  "new_cloud_drops": 0,
+  "average_processed_fps": 3.81199709384146,
+  "wifi_not_ready_samples": 0,
+  "cloud_route_off_samples": 0,
+  "new_sensor_recoveries": 0,
+  "max_usb_sample_latency_s": 0.3382915999973193,
+  "no_progress_intervals": [
+    {
+      "start_s": 149.68126560000383,
+      "end_s": 154.68007120000402,
+      "sampled_no_progress_s": 4.998805600000196
+    }
+  ],
+  "limitations": [
+    "Five-second counter differences, not per-frame timestamps.",
+    "Accepted upload count (HTTP 202/204), not browser render FPS.",
+    "No Cloud byte counter is exposed; no bytes/sec estimate.",
+    "USB read-only sampling may add a small diagnostic load."
+  ]
+}

@@ -4,6 +4,8 @@ from test_cli_reply_ownership import function
 from test_wifi_scan_lifetime import ROOT, run_native
 
 PREFIX = r'''
+#define XipProbe_CaptureFault(source, prior) ((void)0)
+#define XipProbe_ReportFault() ((void)0)
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>

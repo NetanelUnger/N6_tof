@@ -1,0 +1,1020 @@
+{
+  "scope": "Host-only audit before any new board probe; trusted dependencies preload under Python -I, helper imports/preflight then run with Python hardware/process/network/write entrypoints denied. Not an OS security sandbox.",
+  "python_imports": {
+    "python": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\training\\.venv\\Scripts\\python.exe",
+    "scope": "Host imports only, no hardware access",
+    "count": 141,
+    "collisions": [],
+    "results": [
+      {
+        "path": ".local-dependencies\\usb-probe.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "355be229d4c9cb74286d7e01e96387085d94cd45c4c2bc7d952bae6eab39949d"
+      },
+      {
+        "path": ".local-dependencies\\xip\\create_report.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "498a0e8d2e5658b7785baf7528235a9e60fb676d05248e46d20a3d50dfae7fbd"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\backup.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "5a8e7c2ee8d2fc004778772ba4253d04738e0072fc92cc794bf24c1d68eddccd"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\backup2.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "a5cb6ad710c736f7f0c33ee0e70b58aebe51d245f8fd7f52262f4100c5477cbd"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\backup3.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "29e933a7469102bd048500fe4ca543bba43c090a60b56842730f7a29611a7492"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\cleanup1641.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "7598cf506bce6732d3e3dce4325d4852c89273e2381dc74283d92145d829355b"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\current1641.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "8ad8b5aaff5dcd7d45b7b0cba011d420d6436aaaf2dbe14a4e51671fede8598f"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\hil1641.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "006352fb797e675e6b3b272a9f88e911331fbff5622edfe54bbc53a31157e4a2"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\launch1641.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "0a8d8b414293aeff07fffe8b0ffad22510dc9a3bdd3113df0c6981398a08e8db"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\probe_dev_rom_attach.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "58d641204c5626476501a22406b01959295a55697719ea1b9cf51f4d6aa01f11"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\record1641.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "48daba486e8c0dc5112d667b0bb0a45b50e45cb11943d56ef3721f19a97d4d45"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\recovery_inspect_next.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "e98a45ab41b0d4c3081a31cc234a9dfc6fbca10b4beb648e27c65f6bbcbf6f6b"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\rollback.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "f34d8983dc5789fa93fd0f947b0ea8db9a8e8589a310e2f7cb1153851fa530cf"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\rollback1245.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "c0bd45bccf40126f71ddf5a98c685b8af79e848abf22c3b2835fdc8f1b687fe2"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\rollback_continue.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "0033c746b15112b14617c15a9a3db3cc4f5278b911920d2907aaca8a62d66f85"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\rollback_under_reset.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "b4a8e41e16253270ffc5c58a6d059e7dbef3fca1fb0c544385b31675767881ed"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\status.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "c71b03eb4337fb12ec633bf5e4e733c625b761566bf18a8b70aa4e23b099aece"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\status2.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "93f4570a78d6786ca2092963db423f033a8192b8b6facdf1f1a64756f65219fe"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\update_docs.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "5390d32172eb03f5312e84c3e6f7161541d85ed5df6a3d37e04523cc1c11cc8b"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\update_report.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "f35467b0a93773b9def3592d9c056176bdfde40ffe0d7230f6d50edc4924e387"
+      },
+      {
+        "path": ".local-dependencies\\xip\\resume-20261022\\xip_trial.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "2a34fff14b134b39cee4da9b5194d70b9e309de4ec25cdf83a3d0a2bfe9bf6c3"
+      },
+      {
+        "path": ".local-dependencies\\xip\\run_acceptance.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "f4a0621567f75b9967374c52c0bdd3ca88fc1c0060527779b8b5f969f776c3e6"
+      },
+      {
+        "path": "hil_tests\\ble_inspector.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "fbda383b9c3c52832f57b85597e9c3b25f8d00d2acbd3e50ccb6485a33bd70d8"
+      },
+      {
+        "path": "hil_tests\\n6_hardware_lease.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "e4856b6dd67e8dc7c10e0f0df31f28a264e77257f6ebe0dd28bffe1650a77d05"
+      },
+      {
+        "path": "hil_tests\\run_ble_npu_soak.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "7d61bc29bc2c8a2dba89e88fb30376383e2a8afdf52f0b27fe4fbc5b43c8b178"
+      },
+      {
+        "path": "hil_tests\\run_image_codec.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "372fded4e371cad1f06150b353eae439cdfe3b68972d9ad2b4ccdfccebf118cf"
+      },
+      {
+        "path": "hil_tests\\run_image_route_gate.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "fc6c33dd2dc1a8764e3fc238a502a017c0f018306da120fdacdb203f5dfb1117"
+      },
+      {
+        "path": "hil_tests\\run_milestone4_gate.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "5764458b8dd1d908d0cd4e577fc7d2a074a8ae7e96e9f5826ace85f4180e2872"
+      },
+      {
+        "path": "hil_tests\\run_preserved_recovery_gate.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "1a02641642f94075fea58dd870e98889e7b6e2ed2d85b101e471eb17c2ad0bb1"
+      },
+      {
+        "path": "hil_tests\\run_radio_failure_soak.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "aaee3b64e9daa27ef37ba9969e113b8a5e843d54bbd14350e97ebadd9e3f03a7"
+      },
+      {
+        "path": "hil_tests\\run_radio_recovery_soak.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "8844acab157f8e916b54903ea10af79c1068251a171faaf21886048d0f164efc"
+      },
+      {
+        "path": "hil_tests\\self_test.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "9ecc98a730763b348d0099b90e4cc7d4c79a4efc8800b1e2cf832d1850942675"
+      },
+      {
+        "path": "hil_tests\\test_app_settings_ncp.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "bed83f5e0c9ee2e2e0f1dd441e69f2daf453e12879bc5ec79bd4a50a87fd8623"
+      },
+      {
+        "path": "hil_tests\\test_app_settings_reboot.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "00af070f9770e19a97451578d5090fbed677a4f79d4b5e066cb9b85b7a846916"
+      },
+      {
+        "path": "hil_tests\\test_app_settings_store.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "fbcc7d7687ddfae81283df6d85cc56be9856ac75bb689f7319ccc65686e7d2e1"
+      },
+      {
+        "path": "hil_tests\\test_ble_control_worker.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "d5f3445c87c6e9de406b674b61e3e429a456e1c98529089dd6ae511bf17eb5ae"
+      },
+      {
+        "path": "hil_tests\\test_ble_recovery_barrier.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "c95df5ad99bd6c86c6c6daf8286afb84b608b7965658e1de4c4275fd0147b3bb"
+      },
+      {
+        "path": "hil_tests\\test_ble_recovery_input.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "7aa6eace0f33cb7119f5513e76b51057729875ed0ca8bde8a18df52284981845"
+      },
+      {
+        "path": "hil_tests\\test_ble_recovery_notice.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "04d4c0ff17af46f0aa21b195ca31b4cdc22f13a00a5d8336d8aae2618cc3f516"
+      },
+      {
+        "path": "hil_tests\\test_ble_rps_result.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "6926a1cad727d4945a4d963a13cd6ad6e869dc94088352624360da1d23d1e6ec"
+      },
+      {
+        "path": "hil_tests\\test_cli_cloud_reply.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "81f6e4a6550be5671b291efd84e1d601e7a837a43af73da9c054a8e81d4e447c"
+      },
+      {
+        "path": "hil_tests\\test_cli_reply_failure.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "f77b96d925bb192ce10655c07a4f39fbdd2b9fe760ac0feee26d5fcc2a56d692"
+      },
+      {
+        "path": "hil_tests\\test_cli_reply_ownership.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "7ba35604b70e115a9e1ef954110803e40717c5c5e3e36defb19b9be883ec640d"
+      },
+      {
+        "path": "hil_tests\\test_cloud_async_completion.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "5149ac532f8c06ce1d8e687e910f769cb52d1f875df46d15c5ebc1099b7501fe"
+      },
+      {
+        "path": "hil_tests\\test_cloud_auto_map.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "901718ab846ac340d2e4c63853cc6e90907c818caba20b80f3a5c1842af48e33"
+      },
+      {
+        "path": "hil_tests\\test_cloud_pairing_read.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "33b4206c14fbc55bc6cfb70222f17b71467adee1860efa86cd736d24501f41c2"
+      },
+      {
+        "path": "hil_tests\\test_cloud_radio_barrier.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "03c4ee1cf715d8924258b71503c54c4a04ff6dea05e20da90cf01082500eb462"
+      },
+      {
+        "path": "hil_tests\\test_cloud_request_budget.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "4ce4757542e3c53ab785e41262f474eb61baf3fbcf5e84526718f4a970853b9a"
+      },
+      {
+        "path": "hil_tests\\test_cloud_send_slices.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "df1be7ecf5241a8a70146055dcf334480443257de3f377ece10c913213466a49"
+      },
+      {
+        "path": "hil_tests\\test_cloud_settings_control.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "783609320124e7a610757951c5e2fa5e429200f645b99e99d1c51f07422ce7a7"
+      },
+      {
+        "path": "hil_tests\\test_cloud_socket_recovery.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "346a2042edf2514654ea168c8cad208a90ab3fbc7bc24ec4e82305475390aa4c"
+      },
+      {
+        "path": "hil_tests\\test_dns_reply_lifetime.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "82c5ed5a0e64c386fa60b5303a413a3b187979e90d7ccf145e6389628c348b28"
+      },
+      {
+        "path": "hil_tests\\test_firmware_update_drain.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "3bdc7140291c3b49378f4aad1bfe390a9231f0c29f35aca4f1a0625976b5eb37"
+      },
+      {
+        "path": "hil_tests\\test_fs_list_lifetime.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "6767f115a9d70438591be37503f941f5028645d4527e3d48bff521521527b3a2"
+      },
+      {
+        "path": "hil_tests\\test_fs_read_lifetime.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "c6d078ba7779d71f8b0e559218f04815db6c1ce97d356a63e4ed406c2b9a27ae"
+      },
+      {
+        "path": "hil_tests\\test_fs_rx_binary_path.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "f564926870544aec00216da3ee217dd42e80575df75e2ead140911c311cc8f13"
+      },
+      {
+        "path": "hil_tests\\test_import_safety.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "d0953803724669f0d29aba9f5e5b2c379a27c8ca8224272650a974bdeccc1a98"
+      },
+      {
+        "path": "hil_tests\\test_ncp_config_boot.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "3ab3eed4f9a4f112391a0ae54b92848b8035e1bdc5f317b3389a7206a84db1a2"
+      },
+      {
+        "path": "hil_tests\\test_ncp_config_preserve.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "19260b12af946cc70dcdc24c879834197842a0b90f331380c45e37f6b19b3414"
+      },
+      {
+        "path": "hil_tests\\test_notify_route_owner.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "d24da183c16e62b87b37d5501f2cb902377cce2b6dd9a877ae2794bf36973c67"
+      },
+      {
+        "path": "hil_tests\\test_notify_transaction.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "77f3ce15c2e832c23761bea72e37a03d1d5a91c61a8a011701cf9b3009a86393"
+      },
+      {
+        "path": "hil_tests\\test_radio_coordinated_recovery.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "273a035fd909a4af5b0b46727657316a534ed528e57898cb2ec96f6a7017a62c"
+      },
+      {
+        "path": "hil_tests\\test_radio_modem_shutdown.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "02b29ae8d3c7a95d767d907e7d535a02158c6d759ab4cfc2e609f11fbc2770f9"
+      },
+      {
+        "path": "hil_tests\\test_radio_service_status.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "67ea47a7e0523f7292bbb56ee0b9f5baedd90a52257d623652655d93501f01ea"
+      },
+      {
+        "path": "hil_tests\\test_radio_spi_shutdown.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "19a4bb0fd8fac3fd258fccce7f298b3d85022abd8732c2e673c752c6dd7e158b"
+      },
+      {
+        "path": "hil_tests\\test_radio_wait_diagnostics.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "a9e0c1a21d9f3e05cd561b4e489e9e734caec8e7d5780fb6106db6b0458cc3be"
+      },
+      {
+        "path": "hil_tests\\test_raw_send_response.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "657e49a361847fd3183265924189fb0ee5448238196d062b0a3e8cf1c5cdf294"
+      },
+      {
+        "path": "hil_tests\\test_settings_scope_claim.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "ef7cc28b845b1604ef23d2125774e80407e9f49a4434f66acf8105f955afc5e4"
+      },
+      {
+        "path": "hil_tests\\test_settings_transition.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "1f214d243eaa44974dd411a6014d66df7fa24f88ac25f878a9b048b37812037e"
+      },
+      {
+        "path": "hil_tests\\test_settings_transition_owners.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "7a6be9d790a65242b196e1e23449916606d0d32f6b3188a3c957625e23fc0603"
+      },
+      {
+        "path": "hil_tests\\test_spi_cs_hold.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "018abc8491f1c211b60b1fc5ba7e6b646eac1f16b9d62e7f1f5284ea5d434a9f"
+      },
+      {
+        "path": "hil_tests\\test_spi_fault_snapshot.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "294866cad306f3809f0c24d3c0694c2c0569abaa9f9a5e2de63199846e0e892a"
+      },
+      {
+        "path": "hil_tests\\test_spi_fs_framing.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "df13579a5a07d3bb14f74838303128413364dd9f8a16e984504b6427798dcd0b"
+      },
+      {
+        "path": "hil_tests\\test_tof_image_codec.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "77d5077b4f10e4283319a310268e87236f33cf284be947987e8f28147be3e693"
+      },
+      {
+        "path": "hil_tests\\test_tof_jpeg.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "e01cb090e895d9c22724dcee20f03306cc2e94ae6ebadbc2b901c871bf3fab92"
+      },
+      {
+        "path": "hil_tests\\test_tof_recovery.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "63dd64837bc811c705c234f8ed9e16e6f0607c3f883eac567c29fd14477d3a8f"
+      },
+      {
+        "path": "hil_tests\\test_tof_startup_platform.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "935949142bc06030327a4dcc800bd45c915e084b02be73b6140e60465b0ebbe9"
+      },
+      {
+        "path": "hil_tests\\test_wifi_assoc_admission.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "033e5f7dd21dbcb5e1eb9085dde9143882887d8fb910cc31eedf8794ffe716b3"
+      },
+      {
+        "path": "hil_tests\\test_wifi_credential_restore.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "8d4c6dae1430e814f08778a58df28e4f3c8389c8c83ea06a732f0f25a1aa8eb8"
+      },
+      {
+        "path": "hil_tests\\test_wifi_link_restore.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "6e5fdd0808fd39d5b8b2108ebb6590b10128f969d9f8d4ac591cfd8acb8fa22b"
+      },
+      {
+        "path": "hil_tests\\test_wifi_scan_admission.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "4438ddb43e27efd993a5ef5d737e78a34dc36cc37d56893d08f55ce551f7ba37"
+      },
+      {
+        "path": "hil_tests\\test_wifi_scan_lifetime.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "121bfc833633f7f77418eb27b38032d88c5c723385e70a06d7b7908bb3ff2bf4"
+      },
+      {
+        "path": "hil_tests\\test_xip_boot.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "b8ea70d1d169a006d536afe54895801e1419bb7013b4921266b693bed1901aee"
+      },
+      {
+        "path": "hil_tests\\test_xip_recovery_reader.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "c105110cc6a8217427a0e18c4330a492f1f45045a088d8eead2eab3279307e89"
+      },
+      {
+        "path": "hil_tests\\test_xip_secure_update.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "f52809b4d2449eed9debc587b823abec996c6ab721c9dd6201a8a1102f3508f5"
+      },
+      {
+        "path": "Tools\\audit_helper_imports.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "e3f032488e9061e70eee918f4d499d6807c3ee8493b953e9f87e7ef0b19f0ad5"
+      },
+      {
+        "path": "Tools\\check_import_child.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "73ed7e3474ab1eb27471cfd956c67898da2bf669aa25d152f57706db7782dcc6"
+      },
+      {
+        "path": "Tools\\read_xip_recovery.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "5f1a8a13da9f97413aed62be5d88866edf10b4eb9df3fafc301e72f8ca90f6d7"
+      },
+      {
+        "path": "training\\scripts\\00_project.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "4716866e789c89ecd8786f916457791d696253862d3afa3c903ef6f9ae1e7378"
+      },
+      {
+        "path": "training\\scripts\\00_setup.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "75cf4f3a648206d679066fbec4cb48206ff9c586d9d2f5eee08fa08a93bda676"
+      },
+      {
+        "path": "training\\scripts\\01_capture.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "d67347a63990f755af620c65ca57fc347f7239f08ff74e9db361a1994e3abe63"
+      },
+      {
+        "path": "training\\scripts\\01_capture_menu.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "c5c0df0c25086ed8c5cf5e0c94399aefa02e6307a8c6de5967fb5522c164fc3c"
+      },
+      {
+        "path": "training\\scripts\\02_import_png.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "2f0da4f1debce37222564d2b83e1fbd0ebb0e849ea0520a2cc66469a989f38ba"
+      },
+      {
+        "path": "training\\scripts\\02_review_dataset.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "4d079b76f722620c9e4f072bf4f4a0533a7ca1433cbb79410db05dcbab7e94ce"
+      },
+      {
+        "path": "training\\scripts\\03_validate_dataset.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "d1ed47470f3aee33ca7759099a11fdb2422372506f36c2f28a472edb34426f11"
+      },
+      {
+        "path": "training\\scripts\\04_prepare_dataset.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "1c724b9cb61c7c6fd0bfc0ae8fbca3c3d061a355cb7c4e5b261e211679c1ad6e"
+      },
+      {
+        "path": "training\\scripts\\05_train_model.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "2686ce80da6ce64757ff582f0340bb585c28e8a7f0ecda2e80c0cbf070751bf3"
+      },
+      {
+        "path": "training\\scripts\\06_quantize_model.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "3f80c85a79fef2f17550093a7e60e81d87643a6f0585b5137846266e5a375982"
+      },
+      {
+        "path": "training\\scripts\\07_generate_n6.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "b77e8f54606cd17a02528d1f2c4476c36cc4a57860c9b622f769ace77f7d3df9"
+      },
+      {
+        "path": "training\\scripts\\08_integrate_model.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "8c3bbe84bcd88dddd84254b6b003f8d9d04084433b0bffab4d6a8e4777745b8c"
+      },
+      {
+        "path": "training\\scripts\\09_bootstrap_secure.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "8d3a88bc4e5019e10bca0129326ec6db146e1d659677830cb57cd92496cd436e"
+      },
+      {
+        "path": "training\\scripts\\11_hil_validate.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "aa5cddc66e6f3aaa03b5a70130183ab56b56965f518d1e53e88e2ec726a62ef7"
+      },
+      {
+        "path": "training\\scripts\\analyze_training.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "42aa6bd26cd8b41cb6c9cfa4e2d0beda8efe52c8c64306f7036e7281967d3cda"
+      },
+      {
+        "path": "training\\scripts\\ble_sample_source.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "94e7b45eb021153f938c2a69b8a3d7f24d7d9c98718ce9e9a44b61210a3099a9"
+      },
+      {
+        "path": "training\\scripts\\capture_service.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "613bd5c1723ee59a92d6f31db9c287454e3129fd48b95cd88b2b79dbc8799436"
+      },
+      {
+        "path": "training\\scripts\\check_capture_workflow.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "de875ab8f8a2076a02c33d1a35f7b216515dd535e6f093f0bca4be335496e7e2"
+      },
+      {
+        "path": "training\\scripts\\check_class_workflow.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "02ce3554367027d8bd2b12e18b5eb08bae025c8dc07a7f48c0c71a2630272d7d"
+      },
+      {
+        "path": "training\\scripts\\check_project_workflow.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "69db3d9bb21141649dddeb9043c88c5e604bcd79c5773eb6e35ccb26b25b318f"
+      },
+      {
+        "path": "training\\scripts\\class_editor.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "a027281548fc9d6b83368560ec526d2f23fa3eecea569de385f2c673ca5e207f"
+      },
+      {
+        "path": "training\\scripts\\cloud_sample_source.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "e9c5d03f76ff7ba73365fff836368492055b382b73beca07937ec3b1351f330b"
+      },
+      {
+        "path": "training\\scripts\\common.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "fecb2096e7af3817b46d32aed5e5fdf0764e54117b4c5446ae140a40f0a7d877"
+      },
+      {
+        "path": "training\\scripts\\dataset.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "d5ae1d6072dbca732bd725f9e34fd3f4e5667dd2fe702a5c918460fae30401c1"
+      },
+      {
+        "path": "training\\scripts\\deploy_firmware.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "ad2083fd0cdaa87003a34dfe43d241994a6cc25f6ee7111370b0989aa0119861"
+      },
+      {
+        "path": "training\\scripts\\dual_com_debug.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "6c8897a474afe72cdeef8ae42eef365b0560425474e26d985754b528097b1e06"
+      },
+      {
+        "path": "training\\scripts\\guarded_ram.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "333df519cdf5406318afb4d981a2f1f6c049b60d7ac540502e06ce204cbc0d34"
+      },
+      {
+        "path": "training\\scripts\\label_service.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "1274ba03a23e7fb543f308258c670bf40f4b3f8af8b4ccb1327d05f218ed2cc7"
+      },
+      {
+        "path": "training\\scripts\\live_view.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "1183eb56b961a1883e23f04cc417a5bc416ee82cd361d62f914e9977ab2fb443"
+      },
+      {
+        "path": "training\\scripts\\model_contract.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "2fd4450a024d484fbe5f936dc6c4273cc904c14f532d0e5efdb055b7a79e4d33"
+      },
+      {
+        "path": "training\\scripts\\pipeline_status.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "f742f9415a2040021cc6f1e918e36fd0d446abed3b4f6f2e63dccd96f21ed42f"
+      },
+      {
+        "path": "training\\scripts\\platform_check.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "335035edf76beee84d751362b6584bd37a7f9a54b0c35bb9e38ef3a6cf29e266"
+      },
+      {
+        "path": "training\\scripts\\project_context.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "02e7942f62b566b271ee747fd1afb827f7f642596307a1f03f0d685acad0a822"
+      },
+      {
+        "path": "training\\scripts\\protocol.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "7531b3f2161667f014843457cb05fffb799717b1d96cced2a22068a833fdaccb"
+      },
+      {
+        "path": "training\\scripts\\radio_hil.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "872958f4199919c56329ffa3dcc5b0be42dbba4c43000b0a7ae71a217001856c"
+      },
+      {
+        "path": "training\\scripts\\reset_training_data.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "846534fb5ed906f81ac766b68c0ed5eeeb1a14f2dd80632d4b79127cf6e2cdfe"
+      },
+      {
+        "path": "training\\scripts\\sample_sources.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "b177a3b104723c7b8892b5300c1650643937622a0fe2ad937f577fa1ceba18ed"
+      },
+      {
+        "path": "training\\scripts\\sample_store.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "b129e96acf512c2c9ae4b218bce01f8ebb3338e74163ad987b2a4843ace9a05a"
+      },
+      {
+        "path": "training\\scripts\\self_test.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "a7e2d6d9cdbe3849bb7ee901d9546dd016cd149859f4acd25a6f3f6a0b212614"
+      },
+      {
+        "path": "training\\scripts\\spatial_profile.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "9e16fc3a4ed03aff0683d36d65cb8859018303d6c594898e6d3e2ffd1d2f318b"
+      },
+      {
+        "path": "training\\scripts\\test_ble_training_source.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "2d77a69b71b0b13033abdb965345eb3b542e5f9ada0195fea4f88ea9227ed9c8"
+      },
+      {
+        "path": "training\\scripts\\test_cloud_sample_source.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "40f9220bd601676dd8bea7a34429d0bc236c04f7ac6b2d79cc451c297f453af4"
+      },
+      {
+        "path": "training\\scripts\\test_cloud_training_native.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "bc68fb4da64fce759947f97209c092c733db376f431ca8edc96eb505c55c9a8b"
+      },
+      {
+        "path": "training\\scripts\\test_dual_com_debug.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "03e6413fb0389157b5a623fb47e788192fa46eeecb4815dfb0ea343d5934e5ad"
+      },
+      {
+        "path": "training\\scripts\\test_label_service.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "f14e1de75cd1fe2d94003a361ae07b544e64efa6051b09f8d359ab46f69ee871"
+      },
+      {
+        "path": "training\\scripts\\test_model_contract.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "6489783bd0830a6e642bb47ba647243564f522250d232fb6484273ca0ecaf859"
+      },
+      {
+        "path": "training\\scripts\\test_n6df_c_encoder.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "2b2362847996ca3fbce2c473238dfb3e19c5e8f309475860e528267edc2358f5"
+      },
+      {
+        "path": "training\\scripts\\test_project_context.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "0f376baad4af55287ffd050b1e38fcc5d1fc4405331397bdc3112286a77070ce"
+      },
+      {
+        "path": "training\\scripts\\test_protocol_v4.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "8feaab272e929ecd1a0699c204a7666990adc8629369d6ef637d81a6b1457848"
+      },
+      {
+        "path": "training\\scripts\\test_sample_store.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "6dd6aaecd5cef4354e25cfae6c23882b45c9f19ec60583fd569fe40f8f68505c"
+      },
+      {
+        "path": "training\\scripts\\test_spatial_profile.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "79e4d654eac4d63aa501d334e311761d16295c35d609129742619192c6f722a1"
+      },
+      {
+        "path": "training\\scripts\\test_verified_package.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "ccf4b913acc82652b58c337023df7ccfe118bb44199526e197a6721e7fcf2c05"
+      },
+      {
+        "path": "training\\scripts\\verified_package.py",
+        "effects": [],
+        "passed": true,
+        "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py",
+        "source_sha256": "ec541dc1cd6117a7b0dbfae0be48cf12602e4ee7738be81e1582af961a87302a"
+      }
+    ],
+    "passed": true
+  },
+  "NPU_preflight_under_denial": {
+    "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\resume-20261022\\hil1641.py",
+    "effects": [],
+    "passed": true,
+    "inspect_origin": "C:\\Users\\netan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\inspect.py"
+  },
+  "negative_denial_tests": 7,
+  "training_unit_tests": 40,
+  "recovery_reader_tests": 10,
+  "guarded_CLI_scripts": 27,
+  "AST_equivalence": "PASS all27; multiline strings and original operations preserved",
+  "Py314_name_collisions": [],
+  "PowerShell_import_library": "Tools/N6-DevCommon.ps1 parsed:17 function definitions,1 ErrorActionPreference assignment; no module-level device/process call",
+  "before_import_audit": {
+    "count": 139,
+    "failed": 55,
+    "effects_blocked": 52
+  },
+  "configuration_only_effects": "Some library imports deliberately resolve configuration or add audited sibling module paths. No hardware/process/network/GUI/thread/write effect observed under denial. Directory creation moved from common import to explicit00_setup.main.",
+  "originals_retained": ".local-dependencies/xip/import-audit/originals (txt snapshots, not importable py files)",
+  "user_fresh_cold_reconnect_confirmed": "2026-10-22T17:09UTC; no board probe before this audit PASS"
+}

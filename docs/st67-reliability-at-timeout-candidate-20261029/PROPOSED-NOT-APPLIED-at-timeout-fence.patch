@@ -1,0 +1,21 @@
+--- a/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.c
++++ b/ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.c
+@@ -1011,11 +1011,13 @@
+     TickType_t elapsed = xTaskGetTickCount() - started_at;
+     remaining = (elapsed >= timeout) ? 0U : (timeout - elapsed);
+     ret = modem_cmd_handler_await(data, sem, remaining);
+-    /* A scoped timeout has no terminal boundary; a late OK must not satisfy
+-     * a new operation. Only module reinitialization clears this real fence. */
+-    if ((ret == -ETIMEDOUT) && (data->budget_owner == xTaskGetCurrentTaskHandle()))
+-    {
+-      if (((flags & MODEM_NO_UNSET_CMDS) == 0U) &&
++    /* Any written command missing its terminal has an ambiguous boundary,
++     * including unscoped query/connect callers. A late OK must not satisfy a
++     * new command. Only the existing bounded scoped-DNS drain is an exception. */
++    if (ret == -ETIMEDOUT)
++    {
++      if ((data->budget_owner == xTaskGetCurrentTaskHandle()) &&
++          ((flags & MODEM_NO_UNSET_CMDS) == 0U) &&
+           (strncmp((const char *)buf, "AT+CIPDOMAIN=", 13U) == 0))
+       {
+         /* Only ordinary DNS can finish beyond the application request budget.

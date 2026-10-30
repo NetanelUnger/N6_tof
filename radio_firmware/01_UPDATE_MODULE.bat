@@ -10,7 +10,7 @@ echo The process temporarily replaces the STM32 FSBL and always attempts to
 echo restore it, including after a QConn failure. Follow each jumper prompt.
 echo Stage 11 later verifies the live SDK version and BLE advertisement.
 echo.
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%CD%\Update-ST67Module.ps1" %*
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%CD%\Invoke-ST67ModuleUpdate.ps1" %*
 set "RESULT=%ERRORLEVEL%"
 pause
 exit /b %RESULT%

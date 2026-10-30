@@ -1,0 +1,68 @@
+{
+  "browser_long_tasks": 0,
+  "runs": [
+    {
+      "scheduled": 61,
+      "accepted": 50,
+      "skipped": 11,
+      "late_slots": 0,
+      "max_late_ms": 18,
+      "fps": 1,
+      "browser_frames": 49,
+      "gap_min_s": 0.21120000000298023,
+      "gap_median_s": 1.74264999999851,
+      "gap_max_s": 2.9195
+    },
+    {
+      "scheduled": 122,
+      "accepted": 50,
+      "skipped": 72,
+      "late_slots": 0,
+      "max_late_ms": 1,
+      "fps": 2,
+      "browser_frames": 50,
+      "gap_min_s": 0.21380000000447036,
+      "gap_median_s": 1.74139999999851,
+      "gap_max_s": 1.8385
+    }
+  ],
+  "ble": {
+    "frames": 31,
+    "crc_errors": 0,
+    "dropped": 0,
+    "sequence_gaps": 29,
+    "modes": [
+      {
+        "mode": "RAW",
+        "frames": 6,
+        "payload": 9072
+      },
+      {
+        "mode": "UINT16",
+        "frames": 6,
+        "payload": 4536
+      },
+      {
+        "mode": "UINT8",
+        "frames": 6,
+        "payload": 2268
+      },
+      {
+        "mode": "JPEG",
+        "frames": 6,
+        "payload": 734
+      },
+      {
+        "mode": "RAW",
+        "frames": 6,
+        "payload": 9072
+      }
+    ]
+  },
+  "source_sha256": {
+    "AppliNonSecure/Core/Inc/demo_map.h": "670c16d969fbc156cf593fb45ecc385daae358e3ce83bb24ac9c2a57a7306b1f",
+    "AppliNonSecure/Core/Inc/wifi_ble_app.h": "78086fbb5c879c4ce8a09532e5d0db8308809940ab903d3fd6b8b74e42f9d4f2",
+    "AppliNonSecure/Core/Src/wifi_ble_app.c": "30c4460f5673c7635197f55fc198e33b337c983512c18b4f7d6223731e3cc1a0",
+    "AppliNonSecure/Core/Src/debug_cli.c": "2f3bef20ee1a4e045d08ca2e4cdfd0e34a33c674ddb72aefc6bda4350ce8388f"
+  }
+}

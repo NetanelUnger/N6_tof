@@ -55,11 +55,24 @@
  * Keep generous room for callers, exception/FPU frames, and library changes
  * without starving the transform's substantial dynamic-memory requirement. */
 #define TX_APP_STACK_SIZE                       (96U * 1024U)
+#include "resource_memory_policy.h"
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+#undef TX_APP_STACK_SIZE
+#define TX_APP_STACK_SIZE N6_STACK_BYTES(96U*1024U)
+#endif
 #define TX_WIFI_BLE_STACK_SIZE                  (8U * 1024U)
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+#undef TX_WIFI_BLE_STACK_SIZE
+#define TX_WIFI_BLE_STACK_SIZE N6_STACK_BYTES(8U*1024U)
+#endif
 /* Must outrank the continuously-ready priority-10 ToF processor so module
  * initialization and the short event loop cannot be starved. */
 #define TX_WIFI_BLE_THREAD_PRIO                 (9U)
 #define TX_USB_CLI_STACK_SIZE                   (6U * 1024U)
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+#undef TX_USB_CLI_STACK_SIZE
+#define TX_USB_CLI_STACK_SIZE N6_STACK_BYTES(6U*1024U)
+#endif
 /* The ToF processor can remain continuously ready when transform throughput
  * is lower than the 10 fps acquisition rate.  Keep the interactive CLI above
  * that priority so a received Enter byte cannot be starved behind raw frames.

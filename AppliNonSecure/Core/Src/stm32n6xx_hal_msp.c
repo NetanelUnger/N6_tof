@@ -21,6 +21,7 @@
 #include "main.h"
 /* USER CODE BEGIN Includes */
 
+#include "config.h"
 #include "debug_uart.h"
 
 /* USER CODE END Includes */
@@ -30,7 +31,9 @@ extern DMA_HandleTypeDef handle_GPDMA1_Channel1;
 
 extern DMA_HandleTypeDef handle_GPDMA1_Channel0;
 
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 extern DMA_HandleTypeDef handle_GPDMA1_Channel5;
+#endif
 
 extern DMA_HandleTypeDef handle_GPDMA1_Channel11;
 
@@ -310,6 +313,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
   GPIO_InitTypeDef GPIO_InitStruct = {0};
   DMA_DataHandlingConfTypeDef DataHandlingConfig;
   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   if(hspi->Instance==SPI4)
   {
     /* USER CODE BEGIN SPI4_MspInit 0 */
@@ -377,7 +381,9 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
 
     /* USER CODE END SPI4_MspInit 1 */
   }
-  else if(hspi->Instance==SPI5)
+  else
+#endif
+  if(hspi->Instance==SPI5)
   {
     /* USER CODE BEGIN SPI5_MspInit 0 */
 
@@ -495,6 +501,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
   */
 void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
 {
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   if(hspi->Instance==SPI4)
   {
     /* USER CODE BEGIN SPI4_MspDeInit 0 */
@@ -518,7 +525,9 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
 
     /* USER CODE END SPI4_MspDeInit 1 */
   }
-  else if(hspi->Instance==SPI5)
+  else
+#endif
+  if(hspi->Instance==SPI5)
   {
     /* USER CODE BEGIN SPI5_MspDeInit 0 */
 

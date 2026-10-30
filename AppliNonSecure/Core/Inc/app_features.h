@@ -1,6 +1,15 @@
 #ifndef APP_FEATURES_H
 #define APP_FEATURES_H
 
+#include "config.h"
+
+/* Guarded RAM recovery stays off. Build-Xip enables the operational watchdog
+ * by default; UART W and local USB CLI W are not a test-build-only feature. */
+#define N6_WATCHDOG_ENABLED (0U)
+#ifndef N6_RESOURCE_DIAGNOSTICS
+#define N6_RESOURCE_DIAGNOSTICS (0U) /* XIP candidate; host-only until HIL. */
+#endif
+
 /*
  * Set this switch to 0 to remove the ST67W6X application thread at runtime.
  * The vendor driver remains part of the build, so re-enabling it is a
@@ -31,6 +40,12 @@
  * restore the station connection intent. No configuration/credential setter. */
 #ifndef APP_DEMO_BLE_ONLY
 #define APP_DEMO_BLE_ONLY (0U)
+#endif
+
+/* Existing demos may opt into an automatic image route on pairing. XIP OTA
+ * validation explicitly disables this independently from Cloud CLI/updates. */
+#ifndef APP_CLOUD_AUTO_MAP_ENABLED
+#define APP_CLOUD_AUTO_MAP_ENABLED (1U)
 #endif
 
 /* Outbound Cloud Relay CLI and independent ToF upload path. */
@@ -76,7 +91,7 @@
 
 /* The round GC9A01 display uses its dedicated SPI4 bus and LCD control pins.
  * SPI5 remains reserved for the optional ST67W6X radio. */
-#define APP_GC9A01_DISPLAY_ENABLED  (1U)
+/* APP_GC9A01_DISPLAY_ENABLED is configured in config.h. */
 
 /* The USB command console has its own small ThreadX thread as well. */
 #define APP_USB_CLI_ENABLED  (1U)

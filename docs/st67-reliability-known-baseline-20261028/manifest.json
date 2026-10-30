@@ -1,0 +1,142 @@
+[
+  {
+    "path": "all-binary-versions.json",
+    "sha256": "e63b91336cf97f213f96bdc0726f50800c77e507eb934bbaeee8ba66378e2018",
+    "bytes": 951
+  },
+  {
+    "path": "baseline52-build.json",
+    "sha256": "c7b25fb8d7bc6f1f8d407f5da9e135552a35c802f7085a1822d78db852046f45",
+    "bytes": 145336
+  },
+  {
+    "path": "build-baseline.log",
+    "sha256": "8ef8cc836375311306de2430b55eeb23c1eb99fe08a25cbd0ee9cfd333b34cc3",
+    "bytes": 520
+  },
+  {
+    "path": "build-invocation.json",
+    "sha256": "ef55c657f323197c0630228f4ef063736c106d1ced7d98bfdace2164239e9b26",
+    "bytes": 450
+  },
+  {
+    "path": "Build-Xip-effective.ps1",
+    "sha256": "f9252d5b7cc5f967e6f87e35d8a052f7878f94e0ddad937c6c38176172d464be",
+    "bytes": 18911
+  },
+  {
+    "path": "build_st67_known_baseline.ps1",
+    "sha256": "f0bdd437190cecfefceddbf2be851583aad5300f89d10851d9c0a0e548f14e4e",
+    "bytes": 2078
+  },
+  {
+    "path": "install52/result.json",
+    "sha256": "e923e924e94afb3334f6e1c95c4922fb600e93a2f4680dfcdaba29bb379dc8f6",
+    "bytes": 16623
+  },
+  {
+    "path": "install52/sender.log",
+    "sha256": "e9305bb8e7cb370c947aad8d44f44032c65fe52ea4eb997808b8ec305ff95c14",
+    "bytes": 1387
+  },
+  {
+    "path": "install52/uart.log",
+    "sha256": "3bcd42567c30d43ebf89905841e79a177830fa9cbe126b3a5854eefe00336a81",
+    "bytes": 17811
+  },
+  {
+    "path": "install_st67_baseline52.py",
+    "sha256": "a979cb9a26bf5aac683a2bbc976a84a5fabee4363444e09f37ad378fdcf43687",
+    "bytes": 13023
+  },
+  {
+    "path": "manifest-probe-native.log",
+    "sha256": "bf2d5e38344f93af75b83b53c6adf0c736d48e6728fc79c6fd3d02a546968e29",
+    "bytes": 9372
+  },
+  {
+    "path": "post-probe-confirmation/result.json",
+    "sha256": "a8cdcf728462d382b3b432b9e6b683b73b487489664d39954967c5fee4965e8b",
+    "bytes": 4164
+  },
+  {
+    "path": "post-probe-confirmation/uart.log",
+    "sha256": "97eb0cc3df2933aa8a372c9fa66ea89edf84c518b3f7193c013d8c259746d75c",
+    "bytes": 3717
+  },
+  {
+    "path": "postflight/owner-start.json",
+    "sha256": "236e3e67d76037af8c3626e01542f4026356eadd158525f6f5fe1157fcf5d502",
+    "bytes": 304
+  },
+  {
+    "path": "postflight/result.json",
+    "sha256": "f9fdac087fe709feeaacfc2ce3664f83a22fedcf73ac962942b5547db84de445",
+    "bytes": 25875
+  },
+  {
+    "path": "preflight/owner-start.json",
+    "sha256": "ef78f14c7c136f5b3b22d81f6ede2730b14805f71db77c87fb0dc92c78d16318",
+    "bytes": 304
+  },
+  {
+    "path": "preflight/result.json",
+    "sha256": "35ecb29be3fee55631207456f8a2cee38f63154f19226cccf2dcb52d6cce0014",
+    "bytes": 24297
+  },
+  {
+    "path": "prepare_st67_probe_headers.ps1",
+    "sha256": "65dfae87510f86a2db4906a27ae57af0ef9a1ed3ced2ab0e605ec7c21702d58b",
+    "bytes": 2685
+  },
+  {
+    "path": "report.md",
+    "sha256": "1be614770ac931bc324ddfe7283b5c854c6e0576076ab915f19dfe81c69fcfbc",
+    "bytes": 6459
+  },
+  {
+    "path": "search_n6_all_binary_versions.py",
+    "sha256": "01b97c609625560a6881e067fb6a8abeecc6ae5e7be536c870199c50b073839e",
+    "bytes": 1611
+  },
+  {
+    "path": "slot-probe/result.json",
+    "sha256": "b01810e831e1e44af2f5d6532f4a4444692ac388efbec6dd41fc0e69d640d479",
+    "bytes": 18282
+  },
+  {
+    "path": "slot-probe/uart.log",
+    "sha256": "cbb9e8476fcc92885524f7a98b894027d0c4f456db519f6fecd6adbb60132c4e",
+    "bytes": 10561
+  },
+  {
+    "path": "source-preservation.json",
+    "sha256": "db011a3c4baf9602c12420b40ea72626cfc9a17f58356753d9881aacf128cc06",
+    "bytes": 3393
+  },
+  {
+    "path": "st67_confirm_existing.py",
+    "sha256": "2333cefd3a9ab7b9b4208beae3bfa6f5d3f73da77646747615c0861c945c0b99",
+    "bytes": 6489
+  },
+  {
+    "path": "st67_probe_slots.py",
+    "sha256": "09f3eee0416805be50562503c1e25c00f800258b46013397c538018294aaa086",
+    "bytes": 9047
+  },
+  {
+    "path": "st67_usb_postflight.py",
+    "sha256": "b6265be00ad61760bd901612754f2edb7fe788f6729ee08684b9a2b04d0f016b",
+    "bytes": 7291
+  },
+  {
+    "path": "st67_usb_preflight.py",
+    "sha256": "74f29c44d25a12f69a570336776d80d7489854ad4180766b4c45a51314d75881",
+    "bytes": 7265
+  },
+  {
+    "path": "test_st67_manifest_probe.py",
+    "sha256": "e0a9933548d957c86fc76920b1d9d505e9774200a8bcf1de45b65e345f4ce988",
+    "bytes": 3865
+  }
+]

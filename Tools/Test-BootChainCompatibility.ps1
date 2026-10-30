@@ -1,7 +1,8 @@
 # No hardware access: exercise the release gate against temporary boot images.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'N6-DevCommon.ps1')
-$testParent = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '.n6-debug'))
+# Keep disposable fixtures outside Dropbox, which can hold newly created directories.
+$testParent = [IO.Path]::GetFullPath((Join-Path $env:TEMP 'n6-bootchain-tests'))
 $testRoot = Join-Path $testParent ('bootchain-test-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path (Join-Path $testRoot 'training/state'),
     (Join-Path $testRoot 'AppliSecure/Debug'), (Join-Path $testRoot 'FSBL/Debug') | Out-Null

@@ -1238,6 +1238,11 @@ static int32_t modem_iface_spi_write(struct modem_iface *iface,
   }
   AT_LOG_HOST_OUT((uint8_t *)buf, size);
   struct modem *mdm = CONTAINER_OF(iface, struct modem, iface);
+  if (spi_transaction_faulted() != 0)
+  {
+    mdm->handler_data.tx_desynchronized = true;
+    return -EIO;
+  }
   bool notification = (mdm->notify_phase != 0U) &&
                       (mdm->notify_owner == xTaskGetCurrentTaskHandle());
   result = BusIo_SPI_SendData(SPI_MSG_CTRL_TRAFFIC_AT_CMD, (uint8_t *)buf, size,
@@ -1264,6 +1269,14 @@ static int32_t modem_iface_spi_read(struct modem_iface *iface,
 
   mdm = CONTAINER_OF(iface, struct modem, iface);
   *bytes_read = 0U;
+  if (spi_transaction_faulted() != 0)
+  {
+    mdm->handler_data.tx_desynchronized = true;
+    /* Retained packet tail belongs to teardown; do not feed a later parser.
+     * The parser must yield while the existing recovery owner quiesces it. */
+    vTaskDelay(1U);
+    return -EIO;
+  }
   if (mdm->spi_rx_pending == NULL)
   {
     /* Take ownership of the complete framed SPI packet. Never ask spi_read()
@@ -1288,6 +1301,14 @@ static int32_t modem_iface_spi_read(struct modem_iface *iface,
     mdm->spi_rx_pending_offset = 0U;
   }
 
+  /* A bus wait may have overlapped the fault. Recheck after packet ownership
+   * transfer, before publishing any bytes or releasing the retained packet. */
+  if (spi_transaction_faulted() != 0)
+  {
+    mdm->handler_data.tx_desynchronized = true;
+    vTaskDelay(1U);
+    return -EIO;
+  }
   available = mdm->spi_rx_pending_len - mdm->spi_rx_pending_offset;
   copy_len = (available < size) ? available : size;
   (void)memcpy(buf, mdm->spi_rx_pending_data + mdm->spi_rx_pending_offset,

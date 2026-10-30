@@ -1,0 +1,13 @@
+{
+  "url": "https://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net/cloud",
+  "available_existing_browser_tabs_before_inspection": 0,
+  "observed_UI": "Open existing file / New workspace; no workspace loaded",
+  "temporary_tab_closed": true,
+  "workspace_file_read_or_uploaded": false,
+  "credential_or_pairing_changes": false,
+  "device": "N6-MAINT-B8FB",
+  "workspace": "ws-13e32f198c2e42938860512d2f0ce47d",
+  "device_http_status": 409,
+  "interpretation": "Device command-poll source maps409 to workspace_inactive; UI exposes no existing loaded workspace. No successful active Cloud CLI/image delivery measured.",
+  "needed_user_action": "Open the existing workspace containing N6-MAINT-B8FB in N6 Device Lab and keep it open; do not create a new workspace or re-pair."
+}

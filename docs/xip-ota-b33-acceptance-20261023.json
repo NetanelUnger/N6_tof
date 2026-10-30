@@ -1,0 +1,194 @@
+{
+  "status": "OTA_A32_TO_B33_PASS_WITH_QUALIFIED_MEMORY_AND_OVR_LIMITS",
+  "branch": "feature/n6-xip-ota-usb",
+  "source_commit": "154d7ce2a8be5a216a070d402a9d5eb931fe4aab",
+  "permissions": {
+    "health_require_escalated": "PASS200",
+    "OTA_require_escalated": "executed after new explicit human Git approval",
+    "Git_exception": "exact per-command -c safe.directory=C:/Users/netan/Dropbox/DevelopPersonal/N6/n6-xip-ota-usb; no global/environment/ownership/permission change",
+    "prior_attempt_known_not_executed": "failed branch check before USB open; no output directory or proof existed",
+    "retry_after_new_authorization": 1,
+    "server_change": false,
+    "credentials_created": false,
+    "OTP_or_security_lifecycle_change": false
+  },
+  "firmware": {
+    "slot": "B",
+    "version": 33,
+    "bytes": 512480,
+    "sha256": "a822c93158ac2b7db3216966e00f1ff5e1f790e1de827b376e5f408ecb61e3e1",
+    "fallback": "A32 retained, prior source confirmed; raw NOR reread not performed"
+  },
+  "timing": {
+    "TX_count": 502,
+    "data_blocks": 501,
+    "EOT_count": 1,
+    "ACK_count": 502,
+    "timeouts": 0,
+    "retry_TX": 0,
+    "NAK_count": 0,
+    "transfer_ms": 506998.1642,
+    "ACK_ms": {
+      "p50": 940.6158999999825,
+      "p95": 1276.987000000001,
+      "p99": 1350.6105000000098,
+      "max": 3783.9553000000305
+    },
+    "RPC_max_ms": 98.25939999999537,
+    "host_max_loop_lag_ms": 30.096799999999348
+  },
+  "authentication": {
+    "sender_package_hash": true,
+    "Secure_manifest_signature": true,
+    "FSBL_signature": true,
+    "FSBL_image_hash": true
+  },
+  "boot": {
+    "automatic_reset_and_ROM_flash_boot": "captured",
+    "metadata_before_trial": "seq85 state2 confirmedA32 pendingB33",
+    "PC": "0x702CFCFC",
+    "VTOR": "0x70280400",
+    "confirmation_tick_ms": 10206,
+    "Cloud_post_update_version": 33,
+    "USB_independent_post_update_version": 33,
+    "raw_post_confirmation_metadata": "NOT_READ; no debugger during NS runtime"
+  },
+  "SPI": {
+    "source_installer_probe": "phase3 calls504 RX-overlap0 pre-OVR0 faults0 NS-tick-delta1",
+    "automatic_resume_counters_during_OTA": [
+      6,
+      8
+    ],
+    "resume_qualification": "Observed source counter6->8 during transfer. Initial transfer-start count not captured; do not claim8 scoped resumes. Separate A32 controlled SUSP test proves one induced event.",
+    "destination_faults": 0,
+    "destination_NCP_recoveries": 0,
+    "original_intermittent_OVR_root_cause": "NOT_CONCLUSIVELY_ESTABLISHED; zero-fault current run and controlled SUSP recovery are separate evidence"
+  },
+  "HIL": {
+    "frames": 100,
+    "exact_tensors": 100,
+    "npu_frames": 100,
+    "max_score_delta": 0,
+    "crc_errors": 0,
+    "passed": true,
+    "duration_seconds": 27.48399999999674
+  },
+  "memory": {
+    "measurement": "75second destination B33 boot/USB HIL runtime; not active OTA install-stack worst-case",
+    "usage_rows": 40,
+    "stack_PSP_sample_count": 15,
+    "invalid_resource_lines": 0,
+    "all_sample_plus_provisional_context_targets_met": true,
+    "pools": [
+      {
+        "kind": "pool",
+        "object": "0x2412f7d8",
+        "symbols": [
+          "_end"
+        ],
+        "observations": 59,
+        "capacity": 851432,
+        "observed_peak": 357412,
+        "observed_minimum_free": 494020,
+        "flags": 8,
+        "observed_free_over_used_percent": 138.22143632558505,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "C heap frontier, not malloc free/largest block"
+      },
+      {
+        "kind": "pool",
+        "object": "0x24115bf4",
+        "symbols": [
+          "tx_radio_byte_pool"
+        ],
+        "observations": 2048,
+        "capacity": 65536,
+        "observed_peak": 50356,
+        "observed_minimum_free": 15180,
+        "flags": 0,
+        "observed_free_over_used_percent": 30.145365001191518,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "Wrapped observations only; fragmentation/largest request not proven"
+      },
+      {
+        "kind": "pool",
+        "object": "0x24115c28",
+        "symbols": [
+          "tx_app_byte_pool"
+        ],
+        "observations": 8,
+        "capacity": 180224,
+        "observed_peak": 149312,
+        "observed_minimum_free": 30912,
+        "flags": 0,
+        "observed_free_over_used_percent": 20.702957565366482,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "Wrapped observations only; fragmentation/largest request not proven"
+      },
+      {
+        "kind": "pool",
+        "object": "0x24105bc0",
+        "symbols": [
+          "ux_device_app_byte_pool"
+        ],
+        "observations": 3,
+        "capacity": 65536,
+        "observed_peak": 51224,
+        "observed_minimum_free": 14312,
+        "flags": 0,
+        "observed_free_over_used_percent": 27.940028111822585,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "Wrapped observations only; fragmentation/largest request not proven"
+      },
+      {
+        "kind": "pool",
+        "object": "0x2410150c",
+        "symbols": [
+          "usbpd_app_byte_pool"
+        ],
+        "observations": 1,
+        "capacity": 18048,
+        "observed_peak": 8,
+        "observed_minimum_free": 18040,
+        "flags": 0,
+        "observed_free_over_used_percent": 225500.0,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "Wrapped observations only; fragmentation/largest request not proven"
+      }
+    ],
+    "failure_rows": [],
+    "limits": [
+      "Finite expected receive timeouts retained silently as POLL",
+      "Queue free-lists may validly be full; no generic10percent queue-admission claim",
+      "Addresses reused across instances may retain conservative historical peaks",
+      "Pool free percentage is not proof of largest allocatable block",
+      "No proof that every thread or interrupt nesting peak was sampled"
+    ]
+  },
+  "final_state": {
+    "Cloud": "disabled, paired, sensor sent0",
+    "dataset": "off;100 local USB records only",
+    "image": "NONE",
+    "ToF": "ready54x42",
+    "NPU_errors": 0,
+    "UART_drops": 0,
+    "UART_transport_errors": 0,
+    "BLE": "driver ready/advertising/disconnected; latest RF DeviceNotFound before GATT remains unaccepted",
+    "owned_handles": "closed",
+    "lease": "released cleanly"
+  },
+  "remaining": [
+    "B33 physical cold power interruption during NOR programming not tested",
+    "latest B33 independent power-cycle/rollback not repeated; prior historical coverage retained",
+    "Full stack watermark, IRQ nesting, allocator fragmentation and vendor-internal allocations not proven",
+    "Original intermittent OVR physical cause and separate server lease/retry finding remain open",
+    "Latest BLE RF/GATT regression remains blocked before GATT"
+  ],
+  "evidence": {
+    "cloud_result": ".local-dependencies/xip/cloud-ota-b33-network-authorized/result.json",
+    "trace": ".local-dependencies/xip/cloud-ota-b33-network-authorized/xmodem-trace.jsonl",
+    "UART": ".local-dependencies/xip/ota-uart-ota-b33-network-authorized/uart.log",
+    "HIL": ".local-dependencies/xip/hil-XIP-v33-b33-ota.json",
+    "memory": ".local-dependencies/xip/b33-resource-summary.json"
+  }
+}

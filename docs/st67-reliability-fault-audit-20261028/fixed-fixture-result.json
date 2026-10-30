@@ -1,0 +1,30 @@
+{
+  "test": "test_cloud_request_budget.py",
+  "sha256": "4879920c7d6d0a52117c5dd838292e4cf056aba7e9fa5104a070b27e13875bfd",
+  "result": "PASS",
+  "pass_lines": [
+    "PASS DNS and ordinary command waits consume remaining total request budget, not vendor 20s",
+    "PASS expired request cannot issue a fire-and-forget command",
+    "PASS stale network epoch stops subsequent AT commands before bytes or handlers",
+    "PASS another task and unscoped operations keep their independent budget",
+    "PASS operation deadline subtraction survives RTOS tick wrap",
+    "PASS epoch change during mutex admission is checked again before transmission",
+    "PASS actual scoped CIPSEND epoch rejection records zero bus attempts",
+    "PASS unresolved scoped command response keeps a real AT fence; no unsafe retry",
+    "PASS CIPSEND written without response records ambiguity and keeps the real fence",
+    "PASS late DNS retains read-only admission after request timeout; terminal permits fresh requests",
+    "PASS expired DNS drain becomes a real fence; late replies cannot clear it",
+    "PASS terminal drain never clears an independent raw fence",
+    "PASS DNS terminal drain deadline survives tick wrap",
+    "PASS terminal racing timeout publication cannot strand DNS admission",
+    "PASS warm reconnect retires stale socket/response and DNS even when IP is already ready",
+    "PASS unresolved close prevents opening another socket or committing a stale response",
+    "PASS confirmed retirement restores requests using the retained desired state",
+    "PASS loss of IP leaves Cloud waiting while enabled/pairing intent is preserved",
+    "PASS network epoch retires a pending training frame exactly once while training receives every worker tick",
+    "PASS ordinary image and inactive training do not add a false training failure",
+    "PASS actual request wrapper starts deadline before DNS/open/send and closes its scope"
+  ],
+  "original_failure_preserved": true,
+  "initial_fixture_preparation": "Stopped before mutation because enum was in tof_image_codec.h, not tof_app.h; corrected lookup before applying"
+}

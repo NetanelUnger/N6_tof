@@ -1,0 +1,7 @@
+{
+  "thread": "n6-xip-st67-reliability-20261028",
+  "pid": 36472,
+  "started_utc": "2026-10-28T22:52:05.881121+00:00",
+  "process_created_utc": "2026-10-28T22:52:05.359705+00:00",
+  "scope": "read-only CN8 version/status and bounded USB stability; no reset, update, settings, or pairing writes"
+}

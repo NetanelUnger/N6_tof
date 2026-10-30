@@ -1,0 +1,329 @@
+{
+  "scope": "Actual-C host regressions with mocked hardware boundaries; no HIL",
+  "source_revision": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5",
+  "tests": [
+    {
+      "test": "test_spi_fault_snapshot.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_spi_fault_snapshot.py"
+      ],
+      "started_utc": "2026-10-28T22:45:22.534501+00:00",
+      "finished_utc": "2026-10-28T22:45:27.220524+00:00",
+      "sha256": "554f4e546a381542e7c73c9e5be4814c8b7f74b9ee232990e6cbb45144459512",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS IRQ flags captured before HAL clears them; later callback enriches HAL error without replacing DMA evidence",
+        "PASS subsequent failure cannot overwrite the unreported first fault",
+        "PASS retained snapshot survives abort/reinit and formats once from task context",
+        "PASS subsequent transaction fault is captured after prior report without dynamic allocation",
+        "PASS ISR capture has no formatting/wait/reset and runs before HAL flag cleanup"
+      ]
+    },
+    {
+      "test": "test_radio_spi_shutdown.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_radio_spi_shutdown.py"
+      ],
+      "started_utc": "2026-10-28T22:45:27.297980+00:00",
+      "finished_utc": "2026-10-28T22:45:31.762473+00:00",
+      "sha256": "19a4bb0fd8fac3fd258fccce7f298b3d85022abd8732c2e673c752c6dd7e158b",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS worker acknowledgment timeout retains all packets and synchronization objects",
+        "PASS failed DMA abort retains destination and refuses lifecycle reset",
+        "PASS subsequent proven stop frees queued TX/RX, retained TX and failed DMA destination exactly once",
+        "PASS repeated deinit is idempotent after complete cleanup",
+        "PASS live packet path retains failed DMA destination and cooperatively escapes a full RX queue"
+      ]
+    },
+    {
+      "test": "test_spi_fs_framing.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_spi_fs_framing.py"
+      ],
+      "started_utc": "2026-10-28T22:45:31.833042+00:00",
+      "finished_utc": "2026-10-28T22:45:36.556436+00:00",
+      "sha256": "df13579a5a07d3bb14f74838303128413364dd9f8a16e984504b6427798dcd0b",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS real NUL remains 14 bytes; absent payload remains 13 bytes across 11 aligned TX/header/remaining-transfer boundaries",
+        "PASS all 256 byte values unchanged; 132 short-resize/full-buffer MTU and TX/RX length combinations",
+        "PASS failed small-buffer resize retains exact original packet and releases each allocation once",
+        "PASS either transfer failure publishes no partial FS packet and frees RX only after successful local abort"
+      ]
+    },
+    {
+      "test": "test_spi_flow_probe.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_spi_flow_probe.py"
+      ],
+      "started_utc": "2026-10-28T22:45:36.627322+00:00",
+      "finished_utc": "2026-10-28T22:45:41.430933+00:00",
+      "sha256": "31fb1ce8312d348771ea9792f3bcc8442150a02cbd3130d42fa97e05841f7ce3",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS one-shot DMA pause/resume: update/size/state gates, real-SUSP evidence, no SPI flag clear, HAL failures, bounded no-SUSP and completion race"
+      ]
+    },
+    {
+      "test": "test_notify_transaction.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_notify_transaction.py"
+      ],
+      "started_utc": "2026-10-28T22:45:41.501480+00:00",
+      "finished_utc": "2026-10-28T22:45:46.095356+00:00",
+      "sha256": "77f3ce15c2e832c23761bea72e37a03d1d5a91c61a8a011701cf9b3009a86393",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS single admitted transaction; polling never waits or recursively acquires TX",
+        "PASS late terminal retires the same owned payload exactly once without retransmission",
+        "PASS generic OK and Recv alone cannot complete an asynchronous notification",
+        "PASS absent prompt fences at original 100ms execution deadline",
+        "PASS missing terminal has a bounded drain; late unsolicited response never clears the fence",
+        "PASS cancelled generation drains without retaining a pointer or delivering stale completion",
+        "PASS cancelled partial raw transfer cannot send data from a new session",
+        "PASS terminal completion preserves mismatched Recv failure",
+        "PASS early terminal rejection retires safely before payload",
+        "PASS task ownership and parser-busy retirement retain the exact transaction",
+        "PASS unsigned tick wrap preserves execution and drain ownership",
+        "PASS contended TX/parser admission is nonblocking and writes zero command bytes",
+        "PASS SEND FAIL is a terminal rejection, not an ambiguous missing reply"
+      ]
+    },
+    {
+      "test": "test_raw_send_response.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_raw_send_response.py"
+      ],
+      "started_utc": "2026-10-28T22:45:46.164406+00:00",
+      "finished_utc": "2026-10-28T22:45:50.641778+00:00",
+      "sha256": "657e49a361847fd3183265924189fb0ee5448238196d062b0a3e8cf1c5cdf294",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS ERROR before command return survives; no payload and no false fence",
+        "PASS ERROR during prompt wait wakes sender and closes rejected transaction",
+        "PASS prompt/payload/terminal OK preserves raw ownership",
+        "PASS genuinely missing prompt retains deadline and protective fence",
+        "PASS missing payload terminal response still fences AT",
+        "PASS short/zero payload submission still fences raw ownership",
+        "PASS busy admission remains immediate without announcing raw mode",
+        "PASS an existing raw fence is never cleared by retry",
+        "PASS command-OK flow resets only the consumed command acknowledgement",
+        "PASS initial command OK cannot mask a missing payload terminal response",
+        "PASS observed BLE command OK then prompt then payload OK completes",
+        "PASS initial BLE OK without prompt cannot release raw ownership",
+        "PASS initial BLE OK cannot mask missing payload acknowledgement",
+        "PASS actual handler table accepts observed OK/prompt/Recv/SEND OK sequence",
+        "PASS SEND OK cannot overwrite a mismatched Recv length",
+        "PASS SEND FAIL closes rejected payload without a false missing-response fence",
+        "PASS association settling defers BLE immediately without announcing or fencing",
+        "PASS exhausted blocking admission cannot announce a doomed raw transfer",
+        "PASS blocking settling uses original raw deadline then completes normally",
+        "PASS association racing the raw precheck returns BUSY with zero command bytes",
+        "PASS stale Cloud epoch cancelled before CIPSEND cannot falsely fence shared AT"
+      ]
+    },
+    {
+      "test": "test_radio_modem_shutdown.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_radio_modem_shutdown.py"
+      ],
+      "started_utc": "2026-10-28T22:45:50.714377+00:00",
+      "finished_utc": "2026-10-28T22:45:55.482329+00:00",
+      "sha256": "02b29ae8d3c7a95d767d907e7d535a02158c6d759ab4cfc2e609f11fbc2770f9",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS failed SPI stop leaves parser, queued-packet reference and all mutex/semaphores alive",
+        "PASS proven stop precedes parser deletion, bus teardown, packet free and complete five-semaphore cleanup"
+      ]
+    },
+    {
+      "test": "test_radio_coordinated_recovery.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_radio_coordinated_recovery.py"
+      ],
+      "started_utc": "2026-10-28T22:45:55.553029+00:00",
+      "finished_utc": "2026-10-28T22:46:00.148327+00:00",
+      "sha256": "273a035fd909a4af5b0b46727657316a534ed528e57898cb2ec96f6a7017a62c",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS ordinary contention and unexpired DNS drain do not trigger NCP reset",
+        "PASS expired DNS requests coordinated barrier before hardware mutation",
+        "PASS Cloud, Radio, foreign AT lock and notification ownership each block teardown",
+        "PASS successful reset only clears fence through fresh initialization after power-off proof",
+        "PASS failed SPI stop retains memory/fence and cannot retry unsafe partial lifecycle",
+        "PASS stalled Cloud acknowledgment is bounded and fails closed without reset",
+        "PASS fresh-init failure keeps admission closed without automatic reset loop",
+        "PASS three attempts per minute bounds repeated module resets",
+        "PASS reset budget recovers across tick wrap",
+        "PASS uptime zero starts one barrier with a bounded owner deadline; safe retry starts a new stage"
+      ]
+    },
+    {
+      "test": "test_ble_control_worker.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_ble_control_worker.py"
+      ],
+      "started_utc": "2026-10-28T22:46:00.218026+00:00",
+      "finished_utc": "2026-10-28T22:46:04.687089+00:00",
+      "sha256": "d5f3445c87c6e9de406b674b61e3e429a456e1c98529089dd6ae511bf17eb5ae",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS publish is nonblocking, fixed mailbox retains request through completion",
+        "PASS stale queued disconnect is cancelled before any command",
+        "PASS connection event during MTU cancels remaining old-link configuration",
+        "PASS obsolete advertising ACK cannot override newer desired state",
+        "PASS BUSY preserves confirmed link/mode and does not create a false fault",
+        "PASS deferred disconnect remains requested without counting failure",
+        "PASS recovery publishes local GATT result; advertising is reconciled separately",
+        "PASS callback during recovery stops remaining GATT commands and rejects result",
+        "PASS real advertising timeout retains bounded retry policy",
+        "PASS successful repeated mismatch repairs link with atomic generation check",
+        "PASS separate queue/execution durations remain correct across timer wrap",
+        "PASS Wi-Fi result backpressure services BLE without losing Wi-Fi result ownership",
+        "PASS Radio runtime control paths contain no blocking W6X BLE call"
+      ]
+    },
+    {
+      "test": "test_wifi_scan_admission.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_wifi_scan_admission.py"
+      ],
+      "started_utc": "2026-10-28T22:46:04.757443+00:00",
+      "finished_utc": "2026-10-28T22:46:09.231067+00:00",
+      "sha256": "4438ddb43e27efd993a5ef5d737e78a34dc36cc37d56893d08f55ce551f7ba37",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS scan allocates only after raw owner leaves and releases before unlock",
+        "PASS terminal OK before SCAN_DONE keeps admission locked until callback",
+        "PASS failed admission never steals memory from active raw transfer",
+        "PASS existing AT fence prevents scratch allocation and command send",
+        "PASS allocation failure releases admission without sending a command",
+        "PASS failed command reclaims under parser lock and fences ambiguous response",
+        "PASS SCAN_DONE before missing terminal response still fences AT ownership",
+        "PASS missing completion consumes one bounded deadline and reclaims scratch",
+        "PASS active parser retains its list; fenced AT prevents new raw senders"
+      ]
+    },
+    {
+      "test": "test_cloud_send_slices.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_cloud_send_slices.py"
+      ],
+      "started_utc": "2026-10-28T22:46:09.299229+00:00",
+      "finished_utc": "2026-10-28T22:46:13.709465+00:00",
+      "sha256": "df1be7ecf5241a8a70146055dcf334480443257de3f377ece10c913213466a49",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS image body preserves exact bytes while each TX leaves modeled RX headroom",
+        "PASS partial sends retain exact cursor and final short slice",
+        "PASS empty and short HTTP components need no padding or extra send",
+        "PASS failed send stops without replaying already accepted bytes",
+        "PASS invalid oversized driver acceptance cannot overrun the byte cursor"
+      ]
+    },
+    {
+      "test": "test_cloud_request_budget.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_cloud_request_budget.py"
+      ],
+      "started_utc": "2026-10-28T22:46:13.778919+00:00",
+      "finished_utc": "2026-10-28T22:46:22.443407+00:00",
+      "sha256": "4ce4757542e3c53ab785e41262f474eb61baf3fbcf5e84526718f4a970853b9a",
+      "exit_code": 1,
+      "result": "FAIL",
+      "pass_lines": [
+        "PASS DNS and ordinary command waits consume remaining total request budget, not vendor 20s",
+        "PASS expired request cannot issue a fire-and-forget command",
+        "PASS stale network epoch stops subsequent AT commands before bytes or handlers",
+        "PASS another task and unscoped operations keep their independent budget",
+        "PASS operation deadline subtraction survives RTOS tick wrap",
+        "PASS epoch change during mutex admission is checked again before transmission",
+        "PASS actual scoped CIPSEND epoch rejection records zero bus attempts",
+        "PASS unresolved scoped command response keeps a real AT fence; no unsafe retry",
+        "PASS CIPSEND written without response records ambiguity and keeps the real fence",
+        "PASS late DNS retains read-only admission after request timeout; terminal permits fresh requests",
+        "PASS expired DNS drain becomes a real fence; late replies cannot clear it",
+        "PASS terminal drain never clears an independent raw fence",
+        "PASS DNS terminal drain deadline survives tick wrap",
+        "PASS terminal racing timeout publication cannot strand DNS admission"
+      ]
+    },
+    {
+      "test": "test_radio_service_status.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_radio_service_status.py"
+      ],
+      "started_utc": "2026-10-28T22:46:22.512630+00:00",
+      "finished_utc": "2026-10-28T22:46:26.942834+00:00",
+      "sha256": "67ea47a7e0523f7292bbb56ee0b9f5baedd90a52257d623652655d93501f01ea",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS DNS waiting exposes original elapsed/remaining budget without altering ownership",
+        "PASS expired drain is unavailable, snapshot never creates or clears protocol fence",
+        "PASS actual fence takes precedence over DNS/BLE/control work and survives reads",
+        "PASS late BLE terminal reports total original transaction time and bounded drain",
+        "PASS Wi-Fi busy duration survives HAL wrap; completion returns available without allocation",
+        "PASS settings store deadline is public; true fence retains precedence",
+        "PASS failed initialization is public fault rather than a ready radio",
+        "PASS lifecycle barrier overrides partially rebuilt driver status and failed recovery remains unavailable",
+        "PASS admission precedes BLE dequeue and radio-dependent command execution; USB shadow commands remain independent"
+      ]
+    },
+    {
+      "test": "test_xip_rx_backpressure.py",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\hil_tests\\test_xip_rx_backpressure.py"
+      ],
+      "started_utc": "2026-10-28T22:46:27.013490+00:00",
+      "finished_utc": "2026-10-28T22:46:36.741949+00:00",
+      "sha256": "5580ffcab45b10e11fdb006349086bc7d38b807aa5d8c1c5211fa88e7116cdc7",
+      "exit_code": 0,
+      "result": "PASS",
+      "pass_lines": [
+        "PASS actual startup: opt-in flow control, disabled default, unsafe modes fail before chip power",
+        "PASS actual startup: opt-in flow control, disabled default, unsafe modes fail before chip power"
+      ]
+    }
+  ]
+}

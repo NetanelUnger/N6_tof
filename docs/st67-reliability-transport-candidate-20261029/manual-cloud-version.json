@@ -1,0 +1,14 @@
+{
+  "reported_utc": "2026-10-29T08:39:00Z",
+  "source": "User evidence forwarded by parent thread",
+  "device": "N6-MAINT-B8FB",
+  "interface": "existing Cloud CLI",
+  "command": "version",
+  "verbatim_response": "n6> version\nFirmware version: 52\nn6>\nלקח כ2.5 שניות",
+  "functional_result": "PASS user-reported command/reply path and reported application version 52",
+  "approximate_manual_duration_s": 2.5,
+  "instrumented_latency": false,
+  "image_route_and_stream_state_at_command": "NOT independently confirmed in user reply",
+  "acceptance_result": "INCOMPLETE for P0-04 profile counts/distributions/gaps and frozen workload",
+  "repeat_same_command_required": false
+}

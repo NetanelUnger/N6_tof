@@ -1,0 +1,184 @@
+{
+  "label": "ota-b18-timeout-timing",
+  "completed_ACKs": 489,
+  "timeouts": [],
+  "TX_ACK": {
+    "count": 489,
+    "p50_ms": 919.7369000000181,
+    "p95_ms": 1277.1842000000179,
+    "max_ms": 4499.982799999998
+  },
+  "RPC": {
+    "count": 489,
+    "p50_ms": 55.34429999999702,
+    "p95_ms": 73.24580000000424,
+    "max_ms": 458.76720000000205
+  },
+  "slowest_ACKs": [
+    {
+      "sequence": 124,
+      "block": 124,
+      "attempt": 1,
+      "ms": 4499.982799999998
+    },
+    {
+      "sequence": 489,
+      "block": 0,
+      "attempt": 1,
+      "ms": 3739.240899999975
+    },
+    {
+      "sequence": 154,
+      "block": 154,
+      "attempt": 1,
+      "ms": 3348.783299999981
+    },
+    {
+      "sequence": 234,
+      "block": 234,
+      "attempt": 1,
+      "ms": 3340.4713000000047
+    },
+    {
+      "sequence": 287,
+      "block": 287,
+      "attempt": 1,
+      "ms": 3340.0702000000165
+    },
+    {
+      "sequence": 241,
+      "block": 241,
+      "attempt": 1,
+      "ms": 3330.7805999999982
+    },
+    {
+      "sequence": 367,
+      "block": 367,
+      "attempt": 1,
+      "ms": 3157.35560000001
+    },
+    {
+      "sequence": 189,
+      "block": 189,
+      "attempt": 1,
+      "ms": 3135.5813999999955
+    },
+    {
+      "sequence": 205,
+      "block": 205,
+      "attempt": 1,
+      "ms": 1506.3868999999831
+    },
+    {
+      "sequence": 65,
+      "block": 65,
+      "attempt": 1,
+      "ms": 1486.6756000000023
+    }
+  ],
+  "SPI_faults": [],
+  "host_loop_lags": [],
+  "stage_summary": {
+    "TX_to_device_RX_observed_ms": {
+      "count": 489,
+      "p50_ms": 513.9200000000001,
+      "p95_ms": 864.927,
+      "max_ms": 3301.918
+    },
+    "device_RX_to_ACK_observed_ms": {
+      "count": 489,
+      "p50_ms": 607.918,
+      "p95_ms": 615.636,
+      "max_ms": 3867.1600000000003
+    },
+    "ACK_observed_to_client_ms": {
+      "count": 489,
+      "p50_ms": -139.142,
+      "p95_ms": -55.0,
+      "max_ms": -22.606
+    }
+  },
+  "slow_stages": [
+    {
+      "sequence": 489,
+      "block": 0,
+      "attempt": 1,
+      "TX_to_device_RX_observed_ms": 3301.918,
+      "device_RX_to_ACK_observed_ms": 611.367,
+      "ACK_observed_to_client_ms": -174.285
+    },
+    {
+      "sequence": 287,
+      "block": 287,
+      "attempt": 1,
+      "TX_to_device_RX_observed_ms": 2907.832,
+      "device_RX_to_ACK_observed_ms": 609.788,
+      "ACK_observed_to_client_ms": -178.62
+    },
+    {
+      "sequence": 1,
+      "block": 1,
+      "attempt": 1,
+      "TX_to_device_RX_observed_ms": 1115.442,
+      "device_RX_to_ACK_observed_ms": 608.649,
+      "ACK_observed_to_client_ms": -239.091
+    },
+    {
+      "sequence": 205,
+      "block": 205,
+      "attempt": 1,
+      "TX_to_device_RX_observed_ms": 1105.839,
+      "device_RX_to_ACK_observed_ms": 608.623,
+      "ACK_observed_to_client_ms": -208.46200000000002
+    },
+    {
+      "sequence": 459,
+      "block": 459,
+      "attempt": 1,
+      "TX_to_device_RX_observed_ms": 1097.982,
+      "device_RX_to_ACK_observed_ms": 606.876,
+      "ACK_observed_to_client_ms": -230.858
+    },
+    {
+      "sequence": 65,
+      "block": 65,
+      "attempt": 1,
+      "TX_to_device_RX_observed_ms": 978.63,
+      "device_RX_to_ACK_observed_ms": 608.189,
+      "ACK_observed_to_client_ms": -100.819
+    },
+    {
+      "sequence": 305,
+      "block": 305,
+      "attempt": 1,
+      "TX_to_device_RX_observed_ms": 971.6759999999999,
+      "device_RX_to_ACK_observed_ms": 407.497,
+      "ACK_observed_to_client_ms": -108.173
+    },
+    {
+      "sequence": 253,
+      "block": 253,
+      "attempt": 1,
+      "TX_to_device_RX_observed_ms": 946.364,
+      "device_RX_to_ACK_observed_ms": 607.997,
+      "ACK_observed_to_client_ms": -147.361
+    },
+    {
+      "sequence": 237,
+      "block": 237,
+      "attempt": 1,
+      "TX_to_device_RX_observed_ms": 939.8689999999999,
+      "device_RX_to_ACK_observed_ms": 612.406,
+      "ACK_observed_to_client_ms": -217.275
+    },
+    {
+      "sequence": 135,
+      "block": 135,
+      "attempt": 1,
+      "TX_to_device_RX_observed_ms": 939.225,
+      "device_RX_to_ACK_observed_ms": 405.69,
+      "ACK_observed_to_client_ms": -106.91499999999999
+    }
+  ],
+  "limits": "UART timestamps are host read-arrival proxies, include UART queuing/read latency; device TIM6 is not wall time while NS IRQs are masked; negative cross-proxy intervals can occur"
+}

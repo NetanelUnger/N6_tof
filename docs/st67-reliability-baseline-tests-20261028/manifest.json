@@ -1,0 +1,157 @@
+[
+  {
+    "path": "closing-summary.json",
+    "sha256": "9cd1775595c4115bf1fa38a38ffdd02fbccfd73e8c4db712c44dd046c43341e2",
+    "bytes": 4920
+  },
+  {
+    "path": "cloud-workspace-inspection.json",
+    "sha256": "e6e58e705c1b9bfba0d9df35fd948189052b1eed71fa3268f457fd20a8c3c6fd",
+    "bytes": 804
+  },
+  {
+    "path": "control-interpreter-failure.json",
+    "sha256": "202e69d935973b436ef11e4cc5fa2f68bb4916d6ad9360a99151565cf776ff59",
+    "bytes": 334
+  },
+  {
+    "path": "control52/owner-start.json",
+    "sha256": "6798717004dea3d80e544a9e70da43f4437e6d5b9aeeede5be52b7f563901a40",
+    "bytes": 299
+  },
+  {
+    "path": "control52/result.json",
+    "sha256": "69a78044f9bed18f160d4fbba7937652e72ff24e2d4d49451cc306b40eb4545f",
+    "bytes": 38952
+  },
+  {
+    "path": "final-usb/owner-start.json",
+    "sha256": "b5fdccd91777bc452233acb88c6545aa7b13a8daf2788885f72a5dcaff829879",
+    "bytes": 304
+  },
+  {
+    "path": "final-usb/result.json",
+    "sha256": "42a820dcaf03e69d1eab00eb48e0af91ddd885f00d5e74b3d6826b4a4548e2de",
+    "bytes": 25656
+  },
+  {
+    "path": "fix_ble_soak_window.py",
+    "sha256": "53f56e3f6863ff6e7e9c44b91acca984de4c3458e70d8d611d38e5076ace8cad",
+    "bytes": 3610
+  },
+  {
+    "path": "hil100-wrapper.json",
+    "sha256": "a5dcbc77b9911ef979d7481371af78eb79a40936165015a436d665cf33dbd589",
+    "bytes": 12463
+  },
+  {
+    "path": "hil100.log",
+    "sha256": "55ca26d3b2376a2dc066c43ba04dc0361969bfa85e1852cc5724365847bee33a",
+    "bytes": 871
+  },
+  {
+    "path": "image-harness-adaptations.json",
+    "sha256": "9c25de118aeaa36dd0bee293318d3decab113f0e9dfaa758a2388fd62295ae66",
+    "bytes": 2097
+  },
+  {
+    "path": "image-harness-first-attempt.py",
+    "sha256": "101e3c6fdb3e7037c4f0478452f697adbf06a75ed0e7f2e979407625b52284ad",
+    "bytes": 19687
+  },
+  {
+    "path": "image-wrapper-first-attempt.py",
+    "sha256": "1daf04ac253e2844863967d9abedcb7ec1c6126da4fe0b91db46996835efeec7",
+    "bytes": 4797
+  },
+  {
+    "path": "image120-corrected-assessment.json",
+    "sha256": "a475769325f6907b419f3d47a3d148bd53c047f9efafc8153c590e8f92377776",
+    "bytes": 797
+  },
+  {
+    "path": "image120-v2-wrapper.json",
+    "sha256": "a96b7d35d4f95515b3fad609420efb47a8101eefa92a29f85a2613029eaaefe8",
+    "bytes": 207104
+  },
+  {
+    "path": "image120-v2.log",
+    "sha256": "865bbddc8c42b737672936c2e5aff18f81118744e1521e1bf91647b732c4e092",
+    "bytes": 457
+  },
+  {
+    "path": "image120-wrapper.json",
+    "sha256": "77e2a66fc237fde76b0a42478ff0511a06948ed72a225cb56cf561ca8198b162",
+    "bytes": 5529
+  },
+  {
+    "path": "image120.log",
+    "sha256": "726ca0cd5ebdcc1b9b0eb324e3833194a4c3be1afb6937b10b49b0becba75608",
+    "bytes": 769
+  },
+  {
+    "path": "manifest-only-portable-test.log",
+    "sha256": "bf2d5e38344f93af75b83b53c6adf0c736d48e6728fc79c6fd3d02a546968e29",
+    "bytes": 9372
+  },
+  {
+    "path": "ncp-compatibility-baseline.json",
+    "sha256": "aa4053e11ddf9091a8df1bed03a7bbce1866fe0bb65459287aaef9df82819c6d",
+    "bytes": 1819
+  },
+  {
+    "path": "prepare_st67_image52.py",
+    "sha256": "815190d8c289043a2a38c4df8be1390ac46966ec2f10fa7ba648a35b44ffde50",
+    "bytes": 4606
+  },
+  {
+    "path": "report.md",
+    "sha256": "798692c21d3c3d0e0f3027dffd4f8dc8774b3d836fdfda4387f0eab48b6bdd2e",
+    "bytes": 5999
+  },
+  {
+    "path": "soak-window-test.log",
+    "sha256": "643c6d0f1ed5837212b8be6152c8b6d9fa3297802e6a0d84750250496af91f92",
+    "bytes": 563
+  },
+  {
+    "path": "st67_hil52.py",
+    "sha256": "7eb3f4220faa84153f0a5bfec6b85495f02e706b79d3162bed92ac7b69c35574",
+    "bytes": 4500
+  },
+  {
+    "path": "st67_image52.py",
+    "sha256": "b30353f886581099d00be6417f59b46d2fad193fde32b89a3596c9e9ff58117b",
+    "bytes": 19700
+  },
+  {
+    "path": "st67_image52_owned_v2.py",
+    "sha256": "a25f4798934f2800b9b751c3ede1f90eb51be478e5e2d7dd91868bf3b52f5ea1",
+    "bytes": 4809
+  },
+  {
+    "path": "st67_p0_control52.py",
+    "sha256": "20697eae082ca6dfd332ee0cf50d822ab232450faba9bc0be08a5c1738e54f74",
+    "bytes": 9797
+  },
+  {
+    "path": "st67_usb_postflight.py",
+    "sha256": "b6265be00ad61760bd901612754f2edb7fe788f6729ee08684b9a2b04d0f016b",
+    "bytes": 7291
+  },
+  {
+    "path": "test_ble_soak_measurement_window.py",
+    "sha256": "0261a4b65636cdfb2f5d233ca13fc172b861793e5e3823700e66de344e652087",
+    "bytes": 1699
+  },
+  {
+    "path": "test_xip_manifest_only.py",
+    "sha256": "c5d126b39edf262db72bce9fbaba455a72eaed8ce636a6ade1bb9528f2a7fe49",
+    "bytes": 3835
+  },
+  {
+    "path": "tracked-test-changes.patch",
+    "sha256": "938d87d6bdbd82c7de5eb160242e4eefb36c7e2ec56c7cea5e9dbf0c5618f6ba",
+    "bytes": 5375
+  }
+]

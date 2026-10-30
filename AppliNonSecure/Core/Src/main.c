@@ -23,10 +23,12 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "config.h"
 #include "debug_uart.h"
 #include "boot_splash.h"
 #include "firmware_build_version.h"
 #include "npu_shared_memory.h"
+#include "resource_diag.h"
 #include <string.h>
 
 /* USER CODE END Includes */
@@ -53,9 +55,13 @@ DMA_HandleTypeDef handle_GPDMA1_Channel2;
 DMA_HandleTypeDef handle_GPDMA1_Channel1;
 DMA_HandleTypeDef handle_GPDMA1_Channel0;
 
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 SPI_HandleTypeDef hspi4;
+#endif
 SPI_HandleTypeDef hspi5;
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 DMA_HandleTypeDef handle_GPDMA1_Channel5;
+#endif
 DMA_HandleTypeDef handle_GPDMA1_Channel11;
 DMA_HandleTypeDef handle_GPDMA1_Channel10;
 
@@ -69,13 +75,14 @@ PCD_HandleTypeDef hpcd_USB_OTG_HS1;
 static void MX_GPIO_Init(void);
 static void MX_GPDMA1_Init(void);
 static void MX_I3C1_Init(void);
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static void MX_SPI4_Init(void);
+#endif
 static void MX_SPI5_Init(void);
 static void MX_UCPD1_Init(void);
 /* USER CODE BEGIN PFP */
 
 static void Application_SplashWrite(const char *text);
-static void Application_SplashDelay(uint32_t milliseconds);
 
 /* USER CODE END PFP */
 
@@ -86,13 +93,9 @@ static void Application_SplashWrite(const char *text)
 {
   if (text != NULL)
   {
-    (void)Debug_UART_Write(text, strlen(text));
+    /* Only used before ThreadX; retain boot output in quiet mode. */
+    (void)Debug_UART_EmergencyWrite(text, strlen(text));
   }
-}
-
-static void Application_SplashDelay(uint32_t milliseconds)
-{
-  HAL_Delay(milliseconds);
 }
 
 /* USER CODE END 0 */
@@ -105,6 +108,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+  N6R_Init();
 
   /* USER CODE END 1 */
 
@@ -120,15 +124,16 @@ int main(void)
     .detail_1 = "VL53L9CX 54 x 42 depth processing",
     .detail_2 = "USB CDC interactive control menu",
     .detail_3 = "Authenticated A/B firmware updates",
-    .detail_4 = "Sensor services are starting"
+    .detail_4 = "Initializing NonSecure peripherals and services"
   };
-  N6_BootSplashShow(Application_SplashWrite, Application_SplashDelay,
+  N6_BootSplashShow(Application_SplashWrite,
                     &application_splash);
-  Debug_UART_Log("BOOT", "Non-secure application entered; USART1 VCP is alive");
+  Application_SplashWrite("[BOOT] Non-secure application entered; USART1 VCP is alive\r\n");
 
   /* USER CODE END Init */
 
   /* USER CODE BEGIN SysInit */
+  Application_SplashWrite("[BOOT] Initializing GPIO, DMA, I3C, SPI and USB-PD\r\n");
 
   /* USER CODE END SysInit */
 
@@ -136,13 +141,15 @@ int main(void)
   MX_GPIO_Init();
   MX_GPDMA1_Init();
   MX_I3C1_Init();
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   MX_SPI4_Init();
+#endif
   MX_SPI5_Init();
   MX_UCPD1_Init();
   /* Call PreOsInit function */
   USBPD_PreInitOs();
   /* USER CODE BEGIN 2 */
-  Debug_UART_Log("BOOT", "Peripheral initialization complete; starting ThreadX");
+  Application_SplashWrite("[BOOT] Peripheral initialization complete; starting ThreadX\r\n");
 
   /* USER CODE END 2 */
 
@@ -187,8 +194,10 @@ static void MX_GPDMA1_Init(void)
     HAL_NVIC_EnableIRQ(GPDMA1_Channel3_IRQn);
     HAL_NVIC_SetPriority(GPDMA1_Channel4_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel4_IRQn);
+#ifdef APP_GC9A01_DISPLAY_ENABLED
     HAL_NVIC_SetPriority(GPDMA1_Channel5_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel5_IRQn);
+#endif
     HAL_NVIC_SetPriority(GPDMA1_Channel10_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel10_IRQn);
     HAL_NVIC_SetPriority(GPDMA1_Channel11_IRQn, 5, 0);
@@ -198,7 +207,7 @@ static void MX_GPDMA1_Init(void)
 
   /* USER CODE END GPDMA1_Init 1 */
   /* USER CODE BEGIN GPDMA1_Init 2 */
-  Debug_UART_Log("BOOT", "GPDMA1 initialized");
+  Application_SplashWrite("[BOOT] GPDMA1 initialized\r\n");
 
   /* USER CODE END GPDMA1_Init 2 */
 
@@ -263,7 +272,7 @@ static void MX_I3C1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN I3C1_Init 2 */
-  Debug_UART_Log("BOOT", "I3C1 initialized");
+  Application_SplashWrite("[BOOT] I3C1 initialized\r\n");
 
   /* USER CODE END I3C1_Init 2 */
 
@@ -274,6 +283,7 @@ static void MX_I3C1_Init(void)
   * @param None
   * @retval None
   */
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static void MX_SPI4_Init(void)
 {
 
@@ -312,11 +322,12 @@ static void MX_SPI4_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN SPI4_Init 2 */
-  Debug_UART_Log("BOOT", "SPI4 initialized for GC9A01 display TX DMA");
+  Application_SplashWrite("[BOOT] SPI4 initialized for GC9A01 display TX DMA\r\n");
 
   /* USER CODE END SPI4_Init 2 */
 
 }
+#endif
 
 /**
   * @brief SPI5 Initialization Function
@@ -361,7 +372,7 @@ static void MX_SPI5_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN SPI5_Init 2 */
-  Debug_UART_Log("BOOT", "SPI5 initialized for ST67W6X radio");
+  Application_SplashWrite("[BOOT] SPI5 initialized for ST67W6X radio\r\n");
 
   /* USER CODE END SPI5_Init 2 */
 
@@ -448,7 +459,7 @@ static void MX_UCPD1_Init(void)
 
   /* USER CODE END UCPD1_Init 1 */
   /* USER CODE BEGIN UCPD1_Init 2 */
-  Debug_UART_Log("BOOT", "UCPD1 initialized");
+  Application_SplashWrite("[BOOT] UCPD1 initialized\r\n");
 
   /* USER CODE END UCPD1_Init 2 */
 
@@ -534,10 +545,15 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   HAL_GPIO_WritePin(LCD_CS_GPIO_Port, LCD_CS_Pin, GPIO_PIN_SET);
+#endif
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, CHIP_EN_Pin|LCD_RST_Pin|LCD_DC_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, CHIP_EN_Pin, GPIO_PIN_RESET);
+#ifdef APP_GC9A01_DISPLAY_ENABLED
+  HAL_GPIO_WritePin(GPIOE, LCD_RST_Pin|LCD_DC_Pin, GPIO_PIN_RESET);
+#endif
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(BOOT_GPIO_Port, BOOT_Pin, GPIO_PIN_RESET);
@@ -549,7 +565,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : LCD_CS_Pin CHIP_EN_Pin */
-  GPIO_InitStruct.Pin = LCD_CS_Pin|CHIP_EN_Pin;
+  GPIO_InitStruct.Pin = CHIP_EN_Pin;
+#ifdef APP_GC9A01_DISPLAY_ENABLED
+  GPIO_InitStruct.Pin |= LCD_CS_Pin;
+#endif
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
@@ -568,12 +587,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   /*Configure GPIO pins : LCD_RST_Pin LCD_DC_Pin */
   GPIO_InitStruct.Pin = LCD_RST_Pin|LCD_DC_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+#endif
 
   /*Configure GPIO pin : TOF_INT_Pin */
   GPIO_InitStruct.Pin = TOF_INT_Pin;
@@ -595,7 +616,7 @@ static void MX_GPIO_Init(void)
 
   HAL_NVIC_SetPriority(EXTI9_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI9_IRQn);
-  Debug_UART_Log("BOOT", "GPIO initialized");
+  Application_SplashWrite("[BOOT] GPIO initialized\r\n");
 
   /* USER CODE END MX_GPIO_Init_2 */
 }

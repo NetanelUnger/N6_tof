@@ -1,0 +1,52 @@
+{
+  "branch": "feature/n6-xip-ota-usb",
+  "prior_verified_commit": "154d7ce2a8be5a216a070d402a9d5eb931fe4aab",
+  "official_health_permission_path": {
+    "tool": "exec_command",
+    "sandbox_permissions": "require_escalated",
+    "target": "https://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net/health",
+    "HTTP_status": 200,
+    "response_bytes": 662,
+    "credentials_sent": false,
+    "persistent_settings_changed": false
+  },
+  "OTA_permission_attempt": {
+    "sandbox_permissions": "require_escalated",
+    "source": "A32",
+    "target": "signed B33",
+    "result": "STOPPED_BEFORE_HARDWARE_OR_NETWORK_SENDER",
+    "reason": "Git dubious ownership: elevated execution user NATISFLOW13/netan differs from worktree owner NatisFlow13/CodexSandboxOffline",
+    "failed_action": "git branch --show-current in prepare_ota33.py",
+    "git_exit": 128,
+    "auto_review_denial_record": false,
+    "USB_opened": false,
+    "cloud_enable_sent": false,
+    "workspace_opened": false,
+    "firmware_sender_started": false,
+    "image_bytes_sent": 0,
+    "NOR_write_requested": false,
+    "retry_after_ownership_refusal": false,
+    "trust_exception_added": false,
+    "browser_or_alternate_route_used": false
+  },
+  "B33_candidate": {
+    "status": "BUILT_SIGNED_OFFLINE_PREFLIGHT_ONLY_NOT_INSTALLED",
+    "source_commit": "154d7ce2a8be5a216a070d402a9d5eb931fe4aab",
+    "package": ".local-dependencies/xip/v33-B-ota-regression/N6-XIP-B-v33.n6fw",
+    "bytes": 512480,
+    "sha256": "a822c93158ac2b7db3216966e00f1ff5e1f790e1de827b376e5f408ecb61e3e1",
+    "resource_diagnostics": true,
+    "fault_probe": true,
+    "MASRX_rx_backpressure": true
+  },
+  "helper_preflight": {
+    "prepare_ota33_import_effects": [],
+    "default_entrypoint_no_hardware": "PASS",
+    "cloud_sender_package_workspace_offline_preflight": "PASS"
+  },
+  "ownership": "lease released cleanly; no USB/UART/debugger opened in this attempt",
+  "board_state": "No new runtime observation; last verified A32 confirmed with B31 retained remains the last evidence",
+  "BLE_last_blocker": "Windows Bleak DeviceNotFound during requester creation before GATT commands; no Pair/cache mutation or workaround",
+  "next_required_decision": "Resolve the known execution identity/worktree trust mismatch explicitly before any retry. Do not add global safe.directory or change ownership/security silently. Health permission alone does not authorize broader operations.",
+  "main_server": "unchanged; no merge, push or deployment"
+}

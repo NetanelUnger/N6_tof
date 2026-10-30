@@ -1,0 +1,1071 @@
+{
+  "started_utc": "2026-10-28T21:14:14.625181+00:00",
+  "roots": [
+    "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6",
+    "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\Web_N6_ST67W611M1_VL53L9CX"
+  ],
+  "excluded_directory_names": [
+    ".data-protection-keys",
+    ".git",
+    ".sandbox-secrets",
+    ".venv",
+    "__pycache__",
+    "keys",
+    "node_modules",
+    "venv"
+  ],
+  "packages": [
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\recovery-B33-A32-before-timeprobe\\A34-before-B35\\N6-XIP-A-v34.n6fw",
+      "version": 34,
+      "size": 514656,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\recovery-B33-A32-before-timeprobe\\A38-B39-final\\v38-A-timeout-recovery-acceptance\\N6-XIP-A-v38.n6fw",
+      "version": 38,
+      "size": 514528,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\recovery-B33-A32-before-timeprobe\\A38-B39-final\\v39-B-tim6-ota-regression\\N6-XIP-B-v39.n6fw",
+      "version": 39,
+      "size": 514528,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\recovery-B33-A32-before-timeprobe\\v32-A-susp-short-probe\\N6-XIP-A-v32.n6fw",
+      "version": 32,
+      "size": 512480,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\recovery-B33-A32-before-timeprobe\\v33-B-ota-regression\\N6-XIP-B-v33.n6fw",
+      "version": 33,
+      "size": 512480,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\recovery-ota44-final\\N6-XIP-B-v44.n6fw",
+      "version": 44,
+      "size": 517472,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\recovery-watchdog41-before-update42\\N6-XIP-A-v41.n6fw",
+      "version": 41,
+      "size": 516448,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\recovery-watchdog42-before-local43\\N6-XIP-B-v42.n6fw",
+      "version": 42,
+      "size": 516512,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\recovery-watchdog43-final\\N6-XIP-A-v43.n6fw",
+      "version": 43,
+      "size": 517472,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\resume-20261022\\recovery-A-v10.n6fw",
+      "version": 10,
+      "size": 494528,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\resume-20261022\\recovery-B-v11.n6fw",
+      "version": 11,
+      "size": 498208,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v12-A-hil\\N6-XIP-A-v12.n6fw",
+      "version": 12,
+      "size": 498464,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v12-A-no-export\\N6-XIP-A-v12.n6fw",
+      "version": 12,
+      "size": 498336,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v12-B\\N6-XIP-B-v12.n6fw",
+      "version": 12,
+      "size": 498400,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v12-B-checked\\N6-XIP-B-v12.n6fw",
+      "version": 12,
+      "size": 498464,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v12-B-final\\N6-XIP-B-v12.n6fw",
+      "version": 12,
+      "size": 498464,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v12-B-final2\\N6-XIP-B-v12.n6fw",
+      "version": 12,
+      "size": 498464,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v12-B-r2\\N6-XIP-B-v12.n6fw",
+      "version": 12,
+      "size": 498464,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v12-B-r3\\N6-XIP-B-v12.n6fw",
+      "version": 12,
+      "size": 498464,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v13-A-checked\\N6-XIP-A-v13.n6fw",
+      "version": 13,
+      "size": 498464,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v13-A-final\\N6-XIP-A-v13.n6fw",
+      "version": 13,
+      "size": 498464,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v13-A-final2\\N6-XIP-A-v13.n6fw",
+      "version": 13,
+      "size": 498464,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v13-A-r2\\N6-XIP-A-v13.n6fw",
+      "version": 13,
+      "size": 498464,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v13-A-r3\\N6-XIP-A-v13.n6fw",
+      "version": 13,
+      "size": 498464,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v13-B-abi-compat3\\N6-XIP-B-v13.n6fw",
+      "version": 13,
+      "size": 498336,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v13-B-abi-compat4\\N6-XIP-B-v13.n6fw",
+      "version": 13,
+      "size": 498336,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v13-B-hil\\N6-XIP-B-v13.n6fw",
+      "version": 13,
+      "size": 498464,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v13-B-no-export\\N6-XIP-B-v13.n6fw",
+      "version": 13,
+      "size": 498336,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v13-B-reset-safe1\\N6-XIP-B-v13.n6fw",
+      "version": 13,
+      "size": 498656,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v13-B-reset-safe2\\N6-XIP-B-v13.n6fw",
+      "version": 13,
+      "size": 498720,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v13-B-reset-safe3\\N6-XIP-B-v13.n6fw",
+      "version": 13,
+      "size": 498720,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v14-A-reset-clkp\\N6-XIP-A-v14.n6fw",
+      "version": 14,
+      "size": 498720,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v14-A-reset-xspi1\\N6-XIP-A-v14.n6fw",
+      "version": 14,
+      "size": 498720,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v15-B-acceptance-reset\\N6-XIP-B-v15.n6fw",
+      "version": 15,
+      "size": 498720,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v16-A-rollback-trial\\N6-XIP-A-v16.n6fw",
+      "version": 16,
+      "size": 498720,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v17-A-final-usb\\N6-XIP-A-v17.n6fw",
+      "version": 17,
+      "size": 498720,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v18-B-timeout-timing\\N6-XIP-B-v18.n6fw",
+      "version": 18,
+      "size": 498720,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v19-A-ovrdma-probe\\N6-XIP-A-v19.n6fw",
+      "version": 19,
+      "size": 499648,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v20-B-after-overlap-probe\\N6-XIP-B-v20.n6fw",
+      "version": 20,
+      "size": 498720,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v21-A-rx-backpressure-probe\\N6-XIP-A-v21.n6fw",
+      "version": 21,
+      "size": 499776,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v22-B-after-rx-backpressure-experiment\\N6-XIP-B-v22.n6fw",
+      "version": 22,
+      "size": 498720,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v23-A-rx-resume-probe-tifre\\N6-XIP-A-v23.n6fw",
+      "version": 23,
+      "size": 500096,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v24-B-rx-resume-probe\\N6-XIP-B-v24.n6fw",
+      "version": 24,
+      "size": 500096,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v25-B-rx-resume-deferred\\N6-XIP-B-v25.n6fw",
+      "version": 25,
+      "size": 500096,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v26-B-resource-margin\\N6-XIP-B-v26.n6fw",
+      "version": 26,
+      "size": 509408,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v26-B-resource-margin-final\\N6-XIP-B-v26.n6fw",
+      "version": 26,
+      "size": 510112,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v27-B-resource-margin\\N6-XIP-B-v27.n6fw",
+      "version": 27,
+      "size": 510240,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v28-A-resource-init\\N6-XIP-A-v28.n6fw",
+      "version": 28,
+      "size": 511008,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v29-B-resource-report\\N6-XIP-B-v29.n6fw",
+      "version": 29,
+      "size": 511008,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v30-A-radio-margin\\N6-XIP-A-v30.n6fw",
+      "version": 30,
+      "size": 511008,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v31-B-susp-probe\\N6-XIP-B-v31.n6fw",
+      "version": 31,
+      "size": 512192,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v32-A-susp-short-probe\\N6-XIP-A-v32.n6fw",
+      "version": 32,
+      "size": 512480,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v33-B-ota-regression\\N6-XIP-B-v33.n6fw",
+      "version": 33,
+      "size": 512480,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v34-A-timebase-probe-repaired\\N6-XIP-A-v34.n6fw",
+      "version": 34,
+      "size": 514656,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v35-B-tim6-timebase-cold\\N6-XIP-B-v35.n6fw",
+      "version": 35,
+      "size": 514528,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v36-A-tim6-priority-fix\\N6-XIP-A-v36.n6fw",
+      "version": 36,
+      "size": 514528,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v37-B-tim6-priority-ota\\N6-XIP-B-v37.n6fw",
+      "version": 37,
+      "size": 514528,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v38-A-timeout-recovery-acceptance\\N6-XIP-A-v38.n6fw",
+      "version": 38,
+      "size": 514528,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v39-B-tim6-ota-regression\\N6-XIP-B-v39.n6fw",
+      "version": 39,
+      "size": 514528,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v40-A-rollback-from-b39\\N6-XIP-A-v40.n6fw",
+      "version": 40,
+      "size": 514528,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v41-A-watchdog-supervisor\\N6-XIP-A-v41.n6fw",
+      "version": 41,
+      "size": 516448,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v42-B-watchdog-update-regression\\N6-XIP-B-v42.n6fw",
+      "version": 42,
+      "size": 516512,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v43-A-local-cli-watchdog\\N6-XIP-A-v43.n6fw",
+      "version": 43,
+      "size": 517472,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v44-B-watchdog-ota-regression\\N6-XIP-B-v44.n6fw",
+      "version": 44,
+      "size": 517472,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v45-A-demo-quiet-release\\N6-XIP-A-v45.n6fw",
+      "version": 45,
+      "size": 487680,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v46-B-cr-lf-command\\N6-XIP-B-v46.n6fw",
+      "version": 46,
+      "size": 487488,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v47-A-display-disabled\\N6-XIP-A-v47.n6fw",
+      "version": 47,
+      "size": 479072,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v47-A-display-enabled-check\\N6-XIP-A-v47.n6fw",
+      "version": 47,
+      "size": 487488,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\N6-XIP-B-v48.n6fw",
+      "version": 48,
+      "size": 478912,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\N6-XIP-A-v49.n6fw",
+      "version": 49,
+      "size": 483200,
+      "sha256": "753b8cc6c2a4c9c8c393e6d78f0ad2c699787437195e0a3cf519d2486f33e3bc"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\N6-XIP-B-v50.n6fw",
+      "version": 50,
+      "size": 485472,
+      "sha256": "2a7aedb4fcd156f8eafa0bd322116452cf8fbd1f1e4aec7989ed7e84b5d9e156"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\FlashImages\\N6-Firmware-v11.n6fw",
+      "version": 11,
+      "size": 466048,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\FlashImages\\N6-Firmware-v1.n6fw",
+      "version": 1,
+      "size": 376864,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\FlashImages\\N6-Firmware-v10-ble-only.n6fw",
+      "version": 10,
+      "size": 494528,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\FlashImages\\N6-Firmware-v10.n6fw",
+      "version": 10,
+      "size": 498208,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\FlashImages\\N6-Firmware-v11.n6fw",
+      "version": 11,
+      "size": 498208,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\FlashImages\\N6-Firmware-v2.n6fw",
+      "version": 2,
+      "size": 377472,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\FlashImages\\N6-Firmware-v3.n6fw",
+      "version": 3,
+      "size": 377472,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\FlashImages\\N6-Firmware-v4.n6fw",
+      "version": 4,
+      "size": 421728,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\FlashImages\\N6-Firmware-v5.n6fw",
+      "version": 5,
+      "size": 421728,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\FlashImages\\N6-Firmware-v6.n6fw",
+      "version": 6,
+      "size": 450976,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\FlashImages\\N6-Firmware-v7.n6fw",
+      "version": 7,
+      "size": 450976,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\FlashImages\\N6-Firmware-v8.n6fw",
+      "version": 8,
+      "size": 462176,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\FlashImages\\N6-Firmware-v9.n6fw",
+      "version": 9,
+      "size": 462176,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\Tools\\.n6-debug\\cloud-update-20261007\\baseline-v8.n6fw",
+      "version": 8,
+      "size": 461280,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\training\\projects\\m6-rps\\generated\\release\\v12-9394be9480a14ac9a9a12e46ba534646\\N6-Firmware-v12.n6fw",
+      "version": 12,
+      "size": 498400,
+      "sha256": null
+    }
+  ],
+  "candidate_paths": [
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\backup\\nor-first.bin",
+      "bytes": 4194304,
+      "modified_utc": "2026-10-27T09:35:33.263832+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\backup\\nor-second.bin",
+      "bytes": 4194304,
+      "modified_utc": "2026-10-27T09:35:40.699307+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\after-first.bin",
+      "bytes": 4194304,
+      "modified_utc": "2026-10-27T09:38:09.395411+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\after-second.bin",
+      "bytes": 4194304,
+      "modified_utc": "2026-10-27T09:38:17.320467+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\before.bin",
+      "bytes": 4194304,
+      "modified_utc": "2026-10-27T09:37:54.019497+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\expected-text.bin",
+      "bytes": 80916,
+      "modified_utc": "2026-10-27T09:37:43.817340+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\ram-text.bin",
+      "bytes": 80916,
+      "modified_utc": "2026-10-27T09:37:46.459045+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-000000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:37:55.285077+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-010000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:37:55.847278+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-100000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:37:54.160404+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-110000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:37:54.723496+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-280000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:37:56.402628+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-290000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:37:57.011713+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-2a0000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:37:57.605357+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-2b0000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:37:58.180314+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-2c0000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:37:58.774371+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-2d0000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:37:59.373147+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-2e0000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:37:59.966991+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-2f0000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:38:00.547762+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\fast-boot-hil-20261027\\programming\\sector-3f0000.bin",
+      "bytes": 65536,
+      "modified_utc": "2026-10-27T09:38:01.093410+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\application-trusted.bin",
+      "bytes": 478656,
+      "modified_utc": "2026-10-27T09:28:57.878088+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\application.bin",
+      "bytes": 477628,
+      "modified_utc": "2026-10-27T09:28:54.941164+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\application.elf",
+      "bytes": 9228972,
+      "modified_utc": "2026-10-27T09:28:54.797609+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\application.map",
+      "bytes": 5395619,
+      "modified_utc": "2026-10-27T09:28:54.852624+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\AppliSecure-trusted.bin",
+      "bytes": 128768,
+      "modified_utc": "2026-10-27T09:28:23.490679+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\AppliSecure.bin",
+      "bytes": 127740,
+      "modified_utc": "2026-10-27T09:27:26.595175+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\AppliSecure.elf",
+      "bytes": 3039908,
+      "modified_utc": "2026-10-27T09:27:26.361546+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\AppliSecure.map",
+      "bytes": 642577,
+      "modified_utc": "2026-10-27T09:27:26.369549+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\FSBL-trusted.bin",
+      "bytes": 86080,
+      "modified_utc": "2026-10-27T09:28:22.019851+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\FSBL.bin",
+      "bytes": 85056,
+      "modified_utc": "2026-10-27T09:27:21.567535+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\FSBL.elf",
+      "bytes": 3103876,
+      "modified_utc": "2026-10-27T09:27:20.608661+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\FSBL.map",
+      "bytes": 764768,
+      "modified_utc": "2026-10-27T09:27:20.618661+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\N6-XIP-B-v48.n6fw",
+      "bytes": 478912,
+      "modified_utc": "2026-10-27T09:28:58.248278+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\ram.bin",
+      "bytes": 465064,
+      "modified_utc": "2026-10-27T09:28:20.318300+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\ram.elf",
+      "bytes": 9065016,
+      "modified_utc": "2026-10-27T09:28:19.808055+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v48-B-fast-boot-candidate\\ram.map",
+      "bytes": 5387071,
+      "modified_utc": "2026-10-27T09:28:19.874593+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\application-trusted.bin",
+      "bytes": 482944,
+      "modified_utc": "2026-10-27T14:17:12.768850+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\application.bin",
+      "bytes": 481892,
+      "modified_utc": "2026-10-27T14:17:10.768627+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\application.elf",
+      "bytes": 9244416,
+      "modified_utc": "2026-10-27T14:17:10.652486+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\application.map",
+      "bytes": 5397240,
+      "modified_utc": "2026-10-27T14:17:10.693617+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\AppliSecure-trusted.bin",
+      "bytes": 128768,
+      "modified_utc": "2026-10-27T14:16:45.043796+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\AppliSecure.bin",
+      "bytes": 127740,
+      "modified_utc": "2026-10-27T09:27:26.595175+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\AppliSecure.elf",
+      "bytes": 3039908,
+      "modified_utc": "2026-10-27T09:27:26.361546+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\AppliSecure.map",
+      "bytes": 642577,
+      "modified_utc": "2026-10-27T09:27:26.369549+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\FSBL-trusted.bin",
+      "bytes": 86080,
+      "modified_utc": "2026-10-27T14:16:43.776824+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\FSBL.bin",
+      "bytes": 85056,
+      "modified_utc": "2026-10-27T09:27:21.567535+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\FSBL.elf",
+      "bytes": 3103876,
+      "modified_utc": "2026-10-27T09:27:20.608661+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\FSBL.map",
+      "bytes": 764768,
+      "modified_utc": "2026-10-27T09:27:20.618661+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\N6-XIP-A-v49.n6fw",
+      "bytes": 483200,
+      "modified_utc": "2026-10-27T14:17:13.074537+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\ram.bin",
+      "bytes": 469448,
+      "modified_utc": "2026-10-27T14:16:42.669949+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\ram.elf",
+      "bytes": 9081204,
+      "modified_utc": "2026-10-27T14:16:41.762196+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v49-A-product-settings\\ram.map",
+      "bytes": 5388762,
+      "modified_utc": "2026-10-27T14:16:41.810736+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\application-trusted.bin",
+      "bytes": 485216,
+      "modified_utc": "2026-10-27T21:21:31.784213+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\application.bin",
+      "bytes": 484172,
+      "modified_utc": "2026-10-27T21:21:29.845373+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\application.elf",
+      "bytes": 9260844,
+      "modified_utc": "2026-10-27T21:21:29.731322+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\application.map",
+      "bytes": 5398084,
+      "modified_utc": "2026-10-27T21:21:29.771839+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\AppliSecure-trusted.bin",
+      "bytes": 128768,
+      "modified_utc": "2026-10-27T21:21:03.817267+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\AppliSecure.bin",
+      "bytes": 127740,
+      "modified_utc": "2026-10-27T09:27:26.595175+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\AppliSecure.elf",
+      "bytes": 3039908,
+      "modified_utc": "2026-10-27T09:27:26.361546+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\AppliSecure.map",
+      "bytes": 642577,
+      "modified_utc": "2026-10-27T09:27:26.369549+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\FSBL-trusted.bin",
+      "bytes": 86080,
+      "modified_utc": "2026-10-27T21:21:01.978131+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\FSBL.bin",
+      "bytes": 85056,
+      "modified_utc": "2026-10-27T09:27:21.567535+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\FSBL.elf",
+      "bytes": 3103876,
+      "modified_utc": "2026-10-27T09:27:20.608661+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\FSBL.map",
+      "bytes": 764768,
+      "modified_utc": "2026-10-27T09:27:20.618661+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\N6-XIP-B-v50.n6fw",
+      "bytes": 485472,
+      "modified_utc": "2026-10-27T21:21:32.522843+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\ram.bin",
+      "bytes": 471600,
+      "modified_utc": "2026-10-27T21:21:00.903732+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\ram.elf",
+      "bytes": 9095132,
+      "modified_utc": "2026-10-27T21:21:00.069487+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\.local-dependencies\\xip\\v50-B-timed-demo-map\\ram.map",
+      "bytes": 5389728,
+      "modified_utc": "2026-10-27T21:21:00.110494+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\Debug\\N6_AppliNonSecure.bin",
+      "bytes": 483896,
+      "modified_utc": "2026-10-27T21:21:25.728106+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\Debug\\N6_AppliNonSecure.elf",
+      "bytes": 9257008,
+      "modified_utc": "2026-10-27T21:21:25.452034+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliNonSecure\\Debug\\N6_AppliNonSecure.map",
+      "bytes": 5395668,
+      "modified_utc": "2026-10-27T21:21:25.495035+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliSecure\\Debug\\N6_AppliSecure.bin",
+      "bytes": 127740,
+      "modified_utc": "2026-10-27T09:27:26.595175+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliSecure\\Debug\\N6_AppliSecure.elf",
+      "bytes": 3039908,
+      "modified_utc": "2026-10-27T09:27:26.361546+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\AppliSecure\\Debug\\N6_AppliSecure.map",
+      "bytes": 642577,
+      "modified_utc": "2026-10-27T09:27:26.369549+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\FSBL\\Debug\\N6_FSBL.bin",
+      "bytes": 85056,
+      "modified_utc": "2026-10-27T09:27:21.567535+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\FSBL\\Debug\\N6_FSBL.elf",
+      "bytes": 3103876,
+      "modified_utc": "2026-10-27T09:27:20.608661+00:00"
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\FSBL\\Debug\\N6_FSBL.map",
+      "bytes": 764768,
+      "modified_utc": "2026-10-27T09:27:20.618661+00:00"
+    }
+  ],
+  "text_hits": [
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\docs\\st67-reliability-usb-resume-20261028\\report.md",
+      "matches": [
+        "confirmed 51",
+        "v51",
+        "v51",
+        "v51",
+        "v51",
+        "v51",
+        "v51",
+        "v51",
+        "v51",
+        "v51"
+      ],
+      "total": 10
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\docs\\st67-reliability-usb-resume-20261028\\st67-reliability-improvement-plan.updated.md",
+      "matches": [
+        "v51",
+        "confirmed 51",
+        "confirmed 51",
+        "v51",
+        "v51",
+        "v51",
+        "v51"
+      ],
+      "total": 7
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\docs\\st67-reliability-usb-resume-20261028\\st67-p0-confirm51-20261028\\result.json",
+      "matches": [
+        "version\": 51",
+        "version: 51",
+        "version\": 51",
+        "version: 51"
+      ],
+      "total": 4
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\docs\\st67-reliability-usb-resume-20261028\\st67-p0-control-20261028\\result.json",
+      "matches": [
+        "v51",
+        "version: 51",
+        "version: 51"
+      ],
+      "total": 3
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\docs\\st67-reliability-usb-resume-20261028\\st67-p0-settled-20261028\\result.json",
+      "matches": [
+        "version: 51",
+        "version: 51",
+        "version: 51",
+        "version\": 51"
+      ],
+      "total": 4
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\docs\\st67-reliability-usb-resume-20261028\\st67-p0-usb-resume-20261028\\result.json",
+      "matches": [
+        "version: 51",
+        "version: 51",
+        "version: 51",
+        "version\": 51"
+      ],
+      "total": 4
+    },
+    {
+      "path": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\docs\\st67-reliability-improvement-plan.md",
+      "matches": [
+        "v51",
+        "confirmed 51",
+        "confirmed 51",
+        "v51",
+        "v51",
+        "v51",
+        "v51"
+      ],
+      "total": 7
+    }
+  ],
+  "session_summaries": [
+    {
+      "path": "C:\\Users\\netan\\.codex\\sessions\\2026\\10\\26\\rollout-2026-10-26T13-00-33-01a177de-81d5-71e3-a30b-407610101d05.jsonl",
+      "thread_id": "01a177de-81d5-71e3-a30b-407610101d05",
+      "cwd": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6",
+      "assistant_version51_mentions": []
+    },
+    {
+      "path": "C:\\Users\\netan\\.codex\\sessions\\2026\\10\\27\\rollout-2026-10-27T11-20-28-01a17ca9-3c39-71a2-b94c-bbeeb9f88e84.jsonl",
+      "thread_id": "01a17ca9-3c39-71a2-b94c-bbeeb9f88e84",
+      "cwd": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6",
+      "assistant_version51_mentions": []
+    },
+    {
+      "path": "C:\\Users\\netan\\.codex\\sessions\\2026\\10\\27\\rollout-2026-10-27T11-23-36-01a17cac-1acf-7722-b35c-7094c58be6ae.jsonl",
+      "thread_id": "01a17cac-1acf-7722-b35c-7094c58be6ae",
+      "cwd": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6",
+      "assistant_version51_mentions": []
+    },
+    {
+      "path": "C:\\Users\\netan\\.codex\\sessions\\2026\\10\\27\\rollout-2026-10-27T11-24-30-01a17cac-f009-7383-9d46-811d0a241516.jsonl",
+      "thread_id": "01a17cac-f009-7383-9d46-811d0a241516",
+      "cwd": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6",
+      "assistant_version51_mentions": []
+    },
+    {
+      "path": "C:\\Users\\netan\\.codex\\sessions\\2026\\10\\27\\rollout-2026-10-27T11-25-45-01a17cae-130a-73a3-8b03-6482285ace8b.jsonl",
+      "thread_id": "01a17cae-130a-73a3-8b03-6482285ace8b",
+      "cwd": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6",
+      "assistant_version51_mentions": []
+    },
+    {
+      "path": "C:\\Users\\netan\\.codex\\sessions\\2026\\10\\27\\rollout-2026-10-27T16-12-01-01a17db4-28f5-7332-aaa0-41eaf7683df3.jsonl",
+      "thread_id": "01a17db4-28f5-7332-aaa0-41eaf7683df3",
+      "cwd": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6",
+      "assistant_version51_mentions": []
+    },
+    {
+      "path": "C:\\Users\\netan\\.codex\\sessions\\2026\\10\\27\\rollout-2026-10-27T21-36-27-01a17edd-2f8e-73c3-ad1e-19774bc52b11.jsonl",
+      "thread_id": "01a17edd-2f8e-73c3-ad1e-19774bc52b11",
+      "cwd": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6",
+      "assistant_version51_mentions": []
+    },
+    {
+      "path": "C:\\Users\\netan\\.codex\\sessions\\2026\\10\\27\\rollout-2026-10-27T23-25-06-01a17f40-aa65-7cd2-83ec-aa12aee89b2d.jsonl",
+      "thread_id": "01a17f40-aa65-7cd2-83ec-aa12aee89b2d",
+      "cwd": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6",
+      "assistant_version51_mentions": []
+    },
+    {
+      "path": "C:\\Users\\netan\\.codex\\sessions\\2026\\10\\28\\rollout-2026-10-28T20-59-56-01a183e2-1ddd-7891-9f70-a4ffacf3eefe.jsonl",
+      "thread_id": "01a183e2-1ddd-7891-9f70-a4ffacf3eefe",
+      "cwd": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6",
+      "assistant_version51_mentions": []
+    }
+  ],
+  "errors": [],
+  "counts": {
+    "walk_files": 64694,
+    "text_files": 143,
+    "package_headers": 86,
+    "recent_build_artifacts": 77
+  },
+  "git_worktrees": "worktree C:/Users/netan/Dropbox/DevelopPersonal/N6/project\nHEAD b9ad9602ca2c40451483d6f0bf4bd3305f279738\nbranch refs/heads/main\n\nworktree C:/Users/netan/Dropbox/DevelopPersonal/N6/n6-xip-ota-usb\nHEAD 5432d4ae2b10ef7ecdfaedad586038792f0a4db5\nbranch refs/heads/feature/n6-xip-ota-usb\n\n",
+  "git_recent_refs": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5 2026-10-28T06:16:56+02:00 FrameTest\n6948f70475749bf9a7407cd62edc6b69ddeca664 2026-10-27T16:56:52+02:00 Update\n38d384f46eb3144fb673240ca98e7621ddf77cf3 2026-10-27T12:03:55+02:00 boot faster\n",
+  "finished_utc": "2026-10-28T21:16:55.399241+00:00"
+}

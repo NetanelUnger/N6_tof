@@ -189,7 +189,8 @@ struct modem_cmd_handler_data
   /** An abandoned raw transaction makes further AT text unsafe until restart. */
   bool tx_desynchronized;
   bool raw_command_attempted; /*!< TX-owner-only: distinguishes pre-write cancellation from ambiguous raw transmission */
-  /** Timed-out scoped DNS still owns the terminal response, without caller storage. */
+  /** Terminal drain without caller storage: DNS uses its original 20s bound;
+   * plain-command timeout uses a separate 1s grace. Legacy field names retained. */
   volatile bool dns_drain_active;
   volatile bool dns_wait_active; /*!< Paired UART transition report, owned until reply or failed admission */
   TickType_t dns_drain_until;

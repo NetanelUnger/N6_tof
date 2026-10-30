@@ -9,7 +9,10 @@
  * next ranging cycle overlaps CPU transform and terminal rendering.
  */
 
+#define N6_RESOURCE_SOURCE N6R_TOF
+#include "resource_diag.h"
 #include "tof_app.h"
+#include "n6_watchdog.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -30,7 +33,7 @@
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
 #include "wifi_ble_app.h"
 #endif
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 #include "display_app.h"
 #endif
 #include "tof_image_processing.h"
@@ -187,7 +190,7 @@ typedef struct
 
 _Static_assert(sizeof(TOF_RawFrame_t *) <= sizeof(ULONG),
                "ToF raw-frame pointers must fit in ThreadX queue messages");
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 _Static_assert(DISPLAY_APP_FRAME_STORAGE_SIZE <= TOF_RAW_BUFFER_SIZE,
                "Display frame storage must fit in a released ToF raw slot");
 #endif
@@ -366,7 +369,7 @@ static RPS_AI_ViewSelection_t tof_rps_view_selection(
 static TOF_RawFrame_t *tof_acquire_raw_frame(void);
 static void tof_release_raw_frame(TOF_RawFrame_t *frame);
 static uint32_t tof_frame_is_current(const TOF_RawFrame_t *frame);
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static void tof_display_frame_release(void *context);
 #endif
 static void tof_log_queue_failure(const char *operation, UINT status,
@@ -511,7 +514,7 @@ void TOF_App_Acquire(void)
                        (unsigned int)pipeline_status);
         tof_fatal("pipeline-ready event post", (int)pipeline_status);
     }
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
     /* The display owns SPI4. Only signal that the sensor pipeline is ready;
      * the display task performs the actual transition to SYSTEM ON. */
     Display_App_SetSystemReady();
@@ -520,6 +523,7 @@ void TOF_App_Acquire(void)
     for (;;)
     {
         raw_frame = NULL;
+        N6H_Beat(N6H_TOF_ACQUIRE);
         if (tof_context.state.state == TOF_APP_STATE_ERROR) {
             tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND);
             continue; /* Software/queue faults are not repaired by sensor reset. */
@@ -551,6 +555,7 @@ void TOF_App_Acquire(void)
                    (tof_context.recovery.requested == 0U) &&
                    (tof_context.state.state != TOF_APP_STATE_ERROR))
             {
+                N6H_Beat(N6H_TOF_ACQUIRE);
                 tx_thread_sleep(TX_TIMER_TICKS_PER_SECOND / 20U);
             }
             if (tof_context.recovery.requested != 0U) goto recover_frame;
@@ -739,6 +744,7 @@ void TOF_App_Process(void)
     for (;;)
     {
         tof_context.processing_thread.cycles++;
+        N6H_Beat(N6H_TOF_PROCESS);
         tof_context.processing_thread.last_tick = HAL_GetTick();
         int ret;
         memory_t channel_memory[2];
@@ -747,7 +753,10 @@ void TOF_App_Process(void)
 
         ULONG ready_message;
         UINT queue_status = tx_queue_receive(&tof_context.buffers.ready_queue, &ready_message,
-                                             TX_WAIT_FOREVER);
+                                             N6H_IDLE_TICKS);
+#if (N6_WATCHDOG_ENABLED == 1U)
+        if(queue_status==TX_QUEUE_EMPTY)continue;
+#endif
         if (queue_status != TX_SUCCESS)
         {
             tof_log_queue_failure("receive ready raw slot", queue_status,
@@ -934,7 +943,7 @@ void TOF_App_Process(void)
                                  frame.p_metadata->frame_counter, now,
                                  processing.selected_filter);
 
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
         if (Display_App_IsMapEnabled() != 0U)
         {
             if ((map_channel != TOF_APP_CHANNEL_DEPTH) &&
@@ -1230,7 +1239,7 @@ static void tof_release_raw_frame(TOF_RawFrame_t *frame)
     }
 }
 
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 static void tof_display_frame_release(void *context)
 {
     tof_release_raw_frame((TOF_RawFrame_t *)context);
@@ -2128,6 +2137,10 @@ static size_t append_channel_mask(size_t pos, uint32_t mask)
 
 static void tof_log(const char *format, ...)
 {
+#if (N6_DEBUG_OUTPUT_ENABLED == 0U)
+    (void)format;
+    return;
+#endif
     char message[192];
     va_list args;
     va_start(args, format);

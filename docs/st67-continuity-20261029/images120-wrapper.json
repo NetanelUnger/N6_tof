@@ -1,0 +1,2671 @@
+{
+  "owner": {
+    "thread": "n6-xip-st67-reliability-20261028",
+    "pid": 42272,
+    "started_utc": "2026-10-29T11:39:17.590525+00:00",
+    "process_created_utc": "2026-10-29T11:39:17.409523+00:00",
+    "scope": "A53 BLE image/NPU/CLI120s with existing Wi-Fi/Cloud; restore map off; no reset/firmware/pair/settings writes"
+  },
+  "result": "FAIL",
+  "handles_closed": true,
+  "lease_released": true,
+  "before": {
+    "version": "version\r\nFirmware version: 53\r\nn6> ",
+    "tof status": "tof status\r\nImage destination: requested CLOUD, active CLOUD, switches 5, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 1989, rate: 3.9 fps\r\nPipeline: acquired 1995, processed 782, dropped 1210, queue failures 0\r\nLast valid range: 119..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 24\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+    "dataset stream status": "dataset stream status\r\nDataset stream: off, submitted 100, dropped 0, last frame 1680, last CRC32 0xF08E0D35\r\nn6> ",
+    "rps status": "rps status\r\nRPS status: enabled=1 ready=1 frame=1989 class=scissors class_id=3 confidence_permille=832 scores=-121,-108,-112,85 runs=782 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> ",
+    "cloud status": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: connecting, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 1, last 204, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 57, dropped 1; request errors 0\r\nWorker: loops 1479, last tick 199871, max step 1221 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> ",
+    "status": "status\r\nUptime: 199903 ms\r\nUSB CDC: active, session 2, TX queue 6, RX queue 0\r\nToF: ready, map off, channels 0x01, active 1, dataset off, frame 1989, 3.9 fps\r\nST67: ready, Wi-Fi IP ready, BLE disconnected, advertising on\r\nLog level: off\r\nWi-Fi CONNECTED: YES; IPv4 ready: YES\r\nWi-Fi station: STA GOT IP\r\nWi-Fi shadow: event/query confirmed, query 2/0 failed, last tick 19342/status 0\r\nSSID: nati_sash, channel: 3, RSSI: -66 dBm\r\nAP: B4:B0:24:D8:B3:72\r\nIPv4: 192.168.68.53\r\nGateway: 192.168.68.1, netmask: 255.255.252.0\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nn6> ",
+    "MAP ENCODING": "MAP ENCODING\r\nWireless encoding: UINT8 affine\r\nApplies to newly accepted BLE/Cloud frames; USB MAP unchanged.\r\nn6> "
+  },
+  "pause_images": "dataset route none\r\nCapture route restored.\r\nn6> ",
+  "test_encoding": "MAP ENCODING RAW\r\nWireless encoding: RAW float32\r\nApplies to newly accepted BLE/Cloud frames; USB MAP unchanged.\r\nn6> ",
+  "command": [
+    "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\project\\training\\.venv\\Scripts\\python.exe",
+    "-B",
+    "-u",
+    "C:\\Users\\netan\\Documents\\Codex\\2026-10-28\\task-2\\st67_focused_images.py",
+    "--owner-thread",
+    "n6-xip-st67-reliability-20261028",
+    "--label",
+    "st67-continuity53-images",
+    "--duration",
+    "120"
+  ],
+  "child_pid": 33392,
+  "exit_code": 1,
+  "profile": {
+    "baseline": {
+      "ble_control": [
+        0,
+        5,
+        12,
+        12,
+        0,
+        0,
+        254,
+        3,
+        0
+      ],
+      "cloud_dropped": 2,
+      "cloud_errors": 0,
+      "cloud_frames": 57,
+      "cloud_paired": true,
+      "http_active": 1,
+      "radio_ready": true,
+      "recovery": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "route": [
+        "NONE",
+        "NONE"
+      ],
+      "spi_fault": 0,
+      "tof_frame": 2036,
+      "tof_ready": true,
+      "wifi_ip": true
+    },
+    "connections": [
+      {
+        "cycle": 1,
+        "kind": "automatic",
+        "mtu": 247,
+        "os_is_paired": false,
+        "pair_requested": false,
+        "rps_only": {
+          "ble_control": [
+            0,
+            1,
+            14,
+            14,
+            0,
+            0,
+            254,
+            514,
+            0
+          ],
+          "cloud_dropped": 2,
+          "cloud_errors": 0,
+          "cloud_frames": 57,
+          "cloud_paired": true,
+          "http_active": 1,
+          "radio_ready": true,
+          "recovery": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "route": [
+            "NONE",
+            "NONE"
+          ],
+          "spi_fault": 0,
+          "tof_frame": 2169,
+          "tof_ready": true,
+          "wifi_ip": true
+        }
+      }
+    ],
+    "duration_target_s": 120,
+    "elapsed_s": 38.984,
+    "errors": [],
+    "events": [],
+    "failure": "TimeoutError: missing BLE final",
+    "handles_closed": true,
+    "image_crc_errors": 0,
+    "image_drops_during_soak": 0,
+    "image_encoding": "MAP ENCODING\r\nWireless encoding: RAW float32\r\nApplies to newly accepted BLE/Cloud frames; USB MAP unchanged.\r\nn6> ",
+    "images": [
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 3326440662,
+        "frame_id": 2231,
+        "height": 42,
+        "host_monotonic": 187506.906,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2231,
+          "inference_ms": 2,
+          "runs": 876,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 223736,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 3277898896,
+        "frame_id": 2242,
+        "height": 42,
+        "host_monotonic": 187508.156,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2242,
+          "inference_ms": 3,
+          "runs": 880,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 224907,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 883158216,
+        "frame_id": 2254,
+        "height": 42,
+        "host_monotonic": 187509.281,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2254,
+          "inference_ms": 4,
+          "runs": 884,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 226073,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 2433229448,
+        "frame_id": 2265,
+        "height": 42,
+        "host_monotonic": 187510.562,
+        "npu": {
+          "class_id": 3,
+          "confidence": 676,
+          "frame_id": 2265,
+          "inference_ms": 3,
+          "runs": 888,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 227238,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 1579615619,
+        "frame_id": 2280,
+        "height": 42,
+        "host_monotonic": 187511.937,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2280,
+          "inference_ms": 3,
+          "runs": 893,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 228674,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 1747273698,
+        "frame_id": 2291,
+        "height": 42,
+        "host_monotonic": 187513.156,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2291,
+          "inference_ms": 3,
+          "runs": 897,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 229850,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 3032997291,
+        "frame_id": 2306,
+        "height": 42,
+        "host_monotonic": 187514.515,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2306,
+          "inference_ms": 2,
+          "runs": 902,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 231285,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 1671270395,
+        "frame_id": 2317,
+        "height": 42,
+        "host_monotonic": 187515.625,
+        "npu": {
+          "class_id": 3,
+          "confidence": 676,
+          "frame_id": 2317,
+          "inference_ms": 3,
+          "runs": 906,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 232451,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 671981633,
+        "frame_id": 2329,
+        "height": 42,
+        "host_monotonic": 187518.031,
+        "npu": {
+          "class_id": 3,
+          "confidence": 676,
+          "frame_id": 2329,
+          "inference_ms": 3,
+          "runs": 910,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 233619,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 727121170,
+        "frame_id": 2344,
+        "height": 42,
+        "host_monotonic": 187519.046,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2344,
+          "inference_ms": 2,
+          "runs": 915,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 235057,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 3178509716,
+        "frame_id": 2363,
+        "height": 42,
+        "host_monotonic": 187520.281,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2363,
+          "inference_ms": 3,
+          "runs": 922,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 237006,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 2182836868,
+        "frame_id": 2378,
+        "height": 42,
+        "host_monotonic": 187521.718,
+        "npu": {
+          "class_id": 3,
+          "confidence": 672,
+          "frame_id": 2378,
+          "inference_ms": 3,
+          "runs": 927,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 238442,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 913011057,
+        "frame_id": 2392,
+        "height": 42,
+        "host_monotonic": 187523.187,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2392,
+          "inference_ms": 2,
+          "runs": 932,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 239872,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 1561248859,
+        "frame_id": 2406,
+        "height": 42,
+        "host_monotonic": 187524.562,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2406,
+          "inference_ms": 3,
+          "runs": 937,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 241311,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 3063055505,
+        "frame_id": 2418,
+        "height": 42,
+        "host_monotonic": 187525.687,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2418,
+          "inference_ms": 3,
+          "runs": 941,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 242473,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 2787264263,
+        "frame_id": 2430,
+        "height": 42,
+        "host_monotonic": 187526.906,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2430,
+          "inference_ms": 3,
+          "runs": 945,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 243643,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 131023405,
+        "frame_id": 2441,
+        "height": 42,
+        "host_monotonic": 187528.25,
+        "npu": {
+          "class_id": 3,
+          "confidence": 672,
+          "frame_id": 2441,
+          "inference_ms": 3,
+          "runs": 949,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 244825,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 4277606809,
+        "frame_id": 2456,
+        "height": 42,
+        "host_monotonic": 187529.453,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2456,
+          "inference_ms": 3,
+          "runs": 954,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 246260,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 3201920717,
+        "frame_id": 2467,
+        "height": 42,
+        "host_monotonic": 187530.656,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2467,
+          "inference_ms": 2,
+          "runs": 958,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 247428,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 215813482,
+        "frame_id": 2479,
+        "height": 42,
+        "host_monotonic": 187531.921,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2479,
+          "inference_ms": 3,
+          "runs": 962,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 248590,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 518413692,
+        "frame_id": 2494,
+        "height": 42,
+        "host_monotonic": 187534.046,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2494,
+          "inference_ms": 2,
+          "runs": 967,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 250024,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 2609989007,
+        "frame_id": 2510,
+        "height": 42,
+        "host_monotonic": 187535.015,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2510,
+          "inference_ms": 3,
+          "runs": 973,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 251715,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 1704489173,
+        "frame_id": 2525,
+        "height": 42,
+        "host_monotonic": 187536.453,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2525,
+          "inference_ms": 3,
+          "runs": 978,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 253146,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 4215171785,
+        "frame_id": 2539,
+        "height": 42,
+        "host_monotonic": 187537.89,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2539,
+          "inference_ms": 3,
+          "runs": 983,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 254584,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 1963587888,
+        "frame_id": 2554,
+        "height": 42,
+        "host_monotonic": 187539.421,
+        "npu": {
+          "class_id": 3,
+          "confidence": 672,
+          "frame_id": 2554,
+          "inference_ms": 2,
+          "runs": 988,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 256021,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 745731067,
+        "frame_id": 2568,
+        "height": 42,
+        "host_monotonic": 187540.64,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2568,
+          "inference_ms": 3,
+          "runs": 993,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 257462,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 3115930397,
+        "frame_id": 2579,
+        "height": 42,
+        "host_monotonic": 187541.906,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2579,
+          "inference_ms": 3,
+          "runs": 997,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 258622,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 2418317368,
+        "frame_id": 2591,
+        "height": 42,
+        "host_monotonic": 187543.171,
+        "npu": {
+          "class_id": 3,
+          "confidence": 832,
+          "frame_id": 2591,
+          "inference_ms": 6,
+          "runs": 1001,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 259789,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      },
+      {
+        "base": 0.0,
+        "channel": 1,
+        "crc32": 2233598944,
+        "frame_id": 2606,
+        "height": 42,
+        "host_monotonic": 187544.546,
+        "npu": {
+          "class_id": 3,
+          "confidence": 672,
+          "frame_id": 2606,
+          "inference_ms": 3,
+          "runs": 1006,
+          "state": 3
+        },
+        "pixel_format": 1,
+        "step": 0.0,
+        "timestamp_ms": 261230,
+        "total": 9072,
+        "version": 3,
+        "width": 54
+      }
+    ],
+    "io_errors": [],
+    "io_timings": [
+      {
+        "begin_monotonic": 187536.953,
+        "elapsed_s": 0.0,
+        "end_monotonic": 187536.953
+      },
+      {
+        "begin_monotonic": 187556.031,
+        "elapsed_s": 0.0,
+        "end_monotonic": 187556.031
+      }
+    ],
+    "map_on_requested": true,
+    "max_event_loop_lag_s": 0.02899999999790452,
+    "max_image_receive_gap_s": 2.4059999999881256,
+    "max_result_age_ms": 300,
+    "max_result_receive_gap_s": 1.2349999999860302,
+    "pair_requested": false,
+    "passed": false,
+    "pings": [
+      141.0,
+      62.0,
+      63.0,
+      109.0,
+      63.0,
+      94.0,
+      62.0,
+      62.0,
+      78.0,
+      94.0,
+      78.0,
+      156.0,
+      31.0,
+      125.0,
+      78.0,
+      828.0,
+      94.0,
+      78.0,
+      94.0,
+      94.0,
+      78.0,
+      110.0,
+      94.0,
+      94.0,
+      94.0,
+      140.0,
+      125.0,
+      125.0,
+      47.0,
+      94.0,
+      93.0,
+      125.0,
+      93.0,
+      125.0,
+      62.0,
+      1000.0,
+      109.0,
+      62.0,
+      78.0,
+      62.0,
+      79.0,
+      109.0,
+      63.0,
+      125.0,
+      78.0,
+      109.0,
+      79.0,
+      109.0,
+      47.0,
+      94.0,
+      187.0
+    ],
+    "results": [
+      {
+        "a": "0000000069",
+        "c": "scissors",
+        "f": 2123,
+        "g": 1,
+        "host_monotonic": 187495.062,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 834,
+        "v": 1
+      },
+      {
+        "a": "0000000067",
+        "c": "scissors",
+        "f": 2128,
+        "g": 1,
+        "host_monotonic": 187495.593,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 836,
+        "v": 1
+      },
+      {
+        "a": "0000000070",
+        "c": "scissors",
+        "f": 2133,
+        "g": 1,
+        "host_monotonic": 187496.093,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 838,
+        "v": 1
+      },
+      {
+        "a": "0000000085",
+        "c": "scissors",
+        "f": 2138,
+        "g": 1,
+        "host_monotonic": 187496.625,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 840,
+        "v": 1
+      },
+      {
+        "a": "0000000088",
+        "c": "scissors",
+        "f": 2143,
+        "g": 1,
+        "host_monotonic": 187497.14,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 842,
+        "v": 1
+      },
+      {
+        "a": "0000000092",
+        "c": "scissors",
+        "f": 2148,
+        "g": 1,
+        "host_monotonic": 187497.656,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 844,
+        "v": 1
+      },
+      {
+        "a": "0000000109",
+        "c": "scissors",
+        "f": 2153,
+        "g": 1,
+        "host_monotonic": 187498.187,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 846,
+        "v": 1
+      },
+      {
+        "a": "0000000132",
+        "c": "scissors",
+        "f": 2158,
+        "g": 1,
+        "host_monotonic": 187498.734,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 848,
+        "v": 1
+      },
+      {
+        "a": "0000000136",
+        "c": "scissors",
+        "f": 2164,
+        "g": 1,
+        "host_monotonic": 187500.312,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 850,
+        "v": 1
+      },
+      {
+        "a": "0000000141",
+        "c": "scissors",
+        "f": 2169,
+        "g": 1,
+        "host_monotonic": 187500.312,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 852,
+        "v": 1
+      },
+      {
+        "a": "0000000139",
+        "c": "scissors",
+        "f": 2174,
+        "g": 1,
+        "host_monotonic": 187500.312,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 854,
+        "v": 1
+      },
+      {
+        "a": "0000000176",
+        "c": "scissors",
+        "f": 2212,
+        "g": 1,
+        "host_monotonic": 187504.187,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 869,
+        "v": 1
+      },
+      {
+        "a": "0000000078",
+        "c": "scissors",
+        "f": 2220,
+        "g": 1,
+        "host_monotonic": 187505.453,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 872,
+        "v": 1
+      },
+      {
+        "a": "0000000070",
+        "c": "scissors",
+        "f": 2225,
+        "g": 1,
+        "host_monotonic": 187505.453,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 874,
+        "v": 1
+      },
+      {
+        "a": "0000000073",
+        "c": "scissors",
+        "f": 2231,
+        "g": 1,
+        "host_monotonic": 187505.906,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 876,
+        "v": 1
+      },
+      {
+        "a": "0000000004",
+        "c": "scissors",
+        "f": 2236,
+        "g": 1,
+        "host_monotonic": 187506.406,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 878,
+        "v": 1
+      },
+      {
+        "a": "0000000226",
+        "c": "scissors",
+        "f": 2239,
+        "g": 1,
+        "host_monotonic": 187506.906,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 879,
+        "v": 1
+      },
+      {
+        "a": "0000000171",
+        "c": "scissors",
+        "f": 2245,
+        "g": 1,
+        "host_monotonic": 187507.453,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 881,
+        "v": 1
+      },
+      {
+        "a": "0000000106",
+        "c": "scissors",
+        "f": 2251,
+        "g": 1,
+        "host_monotonic": 187507.968,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 883,
+        "v": 1
+      },
+      {
+        "a": "0000000047",
+        "c": "scissors",
+        "f": 2257,
+        "g": 1,
+        "host_monotonic": 187508.484,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 885,
+        "v": 1
+      },
+      {
+        "a": "0000000264",
+        "c": "scissors",
+        "f": 2260,
+        "g": 1,
+        "host_monotonic": 187509.015,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 886,
+        "v": 1
+      },
+      {
+        "a": "0000000261",
+        "c": "scissors",
+        "f": 2265,
+        "g": 1,
+        "host_monotonic": 187509.562,
+        "npu": 1,
+        "ok": 1,
+        "p": 676,
+        "q": [
+          -114,
+          -73,
+          -115,
+          45
+        ],
+        "r": 888,
+        "v": 1
+      },
+      {
+        "a": "0000000189",
+        "c": "scissors",
+        "f": 2271,
+        "g": 1,
+        "host_monotonic": 187510.109,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 890,
+        "v": 1
+      },
+      {
+        "a": "0000000129",
+        "c": "scissors",
+        "f": 2277,
+        "g": 1,
+        "host_monotonic": 187510.609,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 892,
+        "v": 1
+      },
+      {
+        "a": "0000000114",
+        "c": "scissors",
+        "f": 2283,
+        "g": 1,
+        "host_monotonic": 187511.156,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 894,
+        "v": 1
+      },
+      {
+        "a": "0000000044",
+        "c": "scissors",
+        "f": 2288,
+        "g": 1,
+        "host_monotonic": 187511.656,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 896,
+        "v": 1
+      },
+      {
+        "a": "0000000269",
+        "c": "scissors",
+        "f": 2291,
+        "g": 1,
+        "host_monotonic": 187512.234,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 897,
+        "v": 1
+      },
+      {
+        "a": "0000000197",
+        "c": "scissors",
+        "f": 2297,
+        "g": 1,
+        "host_monotonic": 187512.765,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 899,
+        "v": 1
+      },
+      {
+        "a": "0000000139",
+        "c": "scissors",
+        "f": 2303,
+        "g": 1,
+        "host_monotonic": 187513.25,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 901,
+        "v": 1
+      },
+      {
+        "a": "0000000079",
+        "c": "scissors",
+        "f": 2309,
+        "g": 1,
+        "host_monotonic": 187513.765,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 903,
+        "v": 1
+      },
+      {
+        "a": "0000000008",
+        "c": "scissors",
+        "f": 2315,
+        "g": 1,
+        "host_monotonic": 187514.25,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 905,
+        "v": 1
+      },
+      {
+        "a": "0000000237",
+        "c": "scissors",
+        "f": 2317,
+        "g": 1,
+        "host_monotonic": 187514.75,
+        "npu": 1,
+        "ok": 1,
+        "p": 676,
+        "q": [
+          -114,
+          -73,
+          -115,
+          45
+        ],
+        "r": 906,
+        "v": 1
+      },
+      {
+        "a": "0000000168",
+        "c": "scissors",
+        "f": 2323,
+        "g": 1,
+        "host_monotonic": 187515.296,
+        "npu": 1,
+        "ok": 1,
+        "p": 676,
+        "q": [
+          -114,
+          -73,
+          -115,
+          45
+        ],
+        "r": 908,
+        "v": 1
+      },
+      {
+        "a": "0000000203",
+        "c": "scissors",
+        "f": 2329,
+        "g": 1,
+        "host_monotonic": 187515.984,
+        "npu": 1,
+        "ok": 1,
+        "p": 676,
+        "q": [
+          -114,
+          -73,
+          -115,
+          45
+        ],
+        "r": 910,
+        "v": 1
+      },
+      {
+        "a": "0000000139",
+        "c": "scissors",
+        "f": 2335,
+        "g": 1,
+        "host_monotonic": 187516.406,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 912,
+        "v": 1
+      },
+      {
+        "a": "0000000075",
+        "c": "scissors",
+        "f": 2341,
+        "g": 1,
+        "host_monotonic": 187517.203,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 914,
+        "v": 1
+      },
+      {
+        "a": "0000000266",
+        "c": "scissors",
+        "f": 2346,
+        "g": 1,
+        "host_monotonic": 187518.078,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 916,
+        "v": 1
+      },
+      {
+        "a": "0000000108",
+        "c": "scissors",
+        "f": 2354,
+        "g": 1,
+        "host_monotonic": 187518.343,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 919,
+        "v": 1
+      },
+      {
+        "a": "0000000035",
+        "c": "scissors",
+        "f": 2360,
+        "g": 1,
+        "host_monotonic": 187518.828,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 921,
+        "v": 1
+      },
+      {
+        "a": "0000000273",
+        "c": "scissors",
+        "f": 2363,
+        "g": 1,
+        "host_monotonic": 187519.359,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 922,
+        "v": 1
+      },
+      {
+        "a": "0000000247",
+        "c": "scissors",
+        "f": 2369,
+        "g": 1,
+        "host_monotonic": 187519.937,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 924,
+        "v": 1
+      },
+      {
+        "a": "0000000185",
+        "c": "scissors",
+        "f": 2375,
+        "g": 1,
+        "host_monotonic": 187520.453,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 926,
+        "v": 1
+      },
+      {
+        "a": "0000000145",
+        "c": "scissors",
+        "f": 2380,
+        "g": 1,
+        "host_monotonic": 187520.968,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 928,
+        "v": 1
+      },
+      {
+        "a": "0000000076",
+        "c": "scissors",
+        "f": 2386,
+        "g": 1,
+        "host_monotonic": 187521.5,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 930,
+        "v": 1
+      },
+      {
+        "a": "0000000038",
+        "c": "scissors",
+        "f": 2392,
+        "g": 1,
+        "host_monotonic": 187521.984,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 932,
+        "v": 1
+      },
+      {
+        "a": "0000000257",
+        "c": "scissors",
+        "f": 2395,
+        "g": 1,
+        "host_monotonic": 187522.5,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 933,
+        "v": 1
+      },
+      {
+        "a": "0000000276",
+        "c": "scissors",
+        "f": 2401,
+        "g": 1,
+        "host_monotonic": 187523.125,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 935,
+        "v": 1
+      },
+      {
+        "a": "0000000239",
+        "c": "scissors",
+        "f": 2406,
+        "g": 1,
+        "host_monotonic": 187523.656,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 937,
+        "v": 1
+      },
+      {
+        "a": "0000000175",
+        "c": "scissors",
+        "f": 2412,
+        "g": 1,
+        "host_monotonic": 187524.171,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 939,
+        "v": 1
+      },
+      {
+        "a": "0000000136",
+        "c": "scissors",
+        "f": 2418,
+        "g": 1,
+        "host_monotonic": 187524.687,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 941,
+        "v": 1
+      },
+      {
+        "a": "0000000065",
+        "c": "scissors",
+        "f": 2424,
+        "g": 1,
+        "host_monotonic": 187525.218,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 943,
+        "v": 1
+      },
+      {
+        "a": "0000000008",
+        "c": "scissors",
+        "f": 2430,
+        "g": 1,
+        "host_monotonic": 187525.734,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 945,
+        "v": 1
+      },
+      {
+        "a": "0000000267",
+        "c": "scissors",
+        "f": 2432,
+        "g": 1,
+        "host_monotonic": 187526.328,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 946,
+        "v": 1
+      },
+      {
+        "a": "0000000190",
+        "c": "scissors",
+        "f": 2438,
+        "g": 1,
+        "host_monotonic": 187526.859,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 948,
+        "v": 1
+      },
+      {
+        "a": "0000000136",
+        "c": "scissors",
+        "f": 2444,
+        "g": 1,
+        "host_monotonic": 187527.328,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 950,
+        "v": 1
+      },
+      {
+        "a": "0000000084",
+        "c": "scissors",
+        "f": 2450,
+        "g": 1,
+        "host_monotonic": 187527.875,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 952,
+        "v": 1
+      },
+      {
+        "a": "0000000029",
+        "c": "scissors",
+        "f": 2456,
+        "g": 1,
+        "host_monotonic": 187528.375,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 954,
+        "v": 1
+      },
+      {
+        "a": "0000000250",
+        "c": "scissors",
+        "f": 2458,
+        "g": 1,
+        "host_monotonic": 187528.89,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 955,
+        "v": 1
+      },
+      {
+        "a": "0000000189",
+        "c": "scissors",
+        "f": 2464,
+        "g": 1,
+        "host_monotonic": 187529.421,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 957,
+        "v": 1
+      },
+      {
+        "a": "0000000125",
+        "c": "scissors",
+        "f": 2470,
+        "g": 1,
+        "host_monotonic": 187529.968,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 959,
+        "v": 1
+      },
+      {
+        "a": "0000000068",
+        "c": "scissors",
+        "f": 2476,
+        "g": 1,
+        "host_monotonic": 187530.453,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 961,
+        "v": 1
+      },
+      {
+        "a": "0000000300",
+        "c": "scissors",
+        "f": 2479,
+        "g": 1,
+        "host_monotonic": 187530.968,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 962,
+        "v": 1
+      },
+      {
+        "a": "0000000225",
+        "c": "scissors",
+        "f": 2485,
+        "g": 1,
+        "host_monotonic": 187531.5,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 964,
+        "v": 1
+      },
+      {
+        "a": "0000000165",
+        "c": "scissors",
+        "f": 2491,
+        "g": 1,
+        "host_monotonic": 187532.0,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 966,
+        "v": 1
+      },
+      {
+        "a": "0000000130",
+        "c": "scissors",
+        "f": 2496,
+        "g": 1,
+        "host_monotonic": 187532.546,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 968,
+        "v": 1
+      },
+      {
+        "a": "0000000061",
+        "c": "scissors",
+        "f": 2502,
+        "g": 1,
+        "host_monotonic": 187533.781,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 970,
+        "v": 1
+      },
+      {
+        "a": "0000000101",
+        "c": "scissors",
+        "f": 2508,
+        "g": 1,
+        "host_monotonic": 187533.89,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 972,
+        "v": 1
+      },
+      {
+        "a": "0000000130",
+        "c": "scissors",
+        "f": 2513,
+        "g": 1,
+        "host_monotonic": 187534.25,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 974,
+        "v": 1
+      },
+      {
+        "a": "0000000059",
+        "c": "scissors",
+        "f": 2519,
+        "g": 1,
+        "host_monotonic": 187534.734,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 976,
+        "v": 1
+      },
+      {
+        "a": "0000000026",
+        "c": "scissors",
+        "f": 2525,
+        "g": 1,
+        "host_monotonic": 187535.25,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 978,
+        "v": 1
+      },
+      {
+        "a": "0000000240",
+        "c": "scissors",
+        "f": 2527,
+        "g": 1,
+        "host_monotonic": 187535.812,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 979,
+        "v": 1
+      },
+      {
+        "a": "0000000176",
+        "c": "scissors",
+        "f": 2533,
+        "g": 1,
+        "host_monotonic": 187536.328,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 981,
+        "v": 1
+      },
+      {
+        "a": "0000000136",
+        "c": "scissors",
+        "f": 2539,
+        "g": 1,
+        "host_monotonic": 187536.796,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 983,
+        "v": 1
+      },
+      {
+        "a": "0000000089",
+        "c": "scissors",
+        "f": 2545,
+        "g": 1,
+        "host_monotonic": 187537.375,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 985,
+        "v": 1
+      },
+      {
+        "a": "0000000043",
+        "c": "scissors",
+        "f": 2551,
+        "g": 1,
+        "host_monotonic": 187537.89,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 987,
+        "v": 1
+      },
+      {
+        "a": "0000000288",
+        "c": "scissors",
+        "f": 2554,
+        "g": 1,
+        "host_monotonic": 187538.39,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 988,
+        "v": 1
+      },
+      {
+        "a": "0000000046",
+        "c": "scissors",
+        "f": 2562,
+        "g": 1,
+        "host_monotonic": 187539.031,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 991,
+        "v": 1
+      },
+      {
+        "a": "0000000262",
+        "c": "scissors",
+        "f": 2565,
+        "g": 1,
+        "host_monotonic": 187539.531,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 992,
+        "v": 1
+      },
+      {
+        "a": "0000000214",
+        "c": "scissors",
+        "f": 2571,
+        "g": 1,
+        "host_monotonic": 187540.109,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 994,
+        "v": 1
+      },
+      {
+        "a": "0000000193",
+        "c": "scissors",
+        "f": 2576,
+        "g": 1,
+        "host_monotonic": 187540.609,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 996,
+        "v": 1
+      },
+      {
+        "a": "0000000128",
+        "c": "scissors",
+        "f": 2582,
+        "g": 1,
+        "host_monotonic": 187541.187,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 998,
+        "v": 1
+      },
+      {
+        "a": "0000000073",
+        "c": "scissors",
+        "f": 2588,
+        "g": 1,
+        "host_monotonic": 187541.687,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 1000,
+        "v": 1
+      },
+      {
+        "a": "0000000038",
+        "c": "scissors",
+        "f": 2594,
+        "g": 1,
+        "host_monotonic": 187542.234,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 1002,
+        "v": 1
+      },
+      {
+        "a": "0000000264",
+        "c": "scissors",
+        "f": 2597,
+        "g": 1,
+        "host_monotonic": 187542.765,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 1003,
+        "v": 1
+      },
+      {
+        "a": "0000000208",
+        "c": "scissors",
+        "f": 2603,
+        "g": 1,
+        "host_monotonic": 187543.281,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 1005,
+        "v": 1
+      },
+      {
+        "a": "0000000228",
+        "c": "scissors",
+        "f": 2608,
+        "g": 1,
+        "host_monotonic": 187543.859,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 1007,
+        "v": 1
+      },
+      {
+        "a": "0000000149",
+        "c": "scissors",
+        "f": 2614,
+        "g": 1,
+        "host_monotonic": 187544.343,
+        "npu": 1,
+        "ok": 1,
+        "p": 672,
+        "q": [
+          -114,
+          -68,
+          -118,
+          44
+        ],
+        "r": 1009,
+        "v": 1
+      },
+      {
+        "a": "0000000124",
+        "c": "scissors",
+        "f": 2620,
+        "g": 1,
+        "host_monotonic": 187544.875,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 1011,
+        "v": 1
+      },
+      {
+        "a": "0000000068",
+        "c": "scissors",
+        "f": 2626,
+        "g": 1,
+        "host_monotonic": 187545.453,
+        "npu": 1,
+        "ok": 1,
+        "p": 832,
+        "q": [
+          -121,
+          -108,
+          -112,
+          85
+        ],
+        "r": 1013,
+        "v": 1
+      }
+    ],
+    "rps_packets": [
+      "7b2276223a312c2267223a312c2266223a323132332c2272223a3833342c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303639227d0a",
+      "7b2276223a312c2267223a312c2266223a323132382c2272223a3833362c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303637227d0a",
+      "7b2276223a312c2267223a312c2266223a323133332c2272223a3833382c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303730227d0a",
+      "7b2276223a312c2267223a312c2266223a323133382c2272223a3834302c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303835227d0a",
+      "7b2276223a312c2267223a312c2266223a323134332c2272223a3834322c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303838227d0a",
+      "7b2276223a312c2267223a312c2266223a323134382c2272223a3834342c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303932227d0a",
+      "7b2276223a312c2267223a312c2266223a323135332c2272223a3834362c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313039227d0a",
+      "7b2276223a312c2267223a312c2266223a323135382c2272223a3834382c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313332227d0a",
+      "7b2276223a312c2267223a312c2266223a323136342c2272223a3835302c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313336227d0a",
+      "7b2276223a312c2267223a312c2266223a323136392c2272223a3835322c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313431227d0a",
+      "7b2276223a312c2267223a312c2266223a323137342c2272223a3835342c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313339227d0a",
+      "7b2276223a312c2267223a312c2266223a323231322c2272223a3836392c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313736227d0a",
+      "7b2276223a312c2267223a312c2266223a323232302c2272223a3837322c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303738227d0a",
+      "7b2276223a312c2267223a312c2266223a323232352c2272223a3837342c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303730227d0a",
+      "7b2276223a312c2267223a312c2266223a323233312c2272223a3837362c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303733227d0a",
+      "7b2276223a312c2267223a312c2266223a323233362c2272223a3837382c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303034227d0a",
+      "7b2276223a312c2267223a312c2266223a323233392c2272223a3837392c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323236227d0a",
+      "7b2276223a312c2267223a312c2266223a323234352c2272223a3838312c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313731227d0a",
+      "7b2276223a312c2267223a312c2266223a323235312c2272223a3838332c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313036227d0a",
+      "7b2276223a312c2267223a312c2266223a323235372c2272223a3838352c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303437227d0a",
+      "7b2276223a312c2267223a312c2266223a323236302c2272223a3838362c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323634227d0a",
+      "7b2276223a312c2267223a312c2266223a323236352c2272223a3838382c226f6b223a312c2263223a2273636973736f7273222c2270223a3637362c2271223a5b2d3131342c2d37332c2d3131352c34355d2c226e7075223a312c2261223a2230303030303030323631227d0a",
+      "7b2276223a312c2267223a312c2266223a323237312c2272223a3839302c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313839227d0a",
+      "7b2276223a312c2267223a312c2266223a323237372c2272223a3839322c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313239227d0a",
+      "7b2276223a312c2267223a312c2266223a323238332c2272223a3839342c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313134227d0a",
+      "7b2276223a312c2267223a312c2266223a323238382c2272223a3839362c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303434227d0a",
+      "7b2276223a312c2267223a312c2266223a323239312c2272223a3839372c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323639227d0a",
+      "7b2276223a312c2267223a312c2266223a323239372c2272223a3839392c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313937227d0a",
+      "7b2276223a312c2267223a312c2266223a323330332c2272223a3930312c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313339227d0a",
+      "7b2276223a312c2267223a312c2266223a323330392c2272223a3930332c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303739227d0a",
+      "7b2276223a312c2267223a312c2266223a323331352c2272223a3930352c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303038227d0a",
+      "7b2276223a312c2267223a312c2266223a323331372c2272223a3930362c226f6b223a312c2263223a2273636973736f7273222c2270223a3637362c2271223a5b2d3131342c2d37332c2d3131352c34355d2c226e7075223a312c2261223a2230303030303030323337227d0a",
+      "7b2276223a312c2267223a312c2266223a323332332c2272223a3930382c226f6b223a312c2263223a2273636973736f7273222c2270223a3637362c2271223a5b2d3131342c2d37332c2d3131352c34355d2c226e7075223a312c2261223a2230303030303030313638227d0a",
+      "7b2276223a312c2267223a312c2266223a323332392c2272223a3931302c226f6b223a312c2263223a2273636973736f7273222c2270223a3637362c2271223a5b2d3131342c2d37332c2d3131352c34355d2c226e7075223a312c2261223a2230303030303030323033227d0a",
+      "7b2276223a312c2267223a312c2266223a323333352c2272223a3931322c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030313339227d0a",
+      "7b2276223a312c2267223a312c2266223a323334312c2272223a3931342c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303735227d0a",
+      "7b2276223a312c2267223a312c2266223a323334362c2272223a3931362c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323636227d0a",
+      "7b2276223a312c2267223a312c2266223a323335342c2272223a3931392c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313038227d0a",
+      "7b2276223a312c2267223a312c2266223a323336302c2272223a3932312c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303335227d0a",
+      "7b2276223a312c2267223a312c2266223a323336332c2272223a3932322c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323733227d0a",
+      "7b2276223a312c2267223a312c2266223a323336392c2272223a3932342c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323437227d0a",
+      "7b2276223a312c2267223a312c2266223a323337352c2272223a3932362c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030313835227d0a",
+      "7b2276223a312c2267223a312c2266223a323338302c2272223a3932382c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030313435227d0a",
+      "7b2276223a312c2267223a312c2266223a323338362c2272223a3933302c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030303736227d0a",
+      "7b2276223a312c2267223a312c2266223a323339322c2272223a3933322c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303338227d0a",
+      "7b2276223a312c2267223a312c2266223a323339352c2272223a3933332c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323537227d0a",
+      "7b2276223a312c2267223a312c2266223a323430312c2272223a3933352c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323736227d0a",
+      "7b2276223a312c2267223a312c2266223a323430362c2272223a3933372c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323339227d0a",
+      "7b2276223a312c2267223a312c2266223a323431322c2272223a3933392c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313735227d0a",
+      "7b2276223a312c2267223a312c2266223a323431382c2272223a3934312c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313336227d0a",
+      "7b2276223a312c2267223a312c2266223a323432342c2272223a3934332c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303635227d0a",
+      "7b2276223a312c2267223a312c2266223a323433302c2272223a3934352c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303038227d0a",
+      "7b2276223a312c2267223a312c2266223a323433322c2272223a3934362c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323637227d0a",
+      "7b2276223a312c2267223a312c2266223a323433382c2272223a3934382c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030313930227d0a",
+      "7b2276223a312c2267223a312c2266223a323434342c2272223a3935302c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030313336227d0a",
+      "7b2276223a312c2267223a312c2266223a323435302c2272223a3935322c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030303834227d0a",
+      "7b2276223a312c2267223a312c2266223a323435362c2272223a3935342c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303239227d0a",
+      "7b2276223a312c2267223a312c2266223a323435382c2272223a3935352c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323530227d0a",
+      "7b2276223a312c2267223a312c2266223a323436342c2272223a3935372c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313839227d0a",
+      "7b2276223a312c2267223a312c2266223a323437302c2272223a3935392c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313235227d0a",
+      "7b2276223a312c2267223a312c2266223a323437362c2272223a3936312c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303638227d0a",
+      "7b2276223a312c2267223a312c2266223a323437392c2272223a3936322c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030333030227d0a",
+      "7b2276223a312c2267223a312c2266223a323438352c2272223a3936342c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323235227d0a",
+      "7b2276223a312c2267223a312c2266223a323439312c2272223a3936362c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313635227d0a",
+      "7b2276223a312c2267223a312c2266223a323439362c2272223a3936382c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313330227d0a",
+      "7b2276223a312c2267223a312c2266223a323530322c2272223a3937302c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303631227d0a",
+      "7b2276223a312c2267223a312c2266223a323530382c2272223a3937322c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313031227d0a",
+      "7b2276223a312c2267223a312c2266223a323531332c2272223a3937342c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313330227d0a",
+      "7b2276223a312c2267223a312c2266223a323531392c2272223a3937362c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303539227d0a",
+      "7b2276223a312c2267223a312c2266223a323532352c2272223a3937382c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303236227d0a",
+      "7b2276223a312c2267223a312c2266223a323532372c2272223a3937392c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323430227d0a",
+      "7b2276223a312c2267223a312c2266223a323533332c2272223a3938312c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313736227d0a",
+      "7b2276223a312c2267223a312c2266223a323533392c2272223a3938332c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313336227d0a",
+      "7b2276223a312c2267223a312c2266223a323534352c2272223a3938352c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303839227d0a",
+      "7b2276223a312c2267223a312c2266223a323535312c2272223a3938372c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030303433227d0a",
+      "7b2276223a312c2267223a312c2266223a323535342c2272223a3938382c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030323838227d0a",
+      "7b2276223a312c2267223a312c2266223a323536322c2272223a3939312c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030303436227d0a",
+      "7b2276223a312c2267223a312c2266223a323536352c2272223a3939322c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030323632227d0a",
+      "7b2276223a312c2267223a312c2266223a323537312c2272223a3939342c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323134227d0a",
+      "7b2276223a312c2267223a312c2266223a323537362c2272223a3939362c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313933227d0a",
+      "7b2276223a312c2267223a312c2266223a323538322c2272223a3939382c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313238227d0a",
+      "7b2276223a312c2267223a312c2266223a323538382c2272223a313030302c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303733227d0a",
+      "7b2276223a312c2267223a312c2266223a323539342c2272223a313030322c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303338227d0a",
+      "7b2276223a312c2267223a312c2266223a323539372c2272223a313030332c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030323634227d0a",
+      "7b2276223a312c2267223a312c2266223a323630332c2272223a313030352c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030323038227d0a",
+      "7b2276223a312c2267223a312c2266223a323630382c2272223a313030372c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030323238227d0a",
+      "7b2276223a312c2267223a312c2266223a323631342c2272223a313030392c226f6b223a312c2263223a2273636973736f7273222c2270223a3637322c2271223a5b2d3131342c2d36382c2d3131382c34345d2c226e7075223a312c2261223a2230303030303030313439227d0a",
+      "7b2276223a312c2267223a312c2266223a323632302c2272223a313031312c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030313234227d0a",
+      "7b2276223a312c2267223a312c2266223a323632362c2272223a313031332c226f6b223a312c2263223a2273636973736f7273222c2270223a3833322c2271223a5b2d3132312c2d3130382c2d3131322c38355d2c226e7075223a312c2261223a2230303030303030303638227d0a"
+    ],
+    "scope": "A53_BLE_IMAGES_NPU_CLI_WITH_EXISTING_WIFI_CLOUD_POLLING_NOT_ACTIVE_CLOUD_CONTROL",
+    "settings_commands": false,
+    "snapshots": [],
+    "soak_start_counts": {
+      "drops": 0,
+      "images": 1,
+      "pings": 1,
+      "results": 17
+    },
+    "soak_started_monotonic": 187506.953,
+    "stale_probe": {
+      "browser_rendering_observed": false,
+      "fresh_inference_after_resubscribe": true,
+      "host_model_expiry_elapsed": true,
+      "no_callbacks_after_drain": true,
+      "unsubscribe_silence_s": 3.2
+    },
+    "started_utc": "2026-10-29T11:39:18.923246+00:00",
+    "usb_pings": [
+      {
+        "latency_ms": 312.0000000053551,
+        "token": "CONT53-2"
+      },
+      {
+        "latency_ms": 328.00000000861473,
+        "token": "CONT53-4"
+      },
+      {
+        "latency_ms": 296.99999999138527,
+        "token": "CONT53-6"
+      },
+      {
+        "latency_ms": 312.0000000053551,
+        "token": "CONT53-8"
+      },
+      {
+        "latency_ms": 296.99999999138527,
+        "token": "CONT53-10"
+      },
+      {
+        "latency_ms": 328.00000000861473,
+        "token": "CONT53-12"
+      },
+      {
+        "latency_ms": 312.0000000053551,
+        "token": "CONT53-14"
+      },
+      {
+        "latency_ms": 297.0000000204891,
+        "token": "CONT53-16"
+      },
+      {
+        "latency_ms": 297.0000000204891,
+        "token": "CONT53-18"
+      },
+      {
+        "latency_ms": 296.99999999138527,
+        "token": "CONT53-20"
+      },
+      {
+        "latency_ms": 297.0000000204891,
+        "token": "CONT53-22"
+      },
+      {
+        "latency_ms": 312.0000000053551,
+        "token": "CONT53-24"
+      },
+      {
+        "latency_ms": 328.00000000861473,
+        "token": "CONT53-26"
+      },
+      {
+        "latency_ms": 328.00000000861473,
+        "token": "CONT53-28"
+      },
+      {
+        "latency_ms": 296.99999999138527,
+        "token": "CONT53-30"
+      },
+      {
+        "latency_ms": 296.99999999138527,
+        "token": "CONT53-32"
+      },
+      {
+        "latency_ms": 312.9999999946449,
+        "token": "CONT53-34"
+      },
+      {
+        "latency_ms": 296.99999999138527,
+        "token": "CONT53-36"
+      },
+      {
+        "latency_ms": 328.00000000861473,
+        "token": "CONT53-38"
+      },
+      {
+        "latency_ms": 296.0000000020955,
+        "token": "CONT53-40"
+      },
+      {
+        "latency_ms": 312.0000000053551,
+        "token": "CONT53-42"
+      },
+      {
+        "latency_ms": 297.0000000204891,
+        "token": "CONT53-44"
+      },
+      {
+        "latency_ms": 296.0000000020955,
+        "token": "CONT53-46"
+      },
+      {
+        "latency_ms": 328.00000000861473,
+        "token": "CONT53-48"
+      },
+      {
+        "latency_ms": 296.99999999138527,
+        "token": "CONT53-50"
+      }
+    ],
+    "version": "version\r\nFirmware version: 53\r\nn6> "
+  },
+  "map_off_cleanup": "MAP OFF\r\nDepth map disabled; ranging remains active.\r\nn6> ",
+  "after": {
+    "version": "version\r\nFirmware version: 53\r\nn6> ",
+    "tof status": "tof status\r\nImage destination: requested NONE, active NONE, switches 8, drain frames 1\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 2739, rate: 3.9 fps\r\nPipeline: acquired 2744, processed 1058, dropped 1683, queue failures 0\r\nLast valid range: 119..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 35\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+    "dataset stream status": "dataset stream status\r\nDataset stream: off, submitted 100, dropped 0, last frame 1680, last CRC32 0xF08E0D35\r\nn6> ",
+    "rps status": "rps status\r\nRPS status: enabled=1 ready=1 frame=2739 class=scissors class_id=3 confidence_permille=832 scores=-121,-108,-112,85 runs=1058 errors=0 last_error=0 inference_ms=4 classes=4\r\nn6> ",
+    "radio status": "radio status\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: initializing, advertising: off, link: disconnected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=16819 last_ms=274736 max_gap_ms=22\r\n  BLE TX pump: last_ms=263537 max_gap_ms=25\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=0 op=1 submitted=14 completed=14 deferred=0 stale=0 queue_max=254 ms call_max=514 ms last=0\r\n  NCP recovery: state=2 stage=3 attempts=1 ready=0 failed=0 elapsed=0 ms owners radio/cloud=1/1 last=0\r\n  Wi-Fi restore pending/unavailable; check UART WIFI_RESTORE and credentials store result. Pairing retained.\r\n  SPI fault: count=1 tick=263537 source=1 phase=2 len=332 HAL_error=00000004 SR=00c80040 TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=1 pending=1 old_generation=1 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> ",
+    "cloud status": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: connecting, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 1, last 204, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 57, dropped 2; request errors 0\r\nWorker: loops 1725, last tick 263636, max step 1221 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> ",
+    "status": "status\r\nUptime: 274777 ms\r\nUSB CDC: active, session 2, TX queue 6, RX queue 0\r\nToF: ready, map off, channels 0x01, active 1, dataset off, frame 2739, 3.9 fps\r\nST67: ready, Wi-Fi disconnected, BLE disconnected, advertising off\r\nLog level: off\r\nWi-Fi CONNECTED: NO; IPv4 ready: YES\r\nWi-Fi station: STA GOT IP\r\nWi-Fi shadow: UNKNOWN, query 2/0 failed, last tick 19342/status 0\r\nIPv4: 192.168.68.53\r\nGateway: 192.168.68.1, netmask: 255.255.252.0\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nn6> ",
+    "MAP ENCODING": "MAP ENCODING\r\nWireless encoding: RAW float32\r\nApplies to newly accepted BLE/Cloud frames; USB MAP unchanged.\r\nn6> "
+  },
+  "failure": "AssertionError()",
+  "restore_encoding": "MAP ENCODING UINT8\r\nWireless encoding: UINT8 affine\r\nApplies to newly accepted BLE/Cloud frames; USB MAP unchanged.\r\nn6> ",
+  "restore_route": "dataset route cloud\r\nCapture route restored.\r\nn6> ",
+  "restored_tof": "tof status\r\nImage destination: requested CLOUD, active CLOUD, switches 9, drain frames 1\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 2742, rate: 3.4 fps\r\nPipeline: acquired 2748, processed 1059, dropped 1686, queue failures 0\r\nLast valid range: 119..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 36\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+  "restored_settings": "status\r\nUptime: 275112 ms\r\nUSB CDC: active, session 2, TX queue 6, RX queue 0\r\nToF: ready, map off, channels 0x01, active 1, dataset off, frame 2745, 4.0 fps\r\nST67: ready, Wi-Fi disconnected, BLE disconnected, advertising off\r\nLog level: off\r\nWi-Fi CONNECTED: NO; IPv4 ready: YES\r\nWi-Fi station: STA GOT IP\r\nWi-Fi shadow: UNKNOWN, query 2/0 failed, last tick 19342/status 0\r\nIPv4: 192.168.68.53\r\nGateway: 192.168.68.1, netmask: 255.255.252.0\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nn6> ",
+  "finished_utc": "2026-10-29T11:40:33.233315+00:00"
+}

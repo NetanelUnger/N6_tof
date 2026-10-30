@@ -20,6 +20,7 @@
 #include "stm32_boot_lrun.h"
 #include <stdio.h>
 #include "firmware_boot.h"
+#include "firmware_update_format.h"
 
 /** @defgroup BOOT
   * @{
@@ -176,8 +177,20 @@ BOOTStatus_TypeDef CopyApplication(void)
       source = (uint8_t *)(MapAddress + BOOT_GetApplicationSourceAddressNS());
       img_size = BOOT_GetApplicationSize((uint32_t) source);
       destination = (uint8_t *)EXTMEM_LRUN_DESTINATION_ADDRESS_NS;
-      /* Copy Non-Secure from source to destination in mapped mode */
-      for (uint32_t index = 0; index < img_size; index++)
+      /* FSBL has authenticated the image and its execution contract. For XIP,
+       * hand only the two vector words to the SRAM Secure runtime. Code and
+       * constants stay in the selected physical NOR slot. */
+      uint32_t ns_reset = *(const uint32_t *)(source + EXTMEM_HEADER_OFFSET + 4U);
+      if ((ns_reset >= FW_FLASH_BASE_ADDRESS + FW_SLOT_A_OFFSET) &&
+          (ns_reset < FW_FLASH_BASE_ADDRESS + FW_SLOT_B_OFFSET + FW_SLOT_SIZE))
+      {
+        *(uint32_t *)(destination + EXTMEM_HEADER_OFFSET) =
+            *(const uint32_t *)(source + EXTMEM_HEADER_OFFSET);
+        *(uint32_t *)(destination + EXTMEM_HEADER_OFFSET + 4U) = ns_reset;
+        (void)printf("[FSBL] XIP vectors handed over; no NS code copy, reset=0x%08lX\r\n",
+                     (unsigned long)ns_reset);
+      }
+      else for (uint32_t index = 0; index < img_size; index++)
       {
         destination[index] = source[index];
       }

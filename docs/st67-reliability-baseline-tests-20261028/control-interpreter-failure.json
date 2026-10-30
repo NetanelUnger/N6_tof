@@ -1,0 +1,6 @@
+{
+  "command": "C:\\Python314\\python.exe -B -u st67_p0_control52.py --seconds120",
+  "result": "FAIL before hardware/lease/output directory creation",
+  "error": "ModuleNotFoundError: No module named 'bleak'",
+  "resolution": "Used existing project/training/.venv/Scripts/python.exe with Bleak3.0.2; no package installation"
+}

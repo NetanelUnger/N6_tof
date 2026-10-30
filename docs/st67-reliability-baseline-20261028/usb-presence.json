@@ -1,0 +1,36 @@
+{
+  "captured_utc": "2026-10-28T20:42:34.3424064Z",
+  "serial_ports": [
+    {
+      "DeviceID": "COM6",
+      "Name": "STMicroelectronics STLink Virtual COM Port (COM6)",
+      "PNPDeviceID": "USB\\VID_0483&PID_3754&MI_01\\7&2D1716E9&0&0001"
+    }
+  ],
+  "present_st_devices": [
+    {
+      "Status": "OK",
+      "Class": "USBDevice",
+      "FriendlyName": "ST-Link Debug",
+      "InstanceId": "USB\\VID_0483&PID_3754&MI_00\\7&2D1716E9&0&0000"
+    },
+    {
+      "Status": "OK",
+      "Class": "Ports",
+      "FriendlyName": "STMicroelectronics STLink Virtual COM Port (COM6)",
+      "InstanceId": "USB\\VID_0483&PID_3754&MI_01\\7&2D1716E9&0&0001"
+    },
+    {
+      "Status": "OK",
+      "Class": "USB",
+      "FriendlyName": "USB Composite Device",
+      "InstanceId": "USB\\VID_0483&PID_3754\\000C00344142501620353451"
+    }
+  ],
+  "port_names": [
+    "COM6"
+  ],
+  "hardware_handles_opened": 0,
+  "resets": 0,
+  "firmware_writes": 0
+}

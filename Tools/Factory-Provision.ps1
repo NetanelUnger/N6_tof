@@ -4,36 +4,19 @@ param(
     [switch]$SkipBuild,
     [switch]$SkipBootVerification,
     [switch]$ConfirmErase,
+    [switch]$NonInteractive,
     [string]$IdeRoot = 'C:\ST\STM32CubeIDE_2.2.0\STM32CubeIDE'
 )
 
 $ErrorActionPreference = 'Stop'
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'N6-DevCommon.ps1')
+. (Join-Path $PSScriptRoot 'N6-FactoryValidation.ps1')
 
 $firmwareVersion = Get-N6FirmwareVersion -ProjectRoot $ProjectRoot
-$factoryManifestPath = Join-Path $ProjectRoot 'FlashImages\factory-manifest.json'
 
 function Assert-FactoryArtifactsCurrent {
-    if (-not (Test-Path -LiteralPath $factoryManifestPath -PathType Leaf)) {
-        throw 'Factory manifest is missing. Rerun without -SkipBuild.'
-    }
-    $manifest = Get-Content -Raw -LiteralPath $factoryManifestPath |
-        ConvertFrom-Json
-    if ([uint32]$manifest.firmware_version -ne $firmwareVersion) {
-        throw "Factory artifacts are stale: manifest version $($manifest.firmware_version), source version $firmwareVersion. Rerun without -SkipBuild."
-    }
-    foreach ($property in $manifest.sha256.PSObject.Properties) {
-        $artifact = Join-Path $ProjectRoot (Join-Path 'FlashImages' $property.Name)
-        if (-not (Test-Path -LiteralPath $artifact -PathType Leaf)) {
-            throw "Factory artifact is missing: $artifact"
-        }
-        $actual = Get-N6FileSha256 -Path $artifact
-        if ($actual -cne [string]$property.Value) {
-            throw "Factory artifact hash mismatch: $artifact. Rerun without -SkipBuild."
-        }
-    }
-    Write-Host "Factory manifest PASS: version $firmwareVersion and all image hashes match."
+    Assert-N6FactoryManifest -ProjectRoot $ProjectRoot -FirmwareVersion $firmwareVersion
 }
 
 Write-Host '============================================================'
@@ -47,6 +30,9 @@ Write-Host ''
 if ($BuildOnly -and $SkipBuild) {
     throw '-BuildOnly and -SkipBuild cannot be combined.'
 }
+if ($NonInteractive -and -not $ConfirmErase -and -not $BuildOnly) {
+    throw '-NonInteractive requires -ConfirmErase. ConfirmErase alone does not skip jumper/USB prompts.'
+}
 if ($BuildOnly) {
     & (Join-Path $PSScriptRoot 'build_and_sign.ps1') `
         -FirmwareVersion $firmwareVersion `
@@ -57,14 +43,6 @@ if ($BuildOnly) {
     Assert-FactoryArtifactsCurrent
     Write-Host 'BUILD-ONLY PASS: complete factory images are ready; hardware was not modified.'
     exit 0
-}
-
-if (-not $ConfirmErase) {
-    $confirmation = Read-Host 'Type ERASE ALL to continue'
-    if ($confirmation -cne 'ERASE ALL') {
-        Write-Host 'Cancelled; the board was not modified.'
-        exit 2
-    }
 }
 
 if (-not $SkipBuild) {
@@ -79,9 +57,17 @@ if (-not $SkipBuild) {
 
 Assert-FactoryArtifactsCurrent
 
+if (-not $ConfirmErase) {
+    $confirmation = Read-Host 'Type ERASE ALL to continue'
+    if ($confirmation -cne 'ERASE ALL') {
+        Write-Host 'Cancelled; the board was not modified.'
+        exit 2
+    }
+}
+
 Write-Host ''
 Write-Host 'Set BOOT0=1-2 and BOOT1=2-3, connect ST-LINK, then press RESET.'
-if (-not $ConfirmErase) {
+if (-not $NonInteractive) {
     [void](Read-Host 'Press Enter only after the board is in development boot')
 }
 
@@ -92,16 +78,38 @@ if ($LASTEXITCODE -ne 0) {
     throw 'Factory external-NOR programming failed.'
 }
 
+Write-Host 'Programming and write verification PASS. Boot has not been verified yet.'
 if (-not $SkipBootVerification) {
     Write-Host ''
     Write-Host 'Set BOOT0=1-2 and BOOT1=1-2, connect CN8, then press RESET.'
-    if (-not $ConfirmErase) {
-        [void](Read-Host 'Press Enter after Windows has enumerated the CN8 COM port')
+    if (-not $NonInteractive) {
+        [void](Read-Host 'Press Enter after changing BOOT, connecting CN8 and pressing RESET; USB detection will then wait up to 45 seconds')
     }
-    Wait-N6RunningVersion `
-        -RequestedPort $Port `
-        -ExpectedVersion $firmwareVersion `
-        -TimeoutSeconds 45
+    try {
+        Wait-N6RunningVersion -RequestedPort $Port -ExpectedVersion $firmwareVersion -TimeoutSeconds 45
+    }
+    catch {
+        $bootError = $_.Exception.Message
+        $cdcPresent = $false
+        try {
+            [void](Wait-N6UsbCdcPort -RequestedPort $Port -TimeoutSeconds 1)
+            $cdcPresent = $true
+        } catch { }
+        if ($cdcPresent) { throw "Programming passed but application boot/version verification failed: $bootError" }
+        Write-Host 'No CN8 USB CDC response. Do not erase or program again just for a missing COM port.'
+        Write-Host 'Keep BOOT0=1-2 and BOOT1=1-2. Disconnect ALL power: ST-LINK USB, CN8 USB and any external supply.'
+        Write-Host 'Wait until all LEDs are off, then reconnect ST-LINK and a CN8 USB DATA cable.'
+        Write-Host 'This is a cold-power recovery check; the reason RESET was insufficient is not established.'
+        if ($NonInteractive) { throw "Boot NOT VERIFIED; cold-power check needs the operator. $bootError" }
+        [void](Read-Host 'Press Enter after the complete power disconnect/reconnect; no programming will be repeated')
+        try {
+            Wait-N6RunningVersion -RequestedPort $Port -ExpectedVersion $firmwareVersion -TimeoutSeconds 45
+        }
+        catch { throw "Programming passed but boot remains NOT VERIFIED after cold power. $($_.Exception.Message)" }
+    }
+} else {
+    Write-Host 'FACTORY PROGRAMMING PASS: full erase, programming and write verification completed. BOOT NOT VERIFIED (-SkipBootVerification).'
+    exit 0
 }
 
 Write-Host ''

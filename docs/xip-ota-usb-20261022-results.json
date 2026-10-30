@@ -1,0 +1,1292 @@
+{
+  "schema": 1,
+  "date": "2026-10-22",
+  "status": "XIP_USB_OTA_ROLLBACK_PERSISTENT_BOOT_MEASURED; INTERMITTENT_OTA_SPI_TIMEOUT_ROOT_CAUSE_OPEN",
+  "branch": "feature/n6-xip-ota-usb",
+  "baseline": "80f2b511029be6d87f9e72c32b00515457671f89",
+  "image_code_commit": "8f74056c9c01c19504dccbb992952e2c16c409b4",
+  "main_unchanged": true,
+  "main_pushed_or_merged": false,
+  "server_changes_or_deployment": false,
+  "artifacts": [
+    {
+      "slot": "A",
+      "version": 12,
+      "folder": ".local-dependencies/xip/v12-A-no-export",
+      "built_before_commit_record": "dcb04faf6a8dece70bf8171f531bd35065d2dca1",
+      "effective_sources_verified_against_current_commit": true,
+      "budgets": {
+        "ram": {
+          "heap_start": "0x241a5610",
+          "heap_capacity_bytes": 369136,
+          "stack_limit": "0x241ff800"
+        },
+        "application": {
+          "heap_start": "0x2412cfd0",
+          "heap_capacity_bytes": 862256,
+          "stack_limit": "0x241ff800"
+        }
+      },
+      "files": {
+        "application-trusted.bin": {
+          "sha256": "1F6ED8ECAF1124421DEF02D250B9879681A41056997A5EB6C71BD8DEAD0BC988",
+          "bytes": 498080
+        },
+        "application.bin": {
+          "sha256": "D5E40F722E371D870116392B285D2EDBAAA47F04EB6DF16F015184938093C8B4",
+          "bytes": 497052
+        },
+        "application.elf": {
+          "sha256": "00F8E6DDEAD5B1213A7FC62812FCB2822809AFC817836636EF44B6975692A322",
+          "bytes": 9217336
+        },
+        "application.map": {
+          "sha256": "2680A399E4D0AA88C09220EB7F1C941FFFC9E89DB1E7CFC1D7F6753D4D71B148",
+          "bytes": 5413485
+        },
+        "AppliSecure-trusted.bin": {
+          "sha256": "D6E4B6C301E003794EFEBC77490BB14A3A8DB986890C11162BF3672B38619454",
+          "bytes": 65408
+        },
+        "AppliSecure.bin": {
+          "sha256": "965DBD58033A6AE652E85FBD561FB736DCBBB66259847C49165F169D3586417C",
+          "bytes": 64384
+        },
+        "AppliSecure.elf": {
+          "sha256": "1F92A394C5AB4F519E2E85635B0E7BAC5778433F13DFDB3F0292FE024C852EA5",
+          "bytes": 3034444
+        },
+        "AppliSecure.map": {
+          "sha256": "4091BB8AAD8387A6F1374682DFFC114994C21BB73FA6DA85F191AD8E3816719D",
+          "bytes": 643220
+        },
+        "FSBL-trusted.bin": {
+          "sha256": "DC6072D66CA06CDAC01A120A8BE44405D56E178BA865B8A8F7405CDFFA52DCAB",
+          "bytes": 86752
+        },
+        "FSBL.bin": {
+          "sha256": "0EB49B9E50EFCC742085011E4EB34E86FC9F1C3A57F90C8ED5FB23880522C52A",
+          "bytes": 85728
+        },
+        "FSBL.elf": {
+          "sha256": "DE7F3C84C656527B8FE594704982FA84E22D4B0F6E5C8A8FBF6B0E30D3D644F7",
+          "bytes": 3106252
+        },
+        "FSBL.map": {
+          "sha256": "67707504488814F1D16098E254CC5710EF7B144E71A75DED584C3568CF233052",
+          "bytes": 768060
+        },
+        "N6-XIP-A-v12.n6fw": {
+          "sha256": "6861BA66F5222043683F76730C3DD502B01200CC6D152B306D1A3A79F8B66F24",
+          "bytes": 498336
+        },
+        "ram.bin": {
+          "sha256": "19E27CAC86A60FE2E35E17F7AAB7C657EC602E8439060505DD3BB7717A3918CA",
+          "bytes": 497056
+        },
+        "ram.elf": {
+          "sha256": "A898F9D92AD0D9002F4D9FA7AD8F057315D12DF7ED6688C1896518E2A5F6A4F9",
+          "bytes": 9214828
+        },
+        "ram.map": {
+          "sha256": "21FFA4C836CA709E6B03DE4725A0E92021D560DAA8EDBCDAE7800DDD81229F0C",
+          "bytes": 5412718
+        }
+      },
+      "source_hashes_verified": 1080
+    },
+    {
+      "slot": "B",
+      "version": 13,
+      "folder": ".local-dependencies/xip/v13-B-no-export",
+      "built_before_commit_record": "dcb04faf6a8dece70bf8171f531bd35065d2dca1",
+      "effective_sources_verified_against_current_commit": true,
+      "budgets": {
+        "ram": {
+          "heap_start": "0x241a5610",
+          "heap_capacity_bytes": 369136,
+          "stack_limit": "0x241ff800"
+        },
+        "application": {
+          "heap_start": "0x2412cfd0",
+          "heap_capacity_bytes": 862256,
+          "stack_limit": "0x241ff800"
+        }
+      },
+      "files": {
+        "application-trusted.bin": {
+          "sha256": "CAFCED759EE7C146C31ADA3D9F99B6578E2BCFF0839F727297B74919FF8970FE",
+          "bytes": 498080
+        },
+        "application.bin": {
+          "sha256": "53FAD514E6FD6059CC52918FF1131E9BC13CE8FDE35DE9FEABB7F319CD0FC320",
+          "bytes": 497052
+        },
+        "application.elf": {
+          "sha256": "0EC32B12BF07AE8726186AAF5FC175994A3A92A103173C140319ACFCC34CC60A",
+          "bytes": 9217336
+        },
+        "application.map": {
+          "sha256": "69E21D407900C15447466C741DD30349A40F6EE2CDB171FD4126B41CB05D09E1",
+          "bytes": 5413485
+        },
+        "AppliSecure-trusted.bin": {
+          "sha256": "2C2E3A5F490CAB4C5EE46819832B24CE21786E310234785BA1DF74AB8B66D3BC",
+          "bytes": 65408
+        },
+        "AppliSecure.bin": {
+          "sha256": "965DBD58033A6AE652E85FBD561FB736DCBBB66259847C49165F169D3586417C",
+          "bytes": 64384
+        },
+        "AppliSecure.elf": {
+          "sha256": "1F92A394C5AB4F519E2E85635B0E7BAC5778433F13DFDB3F0292FE024C852EA5",
+          "bytes": 3034444
+        },
+        "AppliSecure.map": {
+          "sha256": "4091BB8AAD8387A6F1374682DFFC114994C21BB73FA6DA85F191AD8E3816719D",
+          "bytes": 643220
+        },
+        "FSBL-trusted.bin": {
+          "sha256": "E5BA19EE01459EB7FBA80FDCFA7FA1494C0ADFA30B7933401011483BEA21CA97",
+          "bytes": 86752
+        },
+        "FSBL.bin": {
+          "sha256": "0EB49B9E50EFCC742085011E4EB34E86FC9F1C3A57F90C8ED5FB23880522C52A",
+          "bytes": 85728
+        },
+        "FSBL.elf": {
+          "sha256": "DE7F3C84C656527B8FE594704982FA84E22D4B0F6E5C8A8FBF6B0E30D3D644F7",
+          "bytes": 3106252
+        },
+        "FSBL.map": {
+          "sha256": "67707504488814F1D16098E254CC5710EF7B144E71A75DED584C3568CF233052",
+          "bytes": 768060
+        },
+        "N6-XIP-B-v13.n6fw": {
+          "sha256": "027A2EEAB2D84913FFB8E5D8226CF783441AA8A22FB9B296911AB60ADDEDD571",
+          "bytes": 498336
+        },
+        "ram.bin": {
+          "sha256": "38CC7802FAB3EFE157987D1C828326449912666D2596E919C7296F5600553456",
+          "bytes": 497056
+        },
+        "ram.elf": {
+          "sha256": "275C1DB9239BEABB8B720CC04491B053C3891749A24F7DA9A3CD7C184008D12E",
+          "bytes": 9214828
+        },
+        "ram.map": {
+          "sha256": "21FFA4C836CA709E6B03DE4725A0E92021D560DAA8EDBCDAE7800DDD81229F0C",
+          "bytes": 5412718
+        }
+      },
+      "source_hashes_verified": 1080
+    }
+  ],
+  "proof": {
+    "elf_map_xip_layout": "PASS_STATIC_ONLY",
+    "hardware_pc_samples": {
+      "status": "PASS_AT_TRIAL_MAIN_ONLY",
+      "pc": "0x70191588",
+      "lr": "0x701a1817",
+      "sp": "0x24200000",
+      "elf": ".local-dependencies/xip/v12-A-no-export/application.elf",
+      "uart_vector_evidence": "0x70180400",
+      "ns_full_code_copy": false,
+      "scs_debug_alias_reads": "INCONCLUSIVE: zero-valued debug reads; not cache/MPU readback acceptance",
+      "log": ".local-dependencies/xip/resume-20261022/xip-trial-readback.log"
+    },
+    "heap_runtime_measurement": "NOT_RUN_ON_XIP",
+    "same_source_static_heap_gain_bytes": 493120,
+    "original_guarded_ram_heap_bytes": 369136,
+    "current_guarded_ram_companion_heap_bytes": 369136,
+    "xip_heap_bytes": 862256,
+    "original_ram_artifact_and_ordinary_debug_hashes_preserved": true,
+    "matching_ram_installer_health": "PASS USB/ToF/NPU/radio; image route NONE, sensor sent0; Wi-Fi restored with existing pairing",
+    "actual_XIP_application_operation": "PASS PC flash, full USB/ToF/NPU100-frame/legacy BLE CLI; Secure RAM handoff. Persistent NOR boot pending physical strap."
+  },
+  "tests": {
+    "initial_commands": [
+      {
+        "name": "boot_actual_c",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 3.182,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\boot_actual_c.log"
+      },
+      {
+        "name": "secure_actual_c",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 2.863,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\secure_actual_c.log"
+      },
+      {
+        "name": "package_negative_public_key",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 1.037,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\package_negative_public_key.log"
+      },
+      {
+        "name": "cloud_real_package_simulation",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 0.166,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\cloud_real_package_simulation.log"
+      },
+      {
+        "name": "cloud_existing_8",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 0.388,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\cloud_existing_8.log"
+      },
+      {
+        "name": "firmware_update_drain_5",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 2.637,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\firmware_update_drain_5.log"
+      },
+      {
+        "name": "spatial_profile_c_python",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 2.918,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\spatial_profile_c_python.log"
+      },
+      {
+        "name": "model_contract",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 0.349,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\model_contract.log"
+      },
+      {
+        "name": "boot_chain_hash_guards",
+        "status": "FAIL",
+        "exit_code": 1,
+        "seconds": 0.684,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\boot_chain_hash_guards.log"
+      },
+      {
+        "name": "version_stream_parser",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 0.593,
+        "log": ".local-dependencies\\xip\\acceptance-checked\\version_stream_parser.log"
+      }
+    ],
+    "boot_guard_followup": {
+      "status": "PASS",
+      "process_exit": 0,
+      "functional_cases": 5,
+      "change": "Disposable fixtures moved from Dropbox to system TEMP; assertions unchanged",
+      "retained_failures": [
+        "boot_chain_hash_guards.log",
+        "boot-chain-followup.log"
+      ]
+    },
+    "build_lock": "PASS",
+    "artifact_source_hashes": "PASS",
+    "case_counts": {
+      "actual_c_boot_vector_cases": 21,
+      "additional_actual_secure_scenario_groups": 5,
+      "public_key_package_cases": 9,
+      "existing_cloud_sender_tests": 8,
+      "real_xip_package_cloud_sender_simulation": {
+        "bytes": 498464,
+        "crc_blocks": 487,
+        "retry": true,
+        "sequence_wrap": true
+      },
+      "firmware_drain_cases": 5,
+      "spatial_profile_byte_exact_test": 1,
+      "model_contract_test": 1,
+      "streamed_version_replies": 72
+    },
+    "cloud_image_auto_map_policy": {
+      "status": "PASS",
+      "variants": [
+        0,
+        1
+      ],
+      "method": "Actual cloud_publish_status compiled; explicit-image mode preserves CLI readiness and legacy opt-in default",
+      "hardware": "RAM installer paired/Wi-Fi IP and imageNONE/sent0 verified"
+    },
+    "retained_resume_host_failures": [
+      "backup.py noninteractive GDB block timeout; corrected with command file",
+      "backup2.py unsupported monitor reset-halt syntax rejected; removed while DEV ROM verified",
+      "XIP trial debugger detach E31 after intentional AIRCR reset; actual Flash PC evidence retained"
+    ],
+    "recovery_MI_host": "10PASS; actual double-read/guard PASS; initial cleanup failed then corrected manually on hardware",
+    "Secure_ABI": "BuildPASS; static positive1/negative2; hardware B11 clock+main-entry PASS, A12 full runtime PASS",
+    "bounded_bootchain_writer": "5 host injected cases PASS; denied-effects import/preflight PASS; hardware write and independent full readback PASS"
+  },
+  "transport_acceptance": {
+    "USB": {
+      "ram_installer_to_inactive_A12_transfer": "PASS",
+      "authenticated_finalize": "PASS",
+      "bytes": 498336,
+      "package_sha256": "6861ba66f5222043683f76730c3dd502b01200cc6d152b306d1a3a79f8b66f24",
+      "trial_boot_to_flash_main": "PASS",
+      "boot_confirmation": "PASS UART10208 normal XIP service; independent post-confirm record read pending",
+      "update_while_executing_XIP": "Metadata boot confirmation PASS; full image update NOT_RUN. Prior USB A12 install ran from RAM installer.",
+      "both_directions": "NOT_RUN",
+      "latest_restage_after_verified_rollback": "PASS498336bytes signedA12"
+    },
+    "OTA": {
+      "existing_sender_simulation": "PASS from prior phase",
+      "actual_server_device_transfer_boot": "NOT_RUN"
+    },
+    "BLE_ToF_NPU_USB_xip_regressions": "100/100 same-frame tensors/classes PASS; CRC0, maxdelta1; BLE CLI5/5 <=1500ms. Not soak/all-class accuracy.",
+    "hardware_rollback_interruption_corrupt_packages": "Rollback independently PASS seq30 CRC/B11 hash and entire1MiB preservation. Corrupt/interrupted transfers NOT_RUN.",
+    "physical_power_cycle": "Human confirmed full disconnect/reconnect12:45UTC; initial ROM/DEV attach PASS"
+  },
+  "hardware_block": {
+    "action": "No external blocker currently; preparing actual signed USB image update",
+    "reason": "A12 USB/ToF/NPU now healthy after user cold reconnect",
+    "state": "WORKING_ON_AUTHORIZED_UPDATE_TESTS",
+    "board_runtime": "A12 XIP consistent with installed signed image, active health/HIL100 measured; no debugger attached",
+    "last_verified_app": "A12 XIP/new compatible Secure RAM runtime, ToF/NPU300/errors0, Cloud sent0, datasetoff; all COM/GDB handles closed",
+    "bootchain_installed_verified": true,
+    "B11_preserved": true,
+    "cloud_workspace": "inactive409; do not activate OTA/browser sensor stream before verified A12",
+    "next": "Passive UART/USB external boot observation; no NS debug attach; then rejected/cancelled package and full USB/OTA update tests when recovery is established",
+    "handles_and_shared_lease_released": false,
+    "capture_waiting": false
+  },
+  "persistent_actions": {
+    "nor_erase_program_commands_sent": true,
+    "otp_fuses_security_lifecycle_debug_locks": false,
+    "credential_config_pair_cache_changes": "No intentional changes; legacy B11 initialization ran after debugger detach, so NCP setter activity is not verified for that interval",
+    "new_sensor_uploads": "Prior measured no-export RAM installer:0; unexpected legacy B11 runtime interval:UNVERIFIED",
+    "scope": "Only authenticated inactive A/v12 and alternating metadata via existing Secure updater. FSBL/Secure NOR and confirmed B/v11 not programmed."
+  },
+  "recovery": {
+    "artifact_folder": ".local-dependencies/recovery-20261022",
+    "guarded_elf_sha256": "6a6a5d1fcd70be9ed1826624b4e3bf97d5ec35758c9f1915772e1fa4b5c8d781",
+    "complete_current_nor_backup_available": true,
+    "before_first_nor_write": [
+      "COM/shared ownership and DEV BOOTSR2 verified",
+      "Two identical4MiB NOR reads; metadata CRCs and both image hashes/signatures verified",
+      "Exact guarded original RAM baseline successfully restored and healthy",
+      "Confirmed B/v11 identified and preserved; only inactive A selected for first USB update"
+    ],
+    "backup": {
+      "backup_sha256": "cb3d9e4ffee29d832c7ca0cb516f06232dba2c4c5598e77fd6c81ce7feb9f05a",
+      "two_reads_identical": true,
+      "bytes": 4194304,
+      "metadata_words": [
+        1380070990,
+        1,
+        27,
+        1,
+        1,
+        11,
+        0,
+        10
+      ],
+      "images": [
+        {
+          "slot": "B",
+          "version": 11,
+          "bytes": 497952,
+          "sha256": "9c8b0516281fe19bc684700f7922a7437afa22b14be00e2f9e2559a70a8386d4"
+        },
+        {
+          "slot": "A",
+          "version": 10,
+          "bytes": 494272,
+          "sha256": "f4510a6809f7317d76f002c9529c4135b9c8265093ca6707ce8828c1b0e76bc8"
+        }
+      ]
+    },
+    "backup_folder": ".local-dependencies/xip/resume-20261022",
+    "recovery_signatures": "PASS independent existing public-key validation B/v11 and A/v10",
+    "known_guarded_ram_restore": "PASS supported loader, original6a6a5d1f...; later matching RAM installer also boots",
+    "independent_rollback_verified": {
+      "bytes": 4194304,
+      "double_read_identical": true,
+      "sha256": "8a7bca4efc889a65b2928b5b8b0dbba46357a1862bb0323e43a31b0b73ffaf30",
+      "records": [
+        {
+          "bank": 0,
+          "words": [
+            1380070990,
+            1,
+            30,
+            1,
+            1,
+            11,
+            4294967295,
+            0
+          ],
+          "crc_valid": true
+        },
+        {
+          "bank": 1,
+          "words": [
+            1380070990,
+            1,
+            29,
+            3,
+            1,
+            11,
+            0,
+            12
+          ],
+          "crc_valid": true
+        }
+      ],
+      "confirmed_slot": "B",
+      "confirmed_version": 11,
+      "newest_sequence": 30,
+      "state": "CONFIRMED",
+      "pending_slot": null,
+      "B_slot_all_1MiB_unchanged": true,
+      "NOR_boot_chain_unchanged": true,
+      "A12_exact_signed_package_payload": true,
+      "cleanup": "Failed: host passed ENABLE0 instead of DISABLE1, then invalid-hex error parking after interrupt. No application continue sent; actual PC after cleanup not yet checked."
+    },
+    "last_complete_backup_available": true,
+    "last_complete_backup_checkpoint": "Post bootchain independent double4MiB SHA6cc2cfb5... seq33/A12/fallbackB11; original pre-write backups retained"
+  },
+  "npu_assessment": {
+    "processed_sensor_grid": [
+      54,
+      42
+    ],
+    "current_input": [
+      1,
+      50,
+      64,
+      1
+    ],
+    "input_bytes": 3200,
+    "output_bytes": 4,
+    "activation_pool_bytes_from_generated_network": 17408,
+    "weight_bytes": 55425,
+    "weight_runtime_bank": "SRAM6 at0x24350000",
+    "weight_bank_capacity_bytes": 458752,
+    "integration_weight_budget_bytes": 65536,
+    "cpu_sram2_savings_are_not_automatic_npu_pool": true,
+    "existing_full_field_profile": "spatial_depth_v1; C/Python agreement PASS; previous100-frame hardware evidence historical",
+    "rps_model_or_dataset_changed": false,
+    "optical_autofocus_evidence": "Not established by current code; closest component crop is software preprocessing",
+    "larger_native_shape_requires": "Contract/training/quantization/code generation/linker/pool reservation and new HIL"
+  },
+  "previous_offline_checkpoint": "xip-ota-usb-20261022-initial-results.json",
+  "resume_1245": {
+    "human_full_power_reconnect_confirmed": true,
+    "starting_commit": "da11c0f557fa1bf3fe87bb9d32c011bfd1aa9522",
+    "initial_attach": {
+      "pc": "0x18003514",
+      "sp": "0x341037a8",
+      "bootsr": 2
+    },
+    "new_application_slot_write": false,
+    "rollback": {
+      "actual_FSBL_UART": "seq29/TRIAL3/confirmedB11/pendingA12; unconfirmed trial detected; rolling back to slot1; signature0/hash accepted/verification0; copied B11 vectors24200000/241219f1",
+      "firmware_internal_metadata_commit_readback": "PASS before rolling-back UART line (production control flow)",
+      "independent_metadata_dump": "NOT_COMPLETED",
+      "B_image_firmware_authentication": "PASS",
+      "independent_postrollback_B_dump": "NOT_COMPLETED"
+    },
+    "harness_failure": {
+      "cause": "Loaded application ELF lacks FSBL MapMemory symbol; GDB batch exited at handoff. A subsequent inspection detached and resumed legacy B11. Later helper refused to continue because PC had advanced to2413bd58.",
+      "legacy_application_observed": "UART ToF acquired173/processed70; radio waiting WIFI_CONNECT and restore/recovery through tick23039",
+      "legacy_settings_and_cloud_interval": "UNVERIFIED; no credential/pairing command or intentional sensor collection sent. Do not infer no NCP setter or no upload from absent telemetry.",
+      "fix_prepared_only": "recovery_inspect_next.py preflights four FSBL symbols, stops before Firmware_Boot_Prepare, parks at Secure Error_Handler before MapMemory, reads new backup names and never enters legacy B11. Host syntax/symbol checks PASS; hardware NOT_RUN."
+    },
+    "debug_diagnostics": {
+      "AP1_low_frequency_hotplug_halt": "FAIL unable to get coreID",
+      "AP1_HWRSTPULSE": "FAIL unable to get coreID",
+      "AP0_hotplug_identification": "PASS device486/revZ/3.28V",
+      "AP0_hardRst": "CLI reported performed; subsequent AP1 still error32, actual CPU reset effect UNVERIFIED",
+      "AP0_documented_memory_reads": "FAIL BOOTSR and DBGMCU ID/CR; status not obtained",
+      "passive_uart_8s": "No output",
+      "root_cause": "UNKNOWN. Failure recurred during legacy RAM B11 without another direct AIRCR write, so direct AIRCR alone is not established cause."
+    },
+    "pending_physical_action": "Press physical RESET once in DEV to distinguish probe NRST path from core/power state; awaiting human completion, no more probes now.",
+    "evidence_folder": ".local-dependencies/xip/resume-20261022",
+    "handles_and_shared_lease_released": true
+  },
+  "resume_1622": {
+    "human_physical_RESET_in_DEV_confirmed": true,
+    "starting_commit": "6ce33283135389a284be5b56a2b3f638d37137e9",
+    "no_reset_AP1_attach": "FAIL Target unknown error32 before GDB connection/RAM load",
+    "AP0_read_nonsecure_DBGMCU_alias": "Target486/revZ/3.28V identified;44001000 read failed. No status or core state obtained",
+    "new_RAM_load": false,
+    "new_slot_or_metadata_write": false,
+    "new_probe_reset": false,
+    "current_boot_or_runtime": "UNKNOWN; unable to read PC/BOOTSR after human physical RESET",
+    "root_cause": "UNKNOWN; physical RESET did not restore AP1, unlike prior full-power reconnect. No debug unlock or security change attempted.",
+    "host_controller": {
+      "path": "Tools/read_xip_recovery.py",
+      "tests": "9 PASS hil_tests/test_xip_recovery_reader.py; includes real installed GDB MI error recovery",
+      "actual_FSBL_hash_and_four_symbols": "PASS preflight only",
+      "hardware_execution": "NOT_RUN blocked by AP1",
+      "contract": "Require current feature branch, exact FSBL hash, four FSBL symbols, shared XIP lease and observed DEV ROM before RAM load. Interactive MI handles failures, parks in Secure Error_Handler before mapped reads, verifies park before detach; cleanup requests disconnect before exit. No reset/erase/security/application-start commands. Actual dead-link outcome remains unknown if parking fails."
+    },
+    "reference_lead": {
+      "ST_article": "https://community.st.com/stm32-mcus-60/how-to-debug-stm32n6-using-stm32cubeide-151187",
+      "finding": "ST documents a .stldr DeInit mapped-mode bug causing reprogramming errors needing power cycle. No external loader was used in this failed attach/resume, so causal relevance NOT_ESTABLISHED. Do not infer this is the root cause."
+    },
+    "pending": "Full removal of all connected supplies and reconnect in DEV, awaiting new human confirmation. Physical RESET result is already measured; do not repeat the same reset sequence. Then use guarded reader first, no legacy app entry.",
+    "handles_and_shared_lease_released": true
+  },
+  "resume_1641": {
+    "starting_commit": "d47d2aad633521ba8c7daeaa46767dfa72023425",
+    "human_full_reconnect_confirmed": true,
+    "initial_AP1_ROM": "PASS PC18003514/BOOTSR2",
+    "independent_rollback_read": {
+      "bytes": 4194304,
+      "double_read_identical": true,
+      "sha256": "8a7bca4efc889a65b2928b5b8b0dbba46357a1862bb0323e43a31b0b73ffaf30",
+      "records": [
+        {
+          "bank": 0,
+          "words": [
+            1380070990,
+            1,
+            30,
+            1,
+            1,
+            11,
+            4294967295,
+            0
+          ],
+          "crc_valid": true
+        },
+        {
+          "bank": 1,
+          "words": [
+            1380070990,
+            1,
+            29,
+            3,
+            1,
+            11,
+            0,
+            12
+          ],
+          "crc_valid": true
+        }
+      ],
+      "confirmed_slot": "B",
+      "confirmed_version": 11,
+      "newest_sequence": 30,
+      "state": "CONFIRMED",
+      "pending_slot": null,
+      "B_slot_all_1MiB_unchanged": true,
+      "NOR_boot_chain_unchanged": true,
+      "A12_exact_signed_package_payload": true,
+      "cleanup": "Failed: host passed ENABLE0 instead of DISABLE1, then invalid-hex error parking after interrupt. No application continue sent; actual PC after cleanup not yet checked."
+    },
+    "reader_teardown": {
+      "initial": "FAIL host used ENABLE0 instead of DISABLE1, returned-3; PC update after unconditional interrupt failed Invalid hex digit83",
+      "actual_followup": "AP1 available, PC34182906/Error_Handler+26, NS vectors0/BOOTSR2; no legacy application entry",
+      "corrected_hardware_cleanup": "PASS actual DISABLE1 returns0; Secure parking PC341828ec readback verified",
+      "actual_nonROM_guard": "PASS refuses RAM load and disconnects",
+      "source_fix": "Use EXTMEM_DISABLE enum, avoid interrupt when halted, log MI commands; reject non-ROM PC before any Secure BOOTSR alias read",
+      "host_tests": "10 PASS including actual FSBL enum DWARF and GDB error recovery"
+    },
+    "guarded_RAM_restore": "PASS matched v12 artifacts, ToF/NPU healthy, imageNONE/ToFsent0/datasetoff",
+    "USB_restage": {
+      "reason": "Independent seq30/B11/no pending allows exact signed A12 re-stage through existing authenticated path",
+      "bytes": 498336,
+      "sha256": "6861ba66f5222043683f76730c3dd502b01200cc6d152b306d1a3a79f8b66f24",
+      "finalization": "PASS",
+      "B_or_boot_chain_written": false
+    },
+    "XIP_runtime": {
+      "main_proof": {
+        "pc": "0x70191588",
+        "lr": "0x701a1817",
+        "sp": "0x24200000",
+        "slot": "A",
+        "version": 12,
+        "run_authorized": true,
+        "no_NS_image_RAM_copy": true
+      },
+      "application_startup": "PASS",
+      "boot_confirmation_UART_tick_ms": 10208,
+      "boot_confirmation": "PASS normal Secure service and its metadata readback while XIP executes",
+      "observed_pretrial_record": "seq31/PENDING2/confirmedB11/pendingA12",
+      "expected_after_confirmation": "seq33/CONFIRMED/A12/fallbackB11; independent read pending",
+      "USB_version": 12,
+      "ToF_frame": 143,
+      "NPU_runs": 56,
+      "NPU_errors": 0,
+      "inference_ms": 4,
+      "BLE": "GATT ready/advertising ACK/disconnected; RF/reconnect NOT_RUN",
+      "image_route": "NONE",
+      "dataset": "off",
+      "Cloud_ToF_sent_at_tick20162": 0,
+      "later_UART": "WiFi IP acquired; HTTP409 workspace_inactive; no Cloud stream requested",
+      "weights_UART": "55425bytes copied to SRAM6",
+      "runtime_at_end": "UNKNOWN after accidental debugger attach"
+    },
+    "hundred_frame_attempt": {
+      "accepted_frames": 0,
+      "stream_ON_sent": false,
+      "result": "NOT_RUN imports failed before serial acquisition",
+      "cause": "Local helper inspect.py shadowed stdlib inspect when dataclasses imported it, executing unintended debugger attach/Secure-alias reads; inspect.signature AttributeError",
+      "retained_PC": "701aedd0/HAL_TIM_IRQHandler from exact ELF",
+      "detach": "E31",
+      "USB_followup": "Open blocked; owned helper terminated",
+      "no_reset_resume": "FAIL AP1 coreID unavailable before run",
+      "fixed": "Renamed probe_dev_rom_attach.py and added main guard; HIL excludes helper directory and verifies stdlib inspect path; --preflight-only validates TensorFlow, original model and contract without hardware; historical probe direct execution disabled",
+      "fixed_host_preflight": "PASS model59f72382.../contract5137ed48...",
+      "root_cause_remaining": "Unexpected attach cause PROVEN host import collision; failed NS debug resume mechanism UNPROVEN. Avoid NS debugger probes."
+    },
+    "pending": "New all-power reconnect in DEV requested. First corrected reader should inspect confirmedA12/fallbackB11, then boot already-stored A12 with matching RAM chain; NO USB rewrite. No NS debugger probe; run no-hardware HIL preflight first. Preserve B11 until a valid persistent A12 boot/recovery is established.",
+    "handles_and_shared_lease_released": true
+  },
+  "historical_hardware_block_1641": {
+    "action": "Recover after unintended NS debug attach caused by host import collision",
+    "target": "ST-LINK000C00344142501620353451, NUCLEO-N657X0-Q",
+    "reason": "Secure-alias reads failed, detach E31, USB open blocked; AP1 coreID unavailable before no-reset resume",
+    "reset_executed": true,
+    "approval_denial": false,
+    "rollback_operation_executed": true,
+    "board_runtime": "UNKNOWN after debug access failure; last measured A12 XIP operating/boot-confirmed",
+    "last_verified_boot_state": "XIP boot confirmation UART10208; expected seq33/A12/fallbackB11, not independently read",
+    "nor_boot_chain_written": false,
+    "handles_and_lease_released": true,
+    "pending": "New all-power reconnect in DEV requested. First corrected reader should inspect confirmedA12/fallbackB11, then boot already-stored A12 with matching RAM chain; NO USB rewrite. No NS debugger probe; run no-hardware HIL preflight first.",
+    "root_cause": "Unexpected attach cause PROVEN host import collision; failed NS debug resume mechanism UNPROVEN. Avoid NS debugger probes."
+  },
+  "resume_1709": {
+    "import_audit": {
+      "imports_pass": 141,
+      "side_effects": 0,
+      "main_guarded_cli_helpers": 27,
+      "negative_tests": 7,
+      "training_tests": 40,
+      "new_writer_import_and_preflight": "PASS hardware/subprocess/network/file-write denied",
+      "new_launcher_preflight": "PASS no hardware effects"
+    },
+    "recovery_before_bootchain": {
+      "nor_written": false,
+      "application_entered": false,
+      "initial_pc": "0x18003514",
+      "bootsr": 2,
+      "bytes": 4194304,
+      "double_read_identical": true,
+      "sha256": "0927f173a07437909a3585f7a9ba4ffa3b0819cf1aaf226ea541739c83d2543f",
+      "park_verified": true
+    },
+    "metadata": "Independent seq33 CONFIRMED A12/fallbackB11; both CRCs valid; original B slot/prefix exact before bootchain write",
+    "HIL": {
+      "scope": "XIP A12 same-frame USB computation regression, not all-class field accuracy or training-stage acceptance",
+      "model_sha256": "59f723828dffae236dd9fa37e2d0de9d7d1a3a31bc07fb4847b6a27dc6637d39",
+      "contract_sha256": "5137ed48ca591acb0ab595f612a05c475e865c516f3abe8948a8585928b6c82c",
+      "decision_consistent": 100,
+      "frames": 100,
+      "exact_tensors": 100,
+      "npu_frames": 100,
+      "max_score_delta": 1,
+      "class_matches": 100,
+      "cloud_sensor_exports": "No Cloud stream requested; verify postflight sent0",
+      "passed": true,
+      "crc_errors": 0,
+      "framing_errors": 1,
+      "last_parser_diagnostic": "implausible header prefix",
+      "sensor_fps": 3.5524616047079087,
+      "elapsed_s": 28.70299999997951,
+      "unique_tensors": 1
+    },
+    "HIL_qualifiers": [
+      "Original demo model unchanged; static scene/one unique tensor; no field accuracy claim",
+      "First retained run passed computation but was marked FAIL by incorrect extra framing-zero gate; existing protocol ACK N6DF v4 yields framing candidate, CRC0; corrected canonical gates pass",
+      "Score delta1 within existing HIL tolerance; no threshold relaxed"
+    ],
+    "BLE": {
+      "passed": true,
+      "PONGs": 5,
+      "latencies_ms": [
+        131.187,
+        92.829,
+        104.937,
+        176.548,
+        138.526
+      ],
+      "gate_ms": 1500,
+      "pair_requested": false,
+      "images_subscribed": false,
+      "disconnected": true
+    },
+    "Secure_backward_compatibility": {
+      "hardware_B11": {
+        "pc": "0x24111b90",
+        "lr": "0x24121a4b",
+        "sp": "0x24200000",
+        "slot": "B",
+        "version": 11,
+        "run_authorized": true,
+        "no_NS_image_RAM_copy": false,
+        "secure_build": ".local-dependencies\\xip\\v13-B-abi-compat4",
+        "legacy_entry_only": true,
+        "park": "0x241ff000",
+        "main_not_executed": true
+      },
+      "B11_scope": "Clock gateway startup and entry to main only; verified RAM parking loop before old app initialization; other six CMSE targets statically identical, not all dynamically called",
+      "hardware_A12": {
+        "pc": "0x70191588",
+        "lr": "0x701a1817",
+        "sp": "0x24200000",
+        "slot": "A",
+        "version": 12,
+        "run_authorized": true,
+        "no_NS_image_RAM_copy": true,
+        "secure_build": ".local-dependencies\\xip\\v13-B-abi-compat4",
+        "legacy_entry_only": false
+      },
+      "A12_runtime": "Normal boot confirmation tick10208; USB/ToF/NPU300/errors0/radioSPI0/CloudToFsent0/datasetoff",
+      "ABI": {
+        "status": "PASS",
+        "canonical_base": "0x3400F600",
+        "a12_base": "0x3400FF40",
+        "gates_per_island": 7,
+        "island_bytes": 64,
+        "cmse_targets_identical": true
+      },
+      "host_positive": 1,
+      "host_negative": 2,
+      "CPU_registers": {
+        "SAU0_RBAR": "0x3400F600",
+        "SAU0_RLAR": "0x3400F623",
+        "SAU4_RBAR": "0x3400FF40",
+        "SAU4_RLAR": "0x3400FF63",
+        "NS_VTOR": "0x70180400",
+        "NS_CCR": "0x00020201",
+        "NS_MPU_CTRL": "0x00000005",
+        "NS_MPU_RBAR": "0x70180006",
+        "NS_MPU_RLAR": "0x7027FFE1"
+      }
+    },
+    "bootchain_install": {
+      "Under_Reset": "AP1 connection failed before loader; independent double4MiB proves no changes",
+      "vendor_external_loader": "HotPlug connected; erase sectors0-1 failed; independent double4MiB proves no changes; NOT blindly retried",
+      "RAM_FSBL_driver": "PASS four owned64KiB sectors, Secure first thenFSBL, original sector tails retained; double whole4MiB readback exact",
+      "independent_controller_read": {
+        "nor_written": false,
+        "application_entered": false,
+        "initial_pc": "0x18003518",
+        "bootsr": 2,
+        "bytes": 4194304,
+        "double_read_identical": true,
+        "sha256": "6cc2cfb51d893b06e75d32c1614818406bcc2a6219f68cb2b98a9c9cae43faaf",
+        "park_verified": true
+      },
+      "unchanged_range": "Every byte0x70180000..0x703fffff exact before installation, including A12, entireB11, both metadata banks",
+      "FSBL_sha256": "aeb1fd671a1af5e4563ba438687dc0c1063b30873354d0aa02aa5358f7a9fe2e",
+      "Secure_sha256": "ed90aa191526e5b13565ae3c5463133f186ea4383348cd0a070f9b33793a75f3",
+      "otp_fuse_debug_lifecycle_credentials_changes": false,
+      "host_failure_injection_tests": 5
+    },
+    "static_heap_capacity": {
+      "RAM": 369136,
+      "XIP": 862256,
+      "gain": 493120,
+      "dynamic_stack_heap_high_water": "NOT_MEASURED; static linker capacity does not prove runtime fragmentation/margins or direct NPU accessibility"
+    },
+    "pending": [
+      "Physical external boot/reset/power-cycle",
+      "Full signed image write while XIP via USB",
+      "Actual OTA using existing server and credentials",
+      "Hardware bad signature/interruption tests",
+      "Persistent new-chain rollback/boot confirmation after update",
+      "Long regressions and dynamic memory high-water"
+    ],
+    "automatic_review": {
+      "denied_action": "write_stdin release to session92737",
+      "target": "host-only lease process, initially unverified in current context",
+      "initial_reason": "Unknown terminal process/effect",
+      "initial_executed": false,
+      "new_evidence": "Read-only elevated Win32_Process query proved PID50328 exact n6_hardware_lease.py owner/scope, matching status; source inspected shows only host lock cleanup",
+      "one_retry": "PASS OWNERSHIP RELEASED exit0",
+      "hardware_action_denied": false
+    }
+  },
+  "external_boot_1842": {
+    "user_confirmed_flash_jumpers_and_reset_utc": "2026-10-22T18:42Z",
+    "passive_capture": {
+      "thread": "n6-xip-passive-external-boot",
+      "pid": 58148,
+      "started_utc": "2026-10-22T18:39:35.916086+00:00",
+      "scope": "XIP passive COM6 UART capture only; no serial writes, debugger, resets or flash activity",
+      "status": "STOP_REQUESTED",
+      "port": "COM6",
+      "baud": 115200,
+      "serial_number": "000C00344142501620353451",
+      "dtr": false,
+      "rts": false,
+      "maximum_seconds": 1200,
+      "serial_writes": 0,
+      "bytes": 0,
+      "waiting_for_physical_change": true,
+      "elapsed_seconds": 229.971,
+      "last_heartbeat_utc": "2026-10-22T18:43:24.058612+00:00"
+    },
+    "USB_inventory": "COM6 ST-LINK only; N6TOF001/COM8 absent",
+    "AP0_read": "Read-only HotPlug BOOTSR0x56008100 failed; no reset/writes/AP1 attach in this turn",
+    "actual_BOOTSR": "UNKNOWN; never inferred from user physical confirmation",
+    "persistent_boot_acceptance": "NOT_CONFIRMED",
+    "board_runtime": "UNKNOWN; no application UART/USB observed",
+    "NOR_writes_this_turn": false,
+    "new_OTP_security_or_credential_actions": false,
+    "source_verification": {
+      "ST_UM3417_Rev4": "https://www.st.com/resource/en/user_manual/um3417-stm32n6-nucleo144-board-mb1940-stmicroelectronics.pdf",
+      "boot_jumpers": "Table4 JP1/JP2 1-2 default flash; Table9 BOOT0=0/BOOT1=0",
+      "UART": "Section7.13 115200/8N1/no flowcontrol; only UART PE5/PE6 wired to ST-LINK",
+      "ST_ES0620_Rev5": "https://www.st.com/resource/en/errata_sheet/es0620-stm32n6xxxx-device-errata-stmicroelectronics.pdf",
+      "applicability": "Silicon revision UNRESOLVED: retained CubeProgrammer2.23 AP0 logs conflict RevZ versus RevB; not PCB revision. ES0620 2.2.18 appliesZ/B but notX;2.2.22 appliesZ/B/X. No definitive per-revision classification from tool labels.",
+      "reset_clock_hazard_proven_in_current_firmware": {
+        "USART1": "FSBL main.c and NS debug_uart.c force HSI instead of defaultPCLK2",
+        "USBPHY": "Actual known-good A12 UART CCIPR6=0x00010000 proves OTGPHY1CKREFSEL nondefault",
+        "reset_sites": "debug_cli.c reboot and firmware_update.c drain branches call NVIC_SystemReset without clock restoration"
+      },
+      "causal_attribution": "Errata match is a hypothesis for this failed NRST startup, not isolated proof; no live blocked-failure trace available",
+      "next_design_requirements": [
+        "Before software reset restore all ES0620 2.2.22 mux fields with both clock sources alive, preserving unrelated fields and RAM execution of reset routine",
+        "Investigate2.2.18 early Secure/FSBL POR-reset-mode workaround with reserved retained SRAM word; do not blindly use0x34001004 because signed Secure image copy overwrites that address",
+        "No new NSC API/security permissions; retain B11/A12 gateway addresses",
+        "Cold FLASH boot before rewriting good signed images"
+      ]
+    },
+    "next_physical_action": "All-power cold disconnect/reconnect with jumpers left BOOT0=1-2/BOOT1=1-2; passive capture prepared before requesting it",
+    "pending_acceptance": "Persistent boot, full-image USB-from-XIP, OTA, new-chain failure recovery remain incomplete",
+    "passive_cold_capture": {
+      "thread": "n6-xip-passive-cold-flash",
+      "pid": 35376,
+      "started_utc": "2026-10-22T18:55:07.553165+00:00",
+      "scope": "XIP passive COM6 UART capture only; no serial writes, debugger, resets or flash activity",
+      "status": "READY",
+      "port": "COM6",
+      "baud": 115200,
+      "serial_number": "000C00344142501620353451",
+      "dtr": false,
+      "rts": false,
+      "maximum_seconds": 1200,
+      "serial_writes": 0,
+      "bytes": 0,
+      "waiting_for_physical_change": true
+    },
+    "automatic_review": {
+      "denied_action": "Start passive COM6 recorder with DTR=true",
+      "reason": "Asserted DTR could toggle control lines/reset board; conflicts with passive no-reset scope",
+      "executed": false,
+      "process_started": false,
+      "denied_action_retried": false,
+      "safe_alternative": "DTR=false/RTS=false recorder READY;PID35376/session25686; bounded1200s from18:55:07UTC"
+    }
+  },
+  "silicon_revision_evidence": {
+    "device_id": "0x486 (device family ID, not silicon/PCB revision)",
+    "tool": "STM32CubeProgrammer2.23.0/STLINKV3J17M11",
+    "retained_early": {
+      "file": ".local-dependencies/xip/resume-20261022/ap0-debug-status.log",
+      "line": 13,
+      "label": "Rev Z",
+      "requested_memory_read": "failed"
+    },
+    "retained_early_second": {
+      "file": ".local-dependencies/xip/resume-20261022/physical-reset1622-ap0-ns-status.log",
+      "line": 13,
+      "label": "Rev Z",
+      "requested_memory_read": "failed"
+    },
+    "retained_later": {
+      "file": ".local-dependencies/xip/external-boot-ap0-bootsr.log",
+      "line": 13,
+      "label": "Rev B",
+      "requested_memory_read": "failed"
+    },
+    "retained_healthy_later": {
+      "file": ".local-dependencies/xip/bootchain-compat-hotplug-program.log",
+      "lines": [
+        13,
+        14
+      ],
+      "label": "Rev B",
+      "core_connected": true
+    },
+    "raw_DBGMCU_IDCODE_value_retained": false,
+    "raw_BOOTROM_0x18001004_value_retained": false,
+    "official_mapping": "ES0620Rev5 Table2 shows DBGMCU REV_ID0x1000 sharedZ/B/X;2.2.5 explicitly documents incorrect constant DBGMCU_IDCODE and directs B devices to BootROM base0x18001000+offset4. This is not a new read or a unique observed value.",
+    "physical_package_marking": "NOT_INSPECTED",
+    "board_PCB_revision": "NOT_VERIFIED; NUCLEO-N657X0-Q is model, not silicon revision",
+    "conclusion": "Silicon revision unresolved; previous definitive RevB wording corrected. RevB/Z labels preserved unchanged. No hypothesis promoted to causal proof.",
+    "safe_next_identification": "When a known Secure/DEV state is safely available under ownership, record raw documented BootROM revision word and interpret with official device documentation; no live probe during pending passive capture",
+    "capture_not_disrupted": true
+  },
+  "capture_supervision_20261022": {
+    "hardware_actions_this_turn": false,
+    "capture_restarted": false,
+    "recorder_currently_active": false,
+    "port_free_verified": false,
+    "old_recorder": {
+      "pid": 35376,
+      "declared_started_utc": "2026-10-22T18:55:07.553165+00:00",
+      "last_heartbeat_utc": "2026-10-22T19:04:36.680548+00:00",
+      "elapsed_seconds_at_last_heartbeat": 569.114,
+      "intended_end_utc": "2026-10-22T19:15:07Z",
+      "uart_bytes": 0,
+      "result_file": "ABSENT; never fabricated",
+      "process": "ABSENT; exact CIM query returned no process, WinAPI OpenProcess returned87",
+      "session25686": "Unknown process id",
+      "original_actual_process_creation_time": "NOT_RECORDED; declared startup tuple matches immutable ready.json and owner.json",
+      "Application_event_query": "No matching Python/PID crash events returned for19:00..19:10UTC IDs1000/1001; not proof that no termination occurred",
+      "termination_cause": "UNKNOWN; no exit status, traceback or termination event retained. Executor timeout, host termination, serial error or close failure are unproven possibilities",
+      "cause_contributing_code_gap": "Old finally could skip lease cleanup if serial close raised; result was written only after normal loop. This explains a possible failure shape, not the observed cause."
+    },
+    "explicit_lease_recovery": {
+      "owner": {
+        "thread": "n6-xip-passive-cold-flash",
+        "pid": 35376,
+        "started_utc": "2026-10-22T18:55:07.553165+00:00",
+        "scope": "XIP passive COM6 UART capture only; no serial writes, debugger, resets or flash activity"
+      },
+      "process_check": {
+        "state": "absent",
+        "winerror": 87
+      },
+      "owner_status_sha256": "2c6c3a3ad8ed609e5a0a4559b6b217143638fbdf0ca4163cf2f5d01453fb5e37",
+      "marker_lock_acquired": true,
+      "port_free_verified": false,
+      "hardware_access": false,
+      "action": "archive exact stale owner files",
+      "archived": true
+    },
+    "cleanup_verified": {
+      "owner_status_absent": true,
+      "owner_marker_absent": true,
+      "recovery_guard_absent": true,
+      "old_logs_unchanged": true,
+      "archive": ".local-dependencies/xip/passive-cold-flash-1-lease-recovery",
+      "port_availability": "NOT_PROBED"
+    },
+    "host_changes": {
+      "supported_owner_recovery": "Explicit n6_hardware_lease.py --recover-stale-from, exact owner/start tuple, no live/reused/unknown PID, unlocked marker, guarded byte-exact archive. Default acquisition never takes over stale owners.",
+      "new_process_identity": "Actual WinAPI process creation timestamp recorded for future owner records",
+      "future_capture_window_seconds": 300,
+      "future_heartbeat": "Atomic JSON plus stdout every5seconds; independent recorder lifetime still must be monitored",
+      "future_error_handling": "Structured ABORTED results, partial bytes retained; own handle and lease cleanup independently attempted. Close uncertainty preserves owner files for explicit recovery. SIGINT/SIGTERM stop flags; TerminateProcess/host failure cannot execute finally.",
+      "future_power_disconnect": "Only confirmed device absence permits bounded reopen of exact ST-LINK COM6; any access denial aborts without retry; original deadline retained. Initial boot bytes may precede USB re-enumeration.",
+      "DTR": "Only0 accepted; active DTR removed after prior denial",
+      "hardware_validation": "NOT_RUN; all serial tests use injected mock ports"
+    },
+    "host_tests": {
+      "capture_mock_cases": 12,
+      "owner_recovery_cases": 10,
+      "denied_effect_import_checks": 2,
+      "all_passed": true,
+      "full_duration_external_executor_soak": "NOT_RUN; deadline tests use a simulated clock. No hardware capture was started."
+    },
+    "pending": "User must notify before fresh cold test; do not assume old recording is running or auto-rearm. Flash jumpers user-reported1-2/1-2; current runtime and silicon revision remain unresolved."
+  },
+  "cold_confirmation_1934": {
+    "user_confirmation_utc": "2026-10-22T19:34Z",
+    "actual_power_action_time": "UNKNOWN; previous recorder inactive, cold boot not captured",
+    "nonintrusive_inventory": "COM6/STLINK000C00344142501620353451 only; appUSB N6TOF001 absent",
+    "debugger_reset_flash_actions": false,
+    "old_logs": "unchanged; old UART0bytes",
+    "new_capture": {
+      "thread": "n6-xip-passive-cold-1934",
+      "pid": 31480,
+      "started_utc": "2026-10-22T19:35:55.494818+00:00",
+      "scope": "XIP passive COM6 UART capture only; no serial writes, debugger, resets or flash activity",
+      "process_created_utc": "2026-10-22T19:35:55.242884+00:00",
+      "status": "READY",
+      "port": "COM6",
+      "baud": 115200,
+      "serial_number": "000C00344142501620353451",
+      "dtr": false,
+      "rts": false,
+      "maximum_seconds": 300,
+      "serial_writes": 0,
+      "bytes": 0,
+      "waiting_for_physical_change": true
+    },
+    "capture_output": ".local-dependencies/xip/passive-cold-flash-1934/uart.log",
+    "capture_session": 50225,
+    "hardened_code_commit": "ae773f18523fd6c4ae15d66d6cde046dbe7f81c2",
+    "scope": "passive UART only, no serial writes, no debugger/reset/flash. Fresh physical step must follow verified readiness.",
+    "runtime": "UNKNOWN; no application status available, persistent XIP acceptance incomplete",
+    "future_physical_instruction": "Before19:40:55UTC, cold-disconnect all sources then reconnect, retainBOOT0=1-2/BOOT1=1-2; noDEV change; inspect captured logs before any further action"
+  },
+  "cold_live_1959": {
+    "user_confirmation_utc": "2026-10-22T19:59Z",
+    "boot_UART_recording": "NOT_CAPTURED; prior recorder closed19:40:55",
+    "current_appUSB": "COM8/N6TOF001; read-only version12 and PONG tick227040; ToFready/NPU828errors0/WiFiIP/CloudToFsent0/datasetoff",
+    "no_RAM_load_since_user_cold_reconnect": true,
+    "cold_boot_evidence_type": "User-performed full-power reconnect in FLASH, subsequent USB runtime observed; not instrumented power rails/BootROM trace. Signed storedA12 XIP/previous PC-in-flash proof retained.",
+    "HIL": {
+      "scope": "XIP A12 same-frame USB computation regression, not all-class field accuracy or training-stage acceptance",
+      "model_sha256": "59f723828dffae236dd9fa37e2d0de9d7d1a3a31bc07fb4847b6a27dc6637d39",
+      "contract_sha256": "5137ed48ca591acb0ab595f612a05c475e865c516f3abe8948a8585928b6c82c",
+      "decision_consistent": 100,
+      "frames": 100,
+      "exact_tensors": 100,
+      "npu_frames": 100,
+      "max_score_delta": 1,
+      "class_matches": 100,
+      "cloud_sensor_exports": "No Cloud stream requested; verify postflight sent0",
+      "passed": true,
+      "crc_errors": 0,
+      "framing_errors": 1,
+      "last_parser_diagnostic": "implausible header prefix",
+      "sensor_fps": 3.6425181206078223,
+      "elapsed_s": 28.07799999997951,
+      "unique_tensors": 6
+    },
+    "USB_negative_cases": {
+      "passed": true,
+      "cases": [
+        {
+          "name": "bad-crc",
+          "passed": true,
+          "bytes_sent": 133
+        },
+        {
+          "name": "cancel-partial-manifest",
+          "passed": true,
+          "bytes_sent": 133
+        },
+        {
+          "name": "bad-signature",
+          "passed": true,
+          "bytes_sent": 1029
+        }
+      ],
+      "Secure_auth_reject_UART": true,
+      "valid_manifest_sent": false,
+      "slot_erase_authorized": false,
+      "independent_NOR_read_after_cases": "Not performed; do not attach debugger during NS runtime",
+      "Cloud_sensor_exports": 0
+    },
+    "full_USB_update": "NOT_STARTED; A12 remains confirmed, B11 still on board at this checkpoint",
+    "OTA": "NOT_STARTED; server unchanged",
+    "reset_candidate": {
+      "directory": ".local-dependencies/xip/v13-B-reset-safe3",
+      "package": {
+        "sha256": "EB76B264687ADA6F39EFDEC432D19582696CA1FE655A83C1A4CC4FEEF5F95217",
+        "bytes": 498720
+      },
+      "budgets": {
+        "ram": {
+          "stack_limit": "0x241ff800",
+          "heap_start": "0x241a5630",
+          "heap_capacity_bytes": 369104
+        },
+        "application": {
+          "stack_limit": "0x241ff800",
+          "heap_start": "0x2412d090",
+          "heap_capacity_bytes": 862064
+        }
+      },
+      "reset_entry": {
+        "address": "0x24101350",
+        "status": "RAM_RESET_ENTRY_VERIFIED",
+        "hardware_reset_test": "NOT_RUN"
+      },
+      "actual_C_reset_scenarios": 15,
+      "drain_regressions": 5,
+      "hardware_reset": "NOT_RUN",
+      "limits": "NS mux check/restore only; no NRST2.2.18 workaround, no security/OTP change; runtime conditions may refuse reset. Existing A12 still uses old reset and may need a physical cold restart after committing B13.",
+      "next_fallback_policy": "Valid A12 after user cold boot/HIL100 stays confirmed while inactive B11 is replaced; original B11 signed/full-NOR backups retained on host"
+    }
+  },
+  "current_board_checkpoint": {
+    "version": 18,
+    "slot": "B",
+    "confirmed": "UART Secure boot confirmation at10208ms after authenticated FSBL trial",
+    "fallback": "A17 retained in other slot",
+    "PC": "0x702CF144",
+    "VTOR": "0x70280400",
+    "latest_user_straps": "both1-2 FLASH",
+    "ToF_ready": true,
+    "NPU_runs": 1542,
+    "NPU_errors": 0,
+    "Cloud_sensor_exports": 0,
+    "SPI_faults": 0,
+    "NCP_recoveries": 0,
+    "BLE_driver_errors": 0,
+    "UART_drops": 0,
+    "dataset_off": true,
+    "image_route": "NONE",
+    "owned_ports_closed": true,
+    "hardware_lease_released": true,
+    "no_active_recorder": true,
+    "new_NOR_backup_after_final_updates": "Not taken; original immutable4MiB recovery backups and exact signed packages retained; no SWD attach to running NS"
+  },
+  "USB_full_update_from_XIP": {
+    "aggregate_passed": true,
+    "source": "A12",
+    "target": "B13",
+    "bytes": 498720,
+    "package_sha256": "eb76b264687ada6f39efdec432d19582696ca1fe655a83c1a4cc4feef5f95217",
+    "automatic_boot": true,
+    "independent_confirmation": true,
+    "raw_first_harness_passed": false,
+    "raw_failure_reason": "UART closed around9.2s before usual10.2s boot confirmation; retained unchanged",
+    "superseding_confirmation": "confirmation-b13-after-usb/result.json: confirmed_version13_read_by_Secure=true",
+    "interrupted_valid_manifest_test": "PASS CAN after768 image bytes; A12 healthy, then separately full transfer completed",
+    "raw_metadata_banks_read_after": "NOT_PERFORMED; no SWD attach to NS runtime"
+  },
+  "reset_A14_candidate": {
+    "sha256": "ca60030663b4919d4aa72a5263ac20942d9ddebcc32eb21310b2d20c7dcbb778",
+    "bytes": 498720,
+    "offline_signature": "PASS",
+    "host_actual_C_cases": 16,
+    "drain_cases": 5,
+    "fix": "XSPI1SEL1=CLKP accepted, RAM routine restores HCLK0 plus USBPHY/USART mux; unfamiliar sources still refuse",
+    "B13_observed": "reboot yes refused before SYSRESETREQ, application still healthy",
+    "A14_hardware_reset": "NOT_TESTED",
+    "budgets": {
+      "ram": {
+        "heap_start": "0x241a5630",
+        "stack_limit": "0x241ff800",
+        "heap_capacity_bytes": 369104
+      },
+      "application": {
+        "heap_start": "0x2412d090",
+        "stack_limit": "0x241ff800",
+        "heap_capacity_bytes": 862064
+      }
+    }
+  },
+  "cloud_live_probe": {
+    "passed": true,
+    "commands": 5,
+    "connection_closed": true,
+    "new_credentials": false,
+    "server_changes": false,
+    "sensor_exports": 0,
+    "evidence": ".local-dependencies/xip/cloud-probe-b13-pathfixed/result.json"
+  },
+  "OTA_current": {
+    "package_bytes": 498720,
+    "accepted_data_blocks": 488,
+    "EOT_ACK": true,
+    "automatic_boot_confirmed": true,
+    "timeouts": 0,
+    "retries": 0,
+    "SPI_faults": 0,
+    "ACKs": {
+      "count": 489,
+      "p50_ms": 919.7369000000181,
+      "p95_ms": 1277.1842000000179,
+      "max_ms": 4499.982799999998
+    },
+    "SignalR_RPC": {
+      "count": 489,
+      "p50_ms": 55.34429999999702,
+      "p95_ms": 73.24580000000424,
+      "max_ms": 458.76720000000205
+    },
+    "max_host_event_loop_lag_ms": 64.86409999997704,
+    "timing_report": "xip-ota-b18-timing-20261023.json"
+  },
+  "measured_dynamic_memory_partial": {
+    "debug_UART_thread_stack_bytes": 3072,
+    "debug_UART_stack_min_free": 2860,
+    "scope": "only UART thread; not all-thread stack/heap high-water",
+    "UART_drops": 21,
+    "UART_timeouts": 2,
+    "critical_commit_and_reset_refusal_lines_captured": true
+  },
+  "host_followup_checks": {
+    "reset_actual_C": 16,
+    "update_drain": 5,
+    "Secure_boot_vector_cases": 21,
+    "Secure_scenario_groups": 5,
+    "recovery_reader_mocked": 10,
+    "bootchain_writer_mocked": 5,
+    "import_denial_tests": 7,
+    "new_python_helper_imports_effects": 0,
+    "node_preflight_effects": 0,
+    "Cloud_sender_simulation": "488CRCblocks, sequence wrap, NAK, padding/EOT; same actual A14 package"
+  },
+  "remaining_acceptance": [
+    "A14 actual boot/confirmation and corrected clock-reset hardware proof",
+    "full OTA including activation",
+    "persistent restart with A14",
+    "new-chain forced rollback and physical power-loss coverage",
+    "full dynamic heap/stack high-water and larger-model memory validation"
+  ],
+  "latest_reconnect_observation": {
+    "observed_UTC": "2026-10-22T23:24:00Z approximate; lease started23:23:53Z",
+    "source_commit": "0830bcebca54c09206c11b5da237349e6f684699",
+    "branch_verified": true,
+    "user_reconnect_reported": false,
+    "prior_boot_recorded": false,
+    "AppUSB": "COM8/N6TOF001",
+    "STLINK_UART_enumerated": "COM6/000C00344142501620353451; not opened this turn",
+    "version": 13,
+    "PONG_uptime_ms": 9800228,
+    "interpretation": "Valid23:24USB snapshot of B13 uptime9800228ms; no conclusion about outcome of any new physical reconnect or reset after21:09",
+    "A14_confirmed": false,
+    "A14_metadata": "Last observed committed pending; no new metadata bank read",
+    "ToF_ready": true,
+    "NPU_runs": 35817,
+    "NPU_errors": 0,
+    "sensor_exports": 0,
+    "dataset_off": true,
+    "image_route": "NONE",
+    "SPI_fault_count": 17,
+    "NCP_recoveries_attempted": 2,
+    "NCP_recoveries_ready": 2,
+    "NCP_recoveries_failed": 0,
+    "BLE_driver_errors": 8,
+    "BLE_RF_proof": false,
+    "UART_drops": 21,
+    "UART_timeouts": 2,
+    "UART_stack_minfree": 2860,
+    "UART_stack_bytes": 3072,
+    "hardware_actions": "Read-only USB CLI; no reset, debugger, update command or flash write",
+    "blocker": "Need actual coordinated all-sources cold boot in FLASH to activate pending A14; do not resend OTA",
+    "next_step": "Ask user readiness first; arm and monitor passive UART before physical all-power removal. No recorder active now",
+    "evidence": ".local-dependencies/xip/a14-reconnect-current.json",
+    "quoted_user_message_id": "Sentinel_523a8fc512548191bce9345fbb4cf1a3",
+    "quoted_user_message_UTC": "2026-10-22T19:59:07Z",
+    "chronology_correction": "Parent verified original message timestamp; delegation describing it as a new reconnect at23:22 was mistaken",
+    "new_post_OTA_reconnect_confirmation": false,
+    "hardware_actions_during_chronology_correction": "NONE; documentation only",
+    "waiting_for": "Fresh user readiness before arming passive capture; no hardware action authorized by stale reconnect evidence"
+  },
+  "latest_acceptance": "xip-acceptance-20261023.json",
+  "historical_20261022_OTA_current": {
+    "mode": "OTA_UPDATE",
+    "sourceVersion": 13,
+    "targetVersion": 14,
+    "packageBytes": 498720,
+    "packageSha256": "ca60030663b4919d4aa72a5263ac20942d9ddebcc32eb21310b2d20c7dcbb778",
+    "probePassed": true,
+    "lastSubmitted": {
+      "sequence": 489,
+      "offset": 498720,
+      "completed": true
+    },
+    "percent": 100,
+    "eotAcknowledged": true,
+    "targetRunning": false,
+    "passed": false,
+    "error": null,
+    "postUpdateError": null,
+    "blocker": "Candidate EOT acknowledged; target boot not established. Inspect USB/UART before retry/reset.",
+    "connectionClosed": true,
+    "candidate_commit_UART": true,
+    "reset_refusal_UART": true,
+    "protected_confirmed_image": "B13",
+    "sensor_stream_requested": false,
+    "new_credentials": false,
+    "server_changed": false,
+    "uart_sha256": "7527664e592a118ff39d4a1add0d0678b445bbbd1ac9267f6822fc5b5c784d75",
+    "raw_metadata_bank_read": false,
+    "whole_transfer_retry": false
+  }
+}

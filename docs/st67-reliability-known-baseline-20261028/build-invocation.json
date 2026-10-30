@@ -1,0 +1,11 @@
+{
+  "originalScript": "C:\\Users\\netan\\Dropbox\\DevelopPersonal\\N6\\n6-xip-ota-usb\\Tools\\Build-Xip.ps1",
+  "originalSha256": "CA780D61D2C3108DAD8CA17540D416CF57145CB1570C1E121E0262D61E1159D3",
+  "adaptation": "Only remove per-call Git trust override and bind original Tools directory",
+  "slot": "B",
+  "version": 52,
+  "install": "NOT_REQUESTED_BY_THIS_BUILD",
+  "debugOutput": 0,
+  "resourceDiagnostics": true,
+  "watchdog": true
+}

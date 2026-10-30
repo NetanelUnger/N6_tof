@@ -1,0 +1,154 @@
+{
+  "status": "OTA_WITH_ACTIVE_WATCHDOG_HARDWARE_PASS",
+  "at_utc": "2026-10-23T18:59:47.074014+00:00",
+  "branch": "feature/n6-xip-ota-usb",
+  "firmware": {
+    "version": 44,
+    "slot": "B",
+    "confirmed": true,
+    "source_commit": "f71957f5799cea40f732102cfd9354430d102985",
+    "source_changes_from_A43": [
+      "Common/Update/firmware_build_version.h"
+    ],
+    "package_bytes": 517472,
+    "package_sha256": "76a731ad4ccdb6675bcb5f564327fdbeb1866f57675fed05a01fe8eb2e4de5f7",
+    "PC": "702D0AFC",
+    "VTOR": "70280400",
+    "fallback": "A43 preserved confirmed image; host package/ELF/map/build backup verified",
+    "trial_metadata": "seq118 state2 confirmed0/v43 pending1/v44",
+    "confirmation": "UART NS tick22720; independent USB version44 and healthy app; no post-confirm raw metadata read"
+  },
+  "ota": {
+    "data_blocks": 506,
+    "EOT_blocks": 1,
+    "ACK": 507,
+    "timeouts": 0,
+    "retries": 0,
+    "NAK": 0,
+    "duration_ms": 562031.5605,
+    "ACK_latency_ms": {
+      "p50": 1132.7555000000284,
+      "p95": 1506.0868999999948,
+      "p99": 1860.8495000000112,
+      "maximum": 4136.957000000053
+    },
+    "max_send_RPC_ms": 273.33639999997104,
+    "max_host_loop_lag_ms": 2345.9173999999766,
+    "signature_verified": true,
+    "image_hash_verified": true,
+    "automatic_reboot": true,
+    "deadlines_changed": false,
+    "watchdog_disabled": false,
+    "server_changed": false
+  },
+  "watchdog": {
+    "registers": "PR6 RLR1999 WINR4095 SR00000100",
+    "healthy_required_mask": "1FF",
+    "reset_cause_IWDG": false,
+    "unexpected_reboots": 0,
+    "observed_FSBL_boots": 1,
+    "task_stale_events": 0,
+    "feed_evidence": "Inference: active IWDG survives562s transfer without reset; no per-feed hardware/software counter is exposed. Target IWDG start/readback and HEALTHY captured.",
+    "limits": "Early boot before supervisor unprotected; LSI not calibrated; no new starvation/IRQ-mask test in this run"
+  },
+  "SPI": {
+    "source_flash_service_calls": 509,
+    "RX_overlap": 0,
+    "pre_OVR": 0,
+    "faults": 0,
+    "automatic_resumption_counts": [
+      2,
+      3,
+      5,
+      6,
+      7,
+      9
+    ],
+    "last_source_resume_count": 9,
+    "original_intermittent_OVR_root_cause_conclusively_proven": false
+  },
+  "NPU": {
+    "frames": 100,
+    "exact_tensors": 100,
+    "NPU_frames": 100,
+    "max_raw_score_delta": 3,
+    "CRC_errors": 0,
+    "elapsed_s": 27.51600000000326,
+    "gates_changed": false,
+    "scope": "XIP signed resource-profile same-frame USB computation regression, not all-class field accuracy or training-stage acceptance"
+  },
+  "memory": {
+    "seconds": 60,
+    "PSP_sampled_stacks": 15,
+    "failure_rows": 0,
+    "invalid_rows": 0,
+    "C_heap_capacity": 851288,
+    "RAM_control_heap_capacity": 369168,
+    "capacity_gain_bytes": 482120,
+    "C_heap_frontier": 357412,
+    "C_heap_tail": 493876,
+    "radio_pool_peak": 50356,
+    "radio_pool_min_free": 15180,
+    "radio_observed_free_over_used_percent": 30.145365001191518,
+    "limits": [
+      "Finite expected receive timeouts retained silently as POLL",
+      "Queue free-lists may validly be full; no generic10percent queue-admission claim",
+      "Addresses reused across instances may retain conservative historical peaks",
+      "Pool free percentage is not proof of largest allocatable block",
+      "No proof that every thread or interrupt nesting peak was sampled"
+    ]
+  },
+  "board_final": {
+    "version": 44,
+    "USB_PONG": true,
+    "ToF_ready": true,
+    "NPU_errors": 0,
+    "SPI_faults": 0,
+    "NCP_recoveries": 0,
+    "UART_drops": 0,
+    "Cloud": "disabled, existing pairing preserved, sensor sent0",
+    "dataset": "off;100 local USB samples only",
+    "BLE": "driver ready/advertising/disconnected; no new GATT test",
+    "handles_and_lease_closed": true
+  },
+  "recovery_backups": [
+    {
+      "file": "N6-XIP-B-v44.n6fw",
+      "sha256": "76a731ad4ccdb6675bcb5f564327fdbeb1866f57675fed05a01fe8eb2e4de5f7",
+      "bytes": 517472
+    },
+    {
+      "file": "application.elf",
+      "sha256": "6d6524f5b5dd38bb562f54c68d8646d1247d0aa7b9ec671f7e6ed6d51cdb1082",
+      "bytes": 9330500
+    },
+    {
+      "file": "application.map",
+      "sha256": "c402567c120d57155af083618d3769340d108cb8ae550757a8bbad3533803850",
+      "bytes": 5399589
+    },
+    {
+      "file": "build.json",
+      "sha256": "27ba3eb123ef1fbaa858a46ee475ab540d9a070f7c8f833174eb5178bd9f94dc",
+      "bytes": 145283
+    }
+  ],
+  "retained_evidence": {
+    "OTA": "ignored cloud-ota44-watchdog/result.json + xmodem-trace.jsonl",
+    "UART": "ignored ota-uart-ota44-watchdog/uart.log + uart-arrivals.jsonl + result.json",
+    "USB": "ignored status-b44-after-ota.json + status-b44-final.json",
+    "memory": "ignored b44-ota-watchdog-final-memory + b44-ota-watchdog-resources.json",
+    "NPU": "ignored hil-XIP-v44-ota44-watchdog-final.json",
+    "A43_backup": "ignored recovery-watchdog43-final/readback.json",
+    "B44_backup": "ignored recovery-ota44-final/readback.json"
+  },
+  "remaining": [
+    "Physical NOR power-loss-during-write untested and unarmed",
+    "Latest cold-power boot is B39, not B44; this run proves automatic MCU reboot only",
+    "Original intermittent OVR cause remains unproven; successful real SUSP resume and zero retries do not prove universal absence",
+    "Server lease/retry issue separately documented; no server fix/deployment",
+    "BLE GATT acceptance remains blocked before connection in prior WinRT test; no pairing/cache bypass",
+    "Finite memory observations do not prove full worst-case, largest allocatable block or all NPU-accessible bank headroom",
+    "Closing main/server Git reads were ownership-denied earlier; no retry or trust expansion"
+  ]
+}

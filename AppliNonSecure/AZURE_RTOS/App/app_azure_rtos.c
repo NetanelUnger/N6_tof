@@ -22,6 +22,8 @@
 #include "app_azure_rtos.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#define N6_RESOURCE_SOURCE N6R_INIT
+#include "resource_diag.h"
 #include "app_features.h"
 #include "debug_uart.h"
 

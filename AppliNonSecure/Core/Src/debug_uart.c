@@ -9,6 +9,8 @@
   * that boot and USB failures can be reported without depending on USBX.
   */
 
+#define N6_RESOURCE_SOURCE N6R_LOG
+#include "resource_diag.h"
 #include "debug_uart.h"
 
 #include <inttypes.h>
@@ -24,6 +26,9 @@
 #include "usb_cdc_transport.h"
 #include "wifi_ble_app.h"
 #include "app_usbx_device.h"
+#include "firmware_update.h"
+#include "n6_watchdog.h"
+static void Debug_UART_TimeProbePoll(void);
 
 #define DEBUG_UART_LINE_SIZE    (256U)
 #define DEBUG_UART_TIMEOUT_MS   (100U)
@@ -123,7 +128,7 @@ static volatile uint32_t debug_uart_rx_errors;
 static volatile uint32_t debug_uart_rx_armed;
 static volatile uint32_t debug_uart_watch_component;
 static ULONG debug_uart_watch_last_tick;
-static volatile uint32_t debug_uart_ncp_trace_enabled;
+static volatile uint32_t debug_uart_ncp_trace_enabled = N6_DEBUG_OUTPUT_ENABLED;
 static volatile uint32_t debug_uart_ncp_trace_sequence;
 static volatile uint32_t debug_uart_ncp_terminal_spi_tick;
 static volatile uint32_t debug_uart_ncp_terminal_spi_sequence;
@@ -151,6 +156,9 @@ static void Debug_UART_CriticalExit(uint32_t interrupt_state)
 
 static void Debug_UART_RecordDrop(DebugUartDropReason_t reason)
 {
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  N6R_Record(N6R_LOG,reason==DEBUG_UART_DROP_OVERSIZE?N6R_OVERFLOW:N6R_ENQUEUE,(uint32_t)reason,__LINE__,0,0);
+#endif
   uint32_t interrupt_state = Debug_UART_CriticalEnter();
 
   debug_uart_dropped_messages++;
@@ -456,6 +464,10 @@ static void Debug_UART_RawString(const char *message)
 
 void Debug_UART_StartupTrace(uint32_t stage)
 {
+#if (N6_DEBUG_OUTPUT_ENABLED == 0U)
+  (void)stage;
+  return;
+#endif
   switch (stage)
   {
     case 1U:
@@ -654,8 +666,16 @@ void Debug_UART_TaskRun(void)
   Debug_UART_ArmRx();
   for (;;)
   {
+    N6R_ReportDeferred();
+    N6H_Beat(N6H_UART_TX);
+    Debug_UART_TimeProbePoll();
     status = tx_queue_receive(&debug_uart_ready_queue, &slot,
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+                              TX_TIMER_TICKS_PER_SECOND);
+    if(status==TX_QUEUE_EMPTY)continue;
+#else
                               TX_WAIT_FOREVER);
+#endif
     if (status != TX_SUCCESS)
     {
       Debug_UART_RecordInternalError(0U);
@@ -893,9 +913,13 @@ static void Debug_UART_ProcessCommands(void)
     {
       continue;
     }
+    if(N6H_UartCommand(command))continue;
     if (command == '?')
     {
       Debug_UART_Log("WATCH", "keys: a=all, r/t/c/u=one-shot Radio/ToF/CLI/USB, R/T/C/U=watch every 5s, n=NCP trace toggle, 0=watch off, ?=help");
+#if (N6_WATCHDOG_ENABLED == 1U)
+      Debug_UART_Log("WDT","diagnostic: w=arm UART task, s=arm supervisor; then W within5s; updater must be idle");
+#endif
     }
     else if (command == 'n')
     {
@@ -941,6 +965,7 @@ void Debug_UART_TestTaskRun(void)
 
   for (;;)
   {
+    N6H_Beat(N6H_UART_CONTROL);
     Debug_UART_ArmRx();
     status = tx_event_flags_get(&debug_uart_test_events,
                                 DEBUG_UART_TEST_EVENT_BURST |
@@ -1115,6 +1140,10 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *uart_handle)
 
 int32_t Debug_UART_Write(const void *buffer, size_t length)
 {
+#if (N6_DEBUG_OUTPUT_ENABLED == 0U)
+  (void)buffer;
+  return (int32_t)length;
+#endif
   if ((buffer == NULL) || (length == 0U))
   {
     return 0;
@@ -1148,6 +1177,11 @@ int32_t Debug_UART_EmergencyWrite(const void *buffer, size_t length)
 
 void Debug_UART_Log(const char *component, const char *format, ...)
 {
+#if (N6_DEBUG_OUTPUT_ENABLED == 0U)
+  (void)component;
+  (void)format;
+  return;
+#endif
   char line[DEBUG_UART_LINE_SIZE];
   const char *name = (component != NULL) ? component : "APP";
   int prefix_length;
@@ -1205,6 +1239,9 @@ uint32_t Debug_UART_GetDroppedMessages(void)
 
 uint32_t Debug_UART_NcpTraceEnabled(void)
 {
+#if (N6_DEBUG_OUTPUT_ENABLED == 0U)
+  return 0U;
+#endif
   return __atomic_load_n(&debug_uart_ncp_trace_enabled, __ATOMIC_RELAXED);
 }
 
@@ -1481,3 +1518,8 @@ void Debug_UART_GetStatus(DebugUart_Status_t *status)
   status->test_flush_status = debug_uart_test_flush_status;
   Debug_UART_CriticalExit(interrupt_state);
 }
+
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+#include "resource_diag_impl.inc"
+#endif
+#include "timebase_probe_impl.inc"

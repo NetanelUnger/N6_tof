@@ -19,6 +19,8 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
+#define N6_RESOURCE_SOURCE N6R_USB
+#include "resource_diag.h"
 #include "app_usbx.h"
 
 /**

@@ -1,0 +1,208 @@
+--- before-firmware/README.md
++++ after/README.md
+@@ -1,3 +1,8 @@
++2026-10-29 demo timing change (source): `DEMO MAP ON 1000` means one second;
++`ON 300` means 300ms. Integers 100..60000ms only; old `ON 1`/`ON 2` are
++rejected. Use 1000/500 for their old rates. FRAME is a scheduled source ID;
++busy publication skips IDs instead of queuing catch-up frames.
++
+ # STM32N657 ToF, USB CDC, and ST67W611M1 Project
+ 
+ 2026-10-29: signed USB B54 installs the three scoped continuity fixes. Native/HIL results and explicit load-test limitations: [results](docs/st67-continuity-20261029/report.md). This supersedes the broad ST67 campaign below.
+--- before-firmware/hil_tests/run_demo_map_codec.py
++++ after/hil_tests/run_demo_map_codec.py
+@@ -51,7 +51,7 @@
+         original=await command('MAP ENCODING')
+         original_mode=next((m for m in ('RAW','UINT16','UINT8','JPEG') if 'Wireless encoding: '+m in original),None)
+         assert original_mode,'firmware does not implement codec selection'
+-        await client.start_notify(IMAGE,receive);await command('DEMO MAP ON 2 BLE')
++        await client.start_notify(IMAGE,receive);await command('DEMO MAP ON 500 BLE')
+         try:
+             for mode,code in [('RAW',1),('UINT16',2),('UINT8',3),('JPEG',4),('RAW',1)]:
+                 await command('MAP ENCODING '+mode);begin=len(report['frames']);deadline=time.monotonic()+25
+--- before-firmware/AppliNonSecure/Core/Inc/demo_map.h
++++ after/AppliNonSecure/Core/Inc/demo_map.h
+@@ -3,23 +3,33 @@
+ #include <stdint.h>
+ #include <stddef.h>
+ #include <string.h>
++/* Source ceiling matches the existing ToF target of 10 frames/s. Keep timer
++ * periods below the signed half-wrap deadline horizon; cap demo pauses at 60s.
++ * CLI units are always milliseconds: legacy 1/2 FPS operands are rejected. */
++#define DEMO_MAP_MIN_INTERVAL_MS 100U
++#define DEMO_MAP_MAX_INTERVAL_MS 60000U
++static inline uint32_t DemoMap_ValidInterval(uint32_t interval_ms)
++{
++  return interval_ms >= DEMO_MAP_MIN_INTERVAL_MS && interval_ms <= DEMO_MAP_MAX_INTERVAL_MS;
++}
+ /* Absolute deadlines; no catch-up burst and no dependence on sensor frames.
+  * Sequence advances for every scheduled slot, even if publication is busy. */
+ typedef struct {
+-  uint32_t fps, destination, epoch, next_ms, sequence, accepted, skipped;
++  uint32_t interval_ms, destination, epoch, next_ms, sequence, accepted, skipped;
+   uint32_t late_slots, max_late_ms, last_ms;
+ } DemoMap_Status;
+-static inline void DemoMap_Start(DemoMap_Status *s, uint32_t fps,
++static inline void DemoMap_Start(DemoMap_Status *s, uint32_t interval_ms,
+                                  uint32_t destination, uint32_t now)
+ {
++  if(interval_ms && !DemoMap_ValidInterval(interval_ms))interval_ms=0U;
+   uint32_t epoch=s->epoch+1U; if(!epoch)epoch=1U;
+-  *s=(DemoMap_Status){.fps=fps,.destination=destination,.epoch=epoch,
+-    .next_ms=now+(fps ? 1000U/fps : 0U)};
++  *s=(DemoMap_Status){.interval_ms=interval_ms,.destination=destination,.epoch=epoch,
++    .next_ms=now+interval_ms};
+ }
+ static inline uint32_t DemoMap_Due(DemoMap_Status *s,uint32_t now)
+ {
+-  if(!s->fps || (int32_t)(now-s->next_ms)<0)return 0U;
+-  uint32_t period=1000U/s->fps,late=now-s->next_ms,slots=late/period+1U;
++  if(!s->interval_ms || (int32_t)(now-s->next_ms)<0)return 0U;
++  uint32_t period=s->interval_ms,late=now-s->next_ms,slots=late/period+1U;
+   s->sequence+=slots;s->late_slots+=slots-1U;s->skipped+=slots-1U;
+   s->last_ms=s->next_ms+(slots-1U)*period;s->next_ms+=slots*period;
+   if(late>s->max_late_ms)s->max_late_ms=late;
+--- before-firmware/AppliNonSecure/Core/Inc/wifi_ble_app.h
++++ after/AppliNonSecure/Core/Inc/wifi_ble_app.h
+@@ -354,7 +354,7 @@
+ 
+ 
+ /* Timer-driven diagnostic source. OFF selects sensor source without changing route. */
+-UINT WIFI_BLE_App_SetDemoMap(uint32_t fps, uint32_t destination);
++UINT WIFI_BLE_App_SetDemoMap(uint32_t interval_ms, uint32_t destination);
+ void WIFI_BLE_App_GetDemoMapStatus(DemoMap_Status *status);
+ 
+ /* Wireless encoding setting; captured once when accepting a frame. */
+--- before-firmware/AppliNonSecure/Core/Src/debug_cli.c
++++ after/AppliNonSecure/Core/Src/debug_cli.c
+@@ -1695,8 +1695,8 @@
+ #endif
+   cli_settings_status();
+   DemoMap_Status demo;WIFI_BLE_App_GetDemoMapStatus(&demo);
+-  if(demo.fps)cli_print("Image source: DEMO %lu FPS, sequence %lu, accepted %lu, skipped %lu\r\n",
+-    (unsigned long)demo.fps,(unsigned long)demo.sequence,(unsigned long)demo.accepted,(unsigned long)demo.skipped);
++  if(demo.interval_ms)cli_print("Image source: DEMO interval %lu ms, sequence %lu, accepted %lu, skipped %lu\r\n",
++    (unsigned long)demo.interval_ms,(unsigned long)demo.sequence,(unsigned long)demo.accepted,(unsigned long)demo.skipped);
+ }
+ 
+ static void cli_command_usb(Menu_t *menu, const char *command)
+@@ -1727,30 +1727,31 @@
+   char copy[CLI_LINE_SIZE];char *argv[CLI_MAX_ARGUMENTS];
+   int argc=cli_get_arguments(command,copy,sizeof(copy),argv,CLI_MAX_ARGUMENTS);
+   DemoMap_Status status;
++  uint32_t interval_ms=0U;
+   if(argc>=3 && cli_token_equals(argv[1],"map")) {
+     if(argc==3 && cli_token_equals(argv[2],"off")) {
+       WIFI_BLE_App_GetDemoMapStatus(&status);
+       (void)WIFI_BLE_App_SetDemoMap(0U,0U);
+-      if(status.fps)TOF_App_ReleaseStream((TOF_StreamDestination_t)status.destination);
++      if(status.interval_ms)TOF_App_ReleaseStream((TOF_StreamDestination_t)status.destination);
+     } else if((argc==4 || argc==5) && cli_token_equals(argv[2],"on") &&
+-              (strcmp(argv[3],"1")==0 || strcmp(argv[3],"2")==0)) {
++              cli_parse_u32(argv[3],&interval_ms) && DemoMap_ValidInterval(interval_ms)) {
+       uint32_t destination=cli_active_session->route.transport==APP_TRANSPORT_BLE ? TOF_STREAM_BLE : TOF_STREAM_CLOUD;
+       if(argc==5)destination=cli_token_equals(argv[4],"ble") ? TOF_STREAM_BLE :
+         cli_token_equals(argv[4],"cloud") ? TOF_STREAM_CLOUD : TOF_STREAM_NONE;
+-      UINT result=WIFI_BLE_App_SetDemoMap((uint32_t)(argv[3][0]-'0'),destination);
++      UINT result=WIFI_BLE_App_SetDemoMap(interval_ms,destination);
+       if(result!=TX_SUCCESS){cli_print("Demo map rejected: %u; requires idle dataset and BLE/CLOUD destination.\r\n",(unsigned)result);return;}
+     } else if(!(argc==3 && cli_token_equals(argv[2],"status")))goto usage;
+     WIFI_BLE_App_GetDemoMapStatus(&status);
+-    cli_print("Demo map: %s, %lu FPS, destination %s, encoding %u\r\n"
++    cli_print("Demo map: %s, interval %lu ms, destination %s, encoding %u\r\n"
+       "Scheduled %lu, accepted %lu, skipped %lu, late slots %lu, max lateness %lu ms\r\n"
+       "Frame ID is the scheduled sequence; hot pixel=(ID-1) modulo 2268. NPU off for demo frames.\r\n",
+-      status.fps ? "ON" : "OFF",(unsigned long)status.fps,TOF_App_StreamName((TOF_StreamDestination_t)status.destination),
++      status.interval_ms ? "ON" : "OFF",(unsigned long)status.interval_ms,TOF_App_StreamName((TOF_StreamDestination_t)status.destination),
+       WIFI_BLE_App_GetImageEncoding(),(unsigned long)status.sequence,(unsigned long)status.accepted,
+       (unsigned long)status.skipped,(unsigned long)status.late_slots,(unsigned long)status.max_late_ms);
+     return;
+   }
+ usage:
+-  (void)Menu_Reply(menu,"Usage: DEMO MAP ON 1|2 [CLOUD|BLE] | DEMO MAP OFF | DEMO MAP STATUS");
++  (void)Menu_Reply(menu,"Usage: DEMO MAP ON <100..60000 ms> [CLOUD|BLE] | DEMO MAP OFF | DEMO MAP STATUS; 1000=1s, 300=300ms; legacy ON 1/2 rejected");
+ }
+ 
+ static void cli_command_map(Menu_t *menu, const char *command)
+@@ -3479,7 +3480,7 @@
+ 
+   cli_print("\r\nRadio and Wi-Fi:\r\n"
+             "  debug off|error|warn|info|debug\r\n"
+-            "  DEMO MAP ON 1|2 [CLOUD|BLE]   timed moving-pixel source; DEMO MAP OFF/STATUS\r\n"
++            "  DEMO MAP ON <100..60000 ms> [CLOUD|BLE]; 1000=1s, 300=300ms; OFF/STATUS\r\n"
+             "  debug ping <token>           transport-only latency probe\r\n"
+             "  debug route                  session generations + M2 isolation diagnostic\r\n"
+             "  debug uart                   asynchronous UART counters\r\n"
+--- before-firmware/AppliNonSecure/Core/Src/wifi_ble_app.c
++++ after/AppliNonSecure/Core/Src/wifi_ble_app.c
+@@ -520,18 +520,18 @@
+ static DemoMap_Status demo_map;
+ static void demo_map_process(void);
+ 
+-UINT WIFI_BLE_App_SetDemoMap(uint32_t fps,uint32_t destination)
+-{
+-  if(fps>2U || (fps && destination!=TOF_STREAM_BLE && destination!=TOF_STREAM_CLOUD))return TX_OPTION_ERROR;
++UINT WIFI_BLE_App_SetDemoMap(uint32_t interval_ms,uint32_t destination)
++{
++  if((interval_ms && !DemoMap_ValidInterval(interval_ms)) || (interval_ms && destination!=TOF_STREAM_BLE && destination!=TOF_STREAM_CLOUD))return TX_OPTION_ERROR;
+ #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+-  if(fps && (TOF_App_IsDatasetStreamEnabled() || !radio_manager.queues.ble_tof_image_context))return TX_NOT_AVAILABLE;
++  if(interval_ms && (TOF_App_IsDatasetStreamEnabled() || !radio_manager.queues.ble_tof_image_context))return TX_NOT_AVAILABLE;
+   UINT posture=tx_interrupt_control(TX_INT_DISABLE);
+-  if(fps)DemoMap_Start(&demo_map,fps,destination,HAL_GetTick());
+-  else {demo_map.fps=0U;++demo_map.epoch;}
+-  if(fps)TOF_App_RequestStream((TOF_StreamDestination_t)destination);
++  if(interval_ms)DemoMap_Start(&demo_map,interval_ms,destination,HAL_GetTick());
++  else {demo_map.interval_ms=0U;++demo_map.epoch;}
++  if(interval_ms)TOF_App_RequestStream((TOF_StreamDestination_t)destination);
+   (void)tx_interrupt_control(posture);return TX_SUCCESS;
+ #else
+-  return fps ? TX_NOT_AVAILABLE : TX_SUCCESS;
++  return interval_ms ? TX_NOT_AVAILABLE : TX_SUCCESS;
+ #endif
+ }
+ void WIFI_BLE_App_GetDemoMapStatus(DemoMap_Status *status)
+@@ -2036,8 +2036,8 @@
+   }
+ 
+   posture = tx_interrupt_control(TX_INT_DISABLE);
+-  if ((demo_epoch && (!demo_map.fps || demo_epoch!=demo_map.epoch)) ||
+-      (!demo_epoch && demo_map.fps)) {
++  if ((demo_epoch && (!demo_map.interval_ms || demo_epoch!=demo_map.epoch)) ||
++      (!demo_epoch && demo_map.interval_ms)) {
+     (void)tx_interrupt_control(posture);return TX_NOT_AVAILABLE;
+   }
+   if (radio_manager.queues.ble_tof_image_context->state != BLE_TOF_IMAGE_FREE)
+@@ -2095,7 +2095,7 @@
+   /* The processing task cannot change active owner inside this publication.
+    * A Cloud frame goes directly to WAIT_CLOUD, never BLE READY. Admission
+    * failure releases immediately; there is no second-destination fallback. */
+-  if(demo_epoch && (!demo_map.fps || demo_epoch!=demo_map.epoch)) {
++  if(demo_epoch && (!demo_map.interval_ms || demo_epoch!=demo_map.epoch)) {
+     radio_manager.queues.ble_tof_image_context->state=BLE_TOF_IMAGE_FREE;return TX_NOT_AVAILABLE;
+   }
+   TOF_StreamDestination_t destination = TOF_App_GetStreamDestination();
+@@ -2143,9 +2143,9 @@
+ {
+ #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+   UINT posture=tx_interrupt_control(TX_INT_DISABLE);
+-  if(demo_map.fps && (TOF_App_IsDatasetStreamEnabled() ||
++  if(demo_map.interval_ms && (TOF_App_IsDatasetStreamEnabled() ||
+       (uint32_t)TOF_App_GetRequestedStreamDestination()!=demo_map.destination)) {
+-    demo_map.fps=0U;++demo_map.epoch;
++    demo_map.interval_ms=0U;++demo_map.epoch;
+   }
+   if(!DemoMap_Due(&demo_map,HAL_GetTick())){(void)tx_interrupt_control(posture);return;}
+   uint32_t sequence=demo_map.sequence,epoch=demo_map.epoch,timestamp=demo_map.last_ms;
+--- before-web/src/Workshop.tsx
++++ after/src/Workshop.tsx
+@@ -165,7 +165,8 @@
+       <p>יש יעד מרוחק אחד לתמונת החיישן בכל רגע: USB,‏ BLE או Cloud. בקשה חדשה יכולה להעביר את התמונה ליעד אחר. לכן לפני capture ב־USB הפסיקו MAP בענן, נתקו BLE ובדקו ב־tof status את requested ו־active. פקודות CLI ותמונה הם ערוצים שונים.</p>
+       <details className="ws-details"><summary>אבחון קפיצות בתמונה עם דמו מתוזמן — קושחה 50 ומעלה</summary>
+         <p>בטרמינל הענן אפשר להחליף זמנית את החיישן במפת דמו: פיקסל גבוה אחד מתקדם בכל מועד, והשאר נמוכים. המספר 1 או 2 הוא מספר המועדים לשנייה; תקשורת תפוסה יכולה לדלג על פריימים.</p>
+-        <Code>{'MAP ENCODING UINT8\nDEMO MAP ON 1\nDEMO MAP STATUS\nDEMO MAP ON 2\nDEMO MAP OFF\nMAP ON'}</Code>
++        <p>בגרסת המילישניות: 1000 = שנייה, 500 = חצי שנייה, 300 = 300 מילישניות. הטווח הוא 100–60000; הפקודות הישנות ON 1 ו־ON 2 נדחות. יש להתקין את הקושחה התומכת לפני שימוש בדוגמאות אלה.</p>
++        <Code>{'MAP ENCODING UINT8\nDEMO MAP ON 1000\nDEMO MAP STATUS\nDEMO MAP ON 500\nDEMO MAP ON 300\nDEMO MAP OFF\nMAP ON'}</Code>
+         <p>FRAME הוא מספר המועד. פער במספור בתוך אותה ריצה מעיד שפריים לא הוצג, ו־skipped ב־DEMO MAP STATUS מראה כמה נדחו עוד בלוח. accepted אינו אישור קבלה בדפדפן. כל ON מאפס את המספור; אל תשוו מעבר בין ריצות. הדמו משתמש גם ב־RAW,‏ UINT16 ו־JPEG דרך MAP ENCODING; JPEG מאבד מידע ולכן UINT8 עדיף לבדיקת הפיקסל. בסיום MAP ON מחזיר את החיישן. מדד Bytes/s באתר סופר בתים של תמונות תקינות בחלון של 3 שניות, ואינו מדד מהירות הרשת במגה־ביט.</p>
+       </details>
+       <Check>יש IP, המכשיר online, פקודת גרסה חוזרת מהכרטיס ומספרי frames בתמונה מתקדמים. לאחר ההתנסות שלחו MAP OFF או הפסיקו את התצוגה לפני החלק הבא.</Check>

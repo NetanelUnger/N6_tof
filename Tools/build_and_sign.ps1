@@ -8,11 +8,11 @@ $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'N6-DevCommon.ps1')
-$WorkspaceRoot = Split-Path -Parent $ProjectRoot
+. (Join-Path $PSScriptRoot 'N6-FactoryValidation.ps1')
 $DevelopmentTools = Get-N6DevelopmentTools -IdeRoot $IdeRoot
 $Builder = Join-Path $IdeRoot 'headless-build.bat'
 $SigningTool = $DevelopmentTools.SigningTool
-$Workspace = Join-Path $WorkspaceRoot '.codex-cubeide-workspace'
+$BuildSession = Join-Path $ProjectRoot ('.local-dependencies\factory-builds\' + [guid]::NewGuid().ToString('N'))
 $OutputDir = Join-Path $ProjectRoot 'FlashImages'
 $UsbPdCore = Join-Path $ProjectRoot 'AppliNonSecure\USBPD\App\usbpd_dpm_core.c'
 $VersionHeader = Join-Path $ProjectRoot 'Common\Update\firmware_build_version.h'
@@ -49,25 +49,10 @@ if (-not (Select-String -LiteralPath $UsbPdCore `
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
-foreach ($configuration in @(
-    'N6_FSBL/Debug',
-    'N6_AppliSecure/Debug'
-)) {
-    & $Builder -data $Workspace -build $configuration
-    if ($LASTEXITCODE -ne 0) {
-        throw "Build failed: $configuration"
-    }
-}
-
-# ux_user.h changes compile into the USBX middleware objects, but CubeIDE's
-# linked-resource dependency tracking does not reliably invalidate them after
-# CubeMX regeneration.  A clean Non-Secure build prevents stale USBX thread
-# priorities, stack sizes, or feature switches from surviving into a signed
-# image.
-$nonSecureConfiguration = 'N6_AppliNonSecure/Debug'
-& $Builder -data $Workspace -cleanBuild $nonSecureConfiguration
-if ($LASTEXITCODE -ne 0) {
-    throw "Clean build failed: $nonSecureConfiguration"
+$sourceBeforeBuild = Get-N6FactorySourceHash -ProjectRoot $ProjectRoot
+Invoke-N6FactoryCleanBuild -ProjectRoot $ProjectRoot -Builder $Builder -SessionRoot $BuildSession
+if ((Get-N6FactorySourceHash -ProjectRoot $ProjectRoot) -cne $sourceBeforeBuild) {
+    throw "Build inputs changed during compilation. Rerun the build. Logs: $BuildSession"
 }
 
 Assert-N6NonSecureImage -ProjectRoot $ProjectRoot
@@ -145,10 +130,15 @@ foreach ($artifactName in $factoryArtifactNames) {
     $factoryHashes[$artifactName] = Get-N6FileSha256 `
         -Path (Join-Path $OutputDir $artifactName)
 }
+if ((Get-N6FactorySourceHash -ProjectRoot $ProjectRoot) -cne $sourceBeforeBuild) {
+    throw 'Build inputs changed before packaging completed; no current manifest will be written.'
+}
 $factoryManifest = [ordered]@{
-    schema = 1
+    schema = 2
     firmware_version = $FirmwareVersion
     created_utc = [DateTime]::UtcNow.ToString('o')
+    source_sha256 = $sourceBeforeBuild
+    build_session = $BuildSession
     sha256 = $factoryHashes
 }
 [IO.File]::WriteAllText(

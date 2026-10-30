@@ -1,0 +1,32 @@
+[
+  {
+    "path": "cloud-existing-stream/owner-start.json",
+    "sha256": "62fd8ba5abd291426d0827da3011aaf8eb724a48c127d3337942010f08a199c3",
+    "bytes": 304
+  },
+  {
+    "path": "cloud-existing-stream/result.json",
+    "sha256": "b116bb7baac09773f755c80b9247f2952f3e7c1e4d1ed7d6c07b5d27a313622a",
+    "bytes": 55083
+  },
+  {
+    "path": "plan-after.sha256",
+    "sha256": "d6b536a22d458fea7485b3309a962fc01ad1074e87b438fe2a198f8328dce5ed",
+    "bytes": 66
+  },
+  {
+    "path": "report.md",
+    "sha256": "fb6b4eb80cc56cf67aa6062163ae3a40999cafef5888cda09dc271321cb39c53",
+    "bytes": 5870
+  },
+  {
+    "path": "source-audit.json",
+    "sha256": "78fb3453bf6ce0a5ccd97e1e78e1dc0399e13ec063efa66bcdd31e3ca80489ac",
+    "bytes": 450
+  },
+  {
+    "path": "summary.json",
+    "sha256": "22277eb6d783aabe5d75d01cc98dc743308acb5ffcf9e235a061fdda2fbb5079",
+    "bytes": 2924
+  }
+]

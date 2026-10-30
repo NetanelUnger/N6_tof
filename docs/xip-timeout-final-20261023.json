@@ -1,0 +1,379 @@
+{
+  "status": "TIMEOUT_FIXED_USB_SAME_SESSION_AND_OTA39_PASS_BLE_HOST_BLOCKED_PHYSICAL_POWER_COVERAGE_PENDING",
+  "at_utc": "2026-10-23T16:44:31.897689+00:00",
+  "branch": "feature/n6-xip-ota-usb",
+  "firmware_source_commit": "6f6c89faf26bc4a36d09b69f1c9f7be5c4cb3416",
+  "firmware": {
+    "slot": "B",
+    "version": 39,
+    "package_bytes": 514528,
+    "sha256": "a41d52f8e8aed2a0f8b6fc2898a3dc07fde9e3780f58fb5f28b523350a7dac11",
+    "fallback_on_board": "A38 confirmed source retained",
+    "RAM_exceptions": "FSBL/Secure writer, mutable data, stack/heap/buffers, NPU pools and RAM reset routine"
+  },
+  "timebase_controlled_comparison": [
+    {
+      "version": 34,
+      "HAL_per_RTOS_wall_ratio_median": 0.1193069306930693,
+      "packet_intervals": 10,
+      "TIM6_priority": [
+        15
+      ],
+      "TIM6_sleep_bit": [
+        0
+      ],
+      "prescaler": [
+        399
+      ],
+      "period": [
+        999
+      ],
+      "NAK_within12s": false,
+      "NAK_seconds": null,
+      "parser_recovery_same_port": true,
+      "evidence": "timebase-a34-unmodified"
+    },
+    {
+      "version": 35,
+      "HAL_per_RTOS_wall_ratio_median": 0.12673267326732673,
+      "packet_intervals": 10,
+      "TIM6_priority": [
+        15
+      ],
+      "TIM6_sleep_bit": [
+        1
+      ],
+      "prescaler": [
+        399
+      ],
+      "period": [
+        999
+      ],
+      "NAK_within12s": false,
+      "NAK_seconds": null,
+      "parser_recovery_same_port": true,
+      "evidence": "timebase-b35-fixed"
+    },
+    {
+      "version": 36,
+      "HAL_per_RTOS_wall_ratio_median": 1.0,
+      "packet_intervals": 7,
+      "TIM6_priority": [
+        14
+      ],
+      "TIM6_sleep_bit": [
+        1
+      ],
+      "prescaler": [
+        399
+      ],
+      "period": [
+        999
+      ],
+      "NAK_within12s": true,
+      "NAK_seconds": 10.05066499998793,
+      "parser_recovery_same_port": true,
+      "evidence": "timebase-a36-priority-fixed"
+    }
+  ],
+  "timebase_cause": "TIM6 priority15 cannot preempt ThreadX PendSV15 idle handler; priority14 restored elapsed tick and10s packet timeout. Sleep clock alone did not fix it.",
+  "USB": {
+    "source": 37,
+    "target": 38,
+    "package_bytes": 514528,
+    "truncated_first_packet_bytes": 17,
+    "NAK_ms": 10009.251,
+    "same_open_sender_connection": true,
+    "manual_disconnect_required": false,
+    "explicit_EOT_ACK_observed": true,
+    "sender_exit": 0,
+    "signature_hash_boot_and_confirmation": "PASS",
+    "post_EOT_read_cancellation": "Handled only after a received EOT ACK; pre-ACK exceptions still fail",
+    "historical_B37_sender_failure": "Retained, not relabeled PASS; version/confirmed37 independently verified without retransmission"
+  },
+  "USB_negative_controls": {
+    "A36_four_cases": [
+      {
+        "name": "bad-crc",
+        "passed": true,
+        "response_seconds": 0.006628600007388741
+      },
+      {
+        "name": "cancel-partial-manifest",
+        "passed": true,
+        "response_seconds": 0.006642899999860674
+      },
+      {
+        "name": "truncated-packet-timeout",
+        "passed": true,
+        "response_seconds": 10.005411299993284
+      },
+      {
+        "name": "bad-signature",
+        "passed": true,
+        "response_seconds": 0.08366589999059215
+      }
+    ],
+    "B39_post_reboot_partial_packet_NAK_seconds": 10.007820900005754,
+    "B39_version_and_PONG_recovery_same_connection": true
+  },
+  "OTA": {
+    "source": 38,
+    "target": 39,
+    "package_bytes": 514528,
+    "timing": {
+      "data_blocks": 503,
+      "ACKs": 504,
+      "timeouts": 0,
+      "retry_transmissions": 0,
+      "duration_ms": 566070.2771,
+      "ACK_ms": {
+        "p50": 1141.8906499999866,
+        "p95": 1396.5556000000215,
+        "p99": 1839.1404999999795,
+        "max": 4308.083999999915
+      },
+      "RPC_max_ms": 245.4372999999905,
+      "host_loop_max_lag_ms": 54.69250000000466
+    },
+    "EOT_ACK": true,
+    "target_version_via_Cloud": 39,
+    "manifest_signature": "PASS",
+    "FSBL_image_hash": "PASS",
+    "boot_confirmation": "PASS",
+    "server_modified": false,
+    "new_credentials": false,
+    "sensor_exports": 0
+  },
+  "software_reboot": {
+    "passed": true,
+    "reset_commands_sent": 1,
+    "physical_power_cycle": false,
+    "PC": "702D0494",
+    "VTOR": "70280400",
+    "metadata_sequence_at_boot": 105,
+    "slot": 1
+  },
+  "HIL39": {
+    "frames": 100,
+    "exact_tensors": 100,
+    "npu_frames": 100,
+    "max_score_delta": 0,
+    "crc_errors": 0,
+    "passed": true
+  },
+  "HIL39_seconds": 27.39000000001397,
+  "SUSP39": {
+    "attempted": 3,
+    "passed": 3,
+    "rows": [
+      {
+        "stage": 5,
+        "transfer": 4314,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x188801",
+        "RX_remaining": 32,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64
+      },
+      {
+        "stage": 5,
+        "transfer": 4348,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x1b8801",
+        "RX_remaining": 35,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64
+      },
+      {
+        "stage": 5,
+        "transfer": 4384,
+        "length": 64,
+        "suspend_status": 0,
+        "resume_status": 0,
+        "SR": "0x1b8801",
+        "RX_remaining": 35,
+        "completed": 1,
+        "resume_count": 1,
+        "maximum_observed_length": 64
+      }
+    ],
+    "qualification": "bounded induced64byte backpressure events, not original OVR causal proof or long endurance"
+  },
+  "memory": {
+    "linker_budgets": {
+      "ram": {
+        "heap_start": "0x241a55b0",
+        "stack_limit": "0x241ff800",
+        "heap_capacity_bytes": 369232
+      },
+      "application": {
+        "heap_start": "0x2412f808",
+        "stack_limit": "0x241ff5c0",
+        "heap_capacity_bytes": 851384
+      }
+    },
+    "primary_capture_seconds": 75,
+    "usage_rows": 40,
+    "PSP_stack_samples": 15,
+    "sample_plus_provisional_context_targets_met": true,
+    "latest_pools_after_SUSP": [
+      {
+        "kind": "pool",
+        "object": "0x2412f808",
+        "symbols": [
+          "_end"
+        ],
+        "observations": 59,
+        "capacity": 851384,
+        "observed_peak": 357412,
+        "observed_minimum_free": 493972,
+        "flags": 8,
+        "observed_free_over_used_percent": 138.20800644634204,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "C heap frontier, not malloc free/largest block"
+      },
+      {
+        "kind": "pool",
+        "object": "0x24115bf4",
+        "symbols": [
+          "tx_radio_byte_pool"
+        ],
+        "observations": 5340,
+        "capacity": 65536,
+        "observed_peak": 50828,
+        "observed_minimum_free": 14708,
+        "flags": 0,
+        "observed_free_over_used_percent": 28.93680648461478,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "Wrapped observations only; fragmentation/largest request not proven"
+      },
+      {
+        "kind": "pool",
+        "object": "0x24115c28",
+        "symbols": [
+          "tx_app_byte_pool"
+        ],
+        "observations": 8,
+        "capacity": 180224,
+        "observed_peak": 149312,
+        "observed_minimum_free": 30912,
+        "flags": 0,
+        "observed_free_over_used_percent": 20.702957565366482,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "Wrapped observations only; fragmentation/largest request not proven"
+      },
+      {
+        "kind": "pool",
+        "object": "0x24105bc0",
+        "symbols": [
+          "ux_device_app_byte_pool"
+        ],
+        "observations": 3,
+        "capacity": 65536,
+        "observed_peak": 51224,
+        "observed_minimum_free": 14312,
+        "flags": 0,
+        "observed_free_over_used_percent": 27.940028111822585,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "Wrapped observations only; fragmentation/largest request not proven"
+      },
+      {
+        "kind": "pool",
+        "object": "0x2410150c",
+        "symbols": [
+          "usbpd_app_byte_pool"
+        ],
+        "observations": 1,
+        "capacity": 18048,
+        "observed_peak": 8,
+        "observed_minimum_free": 18040,
+        "flags": 0,
+        "observed_free_over_used_percent": 225500.0,
+        "observed_10percent_capacity_target_met": true,
+        "warning": "Wrapped observations only; fragmentation/largest request not proven"
+      }
+    ],
+    "post_SUSP_capture_seconds": 12,
+    "post_SUSP_stack_samples": 0,
+    "limits": [
+      "Finite expected receive timeouts retained silently as POLL",
+      "Queue free-lists may validly be full; no generic10percent queue-admission claim",
+      "Addresses reused across instances may retain conservative historical peaks",
+      "Pool free percentage is not proof of largest allocatable block",
+      "No proof that every thread or interrupt nesting peak was sampled",
+      "No full MSP/IRQ-nesting watermark proof; vendor-internal allocator coverage remains limited; USBPD row is creation wrapper only"
+    ]
+  },
+  "BLE": {
+    "passed": false,
+    "stage": "Windows WinRT requester creation before GATT",
+    "error": "BleakDeviceNotFoundError('Device with address 40:82:7B:03:B8:FB was not found.')",
+    "pings_sent": 0,
+    "pair_requested": false,
+    "cache_or_permissions_changed": false,
+    "retry_or_bypass_after_failure": false
+  },
+  "final_board": {
+    "version": 39,
+    "confirmed": true,
+    "ToF": "ready54x42",
+    "NPU_errors": 0,
+    "SPI_faults": 0,
+    "NCP_recoveries": 0,
+    "UART_drops": 0,
+    "UART_transport_errors": 0,
+    "Cloud": "disabled/paired/sensor0",
+    "dataset": "OFF;100 localUSB HIL records",
+    "image": "NONE",
+    "BLE_driver": "advertising/disconnected",
+    "owned_handles_and_leases": "closed/released",
+    "probe_or_capture_pending": false
+  },
+  "recovery_backups": {
+    "A32_B33": "recovery-B33-A32-before-timeprobe/result.json",
+    "current_A38_B39": "recovery-B33-A32-before-timeprobe/A38-B39-final/result.json",
+    "qualification": "Exact package/ELF/map/build records readback verified; not a complete current NOR dump"
+  },
+  "Git_IO_event": {
+    "failed_command": "git commit -m \"Repair regenerated Windows dependency paths before diagnostic rebuild\"",
+    "target": "C:/Users/netan/Dropbox/DevelopPersonal/N6/project/.git/worktrees/n6-xip-ota-usb/index",
+    "error": "fatal: unable to write new index file",
+    "process_started": true,
+    "commit_created_on_failure": false,
+    "explicit_tool_or_auto_review_denial": false,
+    "OS_cause": "UNKNOWN",
+    "read_only_checks": "no index.lock; index not ReadOnly; ACL allows Modify; index mtime advanced after failure",
+    "ordinary_retry_count": 1,
+    "retry_result": "commit6f6c89f succeeded; no permission/trust/ownership changes"
+  },
+  "separate_denied_read": {
+    "command": "Get-Volume -DriveLetter C | Select-Object SizeRemaining",
+    "target": "C volume metadata",
+    "error": "Access denied",
+    "classification": "OS/cmdlet read failure, no explicit approval-review rejection",
+    "retried_or_bypassed": false,
+    "persistent_change": false
+  },
+  "remaining": [
+    "Latest physical cold power-on not measured; coordinate readiness before passive capture",
+    "Power loss during actual NOR programming not tested",
+    "Latest version rollback-before-confirmation not repeated; earlier A16->B15 hardware coverage retained",
+    "Original intermittent SPI OVR causal origin remains unproven; controlled SUSP recovery and successful OTA are separate evidence",
+    "Server lease/retry fix proposed only, not changed/deployed",
+    "BLE GATT is blocked before connection in Windows",
+    "No larger-model/full-frame accuracy or full allocator/stack worst-case claim"
+  ],
+  "main_server": {
+    "N6_main": "80f2b511029be6d87f9e72c32b00515457671f89",
+    "server": "5905a7df14e1b2c486577297e4d741e82011ce3e",
+    "merged_or_pushed_or_deployed": false
+  },
+  "evidence_root": ".local-dependencies/xip"
+}

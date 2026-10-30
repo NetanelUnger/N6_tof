@@ -1,0 +1,119 @@
+{
+  "checkpoint": "CP11",
+  "recorded_utc": "2026-10-29T08:59:22.285263+00:00",
+  "candidate_status": "PROPOSED_NOT_APPLIED",
+  "source_revision": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5",
+  "native_results": [
+    {
+      "suite": "timeout",
+      "generated_c": "candidate-timeout-v1.c",
+      "log": "candidate-timeout-v1.log",
+      "result": "PASS",
+      "process_exit_code": 0,
+      "printed_assertion_groups": 8,
+      "generated_c_sha256": "b5c6aac26bab6220bd7a56fdaf23fd921433266c3e72b1d6e7ba86e78ffa2644",
+      "command": "C:\\Python314\\python.exe -B .\\test_st67_cp11.py --suite timeout --label candidate-timeout-v1"
+    },
+    {
+      "suite": "admission",
+      "generated_c": "candidate-admission-v1.c",
+      "log": "candidate-admission-v1.log",
+      "result": "PASS",
+      "process_exit_code": 0,
+      "printed_assertion_groups": 11,
+      "generated_c_sha256": "ff6c4c1c5db55aae6921b550c9cce00a3f81c645d0b64d57d9c7e29438f54b21",
+      "command": "C:\\Python314\\python.exe -B .\\test_st67_cp11.py --suite admission --label candidate-admission-v1"
+    },
+    {
+      "suite": "scoped",
+      "generated_c": "candidate-scoped-v1.c",
+      "log": "candidate-scoped-v1.log",
+      "result": "PASS",
+      "process_exit_code": 0,
+      "printed_assertion_groups": 14,
+      "generated_c_sha256": "d9d6197fd11bb7f7f1ca832bd1cd1a028b002ac2964f8e464eb36e1eb233eac8",
+      "command": "C:\\Python314\\python.exe -B .\\test_st67_cp11.py --suite scoped --label candidate-scoped-v1"
+    }
+  ],
+  "verification": [
+    {
+      "argv": [
+        "git",
+        "apply",
+        "--check",
+        "C:\\Users\\netan\\Documents\\Codex\\2026-10-28\\task-2\\evidence\\st67-cp10-transport-candidate\\PROPOSED-NOT-APPLIED-spi-fence.patch",
+        "C:\\Users\\netan\\Documents\\Codex\\2026-10-28\\task-2\\evidence\\st67-cp11-at-timeout-candidate\\PROPOSED-NOT-APPLIED-at-timeout-fence.patch"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "warning: in the working copy of 'AppliNonSecure/Core/Inc/app_features.h', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'CHANGELOG.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'hil_tests/run_ble_npu_soak.py', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'hil_tests/test_cloud_radio_barrier.py', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'hil_tests/test_cloud_request_budget.py', LF will be replaced by CRLF the next time Git touches it\n"
+    }
+  ],
+  "source_hashes": [
+    {
+      "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/modem_cmd_handler.c",
+      "sha256": "928c535604b0e96edc17b86ed9cdb46fe77a7c6bc47dab88139a81b000d0686e"
+    },
+    {
+      "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.c",
+      "sha256": "b20f10d296b84eb269681efb798a6b471b879ccde9586ca6d3611507bc39fb33"
+    },
+    {
+      "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_common.h",
+      "sha256": "bf56be8a8b9a2b0d73d07fd1952bb6ebddfb13138507e44fbf33607e8fe1e00b"
+    },
+    {
+      "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_wifi.c",
+      "sha256": "4a79f19a5de48ffc5452a97b29520d8361b52638b4a18f12de64a5f0e1440739"
+    },
+    {
+      "path": "ThirdParty/ST67W6X_Network_Driver/Driver/W61_at/w61_at_net.c",
+      "sha256": "46b13b1250f1c24fcb0134504558ba75def5752b38600bb65c213a319445affd"
+    },
+    {
+      "path": "AppliNonSecure/Core/Src/wifi_ble_app.c",
+      "sha256": "30c4460f5673c7635197f55fc198e33b337c983512c18b4f7d6223731e3cc1a0"
+    },
+    {
+      "path": "AppliNonSecure/Core/Src/app_settings_ncp.c",
+      "sha256": "fd2bb82db8f5d1180d614e0fdbc0dbf7eb140dcb63670b159a28530aabd1cbbe"
+    },
+    {
+      "path": "AppliNonSecure/Core/Src/cloud_relay.c",
+      "sha256": "0aa11eed898ce7b62dde04acce893ba8447c4c91d939641b130b50b4d9fffb59"
+    },
+    {
+      "path": "hil_tests/test_wifi_assoc_admission.py",
+      "sha256": "033e5f7dd21dbcb5e1eb9085dde9143882887d8fb910cc31eedf8794ffe716b3"
+    },
+    {
+      "path": "hil_tests/test_cloud_request_budget.py",
+      "sha256": "4879920c7d6d0a52117c5dd838292e4cf056aba7e9fa5104a070b27e13875bfd"
+    }
+  ],
+  "baseline_red": {
+    "result": "EXPECTED_FAIL",
+    "log": "production-timeout-red.log",
+    "actual": "second_result=0 writes=2 late_old_terminal_injected=1 fence=0"
+  },
+  "production_firmware_source_unchanged": true,
+  "hardware_browser_actions": 0,
+  "version53_built_signed_installed": false,
+  "settings_security_pairing_changed": false,
+  "push": false,
+  "main_plan_tasks": {
+    "completed": 4,
+    "unchecked": 42,
+    "total": 46
+  }
+}

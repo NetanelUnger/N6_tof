@@ -1,3 +1,6 @@
+#include "config.h"
+
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 #include "gc9a01.h"
 
 #include <string.h>
@@ -123,3 +126,5 @@ void GC9A01_SPI_ErrorFromISR(GC9A01_Handle_t *display,
                                       display->config.callback_context);
   }
 }
+
+#endif /* APP_GC9A01_DISPLAY_ENABLED */

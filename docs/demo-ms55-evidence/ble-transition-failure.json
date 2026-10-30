@@ -1,0 +1,378 @@
+{
+  "passed": false,
+  "commands": [
+    {
+      "command": "MAP ENCODING",
+      "ms": 141.0,
+      "reply": "N6 BLE CLI ready. Firmware version: 55. Type help for commands.\r\nn6> Wireless encoding: UINT8 affine\rApplies to newly accepted BLE/Cloud frames; USB MAP unchanged.\rn6> \n"
+    },
+    {
+      "command": "version",
+      "ms": 109.0,
+      "reply": "Firmware version: 55\rn6> \n"
+    },
+    {
+      "command": "DEMO MAP STATUS",
+      "ms": 110.0,
+      "reply": "Demo map: OFF, interval 0 ms, destination NONE, encoding 3\rScheduled 0, accepted 0, skipped 0, late slots 0, max lateness 0 ms\rFrame ID is the scheduled sequence; hot pixel=(ID-1) modulo 2268. NPU off for demo frames.\rn6> \n"
+    },
+    {
+      "command": "DEMO MAP ON 1 BLE",
+      "ms": 78.0,
+      "reply": "Usage: DEMO MAP ON <100..60000 ms> [CLOUD|BLE] | DEMO MAP OFF | DEMO MAP STATUS; 1000=1s, 300=300ms; legacy ON 1/2 rejected\rn6> \n"
+    },
+    {
+      "command": "DEMO MAP ON 2 BLE",
+      "ms": 109.0,
+      "reply": "Usage: DEMO MAP ON <100..60000 ms> [CLOUD|BLE] | DEMO MAP OFF | DEMO MAP STATUS; 1000=1s, 300=300ms; legacy ON 1/2 rejected\rn6> \n"
+    },
+    {
+      "command": "DEMO MAP ON 99 BLE",
+      "ms": 110.0,
+      "reply": "Usage: DEMO MAP ON <100..60000 ms> [CLOUD|BLE] | DEMO MAP OFF | DEMO MAP STATUS; 1000=1s, 300=300ms; legacy ON 1/2 rejected\rn6> \n"
+    },
+    {
+      "command": "DEMO MAP ON 60001 BLE",
+      "ms": 93.0,
+      "reply": "Usage: DEMO MAP ON <100..60000 ms> [CLOUD|BLE] | DEMO MAP OFF | DEMO MAP STATUS; 1000=1s, 300=300ms; legacy ON 1/2 rejected\rn6> \n"
+    },
+    {
+      "command": "DEMO MAP ON 4294967296 BLE",
+      "ms": 94.0,
+      "reply": "Usage: DEMO MAP ON <100..60000 ms> [CLOUD|BLE] | DEMO MAP OFF | DEMO MAP STATUS; 1000=1s, 300=300ms; legacy ON 1/2 rejected\rn6> \n"
+    },
+    {
+      "command": "DEMO MAP STATUS",
+      "ms": 172.0,
+      "reply": "Demo map: OFF, interval 0 ms, destination NONE, encoding 3\rScheduled 0, accepted 0, skipped 0, late slots 0, max lateness 0 ms\rFrame ID is the scheduled sequence; hot pixel=(ID-1) modulo 2268. NPU off for demo frames.\rn6> \n"
+    },
+    {
+      "command": "MAP ENCODING UINT8",
+      "ms": 94.0,
+      "reply": "Wireless encoding: UINT8 affine\rApplies to newly accepted BLE/Cloud frames; USB MAP unchanged.\rn6> \n"
+    },
+    {
+      "command": "DEMO MAP ON 1000 BLE",
+      "ms": 125.0,
+      "reply": "Demo map: ON, interval 1000 ms, destination BLE, encoding 3\rScheduled 0, accepted 0, skipped 0, late slots 0, max lateness 0 ms\rFrame ID is the scheduled sequence; hot pixel=(ID-1) modulo 2268. NPU off for demo frames.\rn6> \n"
+    },
+    {
+      "command": "debug ping phase-start",
+      "ms": 94.0,
+      "reply": "PONG phase-start 253587\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 78.0,
+      "reply": "PONG codec-UINT8 253687\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 109.0,
+      "reply": "PONG codec-UINT8 253987\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 93.0,
+      "reply": "PONG codec-UINT8 254287\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 78.0,
+      "reply": "PONG codec-UINT8 254587\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 78.0,
+      "reply": "PONG codec-UINT8 254887\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 78.0,
+      "reply": "PONG codec-UINT8 255187\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 93.0,
+      "reply": "PONG codec-UINT8 255487\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 109.0,
+      "reply": "PONG codec-UINT8 255787\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 109.0,
+      "reply": "PONG codec-UINT8 256087\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 94.0,
+      "reply": "PONG codec-UINT8 256387\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 110.0,
+      "reply": "PONG codec-UINT8 256687\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 93.0,
+      "reply": "PONG codec-UINT8 256987\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 93.0,
+      "reply": "PONG codec-UINT8 257287\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 219.0,
+      "reply": "PONG codec-UINT8 257587\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 109.0,
+      "reply": "PONG codec-UINT8 257987\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 94.0,
+      "reply": "PONG codec-UINT8 258287\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 94.0,
+      "reply": "PONG codec-UINT8 258587\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 125.0,
+      "reply": "PONG codec-UINT8 258887\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 125.0,
+      "reply": "PONG codec-UINT8 259187\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 62.0,
+      "reply": "PONG codec-UINT8 259487\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 78.0,
+      "reply": "PONG codec-UINT8 259787\n"
+    },
+    {
+      "command": "MAP ENCODING UINT8",
+      "ms": 125.0,
+      "reply": "Wireless encoding: UINT8 affine\rApplies to newly accepted BLE/Cloud frames; USB MAP unchanged.\rn6> \n"
+    },
+    {
+      "command": "DEMO MAP ON 300 BLE",
+      "ms": 188.0,
+      "reply": "Demo map: ON, interval 300 ms, destination BLE, encoding 3\rScheduled 0, accepted 0, skipped 0, late slots 0, max lateness 0 ms\rFrame ID is the scheduled sequence; hot pixel=(ID-1) modulo 2268. NPU off for demo frames.\rn6> \n"
+    },
+    {
+      "command": "debug ping phase-start",
+      "ms": 93.0,
+      "reply": "PONG phase-start 260387\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 78.0,
+      "reply": "PONG codec-UINT8 260487\n"
+    },
+    {
+      "command": "debug ping codec-UINT8",
+      "ms": 531.0,
+      "reply": "PONG codec-UINT8 260787\n"
+    }
+  ],
+  "modes": [
+    {
+      "mode": "UINT8",
+      "interval_ms": 1000,
+      "frames": 6,
+      "payload": 2268,
+      "frame_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "timestamps_ms": [
+        254487,
+        255487,
+        256487,
+        257487,
+        258487,
+        259487
+      ],
+      "host_times_s": [
+        192295.0,
+        192295.906,
+        192296.89,
+        192298.125,
+        192298.875,
+        192299.89
+      ]
+    }
+  ],
+  "pair_requested": false,
+  "mtu": 247,
+  "failure": "TimeoutError: No completed reply: debug ping codec-UINT8",
+  "crc_errors": 0,
+  "dropped": 0,
+  "frames": [
+    {
+      "frame_id": 1,
+      "total": 2268,
+      "width": 54,
+      "height": 42,
+      "channel": 1,
+      "pixel_format": 3,
+      "version": 3,
+      "base": 500.0,
+      "step": 11.811023712158203,
+      "timestamp_ms": 254487,
+      "crc32": 3389655612,
+      "npu": {
+        "state": 0,
+        "class_id": 0,
+        "confidence": 0,
+        "frame_id": 0,
+        "runs": 0,
+        "inference_ms": 0
+      },
+      "hot_pixel_valid": true,
+      "npu_off_valid": true,
+      "host_s": 192295.0
+    },
+    {
+      "frame_id": 2,
+      "total": 2268,
+      "width": 54,
+      "height": 42,
+      "channel": 1,
+      "pixel_format": 3,
+      "version": 3,
+      "base": 500.0,
+      "step": 11.811023712158203,
+      "timestamp_ms": 255487,
+      "crc32": 3885754631,
+      "npu": {
+        "state": 0,
+        "class_id": 0,
+        "confidence": 0,
+        "frame_id": 0,
+        "runs": 0,
+        "inference_ms": 0
+      },
+      "hot_pixel_valid": true,
+      "npu_off_valid": true,
+      "host_s": 192295.906
+    },
+    {
+      "frame_id": 3,
+      "total": 2268,
+      "width": 54,
+      "height": 42,
+      "channel": 1,
+      "pixel_format": 3,
+      "version": 3,
+      "base": 500.0,
+      "step": 11.811023712158203,
+      "timestamp_ms": 256487,
+      "crc32": 1956077560,
+      "npu": {
+        "state": 0,
+        "class_id": 0,
+        "confidence": 0,
+        "frame_id": 0,
+        "runs": 0,
+        "inference_ms": 0
+      },
+      "hot_pixel_valid": true,
+      "npu_off_valid": true,
+      "host_s": 192296.89
+    },
+    {
+      "frame_id": 4,
+      "total": 2268,
+      "width": 54,
+      "height": 42,
+      "channel": 1,
+      "pixel_format": 3,
+      "version": 3,
+      "base": 500.0,
+      "step": 11.811023712158203,
+      "timestamp_ms": 257487,
+      "crc32": 1910390133,
+      "npu": {
+        "state": 0,
+        "class_id": 0,
+        "confidence": 0,
+        "frame_id": 0,
+        "runs": 0,
+        "inference_ms": 0
+      },
+      "hot_pixel_valid": true,
+      "npu_off_valid": true,
+      "host_s": 192298.125
+    },
+    {
+      "frame_id": 5,
+      "total": 2268,
+      "width": 54,
+      "height": 42,
+      "channel": 1,
+      "pixel_format": 3,
+      "version": 3,
+      "base": 500.0,
+      "step": 11.811023712158203,
+      "timestamp_ms": 258487,
+      "crc32": 954966962,
+      "npu": {
+        "state": 0,
+        "class_id": 0,
+        "confidence": 0,
+        "frame_id": 0,
+        "runs": 0,
+        "inference_ms": 0
+      },
+      "hot_pixel_valid": true,
+      "npu_off_valid": true,
+      "host_s": 192298.875
+    },
+    {
+      "frame_id": 6,
+      "total": 2268,
+      "width": 54,
+      "height": 42,
+      "channel": 1,
+      "pixel_format": 3,
+      "version": 3,
+      "base": 500.0,
+      "step": 11.811023712158203,
+      "timestamp_ms": 259487,
+      "crc32": 1681008980,
+      "npu": {
+        "state": 0,
+        "class_id": 0,
+        "confidence": 0,
+        "frame_id": 0,
+        "runs": 0,
+        "inference_ms": 0
+      },
+      "hot_pixel_valid": true,
+      "npu_off_valid": true,
+      "host_s": 192299.89
+    }
+  ]
+}

@@ -1,4 +1,7 @@
+#define N6_RESOURCE_SOURCE N6R_RADIO
+#include "resource_diag.h"
 #include "wifi_ble_app.h"
+#include "n6_watchdog.h"
 #include "app_cli_reply.h"
 #include "app_settings.h"
 
@@ -376,6 +379,7 @@ static WifiBle_RadioManagerContext_t radio_manager =
 /* Scalar recovery metadata in application SRAM, no new task/payload storage.
  * 0 idle, 1 requested, 2 owner restarting, 3 failed/exhausted (fail closed). */
 static volatile WifiBle_RecoveryStatus_t radio_recovery;
+static uint32_t notification_sequence, notification_last_source;
 static volatile WifiBle_RecoveryNotice_t ble_recovery_notice;
 /* A restored CCCD can precede the remote application's receive handler.
  * Repeat the same event once after fresh CLI input proves that application
@@ -514,6 +518,30 @@ static void error_callback(W6X_Status_t status, const char *function_name);
 static void log_output(const char *message);
 
 static volatile uint8_t image_encoding = TOF_IMAGE_RAW;
+static DemoMap_Status demo_map;
+static void demo_map_process(void);
+
+UINT WIFI_BLE_App_SetDemoMap(uint32_t interval_ms,uint32_t destination)
+{
+  if((interval_ms && !DemoMap_ValidInterval(interval_ms)) || (interval_ms && destination!=TOF_STREAM_BLE && destination!=TOF_STREAM_CLOUD))return TX_OPTION_ERROR;
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  if(interval_ms && (TOF_App_IsDatasetStreamEnabled() || !radio_manager.queues.ble_tof_image_context))return TX_NOT_AVAILABLE;
+  UINT posture=tx_interrupt_control(TX_INT_DISABLE);
+  if(interval_ms)DemoMap_Start(&demo_map,interval_ms,destination,HAL_GetTick());
+  else {demo_map.interval_ms=0U;++demo_map.epoch;}
+  if(interval_ms)TOF_App_RequestStream((TOF_StreamDestination_t)destination);
+  (void)tx_interrupt_control(posture);return TX_SUCCESS;
+#else
+  return interval_ms ? TX_NOT_AVAILABLE : TX_SUCCESS;
+#endif
+}
+void WIFI_BLE_App_GetDemoMapStatus(DemoMap_Status *status)
+{
+  if(!status)return;
+  UINT posture=tx_interrupt_control(TX_INT_DISABLE);*status=demo_map;
+  (void)tx_interrupt_control(posture);
+}
+
 
 UINT WIFI_BLE_App_SetImageEncoding(uint8_t mode)
 {
@@ -776,6 +804,7 @@ void WIFI_BLE_App_Run(void)
   for (;;)
   {
     uint32_t loop_gap;
+    N6H_Beat(N6H_RADIO);
 
     now = HAL_GetTick();
     loop_gap = now - radio_manager.counters.wifi_ble_last_loop_tick;
@@ -966,6 +995,38 @@ UINT WIFI_BLE_App_RequestRadioFaultTest(void)
 #endif
 }
 
+/* Scalar breadcrumb only: no command text, allocation, UART or extra AT call.
+ * Snapshot before NCP teardown. Notification fields are context, not proof of
+ * causality for a later unrelated SPI/text-AT fence. Source 1=CLI,2=debug,3=image,5=NPU. */
+static void radio_capture_recovery_trace(void)
+{
+#if (APP_ST67W6X_ENABLED == 1U) && ((APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U))
+  W61_Object_t *driver = W61_ObjGet();
+  struct modem *mdm = &driver->Modem;
+  WifiBle_RecoveryTrace_t trace = {0};
+  trace.sequence = radio_recovery.trace.sequence + 1U;
+  trace.tick_ms = HAL_GetTick();
+  trace.reason = spi_transaction_faulted() ? 1U :
+      mdm->handler_data.tx_desynchronized ? 2U :
+      mdm->handler_data.dns_drain_active ? 3U : recovery_fault_test ? 4U : 5U;
+  trace.notification_id = notification_sequence;
+  trace.notification_source = notification_last_source;
+  trace.notification_phase = mdm->notify_phase;
+  trace.notification_length = mdm->notify_length;
+  trace.notification_written = mdm->notify_written;
+  trace.notification_elapsed_ms = (xTaskGetTickCount() - mdm->notify_started) * portTICK_PERIOD_MS;
+  trace.notification_budget_ms = mdm->notify_budget * portTICK_PERIOD_MS;
+  trace.notification_finished = mdm->notify_finish_pending;
+  trace.notification_result = mdm->notify_result;
+  trace.recv_seen = mdm->notify_recv_seen;
+  trace.response_seen = mdm->raw_tx_response_received;
+  trace.modem_error = mdm->handler_data.last_error;
+  UINT posture = tx_interrupt_control(TX_INT_DISABLE);
+  radio_recovery.trace = trace;
+  (void)tx_interrupt_control(posture);
+#endif
+}
+
 static void radio_recovery_pump(void)
 {
 #if (APP_ST67W6X_ENABLED == 1U) && ((APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U) || (APP_ST67W6X_BLE_GATT_ENABLED == 1U))
@@ -973,6 +1034,7 @@ static void radio_recovery_pump(void)
   {
     W61_Object_t *driver = W61_ObjGet();
     struct modem_cmd_handler_data *handler = &driver->Modem.handler_data;
+    if (spi_transaction_faulted() != 0) handler->tx_desynchronized = true;
     if (handler->tx_desynchronized || (handler->dns_drain_active &&
         (int32_t)(xTaskGetTickCount() - handler->dns_drain_until) >= 0))
       (void)WIFI_BLE_App_RequestRadioRecovery();
@@ -981,6 +1043,7 @@ static void radio_recovery_pump(void)
   if ((radio_recovery.state != 1U) || radio_recovery.radio_quiesced) return;
   if (radio_recovery.stage == 0U)
   {
+    radio_capture_recovery_trace();
     radio_recovery.started_ms = HAL_GetTick();
     radio_recovery.stage = 1U;
     radio_recovery.wifi_reconnect_required = radio_manager.shadow.wifi_connected;
@@ -1019,8 +1082,9 @@ static void radio_recovery_pump(void)
         (unsigned long)ble_recovery_notice.reply_active);
 #endif
     W61_Object_t *driver = W61_ObjGet();
-    const char *reason = driver->Modem.handler_data.tx_desynchronized ? "AT_FENCED" :
-        driver->Modem.handler_data.dns_drain_active ? "DNS_EXPIRED" :
+    const char *reason = spi_transaction_faulted() != 0 ? "SPI_FENCED" :
+        driver->Modem.handler_data.tx_desynchronized ? "AT_FENCED" :
+        driver->Modem.handler_data.dns_drain_active ? "TERMINAL_EXPIRED" :
         recovery_fault_test ? "TEST_MISSING_RESPONSE" : "EXPLICIT_REQUEST";
     Debug_UART_Log("RADIO-RECOVERY", "START reason=%s started_ms=%lu", reason,
                    (unsigned long)radio_recovery.started_ms);
@@ -1081,6 +1145,10 @@ static void radio_recovery_execute(void)
     W6X_Net_RequestScopeEnd();
     Debug_UART_Log("RADIO-RECOVERY", "TEST missing NCP response status=%ld genuine_fence=%lu",
                    (long)status, (unsigned long)driver->Modem.handler_data.tx_desynchronized);
+    /* The test's powered-off NCP cannot finish the new plain-terminal drain. */
+    if (driver->Modem.handler_data.dns_drain_active)
+      (void)modem_cmd_handler_wait_tx_ready(&driver->Modem.handler_data,
+                                           pdMS_TO_TICKS(1100U), false);
     if (!driver->Modem.handler_data.tx_desynchronized) goto failed;
     if (xSemaphoreTake(driver->Modem.handler_data.sem_tx_lock, 0U) != pdTRUE) goto failed;
   }
@@ -1198,13 +1266,16 @@ void WIFI_BLE_App_GetServiceStatus(WifiBle_ServiceStatus_t *status)
     status->state = radio_manager.shadow.state == WIFI_BLE_STATE_ERROR ?
         WIFI_BLE_SERVICE_FAULT : WIFI_BLE_SERVICE_WAITING;
     status->reason = radio_manager.shadow.state == WIFI_BLE_STATE_ERROR ? "INIT_FAILED" : "STARTING";
+  } else if (spi_transaction_faulted() != 0) {
+    status->state = WIFI_BLE_SERVICE_FAULT; status->reason = "SPI_FENCED";
   } else if (driver->Modem.handler_data.tx_desynchronized) {
     status->state = WIFI_BLE_SERVICE_FAULT; status->reason = "AT_FENCED";
   } else if (driver->Modem.handler_data.dns_drain_active) {
     TickType_t deadline = driver->Modem.handler_data.dns_drain_until;
-    status->elapsed_ms = (now - (deadline - pdMS_TO_TICKS(20000U))) * portTICK_PERIOD_MS;
+    uint32_t drain_ms = driver->Modem.handler_data.dns_wait_active ? 20000U : 1000U;
+    status->elapsed_ms = (now - (deadline - pdMS_TO_TICKS(drain_ms))) * portTICK_PERIOD_MS;
     status->state = (int32_t)(now - deadline) >= 0 ? WIFI_BLE_SERVICE_FAULT : WIFI_BLE_SERVICE_WAITING;
-    status->reason = "DNS_REPLY";
+    status->reason = driver->Modem.handler_data.dns_wait_active ? "DNS_REPLY" : "AT_REPLY";
     status->remaining_ms = status->state == WIFI_BLE_SERVICE_WAITING ?
         (deadline - now) * portTICK_PERIOD_MS : 0U;
   } else if (driver->Modem.notify_phase && driver->Modem.notify_late) {
@@ -1637,11 +1708,10 @@ UINT WIFI_BLE_App_EndReply(uint32_t completed)
   if (!ctx || !ctx->reply.active || ctx->reply_owner != tx_thread_identify())
     return TX_NOT_AVAILABLE;
   if (completed) {
-    const char *trailer = ctx->reply.overflow ?
-      "\r\n[CLI-RESULT] state=failed reason=OUTPUT_LIMIT\r\nn6> " :
-      completed == 3U ? "\r\n[CLI-RESULT] state=failed reason=WRITE_ERROR\r\n" :
-      completed == 2U ? "\r\n[CLI-RESULT] state=rejected reason=SERVICE_UNAVAILABLE\r\n" :
-      "\r\n[CLI-RESULT] state=complete\r\n";
+    AppCliReply_TrimLineBreak(&ctx->reply, ctx->cli_tx_slots[0].data,
+        sizeof(ctx->cli_tx_slots[0]), BLE_CLI_TX_SLOT_SIZE);
+    const char *trailer = ctx->reply.overflow || completed != 1U ?
+        "\rFAIL\r\n" : "\n";
     (void)AppCliReply_Append(&ctx->reply, ctx->cli_tx_slots[0].data,
         sizeof(ctx->cli_tx_slots[0]), BLE_CLI_TX_SLOT_SIZE,
         BLE_CLI_TX_SLOT_COUNT, trailer, strlen(trailer), 1U);
@@ -1717,9 +1787,9 @@ UINT WIFI_BLE_App_StreamWrite(WifiBle_Stream_t stream, const void *buffer,
       radio_manager.queues.ble_stream_context->reply.active) {
     WifiBle_StreamContext_t *ctx = radio_manager.queues.ble_stream_context;
     if (ctx->reply_owner != tx_thread_identify()) return TX_NOT_AVAILABLE;
-    return AppCliReply_Append(&ctx->reply, ctx->cli_tx_slots[0].data,
+    return AppCliReply_AppendText(&ctx->reply, ctx->cli_tx_slots[0].data,
         sizeof(ctx->cli_tx_slots[0]), BLE_CLI_TX_SLOT_SIZE,
-        BLE_CLI_TX_SLOT_COUNT, buffer, length, 0U) ? TX_SIZE_ERROR : TX_SUCCESS;
+        BLE_CLI_TX_SLOT_COUNT, buffer, length) ? TX_SIZE_ERROR : TX_SUCCESS;
   }
 
   if (stream == WIFI_BLE_STREAM_CLI)
@@ -1970,17 +2040,17 @@ uint32_t WIFI_BLE_App_IsTofImageIdle(void)
 #endif
 }
 
-UINT __attribute__((optimize("Os")))
-WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
+static UINT __attribute__((optimize("Os")))
+wifi_publish_image(uint32_t frame_id, uint8_t channel_id,
                              const float *pixels, uint8_t width,
-                             uint8_t height, const RPS_AI_Status_t *rps, uint32_t timestamp_ms)
+                             uint8_t height, const RPS_AI_Status_t *rps, uint32_t timestamp_ms, uint32_t demo_epoch)
 {
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
   size_t pixel_count;
   size_t payload_length;
   UINT posture;
 
-  if ((pixels == NULL) || (width == 0U) || (height == 0U) ||
+  if (((pixels == NULL) && !demo_epoch) || (width == 0U) || (height == 0U) ||
       (width > BLE_TOF_IMAGE_MAX_WIDTH) ||
       (height > BLE_TOF_IMAGE_MAX_HEIGHT))
   {
@@ -2000,6 +2070,10 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   }
 
   posture = tx_interrupt_control(TX_INT_DISABLE);
+  if ((demo_epoch && (!demo_map.interval_ms || demo_epoch!=demo_map.epoch)) ||
+      (!demo_epoch && demo_map.interval_ms)) {
+    (void)tx_interrupt_control(posture);return TX_NOT_AVAILABLE;
+  }
   if (radio_manager.queues.ble_tof_image_context->state != BLE_TOF_IMAGE_FREE)
   {
     radio_manager.queues.ble_tof_image_context->stats.frames_dropped_busy++;
@@ -2010,7 +2084,7 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   radio_manager.queues.ble_tof_image_context->generation = radio_manager.shadow.ble_session_generation;
   (void)tx_interrupt_control(posture);
 
-  uint32_t training = TOF_App_IsDatasetStreamEnabled();
+  uint32_t training = !demo_epoch && TOF_App_IsDatasetStreamEnabled();
   if (training && TOF_App_GetStreamDestination() != TOF_STREAM_BLE &&
       (TOF_App_GetStreamDestination() != TOF_STREAM_CLOUD || !CloudRelay_IsTrainingFrameDue())) {
     radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE; return TX_NOT_AVAILABLE;
@@ -2020,7 +2094,8 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
         sizeof(radio_manager.queues.ble_tof_image_context->payload), pixels, width, height,
         frame_id, timestamp_ms, TOF_IMAGE_FILTER_NONE);
     if (!payload_length) { radio_manager.queues.ble_tof_image_context->state = BLE_TOF_IMAGE_FREE; return TX_SIZE_ERROR; }
-  } else (void)memcpy(radio_manager.queues.ble_tof_image_context->payload, pixels, payload_length);
+  } else if(demo_epoch) DemoMap_Fill(radio_manager.queues.ble_tof_image_context->payload,pixel_count,frame_id);
+  else (void)memcpy(radio_manager.queues.ble_tof_image_context->payload, pixels, payload_length);
   radio_manager.queues.ble_tof_image_context->frame_id = frame_id;
   radio_manager.queues.ble_tof_image_context->image_info = (TofImageInfo){
       .frame_id=frame_id, .timestamp_ms=timestamp_ms, .width=width,
@@ -2054,6 +2129,9 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   /* The processing task cannot change active owner inside this publication.
    * A Cloud frame goes directly to WAIT_CLOUD, never BLE READY. Admission
    * failure releases immediately; there is no second-destination fallback. */
+  if(demo_epoch && (!demo_map.interval_ms || demo_epoch!=demo_map.epoch)) {
+    radio_manager.queues.ble_tof_image_context->state=BLE_TOF_IMAGE_FREE;return TX_NOT_AVAILABLE;
+  }
   TOF_StreamDestination_t destination = TOF_App_GetStreamDestination();
   UINT admitted = TX_SUCCESS;
   if (destination == TOF_STREAM_CLOUD)
@@ -2084,7 +2162,40 @@ WIFI_BLE_App_PublishTofImage(uint32_t frame_id, uint8_t channel_id,
   (void)height;
   (void)rps;
   (void)timestamp_ms;
+  (void)demo_epoch;
   return TX_NOT_AVAILABLE;
+#endif
+}
+
+UINT WIFI_BLE_App_PublishTofImage(uint32_t frame_id,uint8_t channel_id,
+    const float *pixels,uint8_t width,uint8_t height,const RPS_AI_Status_t *rps,uint32_t timestamp_ms)
+{
+  return wifi_publish_image(frame_id,channel_id,pixels,width,height,rps,timestamp_ms,0U);
+}
+
+static void demo_map_process(void)
+{
+#if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
+  UINT posture=tx_interrupt_control(TX_INT_DISABLE);
+  if(demo_map.interval_ms && (TOF_App_IsDatasetStreamEnabled() ||
+      (uint32_t)TOF_App_GetRequestedStreamDestination()!=demo_map.destination)) {
+    demo_map.interval_ms=0U;++demo_map.epoch;
+  }
+  if(!DemoMap_Due(&demo_map,HAL_GetTick())){(void)tx_interrupt_control(posture);return;}
+  uint32_t sequence=demo_map.sequence,epoch=demo_map.epoch,timestamp=demo_map.last_ms;
+  (void)tx_interrupt_control(posture);
+  UINT result=wifi_publish_image(sequence,1U,NULL,54U,42U,NULL,timestamp,epoch);
+  posture=tx_interrupt_control(TX_INT_DISABLE);
+  if(epoch==demo_map.epoch){
+    if(result==TX_SUCCESS)++demo_map.accepted;
+    else {
+      ++demo_map.skipped;
+      if(result==TX_QUEUE_FULL)++demo_map.publish_busy;
+      else if(result==TX_NOT_AVAILABLE)++demo_map.publish_unavailable;
+      else ++demo_map.publish_other;
+    }
+  }
+  (void)tx_interrupt_control(posture);
 #endif
 }
 
@@ -3162,9 +3273,11 @@ void WIFI_BLE_App_WifiControlRun(void)
 
   for (;;)
   {
+    N6H_Beat(N6H_WIFI_CONTROL);
     status = tx_event_flags_get(&radio_control_events,
                                 WIFI_CONTROL_WORK_FLAG, TX_OR_CLEAR,
                                 &actual_flags, WIFI_HEALTH_PROBE_WAIT_TICKS);
+    N6H_Beat(N6H_WIFI_CONTROL); /* 30s idle wait is distinct from bounded work. */
     if (radio_recovery.state != 0U)
     {
       radio_recovery_execute();
@@ -3203,6 +3316,7 @@ void WIFI_BLE_App_WifiControlRun(void)
     for (;;)
     {
       if (radio_recovery.state != 0U || AppSettings_IsBusy()) break;
+      N6H_Beat(N6H_WIFI_CONTROL);
 #if (APP_ST67W6X_BLE_GATT_ENABLED == 1U)
       ble_control_execute();
 #endif
@@ -3676,6 +3790,13 @@ static W6X_Status_t ble_notify_fragment(uint32_t source, uint8_t service,
       (radio_manager.work.notify_source != source)) return W6X_STATUS_BUSY;
   if (radio_manager.work.notify_source == 0U)
   {
+    /* Admit a whole CLI reply before best-effort image/NPU fragments. Never
+     * preempt a raw notification that already owns the AT channel. */
+    WifiBle_StreamContext_t *streams = radio_manager.queues.ble_stream_context;
+    if ((source == 3U || source == 5U) && streams &&
+        (streams->stats[WIFI_BLE_STREAM_CLI].rx_queued ||
+         streams->stats[WIFI_BLE_STREAM_CLI].tx_queued || streams->reply.active))
+      return W6X_STATUS_BUSY;
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
     if (radio_manager.work.wifi_connect_call_active != 0U || AppSettings_IsIoActive()) return W6X_STATUS_BUSY;
 #endif
@@ -3683,6 +3804,8 @@ static W6X_Status_t ble_notify_fragment(uint32_t source, uint8_t service,
         (uint8_t)radio_manager.shadow.ble_connection_handle, service, characteristic,
         length, BLE_NOTIFY_TIMEOUT_MS);
     if (admitted != W6X_STATUS_OK) return admitted;
+    ++notification_sequence;
+    notification_last_source = source;
     radio_manager.work.notify_source = source;
     radio_manager.work.notify_generation = radio_manager.shadow.ble_session_generation;
     radio_manager.work.notify_length = length;
@@ -4643,6 +4766,7 @@ static void ble_process_pending_events(void)
   ble_stream_process_tx(WIFI_BLE_STREAM_DEBUG);
   ble_rps_process_tx();
   ble_tof_image_process_tx();
+  demo_map_process();
   ble_probe_shadow(HAL_GetTick());
 }
 

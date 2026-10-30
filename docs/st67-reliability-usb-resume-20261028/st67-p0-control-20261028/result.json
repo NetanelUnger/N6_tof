@@ -1,0 +1,1042 @@
+{
+  "started_utc": "2026-10-28T20:58:22.085656+00:00",
+  "owner": {
+    "thread": "n6-xip-st67-reliability-20261028",
+    "pid": 13124,
+    "started_utc": "2026-10-28T20:58:22.085656+00:00",
+    "process_created_utc": "2026-10-28T20:58:21.098259+00:00",
+    "scope": "bounded BLE CLI and USB read-only controls; no images, reset, update, settings or pairing writes"
+  },
+  "result": "PASS",
+  "profile": "BLE CLI + USB; existing Wi-Fi/Cloud enabled; images NONE",
+  "requested_seconds": 120,
+  "source_revision": "5432d4ae2b10ef7ecdfaedad586038792f0a4db5",
+  "running_image_provenance": "UNRESOLVED v51; measurement only, no firmware changes",
+  "pair_requested": false,
+  "firmware_bytes_sent": 0,
+  "settings_commands": false,
+  "pings": [
+    {
+      "token": "ST67B-0000",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0000 624852\n",
+      "host_monotonic": 134637.906
+    },
+    {
+      "token": "ST67B-0001",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0001 625882\n",
+      "host_monotonic": 134638.953
+    },
+    {
+      "token": "ST67B-0002",
+      "elapsed_ms": 92.99999999348074,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0002 626882\n",
+      "host_monotonic": 134639.968
+    },
+    {
+      "token": "ST67B-0003",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0003 627902\n",
+      "host_monotonic": 134640.984
+    },
+    {
+      "token": "ST67B-0004",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0004 628902\n",
+      "host_monotonic": 134641.984
+    },
+    {
+      "token": "ST67B-0005",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0005 629902\n",
+      "host_monotonic": 134643.0
+    },
+    {
+      "token": "ST67B-0006",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0006 630902\n",
+      "host_monotonic": 134643.984
+    },
+    {
+      "token": "ST67B-0007",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0007 631902\n",
+      "host_monotonic": 134644.984
+    },
+    {
+      "token": "ST67B-0008",
+      "elapsed_ms": 203.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0008 632902\n",
+      "host_monotonic": 134646.062
+    },
+    {
+      "token": "ST67B-0009",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0009 633902\n",
+      "host_monotonic": 134646.984
+    },
+    {
+      "token": "ST67B-0010",
+      "elapsed_ms": 94.00000001187436,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0010 634892\n",
+      "host_monotonic": 134647.953
+    },
+    {
+      "token": "ST67B-0011",
+      "elapsed_ms": 108.99999999674037,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0011 635892\n",
+      "host_monotonic": 134648.968
+    },
+    {
+      "token": "ST67B-0012",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0012 636902\n",
+      "host_monotonic": 134649.984
+    },
+    {
+      "token": "ST67B-0013",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0013 637902\n",
+      "host_monotonic": 134650.984
+    },
+    {
+      "token": "ST67B-0014",
+      "elapsed_ms": 108.99999999674037,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0014 638912\n",
+      "host_monotonic": 134651.968
+    },
+    {
+      "token": "ST67B-0015",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0015 639912\n",
+      "host_monotonic": 134652.984
+    },
+    {
+      "token": "ST67B-0016",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0016 640913\n",
+      "host_monotonic": 134653.984
+    },
+    {
+      "token": "ST67B-0017",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0017 641933\n",
+      "host_monotonic": 134655.0
+    },
+    {
+      "token": "ST67B-0018",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0018 642833\n",
+      "host_monotonic": 134655.906
+    },
+    {
+      "token": "ST67B-0019",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0019 643853\n",
+      "host_monotonic": 134656.921
+    },
+    {
+      "token": "ST67B-0020",
+      "elapsed_ms": 30.999999988125637,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0020 644853\n",
+      "host_monotonic": 134657.906
+    },
+    {
+      "token": "ST67B-0021",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0021 645833\n",
+      "host_monotonic": 134658.906
+    },
+    {
+      "token": "ST67B-0022",
+      "elapsed_ms": 94.00000001187436,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0022 646833\n",
+      "host_monotonic": 134659.953
+    },
+    {
+      "token": "ST67B-0023",
+      "elapsed_ms": 141.00000000325963,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0023 647933\n",
+      "host_monotonic": 134661.0
+    },
+    {
+      "token": "ST67B-0024",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0024 648913\n",
+      "host_monotonic": 134661.984
+    },
+    {
+      "token": "ST67B-0025",
+      "elapsed_ms": 203.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0025 649913\n",
+      "host_monotonic": 134663.078
+    },
+    {
+      "token": "ST67B-0026",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0026 650843\n",
+      "host_monotonic": 134663.906
+    },
+    {
+      "token": "ST67B-0027",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0027 651843\n",
+      "host_monotonic": 134664.937
+    },
+    {
+      "token": "ST67B-0028",
+      "elapsed_ms": 94.00000001187436,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0028 652863\n",
+      "host_monotonic": 134665.953
+    },
+    {
+      "token": "ST67B-0029",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0029 653863\n",
+      "host_monotonic": 134666.937
+    },
+    {
+      "token": "ST67B-0030",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0030 654863\n",
+      "host_monotonic": 134667.937
+    },
+    {
+      "token": "ST67B-0031",
+      "elapsed_ms": 94.00000001187436,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0031 655893\n",
+      "host_monotonic": 134668.953
+    },
+    {
+      "token": "ST67B-0032",
+      "elapsed_ms": 92.99999999348074,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0032 656893\n",
+      "host_monotonic": 134669.968
+    },
+    {
+      "token": "ST67B-0033",
+      "elapsed_ms": 156.00000001722947,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0033 657903\n",
+      "host_monotonic": 134671.015
+    },
+    {
+      "token": "ST67B-0034",
+      "elapsed_ms": 108.99999999674037,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0034 658903\n",
+      "host_monotonic": 134671.984
+    },
+    {
+      "token": "ST67B-0035",
+      "elapsed_ms": 141.00000000325963,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0035 659923\n",
+      "host_monotonic": 134673.0
+    },
+    {
+      "token": "ST67B-0036",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0036 660823\n",
+      "host_monotonic": 134673.906
+    },
+    {
+      "token": "ST67B-0037",
+      "elapsed_ms": 156.00000001722947,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0037 661923\n",
+      "host_monotonic": 134675.015
+    },
+    {
+      "token": "ST67B-0038",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0038 662833\n",
+      "host_monotonic": 134675.906
+    },
+    {
+      "token": "ST67B-0039",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0039 663833\n",
+      "host_monotonic": 134676.906
+    },
+    {
+      "token": "ST67B-0040",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0040 664863\n",
+      "host_monotonic": 134677.953
+    },
+    {
+      "token": "ST67B-0041",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0041 665863\n",
+      "host_monotonic": 134678.937
+    },
+    {
+      "token": "ST67B-0042",
+      "elapsed_ms": 108.99999999674037,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0042 666864\n",
+      "host_monotonic": 134679.968
+    },
+    {
+      "token": "ST67B-0043",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0043 667863\n",
+      "host_monotonic": 134680.953
+    },
+    {
+      "token": "ST67B-0044",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0044 668863\n",
+      "host_monotonic": 134681.937
+    },
+    {
+      "token": "ST67B-0045",
+      "elapsed_ms": 92.99999999348074,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0045 669883\n",
+      "host_monotonic": 134682.968
+    },
+    {
+      "token": "ST67B-0046",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0046 670883\n",
+      "host_monotonic": 134683.984
+    },
+    {
+      "token": "ST67B-0047",
+      "elapsed_ms": 108.99999999674037,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0047 671873\n",
+      "host_monotonic": 134684.968
+    },
+    {
+      "token": "ST67B-0048",
+      "elapsed_ms": 92.99999999348074,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0048 672873\n",
+      "host_monotonic": 134685.968
+    },
+    {
+      "token": "ST67B-0049",
+      "elapsed_ms": 108.99999999674037,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0049 673893\n",
+      "host_monotonic": 134686.984
+    },
+    {
+      "token": "ST67B-0050",
+      "elapsed_ms": 108.99999999674037,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0050 674893\n",
+      "host_monotonic": 134687.968
+    },
+    {
+      "token": "ST67B-0051",
+      "elapsed_ms": 108.99999999674037,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0051 675913\n",
+      "host_monotonic": 134688.984
+    },
+    {
+      "token": "ST67B-0052",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0052 676813\n",
+      "host_monotonic": 134689.921
+    },
+    {
+      "token": "ST67B-0053",
+      "elapsed_ms": 30.999999988125637,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0053 677813\n",
+      "host_monotonic": 134690.906
+    },
+    {
+      "token": "ST67B-0054",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0054 678833\n",
+      "host_monotonic": 134691.937
+    },
+    {
+      "token": "ST67B-0055",
+      "elapsed_ms": 46.000000002095476,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0055 679833\n",
+      "host_monotonic": 134692.921
+    },
+    {
+      "token": "ST67B-0056",
+      "elapsed_ms": 141.00000000325963,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0056 680903\n",
+      "host_monotonic": 134694.0
+    },
+    {
+      "token": "ST67B-0057",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0057 681803\n",
+      "host_monotonic": 134694.906
+    },
+    {
+      "token": "ST67B-0058",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0058 682823\n",
+      "host_monotonic": 134695.921
+    },
+    {
+      "token": "ST67B-0059",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0059 683823\n",
+      "host_monotonic": 134696.937
+    },
+    {
+      "token": "ST67B-0060",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0060 684823\n",
+      "host_monotonic": 134697.937
+    },
+    {
+      "token": "ST67B-0061",
+      "elapsed_ms": 94.00000001187436,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0061 685833\n",
+      "host_monotonic": 134698.953
+    },
+    {
+      "token": "ST67B-0062",
+      "elapsed_ms": 171.99999999138527,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0062 686833\n",
+      "host_monotonic": 134700.031
+    },
+    {
+      "token": "ST67B-0063",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0063 687823\n",
+      "host_monotonic": 134700.937
+    },
+    {
+      "token": "ST67B-0064",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0064 688823\n",
+      "host_monotonic": 134701.953
+    },
+    {
+      "token": "ST67B-0065",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0065 689833\n",
+      "host_monotonic": 134702.937
+    },
+    {
+      "token": "ST67B-0066",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0066 690833\n",
+      "host_monotonic": 134703.937
+    },
+    {
+      "token": "ST67B-0067",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0067 691833\n",
+      "host_monotonic": 134704.953
+    },
+    {
+      "token": "ST67B-0068",
+      "elapsed_ms": 92.99999999348074,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0068 692843\n",
+      "host_monotonic": 134705.968
+    },
+    {
+      "token": "ST67B-0069",
+      "elapsed_ms": 108.99999999674037,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0069 693843\n",
+      "host_monotonic": 134706.968
+    },
+    {
+      "token": "ST67B-0070",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0070 694853\n",
+      "host_monotonic": 134707.984
+    },
+    {
+      "token": "ST67B-0071",
+      "elapsed_ms": 92.99999999348074,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0071 695853\n",
+      "host_monotonic": 134708.968
+    },
+    {
+      "token": "ST67B-0072",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0072 696783\n",
+      "host_monotonic": 134709.906
+    },
+    {
+      "token": "ST67B-0073",
+      "elapsed_ms": 171.00000000209548,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0073 697883\n",
+      "host_monotonic": 134711.046
+    },
+    {
+      "token": "ST67B-0074",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0074 698883\n",
+      "host_monotonic": 134712.0
+    },
+    {
+      "token": "ST67B-0075",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0075 699813\n",
+      "host_monotonic": 134712.937
+    },
+    {
+      "token": "ST67B-0076",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0076 700813\n",
+      "host_monotonic": 134713.921
+    },
+    {
+      "token": "ST67B-0077",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0077 701813\n",
+      "host_monotonic": 134714.937
+    },
+    {
+      "token": "ST67B-0078",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0078 702813\n",
+      "host_monotonic": 134715.937
+    },
+    {
+      "token": "ST67B-0079",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0079 703823\n",
+      "host_monotonic": 134716.984
+    },
+    {
+      "token": "ST67B-0080",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0080 704823\n",
+      "host_monotonic": 134717.937
+    },
+    {
+      "token": "ST67B-0081",
+      "elapsed_ms": 108.99999999674037,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0081 705823\n",
+      "host_monotonic": 134718.968
+    },
+    {
+      "token": "ST67B-0082",
+      "elapsed_ms": 187.0000000053551,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0082 706823\n",
+      "host_monotonic": 134720.046
+    },
+    {
+      "token": "ST67B-0083",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0083 707823\n",
+      "host_monotonic": 134720.937
+    },
+    {
+      "token": "ST67B-0084",
+      "elapsed_ms": 92.99999999348074,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0084 708833\n",
+      "host_monotonic": 134721.968
+    },
+    {
+      "token": "ST67B-0085",
+      "elapsed_ms": 94.00000001187436,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0085 709833\n",
+      "host_monotonic": 134722.953
+    },
+    {
+      "token": "ST67B-0086",
+      "elapsed_ms": 92.99999999348074,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0086 710853\n",
+      "host_monotonic": 134723.968
+    },
+    {
+      "token": "ST67B-0087",
+      "elapsed_ms": 108.99999999674037,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0087 711853\n",
+      "host_monotonic": 134724.968
+    },
+    {
+      "token": "ST67B-0088",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0088 712863\n",
+      "host_monotonic": 134725.984
+    },
+    {
+      "token": "ST67B-0089",
+      "elapsed_ms": 141.00000000325963,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0089 713863\n",
+      "host_monotonic": 134727.0
+    },
+    {
+      "token": "ST67B-0090",
+      "elapsed_ms": 141.00000000325963,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0090 714863\n",
+      "host_monotonic": 134728.0
+    },
+    {
+      "token": "ST67B-0091",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0091 715853\n",
+      "host_monotonic": 134728.984
+    },
+    {
+      "token": "ST67B-0092",
+      "elapsed_ms": 108.99999999674037,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0092 716853\n",
+      "host_monotonic": 134729.968
+    },
+    {
+      "token": "ST67B-0093",
+      "elapsed_ms": 171.00000000209548,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0093 717863\n",
+      "host_monotonic": 134731.046
+    },
+    {
+      "token": "ST67B-0094",
+      "elapsed_ms": 140.00000001396984,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0094 718863\n",
+      "host_monotonic": 134732.015
+    },
+    {
+      "token": "ST67B-0095",
+      "elapsed_ms": 141.00000000325963,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0095 719873\n",
+      "host_monotonic": 134733.0
+    },
+    {
+      "token": "ST67B-0096",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0096 720773\n",
+      "host_monotonic": 134733.906
+    },
+    {
+      "token": "ST67B-0097",
+      "elapsed_ms": 140.00000001396984,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0097 721873\n",
+      "host_monotonic": 134735.015
+    },
+    {
+      "token": "ST67B-0098",
+      "elapsed_ms": 141.00000000325963,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0098 722863\n",
+      "host_monotonic": 134736.0
+    },
+    {
+      "token": "ST67B-0099",
+      "elapsed_ms": 141.00000000325963,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0099 723863\n",
+      "host_monotonic": 134737.0
+    },
+    {
+      "token": "ST67B-0100",
+      "elapsed_ms": 46.000000002095476,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0100 724793\n",
+      "host_monotonic": 134737.921
+    },
+    {
+      "token": "ST67B-0101",
+      "elapsed_ms": 155.99999998812564,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0101 725893\n",
+      "host_monotonic": 134739.031
+    },
+    {
+      "token": "ST67B-0102",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0102 726793\n",
+      "host_monotonic": 134739.937
+    },
+    {
+      "token": "ST67B-0103",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0103 727793\n",
+      "host_monotonic": 134740.921
+    },
+    {
+      "token": "ST67B-0104",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0104 728793\n",
+      "host_monotonic": 134741.906
+    },
+    {
+      "token": "ST67B-0105",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0105 729783\n",
+      "host_monotonic": 134742.937
+    },
+    {
+      "token": "ST67B-0106",
+      "elapsed_ms": 140.00000001396984,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0106 730883\n",
+      "host_monotonic": 134744.015
+    },
+    {
+      "token": "ST67B-0107",
+      "elapsed_ms": 125.0,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0107 731873\n",
+      "host_monotonic": 134745.0
+    },
+    {
+      "token": "ST67B-0108",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0108 732773\n",
+      "host_monotonic": 134745.906
+    },
+    {
+      "token": "ST67B-0109",
+      "elapsed_ms": 156.00000001722947,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0109 733883\n",
+      "host_monotonic": 134747.015
+    },
+    {
+      "token": "ST67B-0110",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0110 734783\n",
+      "host_monotonic": 134747.906
+    },
+    {
+      "token": "ST67B-0111",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0111 735783\n",
+      "host_monotonic": 134748.937
+    },
+    {
+      "token": "ST67B-0112",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0112 736813\n",
+      "host_monotonic": 134749.953
+    },
+    {
+      "token": "ST67B-0113",
+      "elapsed_ms": 62.000000005355105,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0113 737813\n",
+      "host_monotonic": 134750.937
+    },
+    {
+      "token": "ST67B-0114",
+      "elapsed_ms": 92.99999999348074,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0114 738823\n",
+      "host_monotonic": 134751.968
+    },
+    {
+      "token": "ST67B-0115",
+      "elapsed_ms": 78.00000000861473,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0115 739823\n",
+      "host_monotonic": 134752.953
+    },
+    {
+      "token": "ST67B-0116",
+      "elapsed_ms": 92.99999999348074,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0116 740843\n",
+      "host_monotonic": 134753.968
+    },
+    {
+      "token": "ST67B-0117",
+      "elapsed_ms": 141.00000000325963,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0117 741843\n",
+      "host_monotonic": 134755.0
+    },
+    {
+      "token": "ST67B-0118",
+      "elapsed_ms": 140.00000001396984,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0118 742873\n",
+      "host_monotonic": 134756.015
+    },
+    {
+      "token": "ST67B-0119",
+      "elapsed_ms": 46.999999991385266,
+      "response": "[CLI-RESULT] state=accepted\r[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\rPONG ST67B-0119 743773\n",
+      "host_monotonic": 134756.906
+    }
+  ],
+  "usb_pings": [
+    {
+      "token": "ST67U-0000",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0000\r\nPONG ST67U-0000 624985\r\nn6> "
+    },
+    {
+      "token": "ST67U-0001",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0001\r\nPONG ST67U-0001 627306\r\nn6> "
+    },
+    {
+      "token": "ST67U-0002",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0002\r\nPONG ST67U-0002 629607\r\nn6> "
+    },
+    {
+      "token": "ST67U-0003",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0003\r\nPONG ST67U-0003 631910\r\nn6> "
+    },
+    {
+      "token": "ST67U-0004",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0004\r\nPONG ST67U-0004 634198\r\nn6> "
+    },
+    {
+      "token": "ST67U-0005",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0005\r\nPONG ST67U-0005 636502\r\nn6> "
+    },
+    {
+      "token": "ST67U-0006",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0006\r\nPONG ST67U-0006 638811\r\nn6> "
+    },
+    {
+      "token": "ST67U-0007",
+      "elapsed_ms": 327.9999999795109,
+      "response": "debug ping ST67U-0007\r\nPONG ST67U-0007 641134\r\nn6> "
+    },
+    {
+      "token": "ST67U-0008",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0008\r\nPONG ST67U-0008 643458\r\nn6> "
+    },
+    {
+      "token": "ST67U-0009",
+      "elapsed_ms": 296.0000000020955,
+      "response": "debug ping ST67U-0009\r\nPONG ST67U-0009 645737\r\nn6> "
+    },
+    {
+      "token": "ST67U-0010",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0010\r\nPONG ST67U-0010 648012\r\nn6> "
+    },
+    {
+      "token": "ST67U-0011",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0011\r\nPONG ST67U-0011 650342\r\nn6> "
+    },
+    {
+      "token": "ST67U-0012",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0012\r\nPONG ST67U-0012 652670\r\nn6> "
+    },
+    {
+      "token": "ST67U-0013",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0013\r\nPONG ST67U-0013 654992\r\nn6> "
+    },
+    {
+      "token": "ST67U-0014",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0014\r\nPONG ST67U-0014 657308\r\nn6> "
+    },
+    {
+      "token": "ST67U-0015",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0015\r\nPONG ST67U-0015 659623\r\nn6> "
+    },
+    {
+      "token": "ST67U-0016",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0016\r\nPONG ST67U-0016 661940\r\nn6> "
+    },
+    {
+      "token": "ST67U-0017",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0017\r\nPONG ST67U-0017 664261\r\nn6> "
+    },
+    {
+      "token": "ST67U-0018",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0018\r\nPONG ST67U-0018 666561\r\nn6> "
+    },
+    {
+      "token": "ST67U-0019",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0019\r\nPONG ST67U-0019 668887\r\nn6> "
+    },
+    {
+      "token": "ST67U-0020",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0020\r\nPONG ST67U-0020 671176\r\nn6> "
+    },
+    {
+      "token": "ST67U-0021",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0021\r\nPONG ST67U-0021 673492\r\nn6> "
+    },
+    {
+      "token": "ST67U-0022",
+      "elapsed_ms": 328.00000000861473,
+      "response": "debug ping ST67U-0022\r\nPONG ST67U-0022 675812\r\nn6> "
+    },
+    {
+      "token": "ST67U-0023",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0023\r\nPONG ST67U-0023 678132\r\nn6> "
+    },
+    {
+      "token": "ST67U-0024",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0024\r\nPONG ST67U-0024 680404\r\nn6> "
+    },
+    {
+      "token": "ST67U-0025",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0025\r\nPONG ST67U-0025 682730\r\nn6> "
+    },
+    {
+      "token": "ST67U-0026",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0026\r\nPONG ST67U-0026 685038\r\nn6> "
+    },
+    {
+      "token": "ST67U-0027",
+      "elapsed_ms": 296.0000000020955,
+      "response": "debug ping ST67U-0027\r\nPONG ST67U-0027 687326\r\nn6> "
+    },
+    {
+      "token": "ST67U-0028",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0028\r\nPONG ST67U-0028 689633\r\nn6> "
+    },
+    {
+      "token": "ST67U-0029",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0029\r\nPONG ST67U-0029 691948\r\nn6> "
+    },
+    {
+      "token": "ST67U-0030",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0030\r\nPONG ST67U-0030 694260\r\nn6> "
+    },
+    {
+      "token": "ST67U-0031",
+      "elapsed_ms": 327.9999999795109,
+      "response": "debug ping ST67U-0031\r\nPONG ST67U-0031 696583\r\nn6> "
+    },
+    {
+      "token": "ST67U-0032",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0032\r\nPONG ST67U-0032 698915\r\nn6> "
+    },
+    {
+      "token": "ST67U-0033",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0033\r\nPONG ST67U-0033 701212\r\nn6> "
+    },
+    {
+      "token": "ST67U-0034",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0034\r\nPONG ST67U-0034 703525\r\nn6> "
+    },
+    {
+      "token": "ST67U-0035",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0035\r\nPONG ST67U-0035 705822\r\nn6> "
+    },
+    {
+      "token": "ST67U-0036",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0036\r\nPONG ST67U-0036 708138\r\nn6> "
+    },
+    {
+      "token": "ST67U-0037",
+      "elapsed_ms": 327.9999999795109,
+      "response": "debug ping ST67U-0037\r\nPONG ST67U-0037 710454\r\nn6> "
+    },
+    {
+      "token": "ST67U-0038",
+      "elapsed_ms": 297.0000000204891,
+      "response": "debug ping ST67U-0038\r\nPONG ST67U-0038 712768\r\nn6> "
+    },
+    {
+      "token": "ST67U-0039",
+      "elapsed_ms": 296.0000000020955,
+      "response": "debug ping ST67U-0039\r\nPONG ST67U-0039 715057\r\nn6> "
+    },
+    {
+      "token": "ST67U-0040",
+      "elapsed_ms": 328.00000000861473,
+      "response": "debug ping ST67U-0040\r\nPONG ST67U-0040 717371\r\nn6> "
+    },
+    {
+      "token": "ST67U-0041",
+      "elapsed_ms": 296.0000000020955,
+      "response": "debug ping ST67U-0041\r\nPONG ST67U-0041 719680\r\nn6> "
+    },
+    {
+      "token": "ST67U-0042",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0042\r\nPONG ST67U-0042 721969\r\nn6> "
+    },
+    {
+      "token": "ST67U-0043",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0043\r\nPONG ST67U-0043 724297\r\nn6> "
+    },
+    {
+      "token": "ST67U-0044",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0044\r\nPONG ST67U-0044 726595\r\nn6> "
+    },
+    {
+      "token": "ST67U-0045",
+      "elapsed_ms": 312.0000000053551,
+      "response": "debug ping ST67U-0045\r\nPONG ST67U-0045 728890\r\nn6> "
+    },
+    {
+      "token": "ST67U-0046",
+      "elapsed_ms": 296.0000000020955,
+      "response": "debug ping ST67U-0046\r\nPONG ST67U-0046 731172\r\nn6> "
+    },
+    {
+      "token": "ST67U-0047",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0047\r\nPONG ST67U-0047 733486\r\nn6> "
+    },
+    {
+      "token": "ST67U-0048",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0048\r\nPONG ST67U-0048 735819\r\nn6> "
+    },
+    {
+      "token": "ST67U-0049",
+      "elapsed_ms": 296.99999999138527,
+      "response": "debug ping ST67U-0049\r\nPONG ST67U-0049 738122\r\nn6> "
+    },
+    {
+      "token": "ST67U-0050",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0050\r\nPONG ST67U-0050 740446\r\nn6> "
+    },
+    {
+      "token": "ST67U-0051",
+      "elapsed_ms": 312.9999999946449,
+      "response": "debug ping ST67U-0051\r\nPONG ST67U-0051 742776\r\nn6> "
+    }
+  ],
+  "events": [],
+  "max_host_loop_lag_ms": 43.99999998277053,
+  "handles_closed": true,
+  "lease_released": true,
+  "before": {
+    "version": "version\r\nFirmware version: 51\r\nn6> ",
+    "radio info": "radio info\r\nModule: C6AFDBD111400004 (-B)\r\nNCP MAC: 40:82:7B:03:B8:FA\r\nBuild: Mar 20 2026 09:32:19\r\nSDK: 2.0.106.0, AT: 1.0.0.0\r\nWi-Fi MAC FW: 1.6.44.0\r\nBLE controller: 1.6.128.0, stack: 1.10.83.0\r\nAnti-rollback (read-only): bootloader=0, app=0\r\nManufacturing: BOM=2, year=25, week=16\r\nn6> ",
+    "radio status": "radio status\r\n[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: ready, advertising: on, link: disconnected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=30595 last_ms=614412 max_gap_ms=27\r\n  BLE TX pump: last_ms=614412 max_gap_ms=27\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=0 op=5 submitted=40 completed=40 deferred=0 stale=0 queue_max=251 ms call_max=505 ms last=0\r\n  NCP recovery: state=0 stage=0 attempts=0 ready=0 failed=0 elapsed=0 ms owners radio/cloud=0/0 last=0\r\n  SPI fault: count=1 tick=341692 source=1 phase=2 len=468 HAL_error=00000004 SR=014a0040 TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=0 pending=0 old_generation=0 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> ",
+    "ble status": "ble status\r\nBLE GATT: ready, link: disconnected, advertising: on, MTU: 23\r\nBLE advertising desired: on; manager init 1/0 fail, advertising 1/0 fail, disconnect fail 0, driver errors 0 (last 0)\r\nBLE ADV evidence: command ACK (not RF proof), retry 0/3; mode/link confirmed 1/1, recovery pending 0\r\nBLE probes: mode 20, link 20, failed 0, corrected 0, last tick 602672/status 0; BLE repair 0/0 fail; ADV exhausted 0\r\nBLE init stage: 14, last W6X status: 0\r\nName: N6-MAINT-B8FB\r\nAddress: 40:82:7B:03:B8:FB\r\nCLI TX notifications: off; DEBUG TX notifications: off; ToF image notifications: off\r\nStream transport: ready, generation 0, ATT payload 20 bytes\r\nRadio SRAM4 pool: 17296 bytes available, 32 fragments\r\nCLI RX: queued 0/0 high-water, accepted 0 events/0 bytes, dropped 0/0\r\nCLI TX: queued 0/0 high-water, accepted 0 messages/0 bytes, sent 0, dropped 0/0, retries 0, errors 0\r\nCLI TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nDEBUG RX: disabled by policy, dropped 0 events/0 bytes\r\nDEBUG TX: queued 0/0 high-water, accepted 0 messages/0 bytes, sent 0, dropped 0/0, retries 0, errors 0\r\nDEBUG TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nStale generation drops: CLI 0, DEBUG 0; total GATT writes 0, discarded bytes 0\r\nToF image: submitted 0, complete 0, busy drops 0, aborted 0; fragments 0, payload bytes 0, retries 0, errors 0; last 0/0\r\nToF TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nn6> ",
+    "tof status": "tof status\r\nImage destination: requested NONE, active NONE, switches 0, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 6142, rate: 3.5 fps\r\nPipeline: acquired 6146, processed 2364, dropped 3780, queue failures 0\r\nLast valid range: 123..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 4\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+    "rps status": "rps status\r\nRPS status: enabled=1 ready=1 frame=6145 class=scissors class_id=3 confidence_permille=543 scores=-109,-42,-115,11 runs=2365 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> ",
+    "cloud status": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: polling, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 0, last 409, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 0, dropped 0; request errors 1\r\nWorker: loops 21663, last tick 615652, max step 1121 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+  },
+  "ble_address": "40:82:7B:03:B8:FB",
+  "ble_name": "N6-MAINT-B8FB",
+  "mtu": 247,
+  "os_is_paired": false,
+  "elapsed_s": 120.0,
+  "after": {
+    "version": "version\r\nFirmware version: 51\r\nn6> ",
+    "radio info": "radio info\r\nModule: C6AFDBD111400004 (-B)\r\nNCP MAC: 40:82:7B:03:B8:FA\r\nBuild: Mar 20 2026 09:32:19\r\nSDK: 2.0.106.0, AT: 1.0.0.0\r\nWi-Fi MAC FW: 1.6.44.0\r\nBLE controller: 1.6.128.0, stack: 1.10.83.0\r\nAnti-rollback (read-only): bootloader=0, app=0\r\nManufacturing: BOM=2, year=25, week=16\r\nn6> ",
+    "radio status": "radio status\r\n[RADIO-SERVICE] state=available reason=READY elapsed_ms=0 remaining_ms=0\r\nST67 radio status:\r\n  manager: ready\r\n  W6X_Init: passed\r\n  BLE maintenance GATT: ready, advertising: off, link: connected\r\n  Wi-Fi services: enabled\r\n  Radio loop: count=37413 last_ms=745892 max_gap_ms=27\r\n  BLE TX pump: last_ms=745892 max_gap_ms=27\r\n  Radio allocations: failed=0 last_bytes=0 available=0 fragments=0 TX_status=0 tick=0\r\n  BLE control: state=0 op=1 submitted=42 completed=42 deferred=0 stale=0 queue_max=251 ms call_max=523 ms last=0\r\n  NCP recovery: state=0 stage=0 attempts=0 ready=0 failed=0 elapsed=0 ms owners radio/cloud=0/0 last=0\r\n  SPI fault: count=1 tick=341692 source=1 phase=2 len=468 HAL_error=00000004 SR=014a0040 TX_DMA_error=00000000 RX_DMA_error=00000000\r\n  BLE recovery notice: sequence=0 pending=0 old_generation=0 rx_slots=0 tx_slots=0 active_reply=0 outcome=unknown\r\nn6> ",
+    "ble status": "ble status\r\nBLE GATT: ready, link: connected, advertising: off, MTU: 247\r\nBLE advertising desired: on; manager init 1/0 fail, advertising 1/0 fail, disconnect fail 0, driver errors 0 (last 0)\r\nBLE ADV evidence: connection event (not RF proof), retry 0/3; mode/link confirmed 1/1, recovery pending 0\r\nBLE probes: mode 21, link 20, failed 0, corrected 0, last tick 617672/status 0; BLE repair 0/0 fail; ADV exhausted 0\r\nBLE init stage: 14, last W6X status: 0\r\nName: N6-MAINT-B8FB\r\nAddress: 40:82:7B:03:B8:FB\r\nCLI TX notifications: off; DEBUG TX notifications: off; ToF image notifications: off\r\nStream transport: ready, generation 1, ATT payload 244 bytes\r\nRadio SRAM4 pool: 17296 bytes available, 33 fragments\r\nCLI RX: queued 0/1 high-water, accepted 120 events/2640 bytes, dropped 0/0\r\nCLI TX: queued 0/2 high-water, accepted 122 messages/14949 bytes, sent 14949, dropped 0/0, retries 0, errors 0\r\nCLI TX contention: busy 275, timeout 0, streak 0/6, duration_ticks 0/8, recoveries 122\r\nDEBUG RX: disabled by policy, dropped 0 events/0 bytes\r\nDEBUG TX: queued 0/0 high-water, accepted 0 messages/0 bytes, sent 0, dropped 0/0, retries 0, errors 0\r\nDEBUG TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nStale generation drops: CLI 0, DEBUG 0; total GATT writes 120, discarded bytes 0\r\nToF image: submitted 0, complete 0, busy drops 0, aborted 0; fragments 0, payload bytes 0, retries 0, errors 0; last 0/0\r\nToF TX contention: busy 0, timeout 0, streak 0/0, duration_ticks 0/0, recoveries 0\r\nn6> ",
+    "tof status": "tof status\r\nImage destination: requested NONE, active NONE, switches 0, drain frames 0\r\nToF state: ready\r\nResolution: 54x42\r\nFrame: 7456, rate: 3.6 fps\r\nPipeline: acquired 7462, processed 2863, dropped 4596, queue failures 0\r\nLast valid range: 123..12000 mm\r\nMap: off, channels: 0x01, active: 1 DEPTH, processing: Off, acquisition: running\r\nDesired state revision: 4\r\nRecovery: attempts 0, successes 0, failures 0, budget 0/3, generation 0, last tick 0, stage none (0)\r\nToF commands: TX start failures=0, TX completion failures=0, status read failures=0, status timeouts=0\r\nI3C failures: HAL errors=0, start/read=0, last stage=0 HAL=0 tick=0 code=0x00000000 state=0x00 EVR=0x00000000\r\nn6> ",
+    "rps status": "rps status\r\nRPS status: enabled=1 ready=1 frame=7459 class=scissors class_id=3 confidence_permille=543 scores=-109,-42,-115,11 runs=2864 errors=0 last_error=0 inference_ms=3 classes=4\r\nn6> ",
+    "cloud status": "cloud status\r\nSettings: ready; writes enabled; generation 2; Wi-Fi saved yes, autoconnect yes; Cloud saved yes\r\nCloud Relay: polling, paired, endpoint http://natilab-n6-h6bjh2ffbadtfyaw.israelcentral-01.azurewebsites.net\r\nTransport security: NONE - plaintext HTTP; pairing/token/CLI exposed (demo only)\r\nDevice: N6-MAINT-B8FB, workspace: ws-13e32f198c2e42938860512d2f0ce47d, generation 0\r\nHTTP: active 0, last 409, transport 0, backoff 0 s\r\nCLI: input 0, output 0, received 0, acked 0, sent 0\r\nToF: sent 0, dropped 0; request errors 1\r\nWorker: loops 26266, last tick 747142, max step 1121 ms\r\nControl queue: 0/4, high water 0, rejected 0\r\nn6> "
+  },
+  "finished_utc": "2026-10-28T21:00:37.712658+00:00",
+  "ble_latency_ms": {
+    "p50": 92.99999999348074,
+    "p95": 156.00000001722947,
+    "p99": 203.00000000861473,
+    "max": 203.00000000861473
+  },
+  "usb_latency_ms": {
+    "p50": 312.0000000053551,
+    "p95": 327.9999999795109,
+    "p99": 328.00000000861473,
+    "max": 328.00000000861473
+  }
+}

@@ -5,12 +5,21 @@
 
 #include "bsp_conf.h"
 #include "app_features.h"
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
 #include "display_app.h"
 #endif
 #include "main.h"
 #include "debug_uart.h"
 #include "stm32n6xx_ll_dma.h"
+#include "stm32n6xx_hal_dma_ex.h"
+#include "firmware_update.h"
+#include "tx_api.h"
+#if defined(N6_XIP_FAULT_PROBE) && (N6_XIP_FAULT_PROBE == 1)
+#include "xip_fault_probe.h"
+#else
+#define XipProbe_CaptureFault(source, prior) ((void)0)
+#define XipProbe_ReportFault() ((void)0)
+#endif
 
 #define SYSTICK_LOAD   (*(volatile uint32_t *)0xE000E014UL)
 #define SYSTICK_VALUE  (*(volatile uint32_t *)0xE000E018UL)
@@ -26,6 +35,20 @@ static uint32_t cs_hold_timer_fallbacks;
 static volatile SpiPortFault_t spi_fault;
 static volatile uint32_t transfer_id, transfer_phase, transfer_length, transfer_rx_only;
 static volatile uint32_t fault_reported; /* Radio writes; IRQ capture reads. */
+#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
+static volatile uint32_t rx_flow_resumes;
+static uint32_t rx_flow_reported;
+static volatile uint32_t transfer_started_tick;
+uint32_t spi_port_transfer_started_tick(void){return transfer_started_tick;}
+#else
+uint32_t spi_port_transfer_started_tick(void){return 0;}
+#endif
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+#include "spi_flow_probe_impl.inc"
+#else
+int32_t spi_port_arm_rx_flow_test(void){return -1;}
+int32_t spi_port_cancel_rx_flow_test(void){return -1;}
+#endif
 
 void spi_port_set_phase(uint32_t phase) { transfer_phase = phase; }
 
@@ -81,6 +104,7 @@ void spi_port_capture_failure(uint32_t source)
     spi_fault.rx_remaining = rx->Instance->CBR1;
     spi_fault.rx_ctr1 = rx->Instance->CTR1; spi_fault.rx_ctr2 = rx->Instance->CTR2;
   }
+  XipProbe_CaptureFault(source,posture);
   __set_PRIMASK(posture);
 }
 
@@ -102,6 +126,18 @@ void spi_port_get_fault(SpiPortFault_t *fault)
 
 void spi_port_report_fault(void)
 {
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+  spi_port_report_flow_test();
+#endif
+#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
+  uint32_t resumed=rx_flow_resumes;
+  if (resumed!=rx_flow_reported)
+  {
+    rx_flow_reported=resumed;
+    Debug_UART_Log("SPI-FLOW","drained RX automatic suspensions resumed=%lu",
+        (unsigned long)resumed);
+  }
+#endif
   SpiPortFault_t f;
   spi_port_get_fault(&f);
   if (f.count == fault_reported) return;
@@ -122,6 +158,7 @@ void spi_port_report_fault(void)
       (unsigned long)f.rx_state, (unsigned long)f.rx_error, (unsigned long)f.rx_ccr,
       (unsigned long)f.rx_csr, (unsigned long)f.rx_remaining,
       (unsigned long)f.rx_ctr1, (unsigned long)f.rx_ctr2);
+  XipProbe_ReportFault();
 }
 
 static void spi_port_wait_cs_hold(uint32_t start, uint32_t count)
@@ -155,6 +192,25 @@ int32_t spi_port_init(spi_transaction_complete_t callback)
     LogError("SPI5 is not initialized\n");
     return -1;
   }
+
+#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
+  /* Production RX flow control. ST AN5543 Rev5 section4.1.1 describes
+   * MASRX flow control when the receive FIFO cannot drain promptly. The N6
+   * HAL supports it for master >=8bit transfers, including two-line mode.
+   * Configure only while disabled, before the NCP is powered. Keep Init in
+   * sync so the local error-recovery HAL_SPI_Init preserves this setting.
+   * No baud rate, IRQ priority, DMA priority, CS or timeout changes.
+   */
+  if ((NCP_SPI_HANDLE.State != HAL_SPI_STATE_READY) ||
+      ((NCP_SPI_HANDLE.Instance->CR1 & SPI_CR1_SPE) != 0U) ||
+      (NCP_SPI_HANDLE.Init.Mode != SPI_MODE_MASTER) ||
+      (NCP_SPI_HANDLE.Init.Direction != SPI_DIRECTION_2LINES) ||
+      (NCP_SPI_HANDLE.Init.DataSize != SPI_DATASIZE_8BIT)) return -1;
+  NCP_SPI_HANDLE.Init.MasterReceiverAutoSusp=SPI_MASTER_RX_AUTOSUSP_ENABLE;
+  SET_BIT(NCP_SPI_HANDLE.Instance->CR1,SPI_CR1_MASRX);
+  Debug_UART_Log("SPI-FLOW","MASRX enabled; CR1=%08lX",
+      (unsigned long)NCP_SPI_HANDLE.Instance->CR1);
+#endif
 
   transaction_complete_callback = callback;
   HAL_GPIO_WritePin(CHIP_EN_GPIO_Port, CHIP_EN_Pin, GPIO_PIN_SET);
@@ -219,6 +275,9 @@ int32_t spi_port_transfer_dma(void *tx_buf, void *rx_buf, uint16_t len)
 #endif
 
   transaction_failed = 0;
+#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
+  transfer_started_tick=tx_time_get();
+#endif
   if (tx_buf != NULL)
   {
 #if defined(__DCACHE_PRESENT) && (__DCACHE_PRESENT == 1U)
@@ -241,6 +300,11 @@ int32_t spi_port_transfer_dma(void *tx_buf, void *rx_buf, uint16_t len)
     spi_port_capture_failure(3U);
     return -1;
   }
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+  if(spi_port_maybe_test_rx_flow(len)!=0){
+    transaction_failed=1;spi_port_capture_failure(8U);return -1;
+  }
+#endif
   return 0;
 }
 
@@ -249,6 +313,41 @@ int32_t spi_port_transfer_dma_status(void)
   return ((transaction_failed == 0) &&
           (NCP_SPI_HANDLE.State == HAL_SPI_STATE_READY) &&
           (NCP_SPI_HANDLE.ErrorCode == HAL_SPI_ERROR_NONE)) ? 0 : -1;
+}
+
+void spi_port_service_rx_flow(void)
+{
+#if defined(N6_SPI_RX_FLOW_CONTROL) && (N6_SPI_RX_FLOW_CONTROL == 1)
+  uint32_t saved=__get_PRIMASK();
+  __disable_irq();
+  uint32_t sr=NCP_SPI_HANDLE.Instance->SR;
+  /* DMA mode enables EOTIE only after RX completion. An earlier automatic
+   * suspend therefore needs task-side service. Never drain RXDR in software
+   * or restart DMA: it owns all packet bytes. Resume only a nonempty active
+   * transaction after DMA has emptied RX FIFO and no hardware error exists.
+   */
+  if ((NCP_SPI_HANDLE.State==HAL_SPI_STATE_BUSY_TX_RX) &&
+      (NCP_SPI_HANDLE.ErrorCode==HAL_SPI_ERROR_NONE) &&
+      ((NCP_SPI_HANDLE.Instance->CR1 & (SPI_CR1_MASRX|SPI_CR1_CSTART|SPI_CR1_SPE))==
+        (SPI_CR1_MASRX|SPI_CR1_CSTART|SPI_CR1_SPE)) &&
+      ((NCP_SPI_HANDLE.Instance->CFG1 & SPI_CFG1_RXDMAEN)!=0U) &&
+      ((sr & SPI_SR_CTSIZE)!=0U) && ((sr & SPI_SR_SUSP)!=0U) &&
+      ((sr & (SPI_SR_RXP|SPI_SR_RXWNE|SPI_SR_RXPLVL|SPI_SR_OVR|SPI_SR_UDR|SPI_SR_MODF|SPI_SR_TIFRE))==0U) &&
+      (NCP_SPI_HANDLE.hdmarx!=NULL) && (NCP_SPI_HANDLE.hdmarx->Instance!=NULL) &&
+      (NCP_SPI_HANDLE.hdmarx->State==HAL_DMA_STATE_BUSY) &&
+      (NCP_SPI_HANDLE.hdmarx->ErrorCode==HAL_DMA_ERROR_NONE) &&
+      ((NCP_SPI_HANDLE.hdmarx->Instance->CCR & DMA_CCR_EN)!=0U) &&
+      ((NCP_SPI_HANDLE.hdmarx->Instance->CSR & (DMA_CSR_DTEF|DMA_CSR_ULEF|DMA_CSR_USEF|DMA_CSR_TOF|DMA_CSR_SUSPF))==0U))
+  {
+    WRITE_REG(NCP_SPI_HANDLE.Instance->IFCR,SPI_IFCR_SUSPC);
+    ++rx_flow_resumes;
+    __DMB();
+    __set_PRIMASK(saved);
+    /* SPI worker stack is768bytes. Defer all formatting to Radio's reporter. */
+    return;
+  }
+  __set_PRIMASK(saved);
+#endif
 }
 
 static HAL_StatusTypeDef spi_port_restore_dma(DMA_HandleTypeDef *dma)
@@ -348,6 +447,9 @@ int32_t spi_port_set_cs(int32_t state)
 
 static void spi_port_complete(SPI_HandleTypeDef *hspi)
 {
+#if defined(N6_XIP_RX_BACKPRESSURE) && (N6_XIP_RX_BACKPRESSURE == 1)
+  if(hspi==&NCP_SPI_HANDLE)spi_port_flow_test_complete();
+#endif
   if ((hspi == &NCP_SPI_HANDLE) && (transaction_complete_callback != NULL))
   {
     transaction_complete_callback();
@@ -356,7 +458,7 @@ static void spi_port_complete(SPI_HandleTypeDef *hspi)
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 {
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   Display_App_SPI_TxCompleteFromISR(hspi);
 #endif
   spi_port_complete(hspi);
@@ -374,7 +476,7 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
 
 void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
 {
-#if (APP_GC9A01_DISPLAY_ENABLED == 1U)
+#ifdef APP_GC9A01_DISPLAY_ENABLED
   Display_App_SPI_ErrorFromISR(hspi);
 #endif
   if (hspi == &NCP_SPI_HANDLE)

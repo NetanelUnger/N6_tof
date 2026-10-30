@@ -8,6 +8,17 @@
 #include "secure_nsc.h"
 #include "tof_app.h"
 #include "xmodem_receiver.h"
+#include "app_features.h"
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+#include "tx_api.h"
+static volatile uint32_t update_poll_count,update_poll_hal,update_poll_rtos;
+#endif
+#if defined(N6_XIP_FAULT_PROBE) && (N6_XIP_FAULT_PROBE == 1)
+#include "xip_fault_probe.h"
+#else
+#define XipProbe_Begin(phase, offset, length) ((void)0)
+#define XipProbe_End() ((void)0)
+#endif
 
 #define UPDATE_REBOOT_DELAY_MS       (1000U)
 #define UPDATE_REBOOT_DRAIN_LIMIT_MS (30000U)
@@ -31,6 +42,22 @@ static Firmware_Update_Drained_t update_drained;
 static uint32_t update_drain_wait_reported;
 static void *update_write_context;
 static const char *update_transport_name;
+
+#if defined(__GNUC__)
+__attribute__((weak, noinline))
+#endif
+int N6_SystemReset(void)
+{
+  NVIC_SystemReset();
+  return 0;
+}
+
+#if defined(__GNUC__)
+__attribute__((weak, noinline))
+#endif
+void N6_ResetReport(void)
+{
+}
 
 static int32_t update_send_byte(uint8_t byte, void *context);
 static int32_t update_consume(const uint8_t *data, size_t length,
@@ -102,8 +129,10 @@ static int32_t update_consume(const uint8_t *data, size_t length,
           (unsigned long)update_manifest.format_version,
           (unsigned long)update_manifest.target_id,
           (unsigned long)update_manifest.image_type);
+      XipProbe_Begin(1U,0U,sizeof(update_manifest));
       status = SECURE_FirmwareUpdateBegin(&update_manifest,
                                           &update_secure_session);
+      XipProbe_End();
       Debug_UART_Log("UPDATE", "Secure Begin returned: status=%lu session=%lu",
                      (unsigned long)status,
                      (unsigned long)update_secure_session);
@@ -136,8 +165,10 @@ static int32_t update_consume(const uint8_t *data, size_t length,
     image_chunk = (remaining < image_remaining) ? remaining : image_remaining;
     if (image_chunk != 0U)
     {
+      XipProbe_Begin(2U,update_image_bytes,(uint32_t)image_chunk);
       uint32_t status = SECURE_FirmwareUpdateWrite(
           update_secure_session, cursor, (uint32_t)image_chunk);
+      XipProbe_End();
       if (status != SECURE_FW_UPDATE_OK)
       {
         Debug_UART_Log("UPDATE",
@@ -186,7 +217,9 @@ static int32_t update_finish(void *context)
     return -1;
   }
 
+  XipProbe_Begin(3U,update_image_bytes,0U);
   status = SECURE_FirmwareUpdateFinalize(update_secure_session);
+  XipProbe_End();
   if (status != SECURE_FW_UPDATE_OK)
   {
     Debug_UART_Log("UPDATE", "secure finalize failed: %lu",
@@ -205,7 +238,9 @@ static void update_abort(int32_t reason, void *context)
   (void)context;
   if (update_secure_session != 0U)
   {
+    XipProbe_Begin(4U,update_image_bytes,0U);
     (void)SECURE_FirmwareUpdateAbort(update_secure_session);
+    XipProbe_End();
   }
   update_secure_session = 0U;
   update_active = 0U;
@@ -321,6 +356,9 @@ void Firmware_Update_Feed(const uint8_t *data, size_t length,
 
 void Firmware_Update_Poll(uint32_t now_ms)
 {
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+  ++update_poll_count;update_poll_hal=now_ms;update_poll_rtos=tx_time_get();
+#endif
   if (update_active != 0U)
   {
     XMODEM_Poll(&update_xmodem, now_ms);
@@ -348,24 +386,39 @@ void Firmware_Update_Poll(uint32_t now_ms)
   if ((update_success != 0U) && (update_result_reported != 0U) &&
       ((int32_t)(now_ms - update_reboot_at) >= 0))
   {
+    uint32_t reset_now = 0U;
     if ((update_drained == NULL) ||
         (update_drained(update_write_context) != 0U))
     {
-      Debug_UART_Log("UPDATE", "transport drained; resetting into committed candidate");
-      NVIC_SystemReset();
+      Debug_UART_Log("UPDATE", "transport drained; resetting candidate");
+      reset_now = 1U;
     }
     else if ((uint32_t)(now_ms - update_reboot_at) >= UPDATE_REBOOT_DRAIN_LIMIT_MS)
     {
-      Debug_UART_Log("UPDATE", "transport drain deadline expired; resetting committed candidate");
-      NVIC_SystemReset();
+      Debug_UART_Log("UPDATE", "drain deadline expired; resetting candidate");
+      reset_now = 1U;
     }
     else if (update_drain_wait_reported == 0U)
     {
       update_drain_wait_reported = 1U;
       Debug_UART_Log("UPDATE", "waiting for final ACK/result delivery before reset");
     }
+    if ((reset_now != 0U) && (N6_SystemReset() != 0))
+    {
+      update_success = 0U;
+      Debug_UART_Log("UPDATE", "reset blocked; cold restart required");
+    }
   }
 }
+
+#if (N6_RESOURCE_DIAGNOSTICS == 1U)
+void Firmware_Update_GetTimeProbe(uint32_t out[5])
+{
+  if(out==NULL)return;
+  out[0]=update_poll_count;out[1]=update_poll_hal;out[2]=update_poll_rtos;
+  out[3]=update_rx_bytes;out[4]=update_active;
+}
+#endif
 
 void Firmware_Update_Cancel(void)
 {
@@ -380,9 +433,17 @@ uint32_t Firmware_Update_IsActive(void)
   return update_active;
 }
 
+uint32_t Firmware_Update_IsBusy(void)
+{
+  return update_active || update_success;
+}
+
 void Firmware_Update_ConfirmBoot(void)
 {
+  N6_ResetReport();
+  XipProbe_Begin(5U,0U,0U);
   uint32_t status = SECURE_FirmwareUpdateConfirmBoot();
+  XipProbe_End();
   if (status == SECURE_FW_UPDATE_OK)
   {
     Debug_UART_Log("UPDATE", "boot confirmed; rollback window closed");
