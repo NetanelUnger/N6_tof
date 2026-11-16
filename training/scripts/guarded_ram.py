@@ -49,7 +49,7 @@ def idle_board(expected_device=None,board_serial=None):
     finally:source._serial.close();source._serial=None
 
 
-def build_candidate(version=None):
+def build_candidate(version=None, *, keep_network=False):
     headers=[PROJECT_ROOT/'AppliNonSecure/Core/Inc/app_features.h',PROJECT_ROOT/'AppliNonSecure/Core/Inc/w61_driver_config.h',PROJECT_ROOT/'Common/Update/firmware_build_version.h']
     original={p:p.read_bytes() for p in headers}
     settings=(PROJECT_ROOT/'AppliNonSecure/Core/Inc/app_settings.h').read_text()
@@ -61,14 +61,19 @@ def build_candidate(version=None):
     hashes={str(p):sha256_file(p) for p in artifacts}
     for p in artifacts:shutil.copy2(p,backup/p.name)
     info={'status':'BUILDING','created_utc':utc_now(),'folder':str(folder),'settings_writes':False,
-          'ncp_preserve':True,'ble_only':True,'minimum_heap':369072,'ordinary_debug_hashes':hashes}
+          'ncp_preserve':True,'ble_only':not keep_network,'minimum_heap':369072,'ordinary_debug_hashes':hashes}
     started=time.monotonic()
     try:
-        changes=[(headers[0],b'#define APP_DEMO_BLE_ONLY (0U)',b'#define APP_DEMO_BLE_ONLY (1U)'),
-                 (headers[1],b'#define W61_CONFIG_PRESERVE       (0)',b'#define W61_CONFIG_PRESERVE       (1)')]
-        for p,old,new in changes:
-            if original[p].count(old)!=1:raise RuntimeError('Unexpected safe RAM build flags.')
-            p.write_bytes(original[p].replace(old,new))
+        changes=[(headers[0],rb'(?m)^#define APP_DEMO_BLE_ONLY \([01]U\)$',
+                  b'#define APP_DEMO_BLE_ONLY (0U)' if keep_network else b'#define APP_DEMO_BLE_ONLY (1U)'),
+                 (headers[1],rb'(?m)^#define W61_CONFIG_PRESERVE       \([01]\)$',
+                  b'#define W61_CONFIG_PRESERVE       (1)')]
+        for p,pattern,new in changes:
+            # Accept both the repository LF and Windows CRLF files.
+            payload=original[p].replace(b'\r\n',b'\n')
+            payload,count=re.subn(pattern,lambda match:new,payload)
+            if count!=1:raise RuntimeError('Unexpected safe RAM build flags.')
+            p.write_bytes(payload)
         current=int(re.search(rb'NATI_LAB_FIRMWARE_VERSION\s+\((\d+)UL\)',original[headers[2]])[1])
         version=current if version is None else version
         if version not in (current,current+1):raise RuntimeError('RAM candidate version must be current or current+1.')
@@ -96,41 +101,34 @@ def build_candidate(version=None):
     return info
 
 
-def load_candidate(info,expected_device=None,board_serial=None):
-    import serial
-    folder=Path(info['folder']);debug=PROJECT_ROOT/'AppliNonSecure/Debug'
-    if info['status']!='BUILT' or info['heap']<369072:raise RuntimeError('Candidate gate not passed.')
-    if (folder/'load.json').exists():raise RuntimeError('BLOCKED: inspect previous loader outcome before retrying.')
-    result={'status':'LOADING','candidate':info};started=time.monotonic();uart=None
-    with hardware_lease('training-ram-'+folder.name):
-        try:
-            target=idle_board(expected_device,board_serial);result['target']=target
-            uart=serial.Serial(target['uart'],115200,timeout=.1,write_timeout=2)
-            for name,item in info['artifacts'].items():
-                path=Path(item['path'])
-                if sha256_file(path)!=item['sha256']:raise RuntimeError('Candidate bytes changed before load.')
-                shutil.copy2(path,debug/('N6_AppliNonSecure'+path.suffix))
-            with (folder/'loader.log').open('w',encoding='utf-8') as log:
-                run=subprocess.run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(PROJECT_ROOT/'Tools/Debug-NonSecureRam.ps1'),'-NoBuild','-Run'],cwd=PROJECT_ROOT,stdout=log,stderr=subprocess.STDOUT,timeout=150)
-            if run.returncode:raise RuntimeError('RAM loader failed; inspect retained outcome before retrying.')
-            deadline=time.monotonic()+15
-            while time.monotonic()<deadline:uart.read(4096)
-            uart.write(b'a');uart.flush()
-            deadline=time.monotonic()+2
-            while time.monotonic()<deadline:uart.read(4096)
-            uart.close();uart=None
-            target=idle_board(expected_device,board_serial)
-            result.update(status='LOADED',target=target)
-        except subprocess.TimeoutExpired:
-            result.update(status='UNCERTAIN',error='Loader timeout: inspect device and debugger before retrying.');raise
-        except Exception as exc:
-            result.update(status='FAILED',error=str(exc));raise
-        finally:
-            if uart:uart.close()
-            for p,expected in info['ordinary_debug_hashes'].items():
-                path=Path(p);shutil.copy2(folder/'ordinary-debug'/path.name,path)
-                if sha256_file(path)!=expected:raise RuntimeError('Ordinary Debug restoration failed after load.')
-            result['load_seconds']=round(time.monotonic()-started,3)
-            result['ordinary_debug_restored']=True
-            atomic_json(folder/'load.json',result)
+def load_candidate(info, expected_device=None, board_serial=None):
+    """Use the checked loader; the board must already be reset into DEV ROM."""
+    folder = Path(info['folder'])
+    if info['status'] != 'BUILT' or info['heap'] < 369072:
+        raise RuntimeError('Candidate gate not passed.')
+    if not board_serial:
+        raise RuntimeError('BLOCKED: --board-serial is required for checked DEV RAM loading.')
+    if (folder / 'load.json').exists():
+        raise RuntimeError('BLOCKED: inspect previous loader outcome before retrying.')
+    sys.path.insert(0, str(PROJECT_ROOT / 'Tools'))
+    from load_checked_ram import execute, save_manifest
+    result = {'status': 'LOADING', 'candidate': info}
+    started = time.monotonic()
+    try:
+        manifest = save_manifest(PROJECT_ROOT, info, folder / 'load-inputs')
+        result['manifest'] = str(manifest)
+        loaded = execute(manifest, folder / 'checked-load', board_serial, expected_device)
+        result.update(loaded)
+    except Exception as exc:
+        result.update(status='FAILED', error=str(exc))
+        detail = folder / 'checked-load/result.json'
+        if detail.exists():
+            result['loader_result'] = json.loads(detail.read_text())
+            result['status'] = result['loader_result']['status']
+        raise
+    finally:
+        result['load_seconds'] = round(time.monotonic() - started, 3)
+        # No replacement of ordinary Debug artifacts is needed by this loader.
+        result['ordinary_debug_unchanged'] = True
+        atomic_json(folder / 'load.json', result)
     return result

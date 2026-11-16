@@ -30,7 +30,11 @@ def main() -> int:
     parser.add_argument("--board-serial")
     parser.add_argument("--skip-boot-verification", action="store_true")
     parser.add_argument("--package-only", action="store_true")
+    parser.add_argument("--keep-network", action="store_true",
+                        help="RAM only: retain saved Wi-Fi/Cloud connection intent and BLE; settings remain read-only.")
     args = parser.parse_args()
+    if args.keep_network and not args.ram:
+        raise RuntimeError("--keep-network is valid only with --ram.")
     if args.ram and args.package_only:
         raise RuntimeError("--package-only is valid only with --flash.")
     fingerprint = npu_deployment_fingerprint()
@@ -40,12 +44,15 @@ def main() -> int:
     powershell = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
                   "-File"]
     if args.ram:
+        if not args.board_serial:
+            raise RuntimeError("--ram requires --board-serial and a board already reset into DEV.")
         from guarded_ram import build_candidate, load_candidate
-        candidate = build_candidate(args.version)
+        candidate = build_candidate(args.version, keep_network=args.keep_network)
         loaded = load_candidate(candidate, args.expected_device, args.board_serial)
         mark_stage("10_ram", status="complete", inputs=fingerprint,
                    outputs=[str(Path(candidate["folder"]) / "candidate.json")],
-                   details={"external_flash_modified": False, "candidate": candidate,
+                   details={"metadata_write_guard": "boot_metadata_commit", "candidate": candidate,
+                            "loader_manifest": loaded["manifest"],
                             "target": loaded["target"], "load_seconds": loaded["load_seconds"]})
         return 0
     if args.package_only:

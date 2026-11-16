@@ -5,6 +5,78 @@ run Neural-ART inference, and view images or issue CLI commands over USB,
 BLE or the Cloud relay. ThreadX runs the application; an FSBL and Secure
 application provide external-NOR boot and signed Non-Secure A/B updates.
 
+<a id="demo-30-minutes"></a>
+
+## דמו ב־30 דקות
+
+זהו מסלול הדגמה לפרויקט STM32N6 הראשי. כלי ה־RAM והתיעוד יובאו מעותק
+הניסוי `D:\N6_AI_TEST`; המודל הקיים כאן נשאר RPS עם ארבע מחלקות.
+**דמו `danger-demo` בעותק הניסוי הושלם; אין צורך להמשיך לשפר את הדיוק שלו.**
+המודל, הדגימות והתוצרים של אותו דמו נשארו שם;
+[סיכום הדמו](docs/danger-demo-ram_HE.md#demo-handoff) הוא תיעוד היסטורי.
+
+תנאי פתיחה: לוח שכבר הוכן עם FSBL ו־Secure תואמים, כלי CubeIDE/STEdgeAI
+וסביבת `training/.venv` מותקנים, ותוצרי RAM מוגנים זמינים. בפרויקט הראשי
+ברירות המחדל של כתיבת הגדרות נשארו פעילות; להכנת מועמד RAM מוגן צריך
+`APP_SETTINGS_WRITES_ENABLED=0U` ו־`APP_SETTINGS_TRANSITION_ENABLED=0U`.
+שלב 10 מסרב כשהם פעילים. [הכנה וטעינה](docs/ram-demo-loader_HE.md).
+התקנות ראשוניות, הכנת מועמד ראשון, לוח ריק ותיקון שרשרת אתחול אינם חלק
+מחצי השעה. מריצים מהשורש `N6/project`.
+
+| זמן | פעולה | נקודת יציאה |
+|---|---|---|
+| 0–4 דקות | חברו את המגנים, USB נתונים ל־CN8 ו־USB ל־ST-LINK. בחרו או שכפלו פרויקט ב־`training\00_PROJECT.bat`. | פרויקט, מחלקות וחיבורים מוגדרים. |
+| 4–7 דקות | סגרו מסופים ונתקו לקוח BLE. BOOT0=1–2, BOOT1=2–3, לחצו Reset וטענו תוצרי RAM מוגנים לפי המדריך. | `LOADED`, USB חזר ו־`tof status`/`rps status` מציגים מוכנות. |
+| 7–13 דקות | אספו ב־USB לפי התקציב שנקבע מראש ובדקו תיוג ב־`02_REVIEW_DATASET.bat`. בפיילוט AA היו 48 דוגמאות בכל אחת משתי מחלקות, בארבע קבוצות של 12. | איסוף קצר ומתוייג באותה הצבה; מקור הנתונים נשמר. |
+| 13–24 דקות | הריצו 03–08 לפי הפקודות להלן. | מודל משולב שעבר את שערי ההמרה והזיכרון. |
+| 24–28 דקות | שוב Reset ב־DEV, שלב 10 עם `--keep-network` ומזהה ST-LINK, ואז שלב 11 ללא Reset ביניהם. | 100 פריימים עוברים בדיקת CRC, קלט ותוצאת NPU. |
+| 28–30 דקות | בצעו בדיקה אחת בכל מצב שהוגדר באמצעות `rps status`, רשמו את התוצאה בפועל וסיימו בסיכום. | המודל, הקבצים, טעינה חוזרת והמגבלות מתועדים. |
+
+48 דוגמאות וארבע קבוצות היו בחירה לפיילוט AA, לא ברירת מחדל לכל מודל.
+אין להקטין אוטומטית יעדי איסוף או להקל בשערי זיכרון/HIL. חצי שעה היא
+תקציב להדגמה מוכנה. אם שער נכשל או חסר תנאי פתיחה, מתעדים את החסם ועוצרים;
+לא מתחילים סבב דיוק נוסף. לשחזור מודל שכבר נבדק מדלגים על איסוף ואימון
+ומשתמשים ב־manifest הקפוא שלו.
+
+ב־PowerShell בוחרים את הפרויקט הקיים או החדש במפורש. הריצו כל שלב רק
+אחרי הצלחת הקודם:
+
+```powershell
+$demo = Read-Host 'Training project ID'
+.\training\01_CAPTURE.bat --project $demo --transport usb
+.\training\02_REVIEW_DATASET.bat --project $demo
+.\training\03_VALIDATE.bat --project $demo
+.\training\04_PREPARE.bat --project $demo
+.\training\05_TRAIN.bat --project $demo
+.\training\06_QUANTIZE.bat --project $demo
+.\training\07_GENERATE_N6.bat --project $demo
+.\training\08_INTEGRATE_MODEL.bat --project $demo
+```
+
+אם באיסוף רץ פרופיל ישן, שלב 04 דורש בחירה מפורשת של
+`--allow-host-preprocessing`; הטנסור המקורי נשמר, ומאמתים את הפרופיל החדש
+בשלב 11. אחרי הכנת דגלי RAM מוגנים ו־Reset ל־DEV:
+
+```powershell
+$boardSerial = Read-Host 'Verified ST-LINK serial number'
+.\training\10_LOAD_RAM.bat --project $demo --keep-network --board-serial $boardSerial
+.\training\11_HIL.bat --project $demo
+```
+
+**תנאי התקשורת:** `--keep-network` משמר את כוונת החיבור השמורה של
+Wi-Fi/Cloud לצד BLE; ללא הדגל ברירת המחדל היא BLE בלבד. הוא אינו יוצר
+פרטי רשת חדשים. בזמן איסוף USB צריך לפנות זמנית חיבור BLE של דפדפן או
+מסוף — האוסף מסרב לקחת את המסלול מלקוח מחובר. סוגרים גם מסוף שתופס את
+CN8. אחרי האיסוף אפשר להתחבר שוב; אין לבצע Windows Pair.
+למסוף הענן פותחים את ה־Workspace המתאים באתר ומשאירים אותו פתוח.
+בדמו המתועד `HTTP409` נבע מ־Workspace לא פעיל; Wi-Fi מחובר לבדו אינו
+מוכיח שמסוף הענן זמין. הדרישה למסוף אינה זהה לאיסוף Cloud מתוזמן דרך השרת.
+
+**תנאי סיום:** אחרי הטעינה, HIL ובדיקה אחת בכל מצב, רושמים גם תוצאה שגויה
+בלי לפתוח סבב שיפור. סיכום הסיום חייב לציין איזה מודל רץ, היכן הקבצים,
+כיצד טוענים שוב ומה מחוץ להיקף. ראו
+[דוגמת סיכום הדמו שהושלם](docs/danger-demo-ram_HE.md#demo-handoff).
+
 ## Hardware and connections
 
 - **NUCLEO-N657X0-Q**, **X-NUCLEO-53L9A1** (VL53L9CX), and
@@ -61,7 +133,7 @@ watchdog, diagnostics and settings-preservation defaults. Output directories
 are immutable: do not overwrite an earlier release to reuse its version.
 
 Only regenerate code after changing `N6.ioc`. Review the
-[CubeMX preservation rules](AGENTS.md#3-cubemx-rules) afterward. FSBL, Secure,
+[CubeMX preservation rules](docs/engineering-reference.md#3-cubemx-rules) afterward. FSBL, Secure,
 linker, startup or TrustZone changes need their corresponding build/validation;
 a Non-Secure USB package cannot install a replacement boot chain.
 
@@ -95,6 +167,14 @@ and is not the routine USB update path.
 
 ## Everyday commands
 
+For a bounded RAM demonstration, start with the
+[30-minute route](#demo-30-minutes), [guarded reload procedure](docs/ram-demo-loader_HE.md)
+and [handoff](docs/danger-demo-ram_HE.md#demo-handoff). Stage 10 now uses the
+checked loader; DEV reset and an explicit `--board-serial` are required.
+`--keep-network` retains saved Wi-Fi/Cloud intent; the default remains BLE only.
+RAM loading alone is not a no-Flash-write guarantee: the documented FSBL,
+settings and NCP guards are essential.
+
 | Command | Purpose |
 |---|---|
 | `help`, `version`, `status` | Command list, running version and overall state |
@@ -118,7 +198,8 @@ not received by a browser. There is one remote image destination at a time
 - [UART/USB diagnostic controls](docs/full-diagnostics57_HE.md)
 - [Radio recovery ownership and limits](docs/radio-coordinated-recovery.md)
 - [BLE/Cloud validation results and remaining limits](docs/ble-console-20261029.md)
-- [Engineering constraints and Flash map](AGENTS.md), [change history](CHANGELOG.md)
+- [Current working rules](AGENTS.md), [engineering constraints and Flash map](docs/engineering-reference.md)
+- [Historical agent checkpoints](docs/agents-history-20261116.md), [change history](CHANGELOG.md)
 
 This is a development platform, not a production security configuration.
 The demo Cloud transport uses plaintext HTTP; do not transmit secrets or

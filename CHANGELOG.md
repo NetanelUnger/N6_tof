@@ -1,5 +1,13 @@
 # Project change history
 
+## 2026-11-16 - Import bounded demo workflow from N6_AI_TEST
+
+- Import the checked DEV RAM loader, Stage 10 integration and --keep-network. Keep the settings-write refusal, heap gate, exact ELF/BIN inputs, FSBL metadata-writer breakpoint, confirmed-state check, full SRAM readback and failure parking. Require explicit ST-LINK identity and manual DEV reset; standalone defaults to offline preflight.
+- Shorten AGENTS, preserve its original checkpoint content (with relocated links) in docs/agents-history-20261116.md and move detailed constraints to docs/engineering-reference.md. Require English-only code, comments, generated runtime labels and terminal/log output; user explanations and prose documentation may be Hebrew.
+- Add the 30-minute README route, USB/BLE/Cloud prerequisites and required end-of-demo handoff. Mark AA pilot results as historical evidence from D:\N6_AI_TEST; its data, trained model and build artifacts are not imported into the primary checkout.
+- Preserve the primary four-class RPS firmware/model, version and settings defaults. Document the existing read-only settings prerequisite for protected RAM candidates. Correct the legacy debugger's unconditional no-NOR-write wording.
+- Host-only loader/network/Stage 10 tests and preflight against the original frozen demo inputs; no firmware build, training, reset, RAM execution, Flash operation or hardware HIL. No Generate Code required.
+
 ## 2026-10-30 - Consolidate development on main
 
 - Use `N6/project` as the active checkout after merging the XIP branch. Admit `main` in the existing XIP host-tool branch guards and record the actual branch in build manifests; retain legacy branch compatibility and all execution/ownership/artifact protections.

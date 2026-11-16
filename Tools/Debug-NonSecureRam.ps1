@@ -1,3 +1,5 @@
+# Legacy engineering debugger: FSBL boot selection may write NOR metadata.
+# For the protected demo use Tools/load_checked_ram.py; see docs/ram-demo-loader_HE.md.
 param(
     [switch]$NoBuild,
 
@@ -230,7 +232,7 @@ $serverArguments = @(
 )
 
 Write-Host ('Starting DEV-boot RAM debug through the known-good FSBL handoff at 0x{0:X8}. Local Secure main: 0x{1:X8}.' -f $fsblJumpToApplication, $secureMain)
-Write-Host 'Both the locally built Secure runtime and Non-Secure application will be replaced in SRAM; external NOR is unchanged.'
+Write-Host 'Secure and Non-Secure are replaced in SRAM. This legacy lane does NOT guard FSBL metadata writes.'
 Write-Host 'Required jumpers: BOOT0=1-2 and BOOT1=2-3. A reset returns to the DEV-boot ROM; rerun this script to restore the RAM build.'
 Write-Host "GDB TCP port: $GdbPort. Startup logs: $serverStdout and $serverStderr"
 
@@ -364,5 +366,5 @@ finally {
 }
 
 if ($Run) {
-    Write-Host 'The locally built Secure and Non-Secure images are running from SRAM in DEV boot. External NOR was not modified.'
+    Write-Host 'Secure and Non-Secure reached SRAM runtime in DEV boot. This does not prove external NOR was unchanged.'
 }

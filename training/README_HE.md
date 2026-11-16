@@ -1,5 +1,18 @@
 # פלטפורמת סיווג עומק — מדריך BAT מעודכן
 
+## מסלול הדמו הקצר וטעינת RAM מוגנת
+
+למסגרת של חצי שעה ולנקודת הסיום ראו [README הראשי](../README.md#demo-30-minutes).
+הדמו `danger-demo` בעותק `D:\N6_AI_TEST` הושלם; אין צורך להמשיך לשפר דיוק.
+הנתונים והמודל שלו לא יובאו לכאן. ברירות המחדל הרגילות של שמירת הגדרות
+נשארו פעילות; שלב 10 מחייב הכנת דגלי RAM מוגנים לפי המדריך המקושר.
+שלב 10 משתמש כעת ב־[כלי הטעינה המוגן](../docs/ram-demo-loader_HE.md):
+קודם סוגרים מסופים ומפנים BLE, עוברים ל־DEV ולוחצים Reset, ואז מעבירים
+`--board-serial`. אין צורך ב־CDC פעיל לפני הטעינה; הוא חוזר לאחר האתחול.
+`--keep-network` משמר Wi-Fi/Cloud ו־BLE; בלעדיו המועמד הוא BLE בלבד.
+איסוף USB מחייב פינוי זמני של BLE. מסוף Cloud מחייב Workspace פתוח
+(בשונה מאיסוף Cloud מתוזמן דרך השרת). אין צורך ב־bootstrap/Flash לדמו.
+
 ## כלי BLE קטן לאבחון ולבדיקות אוטומטיות
 
 פתחו `BLE_CONSOLE.bat`, לחצו **Scan**, בחרו את ה־N6 ואז **Connect**.
@@ -657,7 +670,7 @@ training/
 | `07_GENERATE_N6.bat` | מריץ STEdgeAI עם `--target stm32n6 --st-neural-art` | לא צריך לוח; כותב C/headers/blob תחת `generated/st_ai_output`; אין fallback שקט ל־CPU |
 | `08_INTEGRATE_MODEL.bat` | מתקין את הרשת, runtime וה־weights בתוך עץ ה־Firmware ומתקן כתובות/מאפייני NPU | משנה את `AppliNonSecure/AI`; עדיין אינו צורב לוח |
 | `09_BOOTSTRAP_NPU_SWD.bat` | מתקין פעם אחת FSBL+Secure שמפעילים clocks, TrustZone והרשאות NPU | דורש ST‑LINK ומצב boot מתאים; כותב Flash רק אחרי `BOOTCHAIN`, ומשמר את שני app slots. ‏`--build-only` אינו כותב חומרה |
-| `10_LOAD_RAM.bat` | בונה incremental וטוען Secure+Non‑Secure+model ל־SRAM דרך SWD | דורש DEV boot ו־ST‑LINK; זמני בלבד, ללא חתימה/version/Flash ונעלם ב־RESET |
+| `10_LOAD_RAM.bat` | בונה incremental וטוען Secure+Non‑Secure+model ל־SRAM דרך SWD | דורש Reset ל־DEV, ‏ST-LINK ו־`--board-serial`; מחסום metadata וקריאה חוזרת מלאה; זמני ונעלם ב־RESET |
 | `11_HIL.bat` | קורא את דגלי radio, מאמת גרסת NCP ו־BLE/Wi‑Fi פעילים, ואז קורא 100 פריימים ומשווה חיישן, CRC, tensor, TFLite ו־Neural‑ART לאותו frame ID | דורש להריץ 10 מיד לפניו ו־Bluetooth פעיל במחשב אם BLE מאופשר; תנועת יד אופציונלית ונרשמת כהערת גיוון סצנה; אינו כותב Flash, כן כותב דוח HIL |
 | `12_FLASH_RELEASE.bat` | בונה, מעלה version בדיוק באחד, חותם, יוצר `.n6fw`, שולח XMODEM, מאתחל ומוודא trial confirmation | משנה Flash רק אחרי `FLASH`; דורש Stage 09 ו־HIL תואם. `--package-only` בונה חבילה בלי לגעת בלוח |
 | `13_FACTORY_PROVISION.bat` | בונה וחותם את כל השרשרת, מוחק את כל ה־NOR החיצוני, כותב ומאמת FSBL+Secure+Slot A+metadata, ואז בודק version דרך CN8 | הרסני ודורש `ERASE ALL`; מיועד למעגל חדש או שחזור מפעל. `-BuildOnly` אינו נוגע בחומרה |
@@ -1076,10 +1089,12 @@ metadata נשמרים. `--build-only` בודק את כל התוצרים בלי �
 
 ### 10 — טעינת המודל המשולב ל־RAM
 
-`10_LOAD_RAM.bat` הוא מסלול הפיתוח המהיר: incremental build ל־Secure
-ול־Non‑Secure (target שלא השתנה הוא no-op) וטעינת שניהם דרך SWD ל־SRAM. כך גם
-SAU/RISAF ו־bootstrap ה־NPU נבדקים בלי Flash. אין חתימה, write ל־Flash או שינוי
-version; reset מוחק את ההרצה.
+`10_LOAD_RAM.bat` בונה מועמד Non-Secure מוגן ומשתמש בתוצרי FSBL ו־Secure
+תואמים שכבר נבנו. הוא מקפיא ELF/BIN ובודק את מחסום כתיבת נתוני האתחול
+לפני המשך ההרצה. תחילה עוברים ל־DEV ולוחצים Reset; נדרש `--board-serial`.
+`--keep-network` משמר Wi-Fi/Cloud לצד BLE, וברירת המחדל היא BLE בלבד.
+אין חתימה או התקנה קבועה; `--version`, אם נבחר, שייך למועמד הזמני בלבד.
+Reset מאבד את ההרצה. [הנוהל המלא והמגבלות](../docs/ram-demo-loader_HE.md).
 
 ### 11 — HIL על תמונת ה־RAM הנוכחית
 
