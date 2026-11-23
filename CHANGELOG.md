@@ -1,5 +1,10 @@
 # Project change history
 
+## 2026-11-23 - Local Wi-Fi CLI and ToF
+
+- Add BLE discovery and an ephemeral session for direct browser access to the device IPv4 address. Reuse the network CLI and ToF codec, with one exclusive route and bounded HTTP requests.
+- Preserve the guarded RAM heap floor by placing the existing output slots in the application SRAM4 work area and compiling the network worker for size.
+
 ## 2026-11-16 - Import bounded demo workflow from N6_AI_TEST
 
 - Import the checked DEV RAM loader, Stage 10 integration and --keep-network. Keep the settings-write refusal, heap gate, exact ELF/BIN inputs, FSBL metadata-writer breakpoint, confirmed-state check, full SRAM readback and failure parking. Require explicit ST-LINK identity and manual DEV reset; standalone defaults to offline preflight.

@@ -809,6 +809,8 @@ int32_t W6X_Net_Listen(int32_t sock, int32_t backlog);
   * @return Operation status
   */
 int32_t W6X_Net_Accept(int32_t sock, struct sockaddr *addr, socklen_t *addrlen);
+/* Inspect pending server connections once, without waiting for a client. */
+int32_t W6X_Net_TryAccept(int32_t sock, struct sockaddr *addr);
 
 /**
   * @brief  Send data on a socket

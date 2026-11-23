@@ -19,6 +19,8 @@
 #define CLOUD_RELAY_PAIR_CODE_LENGTH (6U)
 #define CLOUD_RELAY_COMMAND_ID_SIZE  (81U)
 #define CLOUD_RELAY_INPUT_MAX        (1152U)
+#define N6_LAN_PORT                  (8081U)
+#define N6_LAN_KEY_LENGTH            (32U)
 
 typedef enum
 {
@@ -36,6 +38,7 @@ typedef struct
   CloudRelay_State_t state;
   uint32_t enabled;
   uint32_t paired;
+  uint32_t lan_active;
   uint32_t request_active;
   uint32_t input_ready;
   uint32_t output_queued;
@@ -95,6 +98,7 @@ uint32_t CloudRelay_IsTrainingFrameDue(void);
 void CloudRelay_GetTrainingStatus(CloudRelay_TrainingStatus_t *status);
 
 UINT CloudRelay_RequestPair(const char *code);
+UINT CloudRelay_RequestLan(const char *key);
 UINT CloudRelay_RequestSettingsTransition(void); /* explicit RAM preparation, no exchange */
 UINT CloudRelay_SetEnabled(uint32_t enabled);
 UINT CloudRelay_RequestReconnect(void);

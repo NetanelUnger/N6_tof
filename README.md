@@ -2,7 +2,7 @@
 
 Firmware for the NUCLEO-N657X0-Q: acquire 54×42 VL53L9CX depth images,
 run Neural-ART inference, and view images or issue CLI commands over USB,
-BLE or the Cloud relay. ThreadX runs the application; an FSBL and Secure
+BLE, local Wi-Fi or the Cloud relay. ThreadX runs the application; an FSBL and Secure
 application provide external-NOR boot and signed Non-Secure A/B updates.
 
 <a id="demo-30-minutes"></a>
@@ -188,7 +188,20 @@ settings and NCP guards are essential.
 Demo intervals are 100–60000ms; legacy `ON 1`/`ON 2` operands are rejected.
 Source IDs advance even when publication is skipped; `accepted` means queued,
 not received by a browser. There is one remote image destination at a time
-(USB, BLE or Cloud); switching transport can move the image stream.
+(USB, BLE, local Wi-Fi or Cloud); switching transport can move the image stream.
+
+## Local Wi-Fi terminal
+
+Connect the board and browser to the same Wi-Fi network. In the website's LAN
+terminal, BLE sends a one-time session key to the board with `wifi lan KEY`
+and returns the DHCP IPv4 address. The browser uses HTTP directly on TCP port
+8081 for CLI text and the same ToF packets, including frame-matched NPU
+metadata. Use `MAP ON` and `MAP OFF` as on the Cloud terminal.
+
+The board shares one network CLI and image route between LAN and Cloud.
+Cloud resumes after the LAN session is closed or idle for 15 seconds. The
+key stays in RAM, and the LAN session uses plaintext HTTP on a trusted
+network. Signed firmware updates continue to use the existing update routes.
 
 ## Detailed documentation and limits
 

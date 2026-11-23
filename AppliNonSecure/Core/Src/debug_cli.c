@@ -412,6 +412,7 @@ static const char *const cli_completion_base[] =
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
   "wifi status",
   "wifi ip",
+  "wifi lan ",
   "wifi scan",
   "wifi connect ",
   "wifi disconnect",
@@ -1201,7 +1202,7 @@ static void cli_poll_cloud(void)
 
   CloudRelay_GetStatus(&status);
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)
-  if (((status.enabled == 0U) || (status.paired == 0U)) &&
+  if (!status.lan_active && ((status.enabled == 0U) || (status.paired == 0U)) &&
       (cli_cloud_wifi_request_id != 0U))
   {
     cli_cloud_wifi_request_id = 0U;
@@ -2592,6 +2593,21 @@ static void cli_command_wifi(Menu_t *menu, const char *command)
     if (cli_radio_is_ready() == 0U) return;
     cli_wifi_status();
   }
+  else if ((argc == 3) && (strcmp(argv[1], "lan") == 0))
+  {
+    WifiBle_WifiStatus_t wifi;
+    WIFI_BLE_App_GetWifiStatus(&wifi);
+    if (cli_active_session->route.transport != APP_TRANSPORT_BLE)
+      (void)Menu_Reply(menu, "LAN discovery requires BLE");
+    else if (!wifi.ip_valid)
+      (void)Menu_Reply(menu, "LAN unavailable: Wi-Fi has no IPv4 address");
+    else if (CloudRelay_RequestLan(argv[2]) != TX_SUCCESS)
+      (void)Menu_Reply(menu, "LAN unavailable: relay busy or invalid key");
+    else
+      cli_print("N6 LAN: %u.%u.%u.%u:%u\r\n", wifi.ip_address[0],
+                wifi.ip_address[1], wifi.ip_address[2], wifi.ip_address[3],
+                N6_LAN_PORT);
+  }
   else if ((argc == 2) && (strcmp(argv[1], "scan") == 0))
   {
     if (cli_radio_is_ready() == 0U) return;
@@ -2658,7 +2674,7 @@ static void cli_command_wifi(Menu_t *menu, const char *command)
   else
   {
     (void)Menu_Reply(menu,
-                     "Usage: wifi status|ip|scan|connect \"SSID\"|disconnect [forget]");
+                     "Usage: wifi status|ip|lan KEY|scan|connect \"SSID\"|disconnect [forget]");
   }
 }
 #endif
@@ -3158,6 +3174,7 @@ static void cli_history_record(const char *command)
   {
     return;
   }
+  if (cli_prefix_matches(command, "wifi lan ")) return;
   if(cli_prefix_matches(command,"cloud pair") &&
      (command[10]=='\0' || command[10]==' ' || command[10]=='\t'))return;
 #if (APP_ST67W6X_WIFI_SERVICES_ENABLED == 1U)

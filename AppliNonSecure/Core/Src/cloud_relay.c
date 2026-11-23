@@ -22,6 +22,9 @@
 
 #if (APP_ST67W6X_CLOUD_RELAY_ENABLED == 1U)
 
+/* Keep transport code within the RAM build heap budget. */
+#pragma GCC optimize ("Os")
+
 #define CLOUD_CONTEXT_BUDGET       (9U * 1024U)
 #define CLOUD_RESPONSE_SIZE        (2400U)
 #define CLOUD_REQUEST_SIZE         (1200U)
@@ -169,9 +172,18 @@ _Static_assert(sizeof(CloudRelayContext_t) <= CLOUD_CONTEXT_BUDGET,
                "Cloud Relay context exceeded its SRAM4 budget");
 
 static CloudRelayContext_t *cloud;
+static struct
+{
+  char key[N6_LAN_KEY_LENGTH + 1U];
+  int32_t listener;
+  uint32_t deadline;
+  uint32_t retry_tick;
+  uint32_t stop;
+} lan = { .listener = -1 };
 /* Keep bounded output storage in application SRAM rather than reducing the
  * already narrow SRAM4 radio byte-pool reserve. No post-init allocation. */
-static CloudOutputSlot_t cloud_output_slots[CLOUD_OUTPUT_SLOT_COUNT];
+static CloudOutputSlot_t cloud_output_slots[CLOUD_OUTPUT_SLOT_COUNT]
+    __attribute__((section(".cloud_shared_bss")));
 static char cloud_pair_file[W6X_SYS_FS_FILENAME_SIZE] = "n6cloud.cfg";
 
 #if (APP_ST67W6X_CLOUD_USE_TLS == 1U)
@@ -245,6 +257,7 @@ static UINT cloud_control_queue_self_test(void);
 static UINT cloud_receive_control(CloudControlRequest_t *request);
 
 #include "cloud_training.inc"
+#include "lan_relay.inc"
 
 UINT CloudRelay_Prepare(void)
 {
@@ -307,6 +320,8 @@ void CloudRelay_Run(void)
           if (cloud != NULL)
           {
             cloud->socket = -1;
+            lan.listener = -1;
+            lan.stop = 1U;
             cloud->http_kind = CLOUD_HTTP_NONE;
             cloud->response_length = cloud->address_valid = 0U;
             cloud->ca_ready = cloud->time_configured = cloud->time_ready = 0U;
@@ -325,12 +340,12 @@ void CloudRelay_Run(void)
     else if (cloud_initialized != 0U && !AppSettings_IsBusy())
     {
       uint32_t started = HAL_GetTick();
-      if ((request_pending == 0U) &&
+      if (!cloud->status.lan_active && (request_pending == 0U) &&
           (cloud_receive_control(&request) == TX_SUCCESS))
       {
         request_pending = 1U;
       }
-      if ((request_pending != 0U) &&
+      if (!cloud->status.lan_active && (request_pending != 0U) &&
           (cloud_apply_control(&request) == TX_SUCCESS))
       {
         (void)memset(&request, 0, sizeof(request));
@@ -398,7 +413,7 @@ static void cloud_publish_status(void)
       TOF_App_RequestStream(TOF_STREAM_CLOUD);
 #endif
   }
-  else TOF_App_ReleaseStream(TOF_STREAM_CLOUD);
+  else if (!cloud->status.lan_active) TOF_App_ReleaseStream(TOF_STREAM_CLOUD);
   cloud_status_snapshot = cloud->status;
   (void)tx_interrupt_control(posture);
 }
@@ -615,6 +630,7 @@ UINT __attribute__((optimize("Os"))) CloudRelay_Initialize(TX_BYTE_POOL *pool, c
 static void cloud_process(uint32_t wifi_has_ip)
 {
   if (cloud == NULL) return;
+  if (lan_process(wifi_has_ip)) return;
   cloud_training_tick();
 
   if (cloud->network_epoch != cloud_network_epoch)
@@ -1134,8 +1150,8 @@ UINT CloudRelay_SubmitTofFrame(uint32_t frame_id, uint8_t channel_id,
       (info->mode!=TOF_IMAGE_TRAINING_N6DF && training.active)) return TX_NOT_AVAILABLE;
   UINT lock_status = tx_mutex_get(&cloud->gate, TX_NO_WAIT);
   if (lock_status != TX_SUCCESS) return lock_status;
-  if ((cloud->status.enabled == 0U) ||
-      (cloud->pairing.magic != CLOUD_RECORD_MAGIC) ||
+  if ((!cloud->status.lan_active && ((cloud->status.enabled == 0U) ||
+      (cloud->pairing.magic != CLOUD_RECORD_MAGIC))) ||
       (cloud->tof_pending != 0U))
   {
     cloud->status.tof_frames_dropped++;
@@ -2298,6 +2314,7 @@ void CloudRelay_SetNetworkState(uint32_t ready, uint32_t wifi_has_ip)
 void CloudRelay_GetStatus(CloudRelay_Status_t *status)
 { if (status != NULL) (void)memset(status, 0, sizeof(*status)); }
 UINT CloudRelay_RequestPair(const char *code) { (void)code; return TX_NOT_AVAILABLE; }
+UINT CloudRelay_RequestLan(const char *key) { (void)key; return TX_NOT_AVAILABLE; }
 UINT CloudRelay_RequestSettingsTransition(void) { return TX_NOT_AVAILABLE; }
 uint32_t CloudRelay_IsTrainingFrameDue(void) { return 0U; }
 void CloudRelay_GetTrainingStatus(CloudRelay_TrainingStatus_t *status) { if(status) memset(status,0,sizeof(*status)); }

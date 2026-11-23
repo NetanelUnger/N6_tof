@@ -1504,7 +1504,7 @@ int32_t W6X_Net_Listen(int32_t sock, int32_t backlog)
   return 0;
 }
 
-int32_t W6X_Net_Accept(int32_t sock, struct sockaddr *addr, socklen_t *addrlen)
+static int32_t w6x_net_accept(int32_t sock, struct sockaddr *addr, uint32_t wait)
 {
   int32_t type;
   int32_t proto;
@@ -1604,9 +1604,22 @@ int32_t W6X_Net_Accept(int32_t sock, struct sockaddr *addr, socklen_t *addrlen)
         }
       }
     }
+    if (wait == 0U) break;
     vTaskDelay(pdMS_TO_TICKS(100)); /* Wait a bit before checking again */
   }
+  p_net_ctx->Sockets[new_socket].Status = W6X_NET_SOCKET_RESET;
   return ret;
+}
+
+int32_t W6X_Net_Accept(int32_t sock, struct sockaddr *addr, socklen_t *addrlen)
+{
+  (void)addrlen;
+  return w6x_net_accept(sock, addr, 1U);
+}
+
+int32_t W6X_Net_TryAccept(int32_t sock, struct sockaddr *addr)
+{
+  return w6x_net_accept(sock, addr, 0U);
 }
 
 ssize_t W6X_Net_Send(int32_t sock, const void *buf, size_t len, int32_t flags)
